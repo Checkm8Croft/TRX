@@ -110,7 +110,7 @@ Please refer to [this document](docs/CHANGELOG.md).
 
 4. **Can I play this on Mac, Linux, Android...?**
 
-    Currently supported platforms include Windows, Linux and macOS.
+    Currently supported platforms include Windows, Linux macOS and iOS.
 
 5. **Can I play this with a controller?**
 

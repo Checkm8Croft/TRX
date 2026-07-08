@@ -1,0 +1,317 @@
+{
+    // For usage, refer to the documentation here:
+    // https://lostartefacts.dev/trx/docs/stable/game_strings
+    "general": {
+        "globe_select": {
+            "area_1": "Inde",
+            "area_2": "Pacifique Sud",
+            "area_3": "Nevada",
+            "area_4": " ",
+            "area_5": "Londres",
+            "area_6": "Antarctique",
+        },
+        "inventory_ring": {
+            "heading_fmt": "\\{color 5}%s",
+            "item_count_fmt": "\\{color 3}%s",
+            "object_name_fmt": "\\{color 5}%s",
+        },
+        "misc": {
+            "empty_slot_fmt": "- Emplacement vide -",
+        },
+        "overlay": {
+            "item_count_fmt_pc": "%s",
+            "item_count_fmt_ps1": "\\{color 3}%s",
+        },
+        "pause": {
+            "paused": "\\{color 5}En pause",
+        },
+        "stats": {
+            "assault_other_times_fmt": "\\{color 2}%s",
+            "gym_assault_course": "\\{color 5}Entraînement",
+            "gym_racetrack_course": "\\{color 5}Course de quad",
+        }
+    },
+    "objects": {
+        "large_medipack": {
+            "name": "Grande trousse de soins",
+        },
+        "quest_1": {
+            "description": "",
+            "name": "Pierre Infada",
+        },
+        "quest_2": {
+            "description": "",
+            "name": "Objet 115",
+        },
+        "quest_3": {
+            "description": "",
+            "name": "L'Œil d'Isis",
+        },
+        "quest_4": {
+            "description": "",
+            "name": "Dague d'Ora",
+        },
+        "small_medipack": {
+            "name": "Petite trousse de soins",
+        }
+    },
+    "cutscenes": [
+        {
+            "title": "Cutscene 1",
+        },
+        {
+            "title": "Cutscene 2",
+        },
+        {
+            "title": "Cutscene 3",
+        },
+        {
+            "title": "Cutscene 4",
+        },
+        {
+            "title": "Cutscene 5",
+        },
+        {
+            "title": "Cutscene 6",
+        },
+        {
+            "title": "Cutscene 7",
+        },
+        {
+            "title": "Cutscene 8",
+        },
+        {
+            "title": "Cutscene 9",
+        },
+        {
+            "title": "Cutscene 10",
+        },
+        {
+            "title": "Cutscene 11",
+        }
+    ],
+    "levels": [
+        {
+            "title": "La demeure de Lara",
+            "objects": {
+                "key_1": {
+                    "name": "Clé de la piste de course",
+                }
+            }
+        },
+        {
+            "title": "La jungle",
+            "objects": {
+                "key_4": {
+                    "name": "Clé d'Indra",
+                }
+            }
+        },
+        {
+            "title": "Les ruines du temple",
+            "objects": {
+                "key_1": {
+                    "name": "Clé de Ganesha",
+                },
+                "puzzle_1": {
+                    "name": "Cimeterre",
+                },
+                "puzzle_2": {
+                    "name": "Cimeterre",
+                }
+            }
+        },
+        {
+            "title": "Le Gange",
+            "objects": {
+                "key_1": {
+                    "name": "Clé du portail",
+                }
+            }
+        },
+        {
+            "title": "Les grottes de Kaliya",
+        },
+        {
+            "title": "Le village côtier",
+            "objects": {
+                "key_1": {
+                    "name": "Clé du contrebandier",
+                },
+                "puzzle_1": {
+                    "name": "Pierre du serpent",
+                }
+            }
+        },
+        {
+            "title": "Le lieu du crash",
+            "objects": {
+                "key_1": {
+                    "name": "Clé du commandant Bishop",
+                },
+                "key_2": {
+                    "name": "Clé du Lt. Tuckerman",
+                },
+                "pickup_1": {
+                    "name": "Carte du marais",
+                    "description": "",
+                }
+            }
+        },
+        {
+            "title": "La gorge de Madubu",
+        },
+        {
+            "title": "Le temple de Puna",
+        },
+        {
+            "title": "Les quais de la Tamise",
+            "objects": {
+                "key_1": {
+                    "name": "Clé de la salle du conduit",
+                },
+                "key_2": {
+                    "name": "Clé de la cathédrale",
+                }
+            }
+        },
+        {
+            "title": "Aldwych",
+            "objects": {
+                "key_1": {
+                    "name": "Clé de la maintenance",
+                },
+                "key_2": {
+                    "name": "Clé de Salomon",
+                },
+                "key_3": {
+                    "name": "Clé de Salomon",
+                },
+                "puzzle_1": {
+                    "name": "Vieux penny",
+                },
+                "puzzle_2": {
+                    "name": "Ticket",
+                },
+                "puzzle_3": {
+                    "name": "Maillet maçonnique",
+                },
+                "puzzle_4": {
+                    "name": "Étoile décorée",
+                }
+            }
+        },
+        {
+            "title": "Le portail du Lude",
+            "objects": {
+                "key_1": {
+                    "name": "Clé de la chaufferie",
+                },
+                "puzzle_1": {
+                    "name": "Fluide d'embaumement",
+                }
+            }
+        },
+        {
+            "title": "La city",
+        },
+        {
+            "title": "Le désert du Nevada",
+            "objects": {
+                "key_1": {
+                    "name": "Passe du générateur",
+                },
+                "key_2": {
+                    "name": "Interrupteur du détonateur",
+                }
+            }
+        },
+        {
+            "title": "Le Quartier Haute Sécurité",
+            "objects": {
+                "key_1": {
+                    "name": "Carte de sécurité A",
+                },
+                "key_2": {
+                    "name": "Carte de sécurité B",
+                },
+                "puzzle_1": {
+                    "name": "Passe de sécurité bleu",
+                },
+                "puzzle_2": {
+                    "name": "Passe de sécurité jaune",
+                }
+            }
+        },
+        {
+            "title": "La Zone 51",
+            "objects": {
+                "key_1": {
+                    "name": "Passe pour mise à feu",
+                },
+                "puzzle_1": {
+                    "name": "Clé d'accès à la tour",
+                },
+                "puzzle_2": {
+                    "name": "Disque du code d'accès",
+                },
+                "puzzle_3": {
+                    "name": "Disque du code d'accès",
+                },
+                "puzzle_4": {
+                    "name": "Clé du hangar",
+                }
+            }
+        },
+        {
+            "title": "L'Antarctique",
+            "objects": {
+                "key_1": {
+                    "name": "Clé de la hutte",
+                },
+                "puzzle_1": {
+                    "name": "Pied-de-biche",
+                },
+                "puzzle_2": {
+                    "name": "Clé du portail",
+                }
+            }
+        },
+        {
+            "title": "Les mines de RX-Tech",
+            "objects": {
+                "puzzle_1": {
+                    "name": "Pied-de-biche",
+                },
+                "puzzle_2": {
+                    "name": "Acide de batterie",
+                },
+                "puzzle_3": {
+                    "name": "Démarreur du treuil",
+                }
+            }
+        },
+        {
+            "title": "La cité perdue de Tinos",
+            "objects": {
+                "key_1": {
+                    "name": "Clé d'Uli",
+                },
+                "puzzle_1": {
+                    "name": "Masque océanien",
+                }
+            }
+        },
+        {
+            "title": "La caverne du météore",
+        },
+        {
+            "title": "L'église Hallows",
+            "objects": {
+                "key_1": {
+                    "name": "Clé du caveau",
+                }
+            }
+        }
+    ]
+}
