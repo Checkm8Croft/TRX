@@ -334,11 +334,13 @@ static void M_RenderPass(
         return;
     }
 
+#if !defined(TRX_TARGET_IOS)
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
     if (p->binocular_mask) {
         M_DrawBinocularMask(p);
     }
 
+#endif
     if (p->vertices->count > 0) {
         M_DrawVertices(p);
     }

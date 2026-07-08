@@ -5,7 +5,7 @@
 #include <trx/game/output/shaders/generic.h>
 #include <trx/gl/utils.h>
 
-#include <GL/glew.h>
+#include <trx/gl/gl_platform.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -316,8 +316,15 @@ void Output_Quad_SetExternalTexture(
         .width = width,
         .height = height,
         .bit_count = 32,
+#if defined(TRX_TARGET_IOS)
+        // Equivalent byte layout (R,G,B,A) to the desktop combo below on
+        // little-endian; GLES lacks the packed-int enum entirely.
+        .tex_format = GL_RGBA,
+        .tex_type = GL_UNSIGNED_BYTE,
+#else
         .tex_format = GL_RGBA,
         .tex_type = GL_UNSIGNED_INT_8_8_8_8_REV,
+#endif
         .uv = {
             { .u = 0.0f, .v = v0 },
             { .u = 1.0f, .v = v0 },
@@ -497,8 +504,12 @@ void Output_Quad_Render(OUTPUT_QUAD *const r)
         r->filter_mode == TEXTURE_FILTER_BILINEAR ? GL_LINEAR : GL_NEAREST;
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter);
+    // GL_SAMPLER_BINDING refers to the currently active texture unit
+    // (already set to GL_TEXTURE0 above) and must be queried with the
+    // plain getter, not the indexed one -- GLES rejects the indexed form
+    // with GL_INVALID_ENUM.
     GLint prev_sampler = 0;
-    glGetIntegeri_v(GL_SAMPLER_BINDING, 0, &prev_sampler);
+    glGetIntegerv(GL_SAMPLER_BINDING, &prev_sampler);
     glBindSampler(0, 0);
 
     const GLboolean was_blend_enabled = glIsEnabled(GL_BLEND);
@@ -506,9 +517,12 @@ void Output_Quad_Render(OUTPUT_QUAD *const r)
         glDisable(GL_BLEND);
     }
 
-    GLint bound_polygon_mode[2];
+    GLint bound_polygon_mode[2] = { 0 };
+#if !defined(TRX_TARGET_IOS)
+    // GLES has no polygon fill/line mode toggle; FILL is the only mode.
     glGetIntegerv(GL_POLYGON_MODE, &bound_polygon_mode[0]);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
 
     const GLboolean was_depth_test_enabled = glIsEnabled(GL_DEPTH_TEST);
     if (was_depth_test_enabled) {
@@ -518,7 +532,9 @@ void Output_Quad_Render(OUTPUT_QUAD *const r)
     glDrawArrays(GL_TRIANGLES, 0, r->vertex_count);
 
     glBindSampler(0, (GLuint)prev_sampler);
+#if !defined(TRX_TARGET_IOS)
     glPolygonMode(GL_FRONT_AND_BACK, bound_polygon_mode[0]);
+#endif
     if (was_depth_test_enabled) {
         glEnable(GL_DEPTH_TEST);
     }
@@ -547,8 +563,12 @@ void Output_Quad_RenderWithBlend(OUTPUT_QUAD *const r)
         r->filter_mode == TEXTURE_FILTER_BILINEAR ? GL_LINEAR : GL_NEAREST;
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter);
+    // GL_SAMPLER_BINDING refers to the currently active texture unit
+    // (already set to GL_TEXTURE0 above) and must be queried with the
+    // plain getter, not the indexed one -- GLES rejects the indexed form
+    // with GL_INVALID_ENUM.
     GLint prev_sampler = 0;
-    glGetIntegeri_v(GL_SAMPLER_BINDING, 0, &prev_sampler);
+    glGetIntegerv(GL_SAMPLER_BINDING, &prev_sampler);
     glBindSampler(0, 0);
 
     const GLboolean was_blend_enabled = glIsEnabled(GL_BLEND);
@@ -559,9 +579,12 @@ void Output_Quad_RenderWithBlend(OUTPUT_QUAD *const r)
     glEnable(GL_BLEND);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
-    GLint bound_polygon_mode[2];
+    GLint bound_polygon_mode[2] = { 0 };
+#if !defined(TRX_TARGET_IOS)
+    // GLES has no polygon fill/line mode toggle; FILL is the only mode.
     glGetIntegerv(GL_POLYGON_MODE, &bound_polygon_mode[0]);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
 
     const GLboolean was_depth_test_enabled = glIsEnabled(GL_DEPTH_TEST);
     if (was_depth_test_enabled) {
@@ -571,7 +594,9 @@ void Output_Quad_RenderWithBlend(OUTPUT_QUAD *const r)
     glDrawArrays(GL_TRIANGLES, 0, r->vertex_count);
 
     glBindSampler(0, (GLuint)prev_sampler);
+#if !defined(TRX_TARGET_IOS)
     glPolygonMode(GL_FRONT_AND_BACK, bound_polygon_mode[0]);
+#endif
     if (was_depth_test_enabled) {
         glEnable(GL_DEPTH_TEST);
     }

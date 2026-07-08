@@ -1,6 +1,6 @@
 #include <trx/gl/utils.h>
 
-#include <GL/glew.h>
+#include <trx/gl/gl_platform.h>
 
 const char *TRX_GL_GetErrorString(GLenum err)
 {
@@ -17,18 +17,23 @@ const char *TRX_GL_GetErrorString(GLenum err)
         return "GL_INVALID_FRAMEBUFFER_OPERATION";
     case GL_OUT_OF_MEMORY:
         return "GL_OUT_OF_MEMORY";
+#if !defined(TRX_TARGET_IOS)
+    // Legacy fixed-function matrix stack errors; never defined in GLES.
     case GL_STACK_UNDERFLOW:
         return "GL_STACK_UNDERFLOW";
     case GL_STACK_OVERFLOW:
         return "GL_STACK_OVERFLOW";
+#endif
     default:
         return "UNKNOWN";
     }
 }
 
-void TRX_GL_CheckError(void)
+void TRX_GL_CheckError_Impl(const char *const file, const int line)
 {
     for (GLenum err; (err = glGetError()) != GL_NO_ERROR;) {
-        LOG_ERROR("glGetError: (%s)", TRX_GL_GetErrorString(err));
+        LOG_ERROR(
+            "glGetError: (%s) at %s:%d", TRX_GL_GetErrorString(err), file,
+            line);
     }
 }

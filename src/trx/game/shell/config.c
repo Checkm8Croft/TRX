@@ -42,6 +42,16 @@ void Shell_SyncToWindow(void)
         g_Config.window.height);
 
     SDL_Window *const window = Shell_GetWindow();
+#if defined(TRX_TARGET_IOS)
+    // iOS has no desktop-style windowed/maximized modes and no concept of
+    // window position -- the app is always fullscreen (g_Config.window.
+    // is_fullscreen is forced to true in game/shell/flow.c). The
+    // windowed-mode branches below (SetWindowPosition/SetWindowSize/
+    // MaximizeWindow) are meaningless on iOS and were observed to
+    // destabilize the CAEAGLLayer-backed renderbuffer, producing a
+    // GL_INVALID_OPERATION loop at present time. Skip them entirely.
+    SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+#else
     if (g_Config.window.is_fullscreen) {
         SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
         SDL_ShowCursor(SDL_DISABLE);
@@ -94,6 +104,7 @@ void Shell_SyncToWindow(void)
         SDL_SetWindowSize(window, width, height);
         SDL_ShowCursor(SDL_ENABLE);
     }
+#endif
 }
 
 void Shell_SyncFromWindow(const bool update_viewport)

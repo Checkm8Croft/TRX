@@ -221,11 +221,19 @@ static void M_DrawOpaqueVertices(
     M_MESH_BUF_BINDING *const bind = M_GetBinding(batcher, inst->mesh);
     const void *indices_offset =
         (void *)(intptr_t)(bind->opaque_index_start * sizeof(uint32_t));
+#if defined(TRX_TARGET_IOS)
+    // Indices were pre-offset by vertex_start at upload time (see
+    // M_UploadBuffers); GLES has no glDrawElementsBaseVertex.
+    glDrawElements(
+        GL_TRIANGLES, bind->opaque_index_count, GL_UNSIGNED_INT,
+        indices_offset);
+#else
     glDrawElementsBaseVertex(
         GL_TRIANGLES, bind->opaque_index_count, GL_UNSIGNED_INT,
         indices_offset, // Offset in EBO
         bind->vertex_start // Offset in VBO (baseVertex)
     );
+#endif
     TRX_GL_CheckError();
     g_TRX_GL_Metrics.opaque_vert_count += bind->opaque_index_count;
 }
@@ -236,11 +244,17 @@ static void M_DrawBlendAddVertices(
     M_MESH_BUF_BINDING *const bind = M_GetBinding(batcher, inst->mesh);
     const void *indices_offset =
         (void *)(intptr_t)(bind->blend_add_index_start * sizeof(uint32_t));
+#if defined(TRX_TARGET_IOS)
+    glDrawElements(
+        GL_TRIANGLES, bind->blend_add_index_count, GL_UNSIGNED_INT,
+        indices_offset);
+#else
     glDrawElementsBaseVertex(
         GL_TRIANGLES, bind->blend_add_index_count, GL_UNSIGNED_INT,
         indices_offset, // Offset in EBO
         bind->vertex_start // Offset in VBO (baseVertex)
     );
+#endif
     TRX_GL_CheckError();
     g_TRX_GL_Metrics.blend_add_vert_count += bind->blend_add_index_count;
 }
@@ -733,18 +747,38 @@ void MeshBatcher_Seal(MESH_BATCHER *const batcher)
 
         // Copy Opaque Indices
         if (bind->opaque_index_count > 0) {
+#if defined(TRX_TARGET_IOS)
+            // GLES has no glDrawElementsBaseVertex: pre-offset every index
+            // by the mesh's base vertex here instead of at draw time.
+            const uint32_t *const src_opaque =
+                Vector_GetData(bind->mesh->opaque_vertex_indices);
+            for (int32_t j = 0; j < bind->opaque_index_count; j++) {
+                opaque_indices[bind->opaque_index_start + j] =
+                    (uint32_t)bind->vertex_start + src_opaque[j];
+            }
+#else
             memcpy(
                 &opaque_indices[bind->opaque_index_start],
                 Vector_GetData(bind->mesh->opaque_vertex_indices),
                 bind->opaque_index_count * sizeof(uint32_t));
+#endif
         }
 
         // Copy Blend Indices
         if (bind->blend_add_index_count > 0) {
+#if defined(TRX_TARGET_IOS)
+            const uint32_t *const src_blend =
+                Vector_GetData(bind->mesh->blend_add_vertex_indices);
+            for (int32_t j = 0; j < bind->blend_add_index_count; j++) {
+                blend_indices[bind->blend_add_index_start + j] =
+                    (uint32_t)bind->vertex_start + src_blend[j];
+            }
+#else
             memcpy(
                 &blend_indices[bind->blend_add_index_start],
                 Vector_GetData(bind->mesh->blend_add_vertex_indices),
                 bind->blend_add_index_count * sizeof(uint32_t));
+#endif
         }
 
         // Copy Transparent Indices

@@ -99,8 +99,40 @@ bool Shell_IsFullscreen(void)
 
 SHELL_SIZE Shell_GetCurrentSize(void)
 {
+#if defined(TRX_TARGET_IOS)
+    // SDL's UIKit backend doesn't toggle SDL_WINDOW_FULLSCREEN_DESKTOP or
+    // adjust SDL_GetWindowSize() the way desktop backends do when
+    // SDL_SetWindowFullscreen() is called -- there's no real windowing
+    // system to change, so the flag Shell_IsFullscreen() checks never
+    // actually gets set, and SDL_GetWindowSize() keeps returning whatever
+    // logical size the window was created with (a leftover desktop config
+    // default). iOS is always effectively fullscreen, so always use the
+    // real display size directly instead of trusting that flag.
+    //
+    // Also, unlike Shell_GetCurrentDisplaySize() (SDL_GetCurrentDisplayMode,
+    // which reports size in *points*), this value feeds straight into
+    // glViewport() via Viewport_Reset()/Viewport_GetRect(). The actual
+    // renderbuffer storage backing the window is allocated in *pixels*
+    // (SDL_WINDOW_ALLOW_HIGHDPI scales it by the Retina factor), so
+    // using points here left glViewport() only covering a fraction of the
+    // real backbuffer -- the rendered content was correct, just confined
+    // to a small corner of the screen. SDL_GL_GetDrawableSize() reports
+    // the actual pixel dimensions of that backing store, matching what
+    // glViewport() needs.
+    if (Shell_GetArgs()->headless) {
+        return Shell_GetDefaultSize();
+    }
+    SDL_Window *const window = Shell_GetWindow();
+    if (window == nullptr) {
+        return Shell_GetCurrentDisplaySize();
+    }
+    SHELL_SIZE result;
+    SDL_GL_GetDrawableSize(window, &result.w, &result.h);
+    return result;
+#else
     return Shell_IsFullscreen() ? Shell_GetCurrentDisplaySize()
                                 : Shell_GetWindowSize();
+#endif
 }
 
 SHELL_SIZE Shell_GetDefaultSize(void)
@@ -132,7 +164,13 @@ SHELL_SIZE Shell_GetCurrentDisplaySize(void)
         display_idx = SDL_GetWindowDisplayIndex(window);
     }
     SDL_DisplayMode dm;
-    if (SDL_GetCurrentDisplayMode(display_idx, &dm) == 0) {
+    const int32_t rc = SDL_GetCurrentDisplayMode(display_idx, &dm);
+    LOG_INFO(
+        "DEBUG bisect: SDL_GetCurrentDisplayMode(idx=%d) rc=%d dm=%dx%d "
+        "window=%p SDL_GetError=%s",
+        display_idx, rc, rc == 0 ? dm.w : -1, rc == 0 ? dm.h : -1,
+        (void *)window, SDL_GetError());
+    if (rc == 0) {
         return (SHELL_SIZE) { .w = dm.w, .h = dm.h };
     }
     return (SHELL_SIZE) { .w = -1, .h = -1 };

@@ -38,14 +38,14 @@ vec3 waterWibble(vec4 worldPosition, vec4 screenPosition)
     vec3 ndc = screenPosition.xyz / screenPosition.w;
     vec2 pixelPos = (ndc.xy * 0.5 + 0.5) * uViewportSize;
 #if TR_VERSION == 3
-    float phases = (uTimeInGame * 0.5 + length(worldPosition.xyz)) * (2.0 * PI / WIBBLE_SIZE);
+    float phases = (uTimeInGame * 0.5 + length(worldPosition.xyz)) * (2.0 * PI / float(WIBBLE_SIZE));
     float scale = length(uViewportSize) / length(vec2(640.0, 480.0));
     float adjustedWibble = scale;
     pixelPos.y += sin(phases) * adjustedWibble;
 #else
-    float phases = (uTimeInGame + length(worldPosition.xyz)) * (2.0 * PI / WIBBLE_SIZE);
-    pixelPos.x += sin(phases) * MAX_WIBBLE;
-    pixelPos.y += cos(phases) * MAX_WIBBLE;
+    float phases = (uTimeInGame + length(worldPosition.xyz)) * (2.0 * PI / float(WIBBLE_SIZE));
+    pixelPos.x += sin(phases) * float(MAX_WIBBLE);
+    pixelPos.y += cos(phases) * float(MAX_WIBBLE);
 #endif
     // reverse transform
     ndc.xy = (pixelPos / uViewportSize - 0.5) * 2.0;
@@ -173,7 +173,7 @@ void main(void) {
     gAdd = vec3(0.0);
     float shade_mul = 1.0;
     if ((gFlags & VERT_NO_LIGHTING) == 0u) {
-        shade_mul = (2.0 - (max(gShade, uMinShade) / SHADE_NEUTRAL));
+        shade_mul = (2.0 - (max(gShade, uMinShade) / float(SHADE_NEUTRAL)));
     }
 
     // `shade_mul` is roughly in [0..2]. Remap to [0..1], apply the gamma
@@ -320,7 +320,7 @@ void main(void) {
     if ((gFlags & VERT_REFLECTIVE) != 0u && uReflectionsEnabled != 0) {
         vec2 env_uv = (normalize(gNormal) * 0.5 + 0.5).xy;
         env_uv.y = 1.0 - env_uv.y;
-        texColor *= texture(uTexEnvMap, env_uv) * 2;
+        texColor *= texture(uTexEnvMap, env_uv) * 2.0;
     }
 
     // Fog

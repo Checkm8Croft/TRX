@@ -29,6 +29,11 @@ static const char *const m_UniformBlocks[] = {
     "Globals", "Matrices", "Lights", "LightSource", "FogBulbs", nullptr,
 };
 
+#if !defined(TRX_TARGET_IOS)
+// Debug-only UBO introspection; relies on desktop-only GL entry points
+// (glGetActiveUniformName) that GLES does not expose. Never called in
+// release builds (see the #if 0 call site below) so it is simply excluded
+// on iOS rather than ported.
 static void M_DebugUBO(const GLuint program_id, const GLuint block_idx)
 {
     // Prints memory layout of the specific UBO in the GPU
@@ -72,6 +77,7 @@ static void M_DebugUBO(const GLuint program_id, const GLuint block_idx)
     Memory_Free(uniform_indices);
     Memory_Free(block_name);
 }
+#endif
 
 OUTPUT_SHADER *Output_Shader_Create(const char *const path)
 {

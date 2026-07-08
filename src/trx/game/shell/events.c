@@ -7,7 +7,9 @@
 #include <trx/game/replay/test_replay.h>
 #include <trx/game/screenshot.h>
 #include <trx/game/shell.h>
+#include <trx/game/shell/config.h>
 #include <trx/game/ui.h>
+#include <trx/gl/context.h>
 
 // If true, next SDL_TEXT* event should be zeroed out.
 static bool m_ConsoleJustOpened = false;
@@ -64,6 +66,15 @@ static void M_HandleFocusLost(void)
 static void M_HandleWindowShown(void)
 {
     LOG_DEBUG("");
+#if defined(TRX_TARGET_IOS)
+    // See TRX_GL_Context_RefreshMainFramebuffer(): iOS appears to defer
+    // the real backing-store allocation for SDL's screen framebuffer
+    // until the window is actually shown (hidden UIViews skip layout
+    // passes), so what we captured at context-attach time (while the
+    // window was still SDL_WINDOW_HIDDEN) can be stale here.
+    TRX_GL_Context_RefreshMainFramebuffer();
+    Shell_RefreshRendererViewport();
+#endif
 }
 
 static void M_HandleWindowRestored(void)

@@ -21,6 +21,7 @@
 #include <trx/game/output/state.h>
 #include <trx/game/output/textures.h>
 #include <trx/game/viewport.h>
+#include <trx/gl/context.h>
 #include <trx/gl/renderer.h>
 #include <trx/gl/texture.h>
 #include <trx/gl/utils.h>
@@ -238,10 +239,22 @@ static void M_CopyFboToTexture(
         glGetIntegerv(GL_READ_BUFFER, &prev_read_buffer);
     }
 
-    glBindFramebuffer(GL_READ_FRAMEBUFFER, src_fbo);
+    GLuint read_fbo = src_fbo;
+#if defined(TRX_TARGET_IOS)
+    // iOS has no default framebuffer 0 / GL_FRONT window-system buffer;
+    // read from the actual screen framebuffer SDL created instead.
+    if (src_is_default_fbo) {
+        read_fbo = TRX_GL_Context_GetMainFramebuffer();
+    }
+#endif
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fbo);
     if (src_is_default_fbo) {
         // The presented (just-swapped) frame lives in the front buffer.
+#if defined(TRX_TARGET_IOS)
+        glReadBuffer(GL_COLOR_ATTACHMENT0);
+#else
         glReadBuffer(GL_FRONT);
+#endif
     }
 
     TRX_GL_Texture_Bind(texture);
@@ -666,8 +679,13 @@ static bool M_EnsurePatternUploaded(M_PRIV *const p)
         .width = TEXTURE_PAGE_WIDTH,
         .height = TEXTURE_PAGE_HEIGHT,
         .bit_count = 32,
+#if defined(TRX_TARGET_IOS)
+        .tex_format = GL_RGBA,
+        .tex_type = GL_UNSIGNED_BYTE,
+#else
         .tex_format = GL_RGBA,
         .tex_type = GL_UNSIGNED_INT_8_8_8_8_REV,
+#endif
         .uv = {
             {
                 texture->uv[0].u / 256.0f / TEXTURE_PAGE_WIDTH,

@@ -12,10 +12,15 @@ project(
 
 fs = import('fs')
 
+is_ios = meson.get_external_property('system_variant', '') == 'ios'
+
 staticdeps = get_option('staticdeps')
 trx_version = get_option('trx_version')
-# Always dynamically link on macOS
-if host_machine.system() == 'darwin'
+if is_ios
+  # iOS apps cannot ship loose dylibs: everything must be statically linked.
+  staticdeps = true
+elif host_machine.system() == 'darwin'
+  # Always dynamically link on macOS (non-iOS).
   staticdeps = false
 endif
 
@@ -72,7 +77,6 @@ common_build_opts = [
   '-Wno-unused-parameter',
   '-DMESON_BUILD',
   '-DGLEW_NO_GLU',
-  '-DSDL_MAIN_HANDLED',
   '-fms-extensions',
   '-fno-omit-frame-pointer',
   '-fmacro-prefix-map=@0@/='.format(prefix_map),
@@ -96,6 +100,16 @@ build_opts = (
   common_build_opts + c_compiler.get_supported_arguments(compiler_specific_warning_opts)
 )
 
+if is_ios
+  build_opts += ['-DTRX_TARGET_IOS']
+else
+  # On iOS, SDL must own main() (via libSDL2main.a) so it can call
+  # UIApplicationMain and drive the real UIKit/CADisplayLink run loop that
+  # presentRenderbuffer depends on; everywhere else TRX supplies its own
+  # main() directly.
+  build_opts += ['-DSDL_MAIN_HANDLED']
+endif
+
 add_project_arguments(build_opts, language: 'c')
 
 null_dep = dependency('', required: false)
@@ -103,24 +117,54 @@ dep_avcodec = dependency('libavcodec', static: staticdeps)
 dep_avformat = dependency('libavformat', static: staticdeps)
 dep_avutil = dependency('libavutil', static: staticdeps)
 dep_sdl2 = dependency('SDL2', static: staticdeps)
-dep_glew = dependency('glew', static: staticdeps)
 dep_pcre2 = dependency('libpcre2-8', static: staticdeps)
-dep_backtrace = c_compiler.find_library('backtrace', static: true, required: false)
 dep_swscale = dependency('libswscale', static: staticdeps)
 dep_swresample = dependency('libswresample', static: staticdeps)
 dep_lua = dependency(get_option('lua_dep'), static: staticdeps)
 c_compiler.check_header('uthash.h', required: true)
 dep_mathlibrary = c_compiler.find_library('m', static: staticdeps, required: false)
 
-dep_zlib = null_dep
-if not staticdeps
-  dep_zlib = dependency('zlib', static: staticdeps)
+# GLEW is a desktop GL loader and does not exist/is not needed on iOS:
+# GLES entry points are linked directly against OpenGLES.framework.
+if is_ios
+  dep_glew = null_dep
+else
+  dep_glew = dependency('glew', static: staticdeps)
 endif
 
-if host_machine.system() == 'windows'
+# Backtrace-on-crash tooling is desktop-only; not available/needed on iOS.
+if is_ios
+  dep_backtrace = null_dep
+else
+  dep_backtrace = c_compiler.find_library('backtrace', static: true, required: false)
+endif
+
+if is_ios
+  # iOS provides zlib as a system stub library (libz.tbd), not via pkg-config.
+  dep_zlib = c_compiler.find_library('z', required: true)
+elif not staticdeps
+  dep_zlib = dependency('zlib', static: staticdeps)
+else
+  dep_zlib = null_dep
+endif
+
+if is_ios
+  dep_opengl = dependency('appleframeworks', modules: ['OpenGLES'])
+elif host_machine.system() == 'windows'
   dep_opengl = c_compiler.find_library('opengl32')
 else
   dep_opengl = dependency('GL')
+endif
+
+# On iOS, SDL supplies its own main() (from libSDL2main.a), which calls
+# UIApplicationMain and renames our main() to SDL_main via SDL_main.h; on
+# every other platform TRX's own main() is the real entry point.
+if is_ios
+  dep_sdl2main = c_compiler.find_library(
+    'SDL2main', dirs: [dep_sdl2.get_variable(pkgconfig: 'libdir')],
+    static: true)
+else
+  dep_sdl2main = null_dep
 endif
 
 dependencies = [
@@ -134,6 +178,7 @@ dependencies = [
   dep_opengl,
   dep_pcre2,
   dep_sdl2,
+  dep_sdl2main,
   dep_swresample,
   dep_swscale,
   dep_zlib,

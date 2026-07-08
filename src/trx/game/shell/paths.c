@@ -332,6 +332,20 @@ static char *M_ResolveCasePathCached(const char *const path)
     if (path == nullptr || String_IsEmpty(path)) {
         return nullptr;
     }
+#if defined(TRX_TARGET_IOS)
+    // The segment-by-segment walk below opens/reads every ancestor
+    // directory of the path, including ones well outside the app's own
+    // sandbox container (e.g. /private/var/.../Containers/Data/Application/,
+    // which enumerates every installed app). iOS's sandbox permits reaching
+    // a known exact path but blocks *listing* directories you don't own,
+    // so that walk silently fails there. Case-insensitive matching isn't
+    // needed on iOS anyway -- the user controls the exact filenames they
+    // copy in -- so just check the path as given.
+    if (File_Exists(path) || File_DirExists(path)) {
+        return Memory_DupStr(path);
+    }
+    return nullptr;
+#endif
     char *path_copy = Memory_DupStr(path);
     char *path_piece = path_copy;
     char *current_path = Memory_Alloc(strlen(path) + 2);

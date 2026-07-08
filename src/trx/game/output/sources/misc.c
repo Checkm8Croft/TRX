@@ -184,16 +184,22 @@ static void M_RenderPass(
         VERT_FLAT_SHADED | VERT_NO_LIGHTING | VERT_NO_WIBBLE);
     glVertexAttrib1f(OUTPUT_MESH_ATTR_SHADE, SHADE_NEUTRAL);
 
-    GLint bound_polygon_mode[2];
+    GLint bound_polygon_mode[2] = { 0 };
+#if !defined(TRX_TARGET_IOS)
     glGetIntegerv(GL_POLYGON_MODE, &bound_polygon_mode[0]);
     glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
+    // NOTE: on iOS these debug shapes render solid-filled instead of
+    // wireframe, since GLES has no polygon fill/line mode toggle.
     if (p->scheduled_spheres->count > 0) {
         M_DrawScheduled(p, p->scheduled_spheres);
     }
     if (p->scheduled_cuboids->count > 0) {
         M_DrawScheduled(p, p->scheduled_cuboids);
     }
+#if !defined(TRX_TARGET_IOS)
     glPolygonMode(GL_FRONT_AND_BACK, bound_polygon_mode[0]);
+#endif
 }
 
 void OutputSource_Misc_Init(void)

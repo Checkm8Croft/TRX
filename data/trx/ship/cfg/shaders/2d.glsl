@@ -11,7 +11,7 @@
 #define WAVE_LIGHT_DELTA 0.125
 #define WAVE_Y_TILES 6
 #define WAVE_ORBIT_RADIUS 0.2
-#define WAVE_FPS_DRIFT 25 / 30
+#define WAVE_FPS_DRIFT (25.0 / 30.0)
 
 uniform int uEffect;
 uniform float uOpacity;
@@ -33,7 +33,7 @@ out vec4 vertContentRect; // x0,y0,x1,y1 in normalized screen coords
 
 void main() {
     if ((uEffect & EFFECT_WAVE) != 0) {
-        float edgeOffset = (1.0 / WAVE_Y_TILES) * 2.0;
+        float edgeOffset = (1.0 / float(WAVE_Y_TILES)) * 2.0;
         vec2 baseNDC = ((inPosition.xy * (2.0 + 2.0 * edgeOffset)) - (1.0 + edgeOffset)) * vec2(1.0, -1.0);
 
         vec2 aspectCorrection = vec2(uViewportSize.y / uViewportSize.x, 1);
@@ -43,7 +43,7 @@ void main() {
         float shortAng = radians((uTime * WAVE_FPS_DRIFT)  * WAVE_SPEED_SHORT + shortPhase);
         float longAng = radians((uTime * WAVE_FPS_DRIFT) * WAVE_SPEED_LONG + longPhase);
 
-        float viewportSizeNDC = (1 + edgeOffset * 2);
+        float viewportSizeNDC = (1.0 + edgeOffset * 2.0);
         vec2 tileSize = viewportSizeNDC / repeat;
         vec2 vertexOffset = vec2(cos(shortAng), sin(shortAng)) * tileSize * WAVE_ORBIT_RADIUS;
         vertLight = 0.5 + (sin(shortAng) + sin(longAng)) * WAVE_LIGHT_DELTA;

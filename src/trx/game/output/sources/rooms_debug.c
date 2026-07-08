@@ -242,14 +242,20 @@ static void M_RenderPass(
         }
 
         if (g_Config.debug.enable_debug_portals) {
-            GLint bound_polygon_mode[2];
+            GLint bound_polygon_mode[2] = { 0 };
             glDisable(GL_DEPTH_TEST);
+#if !defined(TRX_TARGET_IOS)
+            // Redundant on any platform since the primitive below is
+            // already GL_LINES, but GLES lacks glPolygonMode entirely.
             glGetIntegerv(GL_POLYGON_MODE, &bound_polygon_mode[0]);
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+#endif
             glDrawArrays(
                 GL_LINES, mesh->portals.vertex_start,
                 mesh->portals.vertex_count);
+#if !defined(TRX_TARGET_IOS)
             glPolygonMode(GL_FRONT_AND_BACK, bound_polygon_mode[0]);
+#endif
             glEnable(GL_DEPTH_TEST);
         }
     }

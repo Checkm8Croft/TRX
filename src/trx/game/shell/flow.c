@@ -62,10 +62,35 @@ static void M_CreateGameWindow(void)
     if (m_Window != nullptr) {
         return; // Window persists across mod switches
     }
+#if defined(TRX_TARGET_IOS)
+    // Without ALLOW_HIGHDPI, SDL creates the backing CAEAGLLayer at a
+    // fixed contentsScale of 1.0 regardless of the device's actual Retina
+    // scale factor, which can desync the color/depth-stencil renderbuffer
+    // dimensions SDL allocates internally from what the layer actually
+    // provides -- producing a silent GL error at presentation time.
+    //
+    // SDL_WINDOW_FULLSCREEN_DESKTOP must be passed here, at creation time:
+    // SDL's UIKit backend sizes the CAEAGLLayer (and therefore the actual
+    // GL renderbuffer storage) from the window creation flags. Calling
+    // SDL_SetWindowFullscreen() afterwards (in Shell_SyncToWindow) does
+    // NOT resize that layer on iOS -- there's no real windowing system to
+    // reflow, so the call is effectively a no-op for sizing purposes. Not
+    // setting this flag here left the renderbuffer permanently sized to
+    // the leftover desktop "windowed" config default (e.g. 480x320) while
+    // the rest of the engine, once corrected to use the real display
+    // size, issued glViewport calls far larger than that backing storage
+    // -- producing a black screen and a GL_INVALID_OPERATION loop at
+    // present time.
+    const uint32_t window_flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE
+        | SDL_WINDOW_OPENGL | SDL_WINDOW_ALLOW_HIGHDPI
+        | SDL_WINDOW_FULLSCREEN_DESKTOP;
+#else
+    const uint32_t window_flags =
+        SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL;
+#endif
     m_Window = SDL_CreateWindow(
         "TRX", g_Config.window.x, g_Config.window.y, g_Config.window.width,
-        g_Config.window.height,
-        SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL);
+        g_Config.window.height, window_flags);
 
     if (m_Window == nullptr) {
         Shell_ExitSystemFmt("Failed to create SDL window: %s", SDL_GetError());
@@ -78,10 +103,19 @@ static void M_CreateGLContext(void)
     if (TRX_GL_Context_GetWindowHandle() != nullptr) {
         return; // GL context persists across mod switches
     }
+#if defined(TRX_TARGET_IOS)
+    // iOS only speaks GLES, not desktop GL core profile. TRX's shaders
+    // target GLSL 330 core / GLSL ES 300, both mapped from GLES 3.0.
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    SDL_GL_SetAttribute(
+        SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(
         SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#endif
     if (!TRX_GL_Context_Attach(m_Window)) {
         Shell_ExitSystem("System Error: cannot attach opengl context");
     }
@@ -109,6 +143,12 @@ static void M_SetupSDL(void)
     LOG_INFO(
         "SDL version: %d.%d.%d", compiled.major, compiled.minor,
         compiled.patch);
+#if defined(TRX_TARGET_IOS)
+    // With SDL_MAIN_HANDLED, SDL_Init refuses to run on platforms where it
+    // normally supplies its own main() (Windows/WinRT/iOS) unless the app
+    // explicitly confirms it is handling entry-point setup itself.
+    SDL_SetMainReady();
+#endif
     if (SDL_Init(SDL_INIT_EVENTS | SDL_INIT_VIDEO) < 0) {
         Shell_ExitSystemFmt("Cannot initialize SDL: %s", SDL_GetError());
     }
@@ -310,6 +350,16 @@ static void M_PrepareSystem(void)
         g_Config.input.enable_touch_controls = true;
     }
     TouchOverlay_SetVisible(g_Config.input.enable_touch_controls);
+
+#if defined(TRX_TARGET_IOS)
+    // iOS has no desktop-style resizable/positionable window -- the app is
+    // always fullscreen. Force this regardless of what the config file
+    // says (it may carry a leftover desktop "windowed" size), so
+    // Shell_GetCurrentSize() always resolves to the real display size
+    // instead of a small windowed rect. See Shell_SyncToWindow() in
+    // game/shell/config.c for the corresponding iOS-specific bypass.
+    g_Config.window.is_fullscreen = true;
+#endif
 
     Clock_SetSimSpeed(Clock_GetSpeedMultiplier());
     if (!s->args->headless) {

@@ -58,7 +58,13 @@ void TRX_GL_Screenshot_CaptureToBuffer(
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     TRX_GL_CheckError();
 
+#if defined(TRX_TARGET_IOS)
+    // iOS has no GL_BACK window-system buffer; read from whatever
+    // framebuffer is currently bound (TRX's own render target) instead.
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+#else
     glReadBuffer(GL_BACK);
+#endif
     TRX_GL_CheckError();
     glReadPixels(x, y, *out_width, *out_height, format, type, out_buffer);
     TRX_GL_CheckError();

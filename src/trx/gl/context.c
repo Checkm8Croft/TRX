@@ -8,7 +8,7 @@
 #include <trx/gl/screenshot.h>
 #include <trx/gl/utils.h>
 
-#include <GL/glew.h>
+#include <trx/gl/gl_platform.h>
 #include <SDL2/SDL_video.h>
 #include <string.h>
 
@@ -16,6 +16,10 @@ typedef struct {
     SDL_GLContext context;
     SDL_Window *window_handle;
     VIEWPORT_SPACE space;
+#if defined(TRX_TARGET_IOS)
+    GLuint main_framebuffer;
+    GLuint main_color_renderbuffer;
+#endif
 
     TRX_GL_CONFIG config;
 
@@ -49,6 +53,9 @@ static bool M_IsExtensionSupported(const char *name)
     return false;
 }
 
+#if !defined(TRX_TARGET_IOS)
+// KHR_debug (glDebugMessageCallback and friends) is not exposed by the
+// iOS GLES3 headers; this whole callback is desktop-only.
 static GLvoid GLAPIENTRY M_GLDebug(
     const GLenum source, const GLenum type, const GLuint id,
     const GLenum severity, const GLsizei length, const GLchar *const message,
@@ -63,11 +70,23 @@ static GLvoid GLAPIENTRY M_GLDebug(
     }
     LOG_INFO("%d %*s", source, len, message);
 }
+#endif
 
 void TRX_GL_Context_SwitchToViewport(const VIEWPORT_SPACE space)
 {
     const VIEWPORT_RECT rect = Viewport_GetRect(space);
     m_Context.space = space;
+#if defined(TRX_TARGET_IOS)
+    // TEMP DIAGNOSTIC: log currently bound framebuffer + rect just before
+    // the call that's erroring, to find the real cause instead of guessing.
+    GLint current_fbo = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &current_fbo);
+    LOG_INFO(
+        "SwitchToViewport space=%d rect=(%d,%d,%d,%d) bound_fbo=%d "
+        "main_fbo=%u",
+        space, rect.x, rect.y, rect.width, rect.height, current_fbo,
+        TRX_GL_Context_GetMainFramebuffer());
+#endif
     glViewport(rect.x, rect.y, rect.width, rect.height);
     TRX_GL_CheckError();
 }
@@ -90,8 +109,17 @@ bool TRX_GL_Context_Attach(void *window_handle)
 
     m_Context.config.line_width = 1;
     m_Context.config.enable_wireframe = false;
+#if defined(TRX_TARGET_IOS)
+    // With SDL_WINDOW_ALLOW_HIGHDPI, SDL_GetWindowSize returns logical
+    // points, not the actual pixel dimensions of the backing renderbuffer
+    // on Retina devices; use the real drawable size instead so viewports
+    // and FBOs are sized in pixels, matching what actually gets rendered.
+    SDL_GL_GetDrawableSize(
+        window_handle, &m_Context.window_width, &m_Context.window_height);
+#else
     SDL_GetWindowSize(
         window_handle, &m_Context.window_width, &m_Context.window_height);
+#endif
 
     m_Context.window_handle = window_handle;
 
@@ -100,6 +128,27 @@ bool TRX_GL_Context_Attach(void *window_handle)
             "Can't activate OpenGL context: %s", SDL_GetError());
     }
 
+#if defined(TRX_TARGET_IOS)
+    // SDL's iOS backend creates its own screen framebuffer here and keeps
+    // it bound; this is the only point where we're guaranteed it's still
+    // the active one, so capture its id now for later use (see
+    // TRX_GL_Context_GetMainFramebuffer).
+    {
+        GLint main_fbo = 0;
+        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &main_fbo);
+        m_Context.main_framebuffer = (GLuint)main_fbo;
+
+        GLint color_rb = 0;
+        glGetFramebufferAttachmentParameteriv(
+            GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+            GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &color_rb);
+        m_Context.main_color_renderbuffer = (GLuint)color_rb;
+    }
+#endif
+
+#if !defined(TRX_TARGET_IOS)
+    // GLES entry points are linked directly against OpenGLES.framework and
+    // require no runtime extension loader.
     const GLenum err = glewInit();
     if (err != GLEW_OK) {
         if (err != 4) {
@@ -109,6 +158,7 @@ bool TRX_GL_Context_Attach(void *window_handle)
         // https://github.com/nigels-com/glew/issues/417
         LOG_WARNING("GLEW failed to init: %d", err);
     }
+#endif
 
     LOG_INFO("OpenGL vendor string:   %s", glGetString(GL_VENDOR));
     LOG_INFO("OpenGL renderer string: %s", glGetString(GL_RENDERER));
@@ -128,7 +178,9 @@ bool TRX_GL_Context_Attach(void *window_handle)
     // VSync defaults to on unless user disabled it in runtime json
     SDL_GL_SetSwapInterval(1);
 
-#if DEBUG
+#if DEBUG && !defined(TRX_TARGET_IOS)
+    // KHR_debug / glDebugMessageCallback is not exposed by the iOS GLES3
+    // headers; skip on that platform.
     if (glDebugMessageCallback != nullptr) {
         glDebugMessageCallback(M_GLDebug, nullptr);
     }
@@ -191,6 +243,48 @@ void TRX_GL_Context_SetVSync(bool vsync)
 void *TRX_GL_Context_GetWindowHandle(void)
 {
     return m_Context.window_handle;
+}
+
+GLuint TRX_GL_Context_GetMainFramebuffer(void)
+{
+#if defined(TRX_TARGET_IOS)
+    return m_Context.main_framebuffer;
+#else
+    return 0;
+#endif
+}
+
+GLuint TRX_GL_Context_GetMainColorRenderbuffer(void)
+{
+#if defined(TRX_TARGET_IOS)
+    return m_Context.main_color_renderbuffer;
+#else
+    return 0;
+#endif
+}
+
+void TRX_GL_Context_RefreshMainFramebuffer(void)
+{
+#if defined(TRX_TARGET_IOS)
+    const GLuint old_fbo = m_Context.main_framebuffer;
+    const GLuint old_rb = m_Context.main_color_renderbuffer;
+
+    GLint main_fbo = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &main_fbo);
+    m_Context.main_framebuffer = (GLuint)main_fbo;
+
+    GLint color_rb = 0;
+    glGetFramebufferAttachmentParameteriv(
+        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+        GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &color_rb);
+    m_Context.main_color_renderbuffer = (GLuint)color_rb;
+
+    LOG_INFO(
+        "DEBUG bisect: RefreshMainFramebuffer fbo old=%u new=%u | "
+        "color_rb old=%u new=%u",
+        old_fbo, m_Context.main_framebuffer, old_rb,
+        m_Context.main_color_renderbuffer);
+#endif
 }
 
 void TRX_GL_Context_Clear(void)

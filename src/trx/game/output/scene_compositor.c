@@ -138,9 +138,13 @@ static void M_RenderScenePasses(const M_PRIV *const p)
     OUTPUT_MESH_SHADER *const shader = Output_GetMeshShader();
     Output_MeshShader_Bind(shader);
 
+#if !defined(TRX_TARGET_IOS)
+    // Wireframe debug view is unavailable on GLES (no polygon fill/line
+    // mode toggle); geometry always renders filled on iOS.
     glPolygonMode(
         GL_FRONT_AND_BACK,
         g_Config.rendering.enable_wireframe ? GL_LINE : GL_FILL);
+#endif
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_POLYGON_OFFSET_FILL);

@@ -8,6 +8,7 @@ TR2X.log
 
 # Docker builds garbage
 /build
+/build-ios-arm64 # iOS Build
 /.secrets
 /.local
 /workflow

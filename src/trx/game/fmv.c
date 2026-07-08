@@ -53,8 +53,16 @@ static OUTPUT_QUAD_SURFACE_DESC M_MakeSurfaceDesc(
         .width = width,
         .height = height,
         .bit_count = 32,
+#if defined(TRX_TARGET_IOS)
+        // Same in-memory byte layout (B,G,R,A) as the desktop combo below
+        // on little-endian; GLES needs the EXT_texture_format_BGRA8888
+        // spelling instead of the packed-int desktop enum.
+        .tex_format = GL_BGRA_EXT,
+        .tex_type = GL_UNSIGNED_BYTE,
+#else
         .tex_format = GL_BGRA,
         .tex_type = GL_UNSIGNED_INT_8_8_8_8_REV,
+#endif
         .uv = {
             { .u = 0.0f, .v = 0.0f },
             { .u = 1.0f, .v = 0.0f },

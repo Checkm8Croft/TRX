@@ -1,0 +1,4 @@
+#!/bin/sh
+export PKG_CONFIG_LIBDIR=/Users/checkm8/iOS-Tweaks/merged/lib/pkgconfig
+export PKG_CONFIG_PATH=
+exec /opt/local/bin/pkg-config "$@"
