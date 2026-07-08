@@ -149,11 +149,29 @@ SHELL_SIZE Shell_GetWindowSize(void)
         return Shell_GetDefaultSize();
     }
     SDL_Window *const window = Shell_GetWindow();
-    SHELL_SIZE result = { .w = -1, .h = -1 };
-    if (window != nullptr) {
-        SDL_GetWindowSize(window, &result.w, &result.h);
+    if (window == nullptr) {
+        return (SHELL_SIZE) { .w = -1, .h = -1 };
     }
+#if defined(TRX_TARGET_IOS)
+    // SDL_GetWindowSize() reports size in *points*, but this value feeds
+    // straight into glViewport() via Viewport_Reset()/Viewport_GetRect().
+    // The actual renderbuffer storage backing the window is allocated in
+    // *pixels* (SDL_WINDOW_ALLOW_HIGHDPI scales it by the Retina factor),
+    // so using points here left glViewport() only covering a fraction of
+    // the real backbuffer -- the rendered content was correct, just
+    // confined to a small corner of the screen. SDL_GL_GetDrawableSize()
+    // reports the actual pixel dimensions of that backing store, matching
+    // what glViewport() needs. iOS is also always effectively fullscreen
+    // (there's no real windowing system), so there's no separate
+    // "windowed vs fullscreen" size to distinguish here, unlike desktop.
+    SHELL_SIZE result;
+    SDL_GL_GetDrawableSize(window, &result.w, &result.h);
     return result;
+#else
+    SHELL_SIZE result = { .w = -1, .h = -1 };
+    SDL_GetWindowSize(window, &result.w, &result.h);
+    return result;
+#endif
 }
 
 void Shell_ScheduleExit(void)

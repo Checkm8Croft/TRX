@@ -2,7 +2,7 @@
 
 #include <trx/core/result.h>
 
-#include <GL/glew.h>
+#include <trx/gl/gl_platform.h>
 #include <stdint.h>
 
 // Writes the contents of the viewport to an image file, reporting a path it

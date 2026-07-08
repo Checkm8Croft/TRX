@@ -1,0 +1,4 @@
+#!/bin/sh
+# Wrapper: resolves the iOS device SDK at invocation time and forwards to clang.
+SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+exec clang -target arm64-apple-ios16.0 -isysroot "$SDK" "$@"

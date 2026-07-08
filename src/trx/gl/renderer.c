@@ -14,7 +14,8 @@
 #include <trx/gl/utils.h>
 #include <trx/gl/vertex_array.h>
 
-#include <GL/glew.h>
+#include <trx/gl/gl_platform.h>
+#include <SDL2/SDL_error.h>
 #include <SDL2/SDL_video.h>
 #include <stdint.h>
 
@@ -198,11 +199,18 @@ static void M_Render(TRX_GL_RENDERER *renderer)
     ASSERT(p != nullptr);
 
     // Clear every frame because resizing may give us dirty buffers.
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, TRX_GL_Context_GetMainFramebuffer());
     TRX_GL_Context_SwitchToViewport(VIEWPORT_WINDOW);
     TRX_GL_Context_Clear();
 
-    M_Composite(p, 0, Viewport_GetRect(VIEWPORT_TARGET));
+    // TRX_GL_Context_GetMainFramebuffer() is 0 everywhere except iOS, where
+    // there is no real default framebuffer 0: SDL creates an actual
+    // framebuffer object for the window. Targeting literal 0 there leaves
+    // the final composite pass drawing into a nonexistent framebuffer
+    // (GL_INVALID_FRAMEBUFFER_OPERATION on every subsequent draw).
+    M_Composite(
+        p, TRX_GL_Context_GetMainFramebuffer(),
+        Viewport_GetRect(VIEWPORT_TARGET));
 
     if (TRX_GL_Context_GetScheduledScreenshotPath() != nullptr) {
         TRX_GL_Context_SwitchToViewport(VIEWPORT_TARGET);
@@ -220,8 +228,40 @@ static void M_SwapBuffers(TRX_GL_RENDERER *const renderer)
     M_CONTEXT *const p = renderer->priv;
 
     M_Render(renderer);
+    TRX_GL_CheckError(); // DEBUG bisect: after M_Render
+#if defined(TRX_TARGET_IOS)
+    // TEMP DIAGNOSTIC: confirm what's actually bound right before the
+    // call that's erroring, instead of assuming from reading the code.
+    GLint fbo_before_swap = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo_before_swap);
+    LOG_INFO("Before SwapWindow: bound_fbo=%d", fbo_before_swap);
+
+    // Per Apple/SDL's iOS requirements (see SDL2/README-ios), the drawable
+    // Renderbuffer must be bound to the GL_RENDERBUFFER binding point at
+    // the moment SDL_GL_SwapWindow() is called: SDL's internal
+    // -[EAGLContext presentRenderbuffer:] call presents whatever
+    // renderbuffer object happens to already be bound there -- it does
+    // not bind the correct one itself. Our own rendering exclusively uses
+    // texture-attached FBOs (see gl/fbo.c), so we never otherwise touch
+    // the GL_RENDERBUFFER binding point, and it's left stale/unbound,
+    // causing SwapWindow to try to present an invalid renderbuffer every
+    // frame (GL_INVALID_OPERATION).
+    glBindRenderbuffer(
+        GL_RENDERBUFFER, TRX_GL_Context_GetMainColorRenderbuffer());
+#endif
+    SDL_ClearError();
     SDL_GL_SwapWindow(TRX_GL_Context_GetWindowHandle());
+#if defined(TRX_TARGET_IOS)
+    // TEMP DIAGNOSTIC: SDL_GL_SwapWindow returns void, but may internally
+    // call SDL_SetError(); surface it directly instead of guessing.
+    const char *const sdl_err = SDL_GetError();
+    if (sdl_err != nullptr && sdl_err[0] != '\0') {
+        LOG_ERROR("SDL_GL_SwapWindow: %s", sdl_err);
+    }
+#endif
+    TRX_GL_CheckError(); // DEBUG bisect: after SwapWindow
     M_UpdateFBOSizes(renderer);
+    TRX_GL_CheckError(); // DEBUG bisect: after M_UpdateFBOSizes
 
     TRX_GL_FBO_Bind(&p->geometry_fbo);
     TRX_GL_Context_SwitchToViewport(VIEWPORT_GAME);

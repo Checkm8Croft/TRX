@@ -11,7 +11,7 @@
 #include <trx/gl/utils.h>
 #include <trx/gl/vertex_array.h>
 
-#include <GL/glew.h>
+#include <trx/gl/gl_platform.h>
 
 static int32_t M_ClampSamples(const int32_t samples)
 {
@@ -70,7 +70,8 @@ void TRX_GL_FBO_Init(
     TRX_GL_CheckError();
 
     // direct draw to color attachment 0.
-    glDrawBuffer(GL_COLOR_ATTACHMENT0);
+    const GLenum draw_buffer = GL_COLOR_ATTACHMENT0;
+    glDrawBuffers(1, &draw_buffer);
     TRX_GL_CheckError();
 
     if (with_depth_stencil) {
@@ -107,7 +108,10 @@ void TRX_GL_FBO_Init(
     glClearBufferfv(GL_COLOR, 0, black);
     TRX_GL_CheckError();
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // TRX_GL_Context_GetMainFramebuffer() is 0 on every platform except
+    // iOS, where there's no real default framebuffer 0 (see
+    // TRX_GL_Context_Get{Main,MainColorRenderbuffer}).
+    glBindFramebuffer(GL_FRAMEBUFFER, TRX_GL_Context_GetMainFramebuffer());
 }
 
 void TRX_GL_FBO_Close(TRX_GL_FBO *fbo)
@@ -150,6 +154,7 @@ void TRX_GL_FBO_Bind(const TRX_GL_FBO *const fbo)
 
 void TRX_GL_FBO_Unbind(void)
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(
+        GL_FRAMEBUFFER, TRX_GL_Context_GetMainFramebuffer());
     TRX_GL_CheckError();
 }

@@ -665,8 +665,13 @@ static bool M_EnsurePatternUploaded(M_PRIV *const p)
         .width = TEXTURE_PAGE_WIDTH,
         .height = TEXTURE_PAGE_HEIGHT,
         .bit_count = 32,
+#if defined(TRX_TARGET_IOS)
+        .tex_format = GL_RGBA,
+        .tex_type = GL_UNSIGNED_BYTE,
+#else
         .tex_format = GL_RGBA,
         .tex_type = GL_UNSIGNED_INT_8_8_8_8_REV,
+#endif
         .uv = {
             {
                 texture->uv[0].u / 256.0f / TEXTURE_PAGE_WIDTH,

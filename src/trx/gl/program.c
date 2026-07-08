@@ -160,21 +160,46 @@ static char *M_Preprocess(
 {
     ASSERT(content != nullptr);
 
-    const char *const version_ogl33c = "#version 330 core\n";
+#if defined(TRX_TARGET_IOS)
+    // GLES speaks GLSL ES, not desktop core GLSL, and fragment shaders
+    // additionally require an explicit default float precision (there is
+    // no default, unlike vertex shaders) since none of TRX's shader
+    // sources declare one themselves.
+    const char *const version_line = "#version 300 es\n";
+    // Declared explicitly and identically for both stages (rather than
+    // relying on GLSL ES's implicit per-stage defaults for vertex shaders)
+    // to avoid a "uniform type mismatch" link error some Apple GLES
+    // drivers report when a shared uniform block's members resolve their
+    // precision implicitly in one stage but explicitly in the other.
+    const char *const precision_line = "precision highp float;\n"
+                                        "precision highp int;\n"
+                                        "precision highp sampler2D;\n"
+                                        "precision highp sampler2DArray;\n";
+#else
+    const char *const version_line = "#version 330 core\n";
+    const char *const precision_line = "";
+#endif
+
     const char *stage_define = "";
     if (type == GL_VERTEX_SHADER) {
         stage_define = "#define VERTEX\n";
+#if !defined(TRX_TARGET_IOS)
+    // Core GLES has no geometry shader stage (GL_GEOMETRY_SHADER isn't
+    // even declared by the iOS SDK headers); desktop-only.
     } else if (type == GL_GEOMETRY_SHADER) {
         stage_define = "#define GEOMETRY\n";
+#endif
     } else if (type == GL_FRAGMENT_SHADER) {
         stage_define = "#define FRAGMENT\n";
     }
 
-    const size_t bufsize = strlen(version_ogl33c) + strlen(stage_define)
-        + (defines != nullptr ? strlen(defines) : 0) + strlen(content) + 1;
+    const size_t bufsize = strlen(version_line) + strlen(precision_line)
+        + strlen(stage_define) + (defines != nullptr ? strlen(defines) : 0)
+        + strlen(content) + 1;
 
     char *const processed_content = Memory_Alloc(bufsize);
-    strcpy(processed_content, version_ogl33c);
+    strcpy(processed_content, version_line);
+    strcat(processed_content, precision_line);
     strcat(processed_content, stage_define);
     if (defines != nullptr) {
         strcat(processed_content, defines);
@@ -308,8 +333,15 @@ void TRX_GL_Program_FragmentData(
     TRX_GL_PROGRAM *const program, const char *const name)
 {
     ASSERT(program != nullptr);
+#if !defined(TRX_TARGET_IOS)
     glBindFragDataLocation(program->id, 0, name);
     TRX_GL_CheckError();
+#else
+    // GLES has no glBindFragDataLocation. All of TRX's fragment shaders
+    // declare exactly one color output, which GLSL ES assigns to
+    // location 0 automatically, so no explicit binding is needed here.
+    (void)name;
+#endif
 }
 
 GLint TRX_GL_Program_UniformLocation(

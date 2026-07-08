@@ -2,7 +2,7 @@
 
 #include <trx/core/result.h>
 
-#include <GL/glew.h>
+#include <trx/gl/gl_platform.h>
 
 typedef struct OUTPUT_SHADER OUTPUT_SHADER;
 
