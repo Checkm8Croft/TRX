@@ -1,4 +1,9 @@
 #!/bin/sh
-export PKG_CONFIG_LIBDIR=/Users/checkm8/iOS-Tweaks/merged/lib/pkgconfig
+# Wrapper: points pkg-config at the vendored iOS dependency .pc files
+# shipped alongside this script (tools/shared/ios/deps/lib/pkgconfig),
+# instead of any developer's personal machine paths. Self-locates so it
+# works regardless of where the repo is checked out.
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export PKG_CONFIG_LIBDIR="$SCRIPT_DIR/deps/lib/pkgconfig"
 export PKG_CONFIG_PATH=
-exec /opt/local/bin/pkg-config "$@"
+exec pkg-config "$@"

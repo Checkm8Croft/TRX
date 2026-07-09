@@ -1,8 +1,8 @@
 [binaries]
-c = ['/Users/checkm8/Desktop/Projects/TRX/tools/shared/ios/clang-ios-arm64']
+c = ['@DIRNAME@/clang-ios-arm64']
 ar = 'ar'
 strip = 'strip'
-pkg-config = '/Users/checkm8/Desktop/Projects/TRX/tools/shared/ios/pkg-config-ios'
+pkg-config = '@DIRNAME@/pkg-config-ios'
 
 [host_machine]
 system = 'darwin'
@@ -15,4 +15,4 @@ needs_exe_wrapper = true
 system_variant = 'ios'
 
 [built-in options]
-c_args = ['-I/opt/local/include']
+c_args = ['-I@DIRNAME@/deps/include']

@@ -1,0 +1,14 @@
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+libdir=/Users/checkm8/iOS-Tweaks/merged/lib
+includedir=/Users/checkm8/iOS-Tweaks/merged/include
+
+Name: libavformat
+Description: FFmpeg container format library
+Version: 62.6.100
+Requires: libavcodec >= 62.15.100, libswresample >= 6.2.100, libavutil >= 60.13.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lavformat -lm -lbz2 -lz
+Libs.private: 
+Cflags: -I${includedir}

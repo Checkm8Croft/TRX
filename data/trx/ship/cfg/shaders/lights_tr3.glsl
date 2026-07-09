@@ -28,7 +28,7 @@ vec3 lightObjectsTR3(vec3 rawNormal)
 
 vec3 lightOwnTR3(float shade)
 {
-    float shade8 = floor((SHADE_MAX - shade) / 32.0); // (0x1FFF - shade) >> 5
+    float shade8 = floor((float(SHADE_MAX) - shade) / 32.0); // (0x1FFF - shade) >> 5
     shade8 = (shade8 <= 0.0) ? 255.0 : shade8;
     return clamp(uTR3Ambient.rgb * (shade8 / 255.0), 0.0, 1.0);
 }
@@ -57,7 +57,7 @@ LightingResult light(
     float vertexPhase)
 {
     LightingResult result;
-    result.shade = SHADE_NEUTRAL;
+    result.shade = float(SHADE_NEUTRAL);
     result.add = vec3(0.0);
     result.mul = vec3(1.0);
 
