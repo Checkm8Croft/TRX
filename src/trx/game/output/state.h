@@ -5,6 +5,7 @@
 #include <trx/game/output/uniforms.h>
 #include <trx/game/rooms.h>
 #include <trx/game/viewport.h>
+#include <trx/gl/gl_platform.h>
 
 #include <trx/gl/gl_platform.h>
 

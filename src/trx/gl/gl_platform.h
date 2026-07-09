@@ -35,5 +35,5 @@
     // GLES has no glDrawElementsBaseVertex. Callers must pre-offset indices
     // at upload time and use glDrawElements instead (see mesh_batcher).
 #else
-    #include <trx/gl/gl_platform.h>
+    #include <GL/glew.h>
 #endif

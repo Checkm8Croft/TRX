@@ -4,6 +4,15 @@
 
 #include <trx/gl/gl_platform.h>
 #include <stdint.h>
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#include <OpenGLES/ES3/gl.h> 
+#else
+#include <OpenGL/gl3.h> 
+#include <OpenGL/gl3ext.h>
+#endif
+#endif
 
 // Writes the contents of the viewport to an image file, reporting a path it
 // cannot write.

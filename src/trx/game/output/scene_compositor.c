@@ -15,6 +15,13 @@
 #include <trx/gl/context.h>
 #include <trx/gl/renderer.h>
 #include <trx/gl/utils.h>
+#ifndef GL_TEXTURE_MAX_ANISOTROPY_EXT
+#define GL_TEXTURE_MAX_ANISOTROPY_EXT 0x84FE
+#endif
+#ifndef GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT
+#define GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT 0x84FF
+#endif
+
 
 #define M_PROCESS_SOURCES(p, func, ...)                                        \
     do {                                                                       \

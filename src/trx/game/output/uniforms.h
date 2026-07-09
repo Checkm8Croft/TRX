@@ -5,6 +5,15 @@
 #include <trx/game/rooms/types.h>
 
 #include <trx/gl/gl_platform.h>
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#include <OpenGLES/ES3/gl.h> 
+#else
+#include <OpenGL/gl3.h> 
+#include <OpenGL/gl3ext.h>
+#endif
+#endif
 
 typedef struct {
     int32_t ls_adder;

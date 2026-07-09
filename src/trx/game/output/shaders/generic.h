@@ -3,6 +3,16 @@
 #include <trx/core/result.h>
 
 #include <trx/gl/gl_platform.h>
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#include <OpenGLES/ES3/gl.h> 
+#else
+#include <OpenGL/gl3.h> 
+#include <OpenGL/gl3ext.h>
+#endif
+#endif
+
 
 typedef struct OUTPUT_SHADER OUTPUT_SHADER;
 

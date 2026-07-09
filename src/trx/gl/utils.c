@@ -1,6 +1,16 @@
 #include <trx/gl/utils.h>
 
-#include <GL/glew.h>
+#include <trx/gl/gl_platform.h>
+
+// GLES has no fixed-function matrix stacks, so its headers don't define
+// these error codes, but TRX_GL_GetErrorString() still names them.
+#ifndef GL_STACK_UNDERFLOW
+#define GL_STACK_UNDERFLOW 0x0504
+#endif
+
+#ifndef GL_STACK_OVERFLOW
+#define GL_STACK_OVERFLOW 0x0503
+#endif
 
 const char *TRX_GL_GetErrorString(GLenum err)
 {
