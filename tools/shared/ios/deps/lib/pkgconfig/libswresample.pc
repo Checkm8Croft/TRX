@@ -1,0 +1,14 @@
+prefix=${pcfiledir}/../..
+exec_prefix=${prefix}
+libdir=/Users/checkm8/iOS-Tweaks/merged/lib
+includedir=/Users/checkm8/iOS-Tweaks/merged/include
+
+Name: libswresample
+Description: FFmpeg audio resampling library
+Version: 6.2.100
+Requires: libavutil >= 60.13.100
+Requires.private: 
+Conflicts:
+Libs: -L${libdir}  -lswresample -lm
+Libs.private: 
+Cflags: -I${includedir}

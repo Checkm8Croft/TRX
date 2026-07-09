@@ -165,11 +165,6 @@ SHELL_SIZE Shell_GetCurrentDisplaySize(void)
     }
     SDL_DisplayMode dm;
     const int32_t rc = SDL_GetCurrentDisplayMode(display_idx, &dm);
-    LOG_INFO(
-        "DEBUG bisect: SDL_GetCurrentDisplayMode(idx=%d) rc=%d dm=%dx%d "
-        "window=%p SDL_GetError=%s",
-        display_idx, rc, rc == 0 ? dm.w : -1, rc == 0 ? dm.h : -1,
-        (void *)window, SDL_GetError());
     if (rc == 0) {
         return (SHELL_SIZE) { .w = dm.w, .h = dm.h };
     }

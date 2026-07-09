@@ -88,7 +88,21 @@ int main(int argc, char *argv[])
 #else
     char *log_path = String_Format("%s/TRX.log", TRXPath_Get(TRX_PATH_TRX_DIR));
 #endif
+#if defined(TRX_TARGET_IOS)
+    // LOG_LEVEL_MAX ("log everything", including LOG_DEBUG/LOG_INFO) was
+    // causing a real, measurable performance problem on-device: several
+    // per-frame call sites (e.g. TRX_GL_Context_SwitchToViewport, hit
+    // multiple times per frame) log via LOG_INFO, and each call does a
+    // synchronous write to the log file in the app's Documents directory.
+    // Doing that 4+ times per frame at 60fps was very likely a major
+    // contributor to the game feeling sluggish on-device. Only warnings
+    // and errors are worth paying that cost for by default; DEBUG/INFO
+    // are still available via Log_SetMinLevel() if needed for future
+    // diagnosis.
+    Log_Init(log_path, LOG_LEVEL_WARNING);
+#else
     Log_Init(log_path, LOG_LEVEL_MAX);
+#endif
     Memory_FreePointer(&log_path);
 
     LOG_INFO("Starting %s", g_TRXVersion);
@@ -105,7 +119,14 @@ int main(int argc, char *argv[])
     }
 
     TRXPath_Init(args);
+#if defined(TRX_TARGET_IOS)
+    // See the Log_Init() call above: iOS has no CLI to pass --quiet, so
+    // args->quiet is always false here, which would otherwise reset the
+    // log level back to LOG_LEVEL_MAX and undefeat that fix.
+    Log_SetMinLevel(LOG_LEVEL_WARNING);
+#else
     Log_SetMinLevel(args->quiet ? LOG_LEVEL_WARNING : LOG_LEVEL_MAX);
+#endif
 
     Shell_ValidateMods();
     if (args->startup.mod == nullptr || !args->startup.mod->is_valid) {

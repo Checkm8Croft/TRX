@@ -53,14 +53,14 @@ float ogPhaseTurns(vec3 worldPos, int scheme)
 float effectChoppy(vec3 worldPos)
 {
     int scheme = clamp(uWaterEffect - 2, 0, 21);
-    float angle = fract(ogPhaseTurns(worldPos, scheme)) * 2 * PI;
+    float angle = fract(ogPhaseTurns(worldPos, scheme)) * 2.0 * PI;
     return -sin(angle) * uWaterEffectParams.x / 2.0;
 }
 
 float effectShimmer(vec3 worldPos)
 {
     int scheme = clamp(uWaterEffect - 2, 0, 21);
-    float angle = fract(ogPhaseTurns(worldPos, scheme)) * 2 * PI;
+    float angle = fract(ogPhaseTurns(worldPos, scheme)) * 2.0 * PI;
     return sin(angle) * uWaterEffectParams.y * 8.0;
 }
 
@@ -76,13 +76,13 @@ int lightFlicker(float t) {
 
 int lightGlow(float time) {
     float phase = mod(time, 32.0) / 32.0;
-    float s = sin(phase * 2 * PI);
+    float s = sin(phase * 2.0 * PI);
     float normalized = (s + 1.0) * 0.5;
     return int(normalized * 31.0);
 }
 
 int lightSunset(float time) {
-    float sunsetProgress = clamp(time / max(1, uSunsetDuration), 0.0, 1.0);
+    float sunsetProgress = clamp(time / max(1.0, uSunsetDuration), 0.0, 1.0);
     return int(sunsetProgress * 31.0);
 }
 

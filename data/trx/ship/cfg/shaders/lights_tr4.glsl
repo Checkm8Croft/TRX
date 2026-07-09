@@ -38,7 +38,7 @@ vec3 lightObjectsTR4(vec3 rawNormal)
 // shade multiplier carried in uTR4Ambient.
 vec3 lightOwnTR4(float shade)
 {
-    float shade8 = clamp(floor((SHADE_MAX - shade) / 32.0), 0.0, 255.0);
+    float shade8 = clamp(floor((float(SHADE_MAX) - shade) / 32.0), 0.0, 255.0);
     return uTR4Ambient.rgb * (shade8 / 255.0) * (255.0 / 256.0);
 }
 
@@ -94,7 +94,7 @@ LightingResult light(
     float vertexPhase)
 {
     LightingResult result;
-    result.shade = SHADE_NEUTRAL;
+    result.shade = float(SHADE_NEUTRAL);
     result.add = vec3(0.0);
     result.mul = vec3(1.0);
 

@@ -10,10 +10,10 @@ layout(std140) uniform LightSource {
 float lightObjects(vec3 rawNormal, vec4 vertexPos)
 {
     float lightAdder = uLightAdder;
-    if (uLightDivider != 0) {
+    if (uLightDivider != 0.0) {
         vec3 L = mat3(transpose(uMatView * uMatModel)) * uLightVectorSource.xyz / uLightDivider;
-        lightAdder += dot(L, rawNormal.xyz / (1 << 14)) / 4;
-        lightAdder = clamp(lightAdder, 0, SHADE_MAX);
+        lightAdder += dot(L, rawNormal.xyz / float(1 << 14)) / 4.0;
+        lightAdder = clamp(lightAdder, 0.0, float(SHADE_MAX));
     }
     return lightAdder;
 }
@@ -33,11 +33,11 @@ float lightDynamicTR12Lum(float baseLight, vec4 vertexPos)
         }
 
         float maxShade = exp2(uLights[i].shade);
-        float distTerm = distSq / exp2(2 * uLights[i].falloff - uLights[i].shade);
+        float distTerm = distSq / exp2(2.0 * uLights[i].falloff - uLights[i].shade);
         float shade = maxShade - distTerm;
         lightAdder -= shade;
     }
-    return max(lightAdder, 0);
+    return max(lightAdder, 0.0);
 }
 
 vec3 lightDynamicTR12RGB(vec4 vertexPos)
@@ -74,7 +74,7 @@ float lightLumTR12(float shade, uint flags, vec3 normal, vec4 pos, float phase)
             shade = lightDynamicTR12Lum(shade, pos);
             shade += lightRoom(uRoomLightMode, uTimeInGame, phase);
         }
-        shade = clamp(shade, 0, SHADE_MAX);
+        shade = clamp(shade, 0.0, float(SHADE_MAX));
     }
 
     if (uWaterEffect == 1) {
@@ -89,7 +89,7 @@ LightingResult light(
     float vertexPhase)
 {
     LightingResult result;
-    result.shade = SHADE_NEUTRAL;
+    result.shade = float(SHADE_NEUTRAL);
     result.add = vec3(0.0);
     result.mul = vec3(1.0);
 

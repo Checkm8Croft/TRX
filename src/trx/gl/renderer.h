@@ -2,7 +2,7 @@
 
 #include <trx/gl/config.h>
 
-#include <GL/glew.h>
+#include <trx/gl/gl_platform.h>
 
 typedef struct TRX_GL_Renderer {
     void (*init)(struct TRX_GL_Renderer *renderer, const TRX_GL_CONFIG *config);

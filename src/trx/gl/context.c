@@ -266,9 +266,6 @@ GLuint TRX_GL_Context_GetMainColorRenderbuffer(void)
 void TRX_GL_Context_RefreshMainFramebuffer(void)
 {
 #if defined(TRX_TARGET_IOS)
-    const GLuint old_fbo = m_Context.main_framebuffer;
-    const GLuint old_rb = m_Context.main_color_renderbuffer;
-
     GLint main_fbo = 0;
     glGetIntegerv(GL_FRAMEBUFFER_BINDING, &main_fbo);
     m_Context.main_framebuffer = (GLuint)main_fbo;
@@ -278,12 +275,6 @@ void TRX_GL_Context_RefreshMainFramebuffer(void)
         GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
         GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &color_rb);
     m_Context.main_color_renderbuffer = (GLuint)color_rb;
-
-    LOG_INFO(
-        "DEBUG bisect: RefreshMainFramebuffer fbo old=%u new=%u | "
-        "color_rb old=%u new=%u",
-        old_fbo, m_Context.main_framebuffer, old_rb,
-        m_Context.main_color_renderbuffer);
 #endif
 }
 

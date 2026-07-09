@@ -69,7 +69,12 @@ void Log_Message(
     const char *const log_color = m_LogLevelColors[level];
 
     // print to log file
-    if (m_LogHandle != nullptr) {
+    // (min_level gates this the same way it already gated stdout below --
+    // previously it didn't, so every LOG_DEBUG/LOG_INFO call anywhere,
+    // including hot per-frame call sites, did a synchronous fflush() to
+    // disk regardless of the configured level. On iOS this was a real,
+    // measurable performance problem.)
+    if (m_LogHandle != nullptr && level >= m_LogLevel) {
         va_list vb;
 
         va_copy(vb, va);

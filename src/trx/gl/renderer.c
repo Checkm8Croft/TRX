@@ -105,14 +105,7 @@ static void M_SwapBuffers(TRX_GL_RENDERER *const renderer)
     M_CONTEXT *const p = renderer->priv;
 
     M_Render(renderer);
-    TRX_GL_CheckError(); // DEBUG bisect: after M_Render
 #if defined(TRX_TARGET_IOS)
-    // TEMP DIAGNOSTIC: confirm what's actually bound right before the
-    // call that's erroring, instead of assuming from reading the code.
-    GLint fbo_before_swap = 0;
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &fbo_before_swap);
-    LOG_INFO("Before SwapWindow: bound_fbo=%d", fbo_before_swap);
-
     // Per Apple/SDL's iOS requirements (see SDL2/README-ios), the drawable
     // Renderbuffer must be bound to the GL_RENDERBUFFER binding point at
     // the moment SDL_GL_SwapWindow() is called: SDL's internal
@@ -129,16 +122,18 @@ static void M_SwapBuffers(TRX_GL_RENDERER *const renderer)
     SDL_ClearError();
     SDL_GL_SwapWindow(TRX_GL_Context_GetWindowHandle());
 #if defined(TRX_TARGET_IOS)
-    // TEMP DIAGNOSTIC: SDL_GL_SwapWindow returns void, but may internally
-    // call SDL_SetError(); surface it directly instead of guessing.
+    // SDL_GL_SwapWindow() returns void but may internally call
+    // SDL_SetError(); surface it directly instead of guessing.
     const char *const sdl_err = SDL_GetError();
     if (sdl_err != nullptr && sdl_err[0] != '\0') {
         LOG_ERROR("SDL_GL_SwapWindow: %s", sdl_err);
     }
 #endif
-    TRX_GL_CheckError(); // DEBUG bisect: after SwapWindow
+    // Kept as a permanent check (not just leftover bisection debugging):
+    // this is the exact checkpoint that caught the GL_INVALID_OPERATION
+    // present-time bug, so it's worth continuing to catch regressions here.
+    TRX_GL_CheckError();
     M_UpdateFBOSizes(renderer);
-    TRX_GL_CheckError(); // DEBUG bisect: after M_UpdateFBOSizes
 
     TRX_GL_Context_SwitchToViewport(VIEWPORT_WINDOW);
     TRX_GL_Context_Clear();
