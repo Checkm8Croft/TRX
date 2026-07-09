@@ -2,6 +2,15 @@
 
 #include <trx/gl/gl_platform.h>
 #include <stdint.h>
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#include <OpenGLES/ES3/gl.h> 
+#else
+#include <OpenGL/gl3.h> 
+#include <OpenGL/gl3ext.h>
+#endif
+#endif
 
 bool TRX_GL_Screenshot_CaptureToFile(const char *path);
 

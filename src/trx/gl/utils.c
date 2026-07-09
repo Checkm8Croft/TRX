@@ -1,6 +1,13 @@
 #include <trx/gl/utils.h>
 
 #include <trx/gl/gl_platform.h>
+#ifndef GL_STACK_UNDERFLOW
+#define GL_STACK_UNDERFLOW 0x0504
+#endif
+
+#ifndef GL_STACK_OVERFLOW
+#define GL_STACK_OVERFLOW 0x0503
+#endif
 
 const char *TRX_GL_GetErrorString(GLenum err)
 {

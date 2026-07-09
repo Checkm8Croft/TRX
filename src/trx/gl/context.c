@@ -1,5 +1,7 @@
+#if !defined(__APPLE__) || (defined(TARGET_OS_IPHONE) && !TARGET_OS_IPHONE)
+#include <GL/glew.h>
+#endif
 #include <trx/gl/context.h>
-
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
 #include <trx/game/shell.h>
@@ -11,6 +13,20 @@
 #include <trx/gl/gl_platform.h>
 #include <SDL2/SDL_video.h>
 #include <string.h>
+#ifdef __APPLE__
+// Garantisce che GLvoid sia semplicemente trattato come void standard
+#ifndef GLvoid
+#define GLvoid void
+#endif
+
+// Su macOS le funzioni di callback non richiedono convenzioni di chiamata Windows (come __stdcall)
+#ifndef GLAPIENTRY
+#define GLAPIENTRY
+#endif
+#endif
+#ifndef GL_DEBUG_SEVERITY_NOTIFICATION
+#define GL_DEBUG_SEVERITY_NOTIFICATION 0x826B
+#endif
 
 typedef struct {
     SDL_GLContext context;

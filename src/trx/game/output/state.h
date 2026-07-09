@@ -4,6 +4,15 @@
 #include <trx/core/math/types.h>
 #include <trx/game/output/uniforms.h>
 #include <trx/game/rooms.h>
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+#include <OpenGLES/ES3/gl.h> 
+#else
+#include <OpenGL/gl3.h> 
+#include <OpenGL/gl3ext.h>
+#endif
+#endif
 
 #include <trx/gl/gl_platform.h>
 
