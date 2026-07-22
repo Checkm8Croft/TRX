@@ -2,10 +2,15 @@ name: Build TRX (iOS)
 
 on:
   push:
-    branches: [ "ios" ]
+    branches: [ "ios", ]
+    tags:
+      - 'ios*'
   pull_request:
     branches: [ "ios" ]
   workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -24,9 +29,8 @@ jobs:
         run: |
           IOS_SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
           echo "SDKROOT=$IOS_SDK_PATH" >> $GITHUB_ENV
-          
-          # Assicura i permessi di esecuzione per i wrapper
           chmod +x tools/shared/ios/clang-ios-arm64 tools/shared/ios/pkg-config-ios || true
+          chmod +x tools/shared/ios/gen_ipa.py || true
 
       - name: Setup Meson build
         run: |
@@ -37,3 +41,21 @@ jobs:
       - name: Compile with Ninja
         run: |
           ninja -C build-ios-arm64
+
+      - name: Generate IPA package
+        run: |
+          python3 tools/shared/ios/gen_ipa.py
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TRX-iOS-IPA
+          path: build-ios-arm64/TRX.ipa
+
+      - name: Create GitHub Release (Only on iOS tags)
+        if: startsWith(github.ref, 'refs/tags/ios')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build-ios-arm64/TRX.ipa
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
