@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 import os
-import subprocess
 import shutil
+import zipfile
 from pathlib import Path
 
 def copy_item(src, dst):
+    """Copia sia file che directory in modo sicuro."""
     src_path = Path(src)
     dst_path = Path(dst)
 
@@ -21,31 +22,35 @@ def copy_item(src, dst):
         shutil.copy2(src_path, dst_path)
 
 def create_app():
-    # Lavoriamo nella cartella di build
     os.chdir("build-ios-arm64")
     
-    # Ricreiamo la cartella Payload da zero
     if os.path.exists("Payload"):
         shutil.rmtree("Payload")
     os.makedirs("Payload/TRX.app")
 
 def copy_files():
     app_dir = "Payload/TRX.app"
-    
-    # Copia file ed eventuali directory
     copy_item("TRX", f"{app_dir}/TRX")
     copy_item("../tools/shared/ios/Info.plist", f"{app_dir}/Info.plist")
     copy_item("../tools/shared/ios/LaunchScreen.storyboardc", f"{app_dir}/LaunchScreen.storyboardc")
     copy_item("../data/trx/mac/icon.icns", f"{app_dir}/icon.icns")
     copy_item("../data/trx/ship/cfg", f"{app_dir}/cfg")
 
-    # Assicura i permessi di esecuzione sull'eseguibile principale
-    os.chmod(f"{app_dir}/TRX", 0o755)
+    if os.path.exists(f"{app_dir}/TRX"):
+        os.chmod(f"{app_dir}/TRX", 0o755)
 
 def create_ipa():
-    # Genera il file .ipa zippando la cartella Payload
-    subprocess.run(["zip", "-r", "TRX.ipa", "Payload"], check=True)
-    print("✅ TRX.ipa generated!")
+    ipa_filename = "TRX.ipa"
+    print("📦 Creating IPA...")
+    
+    with zipfile.ZipFile(ipa_filename, 'w', zipfile.ZIP_DEFLATED) as ipa_zip:
+        for root, dirs, files in os.walk("Payload"):
+            for file in files:
+                file_path = os.path.join(root, file)
+                # Mantiene la struttura interna partendo da Payload/...
+                ipa_zip.write(file_path, file_path)
+
+    print(f"✅ {ipa_filename} generated!")
 
 def main():
     create_app()
