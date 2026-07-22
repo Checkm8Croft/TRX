@@ -1,7 +1,7 @@
 prefix=${pcfiledir}/../..
 exec_prefix=${prefix}
-libdir=/Users/checkm8/iOS-Tweaks/merged/lib
-includedir=/Users/checkm8/iOS-Tweaks/merged/include
+libdir=${pcfiledir}/../../lib
+includedir=${pcfiledir}/../../include
 
 Name: libavcodec
 Description: FFmpeg codec library
