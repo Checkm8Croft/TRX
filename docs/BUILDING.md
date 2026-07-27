@@ -30,7 +30,7 @@ Follow [BUILDING_ON_MACOS.md](BUILDING_ON_MACOS.md).
 
 ## Compiling for iOS
 
-Follow BUILDING_FOR_IOS.md[](BUILDING_FOR_IOS.md).
+Follow [BUILDING_FOR_IOS.md](BUILDING_FOR_IOS.md).
 
 ### Supported compilers
 
