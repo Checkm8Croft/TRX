@@ -139,3 +139,16 @@ on TRX and its documentation as well as other Tomb Raider projects.
 - Endless GitHub contributors.
 - TR1 title screen image by Kidd Bowyer. HD assets by goblan and posix.
 - TR2 HD images by Arsunt.
+- LostArtfacts Team: since is a fork, good to mention them
+- Checkm8Croft: for iOS porting
+
+## iOS
+
+To use TRX on iOS, you can download the iPA from the releases or compiling it using [iOS Build Guide](https://github.com/Checkm8Croft/TRX/blob/ios/docs/BUILDING_FOR_IOS.md)
+Install the iPA with a Sideloading Tool and you musy immediately launch the game, this will generate the error `No Playable Mods Avaible`, but will also generate the TRX folder on Files app
+Now that the TRX folder is on Files app, go to that folder and copy there the game files
+
+**NOTE**
+
+If you encount issues, don't report them to LostArtefacts team
+For troubleshooting, please join my [Discord Server](https://discord.gg/zmtkMK98hZ)
