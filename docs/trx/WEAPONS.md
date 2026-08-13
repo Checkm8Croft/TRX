@@ -34,7 +34,7 @@ described in the table below.
   <tr valign="top">
     <td><code>damage</code></td>
     <td>Integer</td>
-    <td>The HP damage value to subtract from targets when struck by this weapon type. This value is doubled when playing either <code>Japanese</code> or <code>Japanese NG+</code> modes.</td>
+    <td>The HP damage value to subtract from targets when struck by this weapon type.</td>
   </tr>
   <tr valign="top">
     <td><code>draw_frame</code></td>
@@ -124,27 +124,27 @@ described in the table below.
   <tr valign="top">
     <td><code>ammo</code></td>
     <td>Object</td>
-    <td>Configures how much ammo a weapon gives when acquired and when its matching ammo pickup is collected.</td>
+    <td>Configures how much ammo a weapon gives when acquired and when its matching ammo pickup is collected. The counts are in shots, a shot being one pull of the trigger; the shotgun spends six rounds on each of them, and the flare counts flares.</td>
   </tr>
   <tr valign="top">
-    <td><code>ammo.initial_qty</code></td>
+    <td><code>ammo.initial_shots</code></td>
     <td>Integer</td>
     <td>The amount of ammo given when the weapon itself is collected.</td>
   </tr>
   <tr valign="top">
-    <td><code>ammo.pickup_qty</code></td>
+    <td><code>ammo.box_shots</code></td>
     <td>Integer</td>
     <td>The amount of ammo given when the equivalent ammo object is picked up.</td>
   </tr>
   <tr valign="top">
-    <td><code>ammo.pickup_qty_alt</code></td>
-    <td>Integer</td>
-    <td>As per <code>ammo.pickup_qty</code>, but this applies exclusively to flares when playing Japanese NG.</td>
-  </tr>
-  <tr valign="top">
-    <td><code>ammo.inventory_alt</code></td>
+    <td><code>ammo.box_label_qty</code></td>
     <td>Integer</td>
     <td>Multiplier used in the inventory ring for each loose ammo pickup.</td>
+  </tr>
+  <tr valign="top">
+    <td><code>ammo.infinite</code></td>
+    <td>Boolean</td>
+    <td>Whether firing spends nothing, so that the weapon never runs out and shows no count in the inventory ring or the overlay. The pistols and the skidoo's guns have it; taking it away from the pistols makes pistol clips worth collecting. The flare answers to it as well, and a bonus game overrides it for everything.</td>
   </tr>
   <tr valign="top">
     <td><code>recoil_frame</code></td>

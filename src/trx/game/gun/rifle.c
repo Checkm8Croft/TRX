@@ -3,7 +3,6 @@
 #include <trx/config.h>
 #include <trx/core/math.h>
 #include <trx/game/camera.h>
-#include <trx/game/game.h>
 #include <trx/game/gun/common.h>
 #include <trx/game/gun/control.h>
 #include <trx/game/gun/misc.h>
@@ -11,6 +10,7 @@
 #include <trx/game/gun/smoke.h>
 #include <trx/game/gun/vars.h>
 #include <trx/game/input.h>
+#include <trx/game/inventory.h>
 #include <trx/game/lara.h>
 #include <trx/game/random.h>
 #include <trx/game/rooms.h>
@@ -40,6 +40,7 @@ typedef enum {
 
 static bool m_M16Firing = false;
 static bool m_ReloadHarpoon = false;
+static int32_t m_HarpoonShots = 0;
 
 static void M_SetTR3ProjectileShade(ITEM *const item)
 {
@@ -120,7 +121,7 @@ static void M_FireGeneric(const LARA_GUN_TYPE weapon_type)
         angles[1] += lara->torso_rot.x;
     }
 
-    const int32_t clip = Gun_GetAmmoClipCount(weapon_type);
+    const int32_t clip = Gun_GetRoundsPerShot(weapon_type);
     for (int32_t i = 0; i < clip; i++) {
         int16_t dangles[2] = {
             angles[0]
@@ -175,7 +176,7 @@ static void M_FireHarpoon(void)
 {
     const ITEM *const lara_item = Lara_GetItem();
     LARA_INFO *const lara = Lara_GetLaraInfo();
-    if (lara->harpoon_ammo.ammo <= 0) {
+    if (!Gun_HasRoundsLeft(LGT_HARPOON)) {
         goto finish;
     }
 
@@ -242,8 +243,7 @@ static void M_FireHarpoon(void)
         projectile_item->hit_points = 256;
     }
 
-    Item_AddActive(item_num);
-    projectile_item->status = IS_ACTIVE;
+    Item_AddSimulated(item_num);
 
     Gun_SmashItems(
         origin,
@@ -253,21 +253,23 @@ static void M_FireHarpoon(void)
         },
         nullptr, projectile_item->object_id);
 
-    lara->harpoon_ammo.ammo--;
+    Gun_SpendRound(LGT_HARPOON);
     Stats_AddAmmoUsed();
 
 finish:
     const int32_t recoil = g_Config.gameplay.harpoon_recoil;
-    const bool is_ngplus = Game_IsBonusFlagSet(GBF_NGPLUS);
     if (recoil <= 0) {
-        if (is_ngplus) {
-            lara->harpoon_ammo.ammo++;
-        }
-    } else if ((lara->harpoon_ammo.ammo % recoil) == 0) {
-        if (is_ngplus) {
-            lara->harpoon_ammo.ammo += recoil;
-        }
-        m_ReloadHarpoon = lara->harpoon_ammo.ammo > 0;
+        return;
+    }
+    // The reload comes every few shots. A gun that spends its rounds reaches
+    // that point when the count divides by the interval; one that spends none
+    // counts the shots instead.
+    m_HarpoonShots = (m_HarpoonShots + 1) % recoil;
+    const int32_t count = Gun_HasInfiniteAmmo(LGT_HARPOON)
+        ? m_HarpoonShots
+        : Inv_GetAmmo(LGT_HARPOON);
+    if ((count % recoil) == 0) {
+        m_ReloadHarpoon = Gun_HasRoundsLeft(LGT_HARPOON);
     }
 }
 
@@ -275,7 +277,7 @@ static void M_FireGrenade(void)
 {
     LARA_INFO *const lara = Lara_GetLaraInfo();
     const ITEM *const lara_item = Lara_GetItem();
-    if (lara->grenade_ammo.ammo <= 0) {
+    if (!Gun_HasRoundsLeft(LGT_GRENADE)) {
         return;
     }
     const WEAPON_INFO *const weapon = &g_Weapons[LGT_GRENADE];
@@ -342,8 +344,7 @@ static void M_FireGrenade(void)
         projectile_item->fall_speed = 0;
     }
 
-    Item_AddActive(item_num);
-    projectile_item->status = IS_ACTIVE;
+    Item_AddSimulated(item_num);
 
     Gun_SmashItems(
         origin,
@@ -353,9 +354,7 @@ static void M_FireGrenade(void)
         },
         nullptr, projectile_item->object_id);
 
-    if (!Game_IsBonusFlagSet(GBF_NGPLUS)) {
-        lara->grenade_ammo.ammo--;
-    }
+    Gun_SpendRound(LGT_GRENADE);
     Stats_AddAmmoUsed();
 
     Gun_Smoke_OnFire(LGT_GRENADE, true);
@@ -365,7 +364,7 @@ static void M_FireRocket(void)
 {
     LARA_INFO *const lara = Lara_GetLaraInfo();
     const ITEM *const lara_item = Lara_GetItem();
-    if (lara->rocket_ammo.ammo <= 0) {
+    if (!Gun_HasRoundsLeft(LGT_ROCKET)) {
         return;
     }
     const WEAPON_INFO *const weapon = &g_Weapons[LGT_ROCKET];
@@ -406,8 +405,7 @@ static void M_FireRocket(void)
     }
 
     projectile_item->speed = 16;
-    Item_AddActive(item_num);
-    projectile_item->status = IS_ACTIVE;
+    Item_AddSimulated(item_num);
 
     Gun_SmashItems(
         origin,
@@ -417,9 +415,7 @@ static void M_FireRocket(void)
         },
         nullptr, projectile_item->object_id);
 
-    if (!Game_IsBonusFlagSet(GBF_NGPLUS)) {
-        lara->rocket_ammo.ammo--;
-    }
+    Gun_SpendRound(LGT_ROCKET);
     Stats_AddAmmoUsed();
 
     if (g_TRVersion >= 3) {
@@ -615,7 +611,8 @@ void Gun_Rifle_Control(const LARA_GUN_TYPE weapon_type)
     LARA_INFO *const lara = Lara_GetLaraInfo();
 
     Gun_GetNewTarget(weapon);
-    if (g_InputDB.change_target && g_Config.gameplay.enable_target_change) {
+    if (g_InputDB.change_target
+        && g_Config.gameplay.target_change_mode != TARGET_CHANGE_MODE_OFF) {
         Gun_ChangeTarget(weapon);
     }
 
@@ -655,7 +652,7 @@ void Gun_Rifle_Draw(const LARA_GUN_TYPE weapon_type)
         Item_SwitchToAnim(item, weapon->equip_anim_idx, 0);
         item->goal_anim_state = LA_G_DRAW;
         item->current_anim_state = LA_G_DRAW;
-        item->status = IS_ACTIVE;
+        Item_SetVisible(item, true);
         item->room_num = NO_ROOM;
         const OBJECT *const obj = Object_Get(item->object_id);
         lara->right_arm.frame_base = obj->frame_base;
@@ -696,8 +693,8 @@ void Gun_Rifle_Undraw(const LARA_GUN_TYPE weapon_type)
     M_AnimateGun(item);
 
     const WEAPON_INFO *const weapon = &g_Weapons[weapon_type];
-    if (item->status == IS_DEACTIVATED) {
-        Item_Kill(lara->gun_item_num);
+    if (item->is_finished) {
+        Item_Destroy(lara->gun_item_num);
         lara->gun_item_num = NO_ITEM;
         lara->gun_status = LGS_ARMLESS;
         lara->target = nullptr;

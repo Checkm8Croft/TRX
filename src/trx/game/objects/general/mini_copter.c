@@ -18,7 +18,8 @@ static void M_Control(const int16_t item_num)
     Sound_Effect(SFX_HELICOPTER_LOOP, &pos, SPM_NORMAL);
 
     if (ABS(item->pos.z - lara_item->pos.z) > WALL_L * 30) {
-        Item_Kill(item_num);
+        Item_Destroy(item_num);
+        return;
     }
 
     Item_Animate(item);

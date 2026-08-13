@@ -54,6 +54,38 @@ FORCED_ROWS: dict[int, str] = {
     499: "O_LARA_SKIN_SWAP_LEGS",
     500: "O_ALPHABET",
     501: "O_ALPHABET_SMALL",
+    502: "O_LARA_SKIN_JOINTS_1",
+    503: "O_LARA_SKIN_JOINTS_2",
+    504: "O_LARA_SKIN_JOINTS_3",
+    505: "O_LARA_SKIN_JOINTS_4",
+    506: "O_LARA_SKIN_JOINTS_5",
+    507: "O_LARA_SKIN_JOINTS_6",
+    508: "O_LARA_SKIN_JOINTS_7",
+    509: "O_LARA_SKIN_JOINTS_8",
+    510: "O_LARA_SKIN_JOINTS_9",
+    511: "O_LARA_SKIN_JOINTS_10",
+    512: "O_LARA_SKIN_JOINTS_11",
+    513: "O_LARA_SKIN_JOINTS_12",
+    514: "O_LARA_SKIN_JOINTS_13",
+    515: "O_LARA_SKIN_JOINTS_14",
+    516: "O_LARA_SKIN_JOINTS_15",
+    517: "O_LARA_SKIN_JOINTS_16",
+    518: "O_LARA_SKIN_JOINTS_17",
+    519: "O_LARA_SKIN_JOINTS_18",
+    520: "O_LARA_SKIN_JOINTS_19",
+    521: "O_LARA_SKIN_JOINTS_20",
+    522: "O_LARA_SKIN_JOINTS_21",
+    523: "O_LARA_SKIN_JOINTS_22",
+    524: "O_LARA_SKIN_JOINTS_23",
+    525: "O_LARA_SKIN_JOINTS_24",
+    526: "O_LARA_SKIN_JOINTS_25",
+    527: "O_LARA_SKIN_JOINTS_26",
+    528: "O_LARA_SKIN_JOINTS_27",
+    529: "O_LARA_SKIN_JOINTS_28",
+    530: "O_LARA_SKIN_JOINTS_29",
+    531: "O_LARA_SKIN_JOINTS_30",
+    532: "O_LARA_SKIN_JOINTS_31",
+    533: "O_LARA_SKIN_JOINTS_32",
 }
 
 ALIAS_MAP: dict[str, str] = {
@@ -63,6 +95,7 @@ ALIAS_MAP: dict[str, str] = {
     "GRENADE_GUN_ANIM": "O_LARA_GRENADE_GUN",
     "FLARE_ANIM": "O_LARA_FLARE",
     "HAIR": "O_LARA_HAIR",
+    "VEHICLE_EXTRA": "O_LARA_VEHICLE_ANIM",
     "BINOCULAR_GRAPHICS": "O_BINOCULAR_GFX",
     "DARTS": "O_DART",
     "FALLING_CEILING": "O_FALLING_CEILING_1",
@@ -72,14 +105,16 @@ ALIAS_MAP: dict[str, str] = {
     "TRAPDOOR2": "O_TRAPDOOR_TYPE_2",
     "TRAPDOOR3": "O_TRAPDOOR_TYPE_3",
     "ROLLINGBALL": "O_ROLLING_BALL_1",
-    "SPIKEY_FLOOR": "O_SPIKES",
-    "TEETH_SPIKES": "O_TEETH_TRAP",
+    "TEETH_SPIKES": "O_SPIKES",
     "SLICER_DICER": "O_SPINNING_BLADE",
+    "JOBY_SPIKES": "O_CEILING_SPIKES",
     "COG": "O_COG_1",
     "PUSHABLE_OBJECT1": "O_MOVABLE_BLOCK_1",
     "PUSHABLE_OBJECT2": "O_MOVABLE_BLOCK_2",
     "PUSHABLE_OBJECT3": "O_MOVABLE_BLOCK_3",
     "PUSHABLE_OBJECT4": "O_MOVABLE_BLOCK_4",
+    "FUCKED_UP_DOG": "O_DOG",
+    "HAMMERHEAD": "O_SHARK",
     "BRIDGE_TILT1": "O_BRIDGE_TILT_1",
     "BRIDGE_TILT2": "O_BRIDGE_TILT_2",
     "PUZZLE_ITEM1": "O_PUZZLE_ITEM_1",
@@ -108,10 +143,12 @@ ALIAS_MAP: dict[str, str] = {
     "KEY_HOLE2": "O_KEY_HOLE_2",
     "KEY_HOLE3": "O_KEY_HOLE_3",
     "KEY_HOLE4": "O_KEY_HOLE_4",
-    "SWITCH_TYPE1": "O_SWITCH_TYPE_NORMAL",
-    "SWITCH_TYPE2": "O_SWITCH_TYPE_SMALL",
-    "SWITCH_TYPE3": "O_SWITCH_TYPE_BUTTON",
-    "SWITCH_TYPE4": "O_SWITCH_TYPE_WHEEL",
+    "SWITCH_TYPE1": "O_SWITCH_TYPE_GENERIC_1",
+    "SWITCH_TYPE2": "O_SWITCH_TYPE_GENERIC_2",
+    "SWITCH_TYPE3": "O_SWITCH_TYPE_GENERIC_3",
+    "SWITCH_TYPE4": "O_SWITCH_TYPE_GENERIC_4",
+    "SWITCH_TYPE5": "O_SWITCH_TYPE_GENERIC_5",
+    "SWITCH_TYPE6": "O_SWITCH_TYPE_GENERIC_6",
     "UNDERWATER_SWITCH1": "O_SWITCH_TYPE_UW",
     "DOOR_TYPE1": "O_DOOR_TYPE_1",
     "DOOR_TYPE2": "O_DOOR_TYPE_2",
@@ -126,8 +163,8 @@ ALIAS_MAP: dict[str, str] = {
     "SHOTGUN_AMMO1_ITEM": "O_SHOTGUN_AMMO_ITEM",
     "BIGMEDI_ITEM": "O_LARGE_MEDIPACK_ITEM",
     "SMALLMEDI_ITEM": "O_SMALL_MEDIPACK_ITEM",
-    "FLAME_EMITTER2": "O_FLAME_EMITTER_BIG",
-    "FLAME_EMITTER3": "O_FLAME_EMITTER_SMALL",
+    "FLAME_EMITTER": "O_FLAME_EMITTER_TR4_GROUND",
+    "FLAME_EMITTER2": "O_FLAME_EMITTER_TR4_WALL",
     "BUBBLES": "O_BUBBLE_EMITTER",
     "GUNSHELL": "O_GUN_SHELL",
     "SHOTGUNSHELL": "O_SHOTGUN_SHELL",
@@ -153,6 +190,11 @@ ALIAS_MAP: dict[str, str] = {
     "FLOOR_TRAPDOOR2": "O_FLOOR_TRAPDOOR_2",
     "CEILING_TRAPDOOR1": "O_CEILING_TRAPDOOR_1",
     "CEILING_TRAPDOOR2": "O_CEILING_TRAPDOOR_2",
+    "LEVER_SWITCH": "O_SWITCH_TYPE_FLOOR",
+    "JUMP_SWITCH": "O_SWITCH_TYPE_JUMP",
+    "CROWBAR_SWITCH": "O_SWITCH_TYPE_CROWBAR",
+    "PULLEY": "O_SWITCH_TYPE_PULLEY",
+    "UNDERWATER_SWITCH2": "O_SWITCH_TYPE_UW_CEILING",
     "WATERFALL1": "O_WATERFALL",
     "ANIMATING1": "O_ANIMATING_1",
     "ANIMATING2": "O_ANIMATING_2",
@@ -286,6 +328,11 @@ ALIAS_MAP: dict[str, str] = {
     "WATERSKIN2_5": "O_WATERSKIN_2_5",
 }
 
+KNOWN_UNUSED = {
+    "FLAME_EMITTER3",
+    "SPIKEY_FLOOR",
+}
+
 
 def parse_trx_symbols() -> set[str]:
     # objects.def includes pickups.def, so expand it with the real
@@ -310,14 +357,17 @@ def parse_tr4_object_names() -> list[str]:
 
 
 def resolve_symbol(name: str, trx_symbols: set[str]) -> str | None:
+    alias_symbol = ALIAS_MAP.get(name)
+    if alias_symbol is not None:
+        if alias_symbol not in trx_symbols:
+            raise ValueError(f"Alias target {alias_symbol} for {name} is not a TRX catalog symbol")
+        return alias_symbol
+
     exact_symbol = f"O_{name}"
     if exact_symbol in trx_symbols:
         return exact_symbol
 
-    alias_symbol = ALIAS_MAP.get(name)
-    if alias_symbol is not None and alias_symbol not in trx_symbols:
-        raise ValueError(f"Alias target {alias_symbol} for {name} is not a TRX catalog symbol")
-    return alias_symbol
+    return None
 
 
 def build_catalog_rows() -> tuple[list[tuple[int, str]], list[tuple[int, str]]]:
@@ -351,15 +401,20 @@ def write_catalog() -> None:
 
     rows = sorted(row_map.items())
 
+    visible_skipped = [
+        (game_id, symbol)
+        for game_id, symbol in skipped
+        if symbol not in KNOWN_UNUSED
+    ]
     lines = [
         "# Generated by tools/tr4/generate_object_catalog",
-        f"# Mapped {len(rows)} of {len(rows) + len(skipped)} TOMB4 object slots.",
+        f"# Mapped {len(rows)} of {len(rows) + len(visible_skipped)} TOMB4 object slots.",
         "# Unmapped slots are intentionally omitted until TRX has a stable object equivalent.",
     ]
     lines.extend(f"{game_id}, {symbol}" for game_id, symbol in rows)
     lines.append("")
     lines.append("# Unmapped TOMB4 slots:")
-    lines.extend(f"# {game_id}: {name}" for game_id, name in skipped)
+    lines.extend(f"# {game_id}: {name}" for game_id, name in visible_skipped)
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_PATH.write_text("\n".join(lines) + "\n")
 

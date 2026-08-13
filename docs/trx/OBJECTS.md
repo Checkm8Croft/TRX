@@ -68,6 +68,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1 (6)</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>max_hit_points</code></td><td colspan="3" align="center">1000</td><td>Maximum hit points.</td></tr>
+<tr><td><code>anchor_room</code></td><td colspan="3" align="center">-1</td><td>Room whose center Bacon Lara mirrors Lara's movement about. -1 uses the room she is placed in. Value range: minimum -1.</td></tr>
 </tbody>
 </table>
 
@@ -1038,7 +1039,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>touch_mask</code></td><td colspan="3" align="center">-1</td><td>A bitmask of damaging mesh numbers. The default value indicates all meshes are damaging.</td></tr>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap. Value range: minimum 0.</td></tr>
 <tr><td><code>blood_intensity</code></td><td colspan="3" align="center">3</td><td>The intensity of blood to spawn when Lara is damaged. Value range: minimum 0; maximum 10.</td></tr>
 <tr><td><code>push_lara</code></td><td colspan="3" align="center">true</td><td>Whether or not Lara should be pushed when colliding with the trap.</td></tr>
 </tbody>
@@ -1049,7 +1050,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>touch_mask</code></td><td colspan="3" align="center">-1</td><td>A bitmask of damaging mesh numbers. The default value indicates all meshes are damaging.</td></tr>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap. Value range: minimum 0.</td></tr>
 <tr><td><code>blood_intensity</code></td><td colspan="3" align="center">3</td><td>The intensity of blood to spawn when Lara is damaged. Value range: minimum 0; maximum 10.</td></tr>
 <tr><td><code>push_lara</code></td><td colspan="3" align="center">true</td><td>Whether or not Lara should be pushed when colliding with the trap.</td></tr>
 </tbody>
@@ -1060,7 +1061,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>touch_mask</code></td><td colspan="3" align="center">-1</td><td>A bitmask of damaging mesh numbers. The default value indicates all meshes are damaging.</td></tr>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap. Value range: minimum 0.</td></tr>
 <tr><td><code>blood_intensity</code></td><td colspan="3" align="center">3</td><td>The intensity of blood to spawn when Lara is damaged. Value range: minimum 0; maximum 10.</td></tr>
 <tr><td><code>push_lara</code></td><td colspan="3" align="center">true</td><td>Whether or not Lara should be pushed when colliding with the trap.</td></tr>
 </tbody>
@@ -1071,7 +1072,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>touch_mask</code></td><td colspan="3" align="center">-1</td><td>A bitmask of damaging mesh numbers. The default value indicates all meshes are damaging.</td></tr>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap. Value range: minimum 0.</td></tr>
 <tr><td><code>blood_intensity</code></td><td colspan="3" align="center">3</td><td>The intensity of blood to spawn when Lara is damaged. Value range: minimum 0; maximum 10.</td></tr>
 <tr><td><code>push_lara</code></td><td colspan="3" align="center">true</td><td>Whether or not Lara should be pushed when colliding with the trap.</td></tr>
 </tbody>
@@ -1082,7 +1083,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>touch_mask</code></td><td colspan="3" align="center">-1</td><td>A bitmask of damaging mesh numbers. The default value indicates all meshes are damaging.</td></tr>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap. Value range: minimum 0.</td></tr>
 <tr><td><code>blood_intensity</code></td><td colspan="3" align="center">3</td><td>The intensity of blood to spawn when Lara is damaged. Value range: minimum 0; maximum 10.</td></tr>
 <tr><td><code>push_lara</code></td><td colspan="3" align="center">true</td><td>Whether or not Lara should be pushed when colliding with the trap.</td></tr>
 </tbody>
@@ -1093,7 +1094,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>touch_mask</code></td><td colspan="3" align="center">-1</td><td>A bitmask of damaging mesh numbers. The default value indicates all meshes are damaging.</td></tr>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap. Value range: minimum 0.</td></tr>
 <tr><td><code>blood_intensity</code></td><td colspan="3" align="center">3</td><td>The intensity of blood to spawn when Lara is damaged. Value range: minimum 0; maximum 10.</td></tr>
 <tr><td><code>push_lara</code></td><td colspan="3" align="center">true</td><td>Whether or not Lara should be pushed when colliding with the trap.</td></tr>
 </tbody>
@@ -1104,7 +1105,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>touch_mask</code></td><td colspan="3" align="center">-1</td><td>A bitmask of damaging mesh numbers. The default value indicates all meshes are damaging.</td></tr>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap. Value range: minimum 0.</td></tr>
 <tr><td><code>blood_intensity</code></td><td colspan="3" align="center">3</td><td>The intensity of blood to spawn when Lara is damaged. Value range: minimum 0; maximum 10.</td></tr>
 <tr><td><code>push_lara</code></td><td colspan="3" align="center">true</td><td>Whether or not Lara should be pushed when colliding with the trap.</td></tr>
 </tbody>
@@ -1115,7 +1116,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>touch_mask</code></td><td colspan="3" align="center">-1</td><td>A bitmask of damaging mesh numbers. The default value indicates all meshes are damaging.</td></tr>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap. Value range: minimum 0.</td></tr>
 <tr><td><code>blood_intensity</code></td><td colspan="3" align="center">3</td><td>The intensity of blood to spawn when Lara is damaged. Value range: minimum 0; maximum 10.</td></tr>
 <tr><td><code>push_lara</code></td><td colspan="3" align="center">true</td><td>Whether or not Lara should be pushed when colliding with the trap.</td></tr>
 </tbody>
@@ -1126,7 +1127,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>touch_mask</code></td><td colspan="3" align="center">-1</td><td>A bitmask of damaging mesh numbers. The default value indicates all meshes are damaging.</td></tr>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap. Value range: minimum 0.</td></tr>
 <tr><td><code>blood_intensity</code></td><td colspan="3" align="center">3</td><td>The intensity of blood to spawn when Lara is damaged. Value range: minimum 0; maximum 10.</td></tr>
 <tr><td><code>push_lara</code></td><td colspan="3" align="center">true</td><td>Whether or not Lara should be pushed when colliding with the trap.</td></tr>
 </tbody>
@@ -1137,7 +1138,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>touch_mask</code></td><td colspan="3" align="center">-1</td><td>A bitmask of damaging mesh numbers. The default value indicates all meshes are damaging.</td></tr>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara touches the trap. Value range: minimum 0.</td></tr>
 <tr><td><code>blood_intensity</code></td><td colspan="3" align="center">3</td><td>The intensity of blood to spawn when Lara is damaged. Value range: minimum 0; maximum 10.</td></tr>
 <tr><td><code>push_lara</code></td><td colspan="3" align="center">true</td><td>Whether or not Lara should be pushed when colliding with the trap.</td></tr>
 </tbody>
@@ -1205,6 +1206,14 @@ This page lists documented moveable object properties.
 <tbody>
 <tr><td><code>damage</code></td><td colspan="3" align="center">25</td><td>Damage dealt on hit.</td></tr>
 <tr><td><code>poison</code></td><td colspan="3" align="center">true</td><td>Apply poison buildup in addition to hit damage.</td></tr>
+</tbody>
+</table>
+
+#### O_POWER_SAW
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2 (77)</th><th align="center">TR3 (105)</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>damage</code></td><td colspan="3" align="center">200</td><td>Damage dealt while Lara is touching the power saw.</td></tr>
 </tbody>
 </table>
 
@@ -1641,7 +1650,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (249)</th><th align="center">TR2 (144)</th><th align="center">TR3 (387)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1649,7 +1661,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (248)</th><th align="center">TR2 (137)</th><th align="center">TR3 (386)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1657,8 +1672,8 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2 (71)</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pour_time</code></td><td colspan="3" align="center">7</td><td>The amount of time hot liquid is poured from the bowl, in seconds.</td></tr>
-<tr><td><code>flip_slot</code></td><td colspan="3" align="center">4</td><td>The flip map slot to alter once liquid has finished pouring. -1 = no flipmap is performed. Value range: minimum -1; maximum 10.</td></tr>
+<tr><td><code>pour_time</code></td><td colspan="3" align="center">7</td><td>The amount of time hot liquid is poured from the bowl, in seconds. Value range: minimum 3.</td></tr>
+<tr><td><code>flip_slot</code></td><td colspan="3" align="center">4</td><td>The flip map slot to alter once liquid has finished pouring. -1 = no flipmap is performed. Value range: minimum -1; maximum 9.</td></tr>
 </tbody>
 </table>
 
@@ -1666,7 +1681,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1698,7 +1716,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1706,7 +1727,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1714,7 +1738,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1722,7 +1749,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1730,7 +1760,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1738,7 +1771,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (252)</th><th align="center">TR2 (289)</th><th align="center">TR3 (170)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1746,7 +1782,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (251)</th><th align="center">TR2 (288)</th><th align="center">TR3 (162)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1826,7 +1865,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1834,7 +1876,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1842,7 +1887,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1850,7 +1898,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (92)</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1858,7 +1909,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (187)</th><th align="center">TR2 (151)</th><th align="center">TR3 (178)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1890,7 +1944,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1898,7 +1955,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1906,7 +1966,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (245)</th><th align="center">TR2 (148)</th><th align="center">TR3 (175)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1914,7 +1977,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (242)</th><th align="center">TR2 (141)</th><th align="center">TR3 (167)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1922,7 +1988,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (246)</th><th align="center">TR2 (146)</th><th align="center">TR3 (172)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1930,7 +1999,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (243)</th><th align="center">TR2 (139)</th><th align="center">TR3 (164)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1946,7 +2018,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (129)</th><th align="center">TR2 (193)</th><th align="center">TR3 (224)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1954,7 +2029,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1962,7 +2040,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1970,7 +2051,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (130)</th><th align="center">TR2 (194)</th><th align="center">TR3 (225)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1978,7 +2062,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1986,7 +2073,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -1994,7 +2084,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (131)</th><th align="center">TR2 (195)</th><th align="center">TR3 (226)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2002,7 +2095,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2010,7 +2106,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2018,7 +2117,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (132)</th><th align="center">TR2 (196)</th><th align="center">TR3 (227)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2026,7 +2128,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2034,7 +2139,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2042,7 +2150,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2050,7 +2161,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2058,7 +2172,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2066,7 +2183,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2074,7 +2194,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2082,7 +2205,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2090,7 +2216,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2098,7 +2227,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2106,7 +2238,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2114,7 +2249,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2122,7 +2260,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2130,7 +2271,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2138,7 +2282,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2146,7 +2293,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2154,7 +2304,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2162,7 +2315,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2178,7 +2334,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (94)</th><th align="center">TR2 (150)</th><th align="center">TR3 (177)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2186,7 +2345,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2194,7 +2356,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (126)</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2212,7 +2377,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (244)</th><th align="center">TR2 (147)</th><th align="center">TR3 (392)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2220,7 +2388,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (241)</th><th align="center">TR2 (140)</th><th align="center">TR3 (391)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2228,7 +2399,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (90)</th><th align="center">TR2 (283)</th><th align="center">TR3 (382)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2236,7 +2410,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (86)</th><th align="center">TR2 (282)</th><th align="center">TR3 (381)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2255,7 +2432,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (254)</th><th align="center">TR2 (294)</th><th align="center">TR3 (173)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2263,7 +2443,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (253)</th><th align="center">TR2 (293)</th><th align="center">TR3 (165)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2271,7 +2454,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (141)</th><th align="center">TR2 (205)</th><th align="center">TR3 (236)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2279,7 +2465,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2287,7 +2476,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2295,7 +2487,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (142)</th><th align="center">TR2 (206)</th><th align="center">TR3 (237)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2303,7 +2498,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2311,7 +2509,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2319,7 +2520,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2327,7 +2531,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2335,7 +2542,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2343,7 +2553,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2351,7 +2564,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2359,7 +2575,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2367,8 +2586,8 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (338)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>range</code></td><td colspan="3" align="center">((XYZ_32) { 1, 1, 1 })</td><td>Swim range, in quarter tiles.</td></tr>
-<tr><td><code>use_room_lighting</code></td><td colspan="2" align="center">True</td><td align="center">False</td><td>Whether the shoal uses the surrounding room lighting.</td></tr>
+<tr><td><code>range</code></td><td colspan="3" align="center">((XYZ_32) { 1, 1, 1 })</td><td>Swim range, in quarter tiles. Value range: minimum 1 on each axis.</td></tr>
+<tr><td><code>use_room_lighting</code></td><td colspan="2" align="center">true</td><td align="center">false</td><td>Whether the shoal uses the surrounding room lighting.</td></tr>
 </tbody>
 </table>
 
@@ -2376,7 +2595,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (88)</th><th align="center">TR2 (142)</th><th align="center">TR3 (168)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2384,7 +2606,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (84)</th><th align="center">TR2 (135)</th><th align="center">TR3 (160)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2472,7 +2697,7 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (162)</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>flip_slot</code></td><td colspan="3" align="center">3</td><td>The flip map slot to alter once the cabin has landed. -1 = no flipmap is performed. Value range: minimum -1; maximum 10.</td></tr>
+<tr><td><code>flip_slot</code></td><td colspan="3" align="center">3</td><td>The flip map slot to alter once the cabin has landed. -1 = no flipmap is performed. Value range: minimum -1; maximum 9.</td></tr>
 </tbody>
 </table>
 
@@ -2480,7 +2705,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (110)</th><th align="center">TR2 (174)</th><th align="center">TR3 (205)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2488,7 +2716,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2496,7 +2727,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2504,7 +2738,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (111)</th><th align="center">TR2 (175)</th><th align="center">TR3 (206)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2512,7 +2749,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2520,7 +2760,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2528,7 +2771,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (112)</th><th align="center">TR2 (176)</th><th align="center">TR3 (207)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2536,7 +2782,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2544,7 +2793,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2552,7 +2804,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (113)</th><th align="center">TR2 (177)</th><th align="center">TR3 (208)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2560,7 +2815,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2568,7 +2826,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2576,7 +2837,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2584,7 +2848,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2592,7 +2859,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2600,7 +2870,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2608,7 +2881,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2616,7 +2892,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2624,7 +2903,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2632,7 +2914,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2640,7 +2925,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2648,7 +2936,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2656,7 +2947,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2664,7 +2958,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2672,7 +2969,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2680,7 +2980,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2688,7 +2991,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2696,7 +3002,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2717,7 +3026,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (240)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2725,7 +3037,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (241)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2733,7 +3048,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (242)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2741,7 +3059,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (243)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2749,7 +3070,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2757,7 +3081,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2765,7 +3092,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2773,7 +3103,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2793,7 +3126,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (256)</th><th align="center">TR2 (300)</th><th align="center">TR3 (174)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2801,7 +3137,32 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (255)</th><th align="center">TR2 (299)</th><th align="center">TR3 (166)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
+</tbody>
+</table>
+
+#### O_SAVE_CRYSTAL_ITEM
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1 (83)</th><th align="center">TR2 (269)</th><th align="center">TR3 (180)</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>bob</code></td><td colspan="2" align="center">false</td><td align="center">true</td><td>Whether the crystal hovers and bobs in place.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>Color of the light the crystal casts. Black picks one from the save crystal mode.</td></tr>
+<tr><td><code>mesh_index</code></td><td colspan="3" align="center">-1</td><td>Mesh the crystal is drawn with. -1 picks one from the save crystal mode.</td></tr>
+<tr><td><code>heal_amount</code></td><td colspan="3" align="center">500</td><td>Health restored by a healing crystal.</td></tr>
+</tbody>
+</table>
+
+#### O_SCION_ITEM_1
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1 (143)</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2809,7 +3170,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (144)</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2825,7 +3189,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2 (190)</th><th align="center">TR3 (221)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2833,7 +3200,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2 (191)</th><th align="center">TR3 (222)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2841,7 +3211,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2 (192)</th><th align="center">TR3 (223)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2849,7 +3222,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2857,7 +3233,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (89)</th><th align="center">TR2 (143)</th><th align="center">TR3 (169)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2865,7 +3244,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (85)</th><th align="center">TR2 (136)</th><th align="center">TR3 (161)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2898,7 +3280,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (93)</th><th align="center">TR2 (149)</th><th align="center">TR3 (176)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2907,6 +3292,63 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (318)</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>requires_alarm_active</code></td><td colspan="3" align="center">false</td><td>Require an alert event before the light activates.</td></tr>
+</tbody>
+</table>
+
+#### O_SWITCH_TYPE_GENERIC_1
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>switch_mode</code></td><td colspan="3" align="center">0</td><td>Switch animation mode - 0: normal; 1: hidden reach; 2: hidden pickup; 3: single-use shove</td></tr>
+</tbody>
+</table>
+
+#### O_SWITCH_TYPE_GENERIC_2
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>switch_mode</code></td><td colspan="3" align="center">0</td><td>Switch animation mode - 0: normal; 1: hidden reach; 2: hidden pickup; 3: single-use shove</td></tr>
+</tbody>
+</table>
+
+#### O_SWITCH_TYPE_GENERIC_3
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>switch_mode</code></td><td colspan="3" align="center">0</td><td>Switch animation mode - 0: normal; 1: hidden reach; 2: hidden pickup; 3: single-use shove</td></tr>
+</tbody>
+</table>
+
+#### O_SWITCH_TYPE_GENERIC_4
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>switch_mode</code></td><td colspan="3" align="center">0</td><td>Switch animation mode - 0: normal; 1: hidden reach; 2: hidden pickup; 3: single-use shove</td></tr>
+</tbody>
+</table>
+
+#### O_SWITCH_TYPE_GENERIC_5
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>switch_mode</code></td><td colspan="3" align="center">0</td><td>Switch animation mode - 0: normal; 1: hidden reach; 2: hidden pickup; 3: single-use shove</td></tr>
+</tbody>
+</table>
+
+#### O_SWITCH_TYPE_GENERIC_6
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>switch_mode</code></td><td colspan="3" align="center">0</td><td>Switch animation mode - 0: normal; 1: hidden reach; 2: hidden pickup; 3: single-use shove</td></tr>
+</tbody>
+</table>
+
+#### O_SWITCH_TYPE_PULLEY
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>required_pulls</code></td><td colspan="3" align="center">1</td><td>The number of pulls required before activating the trigger under the pulley. Value range: minimum 1</td></tr>
+<tr><td><code>is_single_use</code></td><td colspan="3" align="center">false</td><td>Whether or not the pulley can only be used once.</td></tr>
 </tbody>
 </table>
 
@@ -2939,8 +3381,8 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (339)</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>sprite_offset</code></td><td colspan="3" align="center">0</td><td>Texture offset in `O_TROPICAL_FISH_GFX`.</td></tr>
-<tr><td><code>range</code></td><td colspan="3" align="center">((XYZ_32) { 1, 1, 1 })</td><td>Swim range, in quarter tiles.</td></tr>
-<tr><td><code>use_room_lighting</code></td><td colspan="2" align="center">True</td><td align="center">False</td><td>Whether the shoal uses the surrounding room lighting.</td></tr>
+<tr><td><code>range</code></td><td colspan="3" align="center">((XYZ_32) { 1, 1, 1 })</td><td>Swim range, in quarter tiles. Value range: minimum 1 on each axis.</td></tr>
+<tr><td><code>use_room_lighting</code></td><td colspan="2" align="center">true</td><td align="center">false</td><td>Whether the shoal uses the surrounding room lighting.</td></tr>
 </tbody>
 </table>
 
@@ -2956,7 +3398,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (91)</th><th align="center">TR2 (145)</th><th align="center">TR3 (171)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2964,7 +3409,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (87)</th><th align="center">TR2 (138)</th><th align="center">TR3 (163)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2972,7 +3420,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2980,7 +3431,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2988,7 +3442,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -2996,7 +3453,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -3004,7 +3464,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -3012,7 +3475,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -3020,7 +3486,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -3028,7 +3497,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -3036,7 +3508,10 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>
 
@@ -3044,6 +3519,9 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal.</td></tr>
+<tr><td><code>pickup_mode</code></td><td colspan="3" align="center">0</td><td>Pickup animation mode - 0: normal; 1: low pedestal; 2: high pedestal; 3: hidden reach-in; 4: crowbar; 5: hidden sarcophagus; 6: scion pedestal.</td></tr>
+<tr><td><code>show_pickup_aid</code></td><td colspan="3" align="center">true</td><td>Show a twinkle effect above the item.</td></tr>
+<tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
+<tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
 </tbody>
 </table>

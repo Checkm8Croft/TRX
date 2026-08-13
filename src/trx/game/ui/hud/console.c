@@ -13,6 +13,7 @@
 #include <trx/game/ui/events.h>
 #include <trx/game/ui/helpers.h>
 #include <trx/game/ui/hud/console_logs.h>
+#include <trx/game/ui/keys.h>
 #include <trx/game/ui/scaler.h>
 #include <trx/game/ui/text.h>
 
@@ -108,6 +109,7 @@ static void M_Draw(const UI_NODE *node)
 void UI_Console_Init(UI_CONSOLE_STATE *const s)
 {
     UI_Prompt_Init(&s->prompt);
+    UI_Prompt_SetCompletionProvider(&s->prompt, Console_GetCompleter);
     UI_ConsoleLogs_Init(&s->logs);
 
     struct {
@@ -161,7 +163,7 @@ void UI_Console(UI_CONSOLE_STATE *const s)
     UI_PushCurrent(node);
 
     UI_BeginModal(0.0f, 1.0f);
-    UI_BeginPad(5.0f, 5.0f);
+    UI_BeginPad(UI_CONSOLE_PADDING, UI_CONSOLE_PADDING);
     UI_BeginStack(UI_STACK_VERTICAL);
 
     UI_ConsoleLogs(&s->logs);

@@ -11,18 +11,12 @@
 
 #define M_DEFAULT_DAMAGE 10
 
+typedef struct {
+    int32_t damage;
+} M_PRIV;
+
 static uint8_t m_LaserShades[32] = {};
 static const int16_t m_DefaultBeamCount = 1;
-
-static int32_t M_GetDamage(const ITEM *const item)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, "damage", &damage)) {
-        return damage.as_int;
-    }
-
-    return M_DEFAULT_DAMAGE;
-}
 
 static bool M_IsTargetable(const ITEM *const item)
 {
@@ -218,6 +212,7 @@ static void M_Initialise(const int16_t item_num)
 
 static void M_DamageLara(const ITEM *const item, const int32_t beam_y)
 {
+    const M_PRIV *const p = item->priv;
     if (item->object_id == O_SECURITY_LASER_ALARM) {
         return;
     }
@@ -226,7 +221,7 @@ static void M_DamageLara(const ITEM *const item, const int32_t beam_y)
     if (item->object_id == O_SECURITY_LASER_KILLER) {
         Lara_TakeDamage(lara_item->hit_points, false);
     } else {
-        Lara_TakeDamage(M_GetDamage(item), false);
+        Lara_TakeDamage(p->damage, false);
     }
 
     Spawn_BloodBath(
@@ -285,10 +280,10 @@ static void M_Control(const int16_t item_num)
     }
 }
 
-static bool M_Trigger(ITEM *const item, const TRIGGER *const trigger)
+static bool M_Trigger(ITEM *const item, const ITEM_TRIGGER *const trigger)
 {
-    if (trigger != nullptr && !Room_IsAntiTrigger(trigger->type)) {
-        item->hit_points = trigger->timer & 7;
+    if (trigger->kind != ITEM_TRIGGER_ANTI) {
+        item->hit_points = (int16_t)trigger->timer & 7;
         if (item->hit_points == 0) {
             item->hit_points = 1;
         }
@@ -321,6 +316,7 @@ static bool M_DrawLaser(const ITEM *const item)
 
 static void M_SetupCommon(OBJECT *const obj)
 {
+    obj->priv_size = sizeof(M_PRIV);
     obj->initialise_func = M_Initialise;
     obj->control_func = M_Control;
     obj->draw_func = M_DrawLaser;
@@ -334,10 +330,7 @@ static void M_SetupCommon(OBJECT *const obj)
 static void M_SetupAlarm(OBJECT *const obj)
 {
     M_SetupCommon(obj);
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", m_DefaultBeamCount, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(m_DefaultBeamCount));
 }
 
 static void M_SetupDeadly(OBJECT *const obj)
@@ -345,20 +338,16 @@ static void M_SetupDeadly(OBJECT *const obj)
     M_SetupCommon(obj);
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_INT(
-            "damage", M_DEFAULT_DAMAGE,
+        OBJECT_PROPERTY(
+            M_PRIV, damage, M_DEFAULT_DAMAGE,
             "Damage dealt when Lara crosses the security laser."),
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", m_DefaultBeamCount, "Maximum hit points."));
+        ITEM_PROPERTY_MAX_HIT_POINTS(m_DefaultBeamCount));
 }
 
 static void M_SetupKiller(OBJECT *const obj)
 {
     M_SetupCommon(obj);
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", m_DefaultBeamCount, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(m_DefaultBeamCount));
 }
 
 REGISTER_OBJECT(O_SECURITY_LASER_ALARM, M_SetupAlarm)

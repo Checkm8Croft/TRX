@@ -3,18 +3,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-typedef enum {
-    UI_KEY_UP,
-    UI_KEY_DOWN,
-    UI_KEY_LEFT,
-    UI_KEY_RIGHT,
-    UI_KEY_HOME,
-    UI_KEY_END,
-    UI_KEY_BACK,
-    UI_KEY_RETURN,
-    UI_KEY_ESCAPE,
-} UI_INPUT;
-
 // Forward declaration of the node and its vtable.
 struct UI_NODE;
 typedef struct {
@@ -48,10 +36,17 @@ typedef struct UI_NODE {
     void *data;
 } UI_NODE;
 
+// How far a dialog stays clear of the screen edges, in canvas units.
+#define UI_SCREEN_MARGIN 5.0f
+
 // Dimensions in virtual pixels of the screen area
 // (640x480 for any 4:3 resolution on 1.00 text scaling)
 int32_t UI_GetCanvasWidth(void);
 int32_t UI_GetCanvasHeight(void);
+
+// The width a dialog may occupy: the canvas less the screen margin at either
+// edge. What sizes itself to fit the screen fits to this.
+float UI_GetSafeCanvasWidth(void);
 float UI_ScaleX(float x);
 float UI_ScaleY(float y);
 
@@ -66,10 +61,16 @@ void UI_PushCurrent(UI_NODE *child);
 void UI_PopCurrent(void);
 const UI_NODE *UI_GetCurrent(void);
 
-void UI_Init(void);
-void UI_Shutdown(void);
-void UI_ToggleState(bool *config_setting);
+// The tree the last UI_EndScene measured and laid out. Its nodes stay valid
+// until the next UI_BeginScene resets the arena they live in.
+const UI_NODE *UI_GetSceneRoot(void);
+
+void UI_ToggleState(const bool *config_setting);
 
 void UI_HandleKeyDown(uint32_t key);
 void UI_HandleKeyUp(uint32_t key);
 void UI_HandleTextEdit(const char *text);
+
+// Inserts the current clipboard contents (if any) into the currently
+// focused text field, as if it had been typed.
+void UI_HandlePaste(void);

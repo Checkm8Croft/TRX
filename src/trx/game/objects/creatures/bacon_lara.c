@@ -1,5 +1,3 @@
-#include <trx/game/objects/creatures/bacon_lara.h>
-
 #include <trx/core/json/util/read_io.h>
 #include <trx/core/json/util/write_io.h>
 #include <trx/game/creature.h>
@@ -9,29 +7,60 @@
 #include <trx/game/rooms.h>
 
 #define M_SMASH_JUMP_FRAME 1
+#define M_MAX_DEATH_COUNT 2
+#define M_FALL_RATE 50
 
 typedef struct {
     bool status;
+    bool anchored;
+    int32_t anchor_room;
+    int32_t anchor_x;
+    int32_t anchor_z;
+    int32_t death_count;
 } M_PRIV;
 
-static int32_t m_AnchorX = -1;
-static int32_t m_AnchorZ = -1;
+static const char *M_CheckAnchorRoom(const TRX_VALUE *const in)
+{
+    // -1 leaves her in the room she is placed in, which is not known yet.
+    return in->as_int >= Room_GetCount() ? "no such room to anchor to"
+                                         : nullptr;
+}
+
+// She mirrors Lara about the centre of a room, which is worked out as the room
+// is named rather than each time she moves.
+static void M_SetAnchorRoom(ITEM *const item, const TRX_VALUE *const in)
+{
+    M_PRIV *const p = item->priv;
+    p->anchor_room = in->as_int;
+    // The room she is placed in, unless the level names another.
+    const int32_t room_num = in->as_int >= 0 ? in->as_int : item->room_num;
+    p->anchored = room_num < Room_GetCount();
+    if (!p->anchored) {
+        return;
+    }
+
+    const ROOM *const room = Room_Get(room_num);
+    p->anchor_x = room->pos.x + room->size.x * (WALL_L >> 1);
+    p->anchor_z = room->pos.z + room->size.z * (WALL_L >> 1);
+}
 
 static void M_LoadPriv(ITEM *const item, JSON_READ_IO *const io)
 {
     M_PRIV *const p = item->priv;
     JSON_SHOULD(JSON_READ(io, "status", &p->status));
+    JSON_SHOULD(JSON_READ(io, "death_count", &p->death_count));
 }
 
 static void M_SavePriv(const ITEM *const item, JSON_WRITE_IO *const io)
 {
     const M_PRIV *const p = item->priv;
     JSONW_WRITE(io, "status", p->status);
+    JSONW_WRITE(io, "death_count", p->death_count);
 }
 
 static void M_Initialise(const int16_t item_num)
 {
-    const ITEM *const item = Item_Get(item_num);
+    ITEM *const item = Item_Get(item_num);
     M_PRIV *const p = item->priv;
     const OBJECT *const lara_obj = Object_Get(O_LARA);
     OBJECT *const bacon_obj = Object_Get(O_BACON_LARA);
@@ -40,89 +69,126 @@ static void M_Initialise(const int16_t item_num)
     p->status = false;
 }
 
-static void M_Control(const int16_t item_num)
+static void M_SyncToLara(ITEM *const item, const ITEM *const lara_item)
 {
-    if (m_AnchorX == -1) {
+    M_PRIV *const p = item->priv;
+    const XYZ_32 pos = {
+        .x = 2 * p->anchor_x - lara_item->pos.x,
+        .z = 2 * p->anchor_z - lara_item->pos.z,
+        .y = lara_item->pos.y,
+    };
+
+    int16_t room_num = item->room_num;
+    const SECTOR *sector = Room_GetSector(pos, &room_num);
+    const int32_t floor_height = Room_GetHeight(sector, pos);
+    item->floor = floor_height;
+
+    room_num = lara_item->room_num;
+    sector = Room_GetSector(lara_item->pos, &room_num);
+    const int32_t lara_floor_height = Room_GetHeight(sector, lara_item->pos);
+
+    const int16_t relative_anim = Item_GetRelativeAnim(lara_item);
+    const int16_t relative_frame = Item_GetRelativeFrame(lara_item);
+    Item_SwitchToObjAnim(item, relative_anim, relative_frame, O_LARA);
+    item->pos = pos;
+    item->rot = lara_item->rot;
+    item->rot.y -= DEG_180;
+    item->fall_speed = lara_item->fall_speed;
+    Item_UpdateRoom(Item_GetIndex(item), lara_item->room_num);
+
+    if (floor_height < lara_floor_height + WALL_L || lara_item->gravity) {
+        p->death_count = 0;
         return;
     }
 
+    // Bacon Lara runs one frame behind Lara, so the death check must pass twice
+    // in succession. This prevents premature death when Lara is, for example,
+    // pulling out of water.
+    p->death_count++;
+    if (p->death_count < M_MAX_DEATH_COUNT) {
+        return;
+    }
+
+    item->current_anim_state = LS(LS_FAST_FALL);
+    item->goal_anim_state = LS(LS_FAST_FALL);
+    Item_SwitchToAnim(item, LA(LA_SMASH_JUMP), M_SMASH_JUMP_FRAME);
+    item->speed = 0;
+    item->fall_speed = 0;
+    item->gravity = true;
+    item->pos.y += M_FALL_RATE;
+    p->status = true;
+}
+
+static void M_FallToDeath(ITEM *const item)
+{
+    Item_Animate(item);
+
+    int16_t room_num = item->room_num;
+    const SECTOR *const sector = Room_GetSector(item->pos, &room_num);
+    const int32_t height = Room_GetHeight(sector, item->pos);
+    item->floor = height;
+
+    Room_TestTriggers(item);
+    if (item->pos.y >= height) {
+        item->floor = height;
+        item->pos.y = height;
+        Room_TestTriggers(item);
+        item->gravity = false;
+        item->fall_speed = 0;
+        item->goal_anim_state = LS(LS_DEATH);
+        item->required_anim_state = LS(LS_DEATH);
+        if (room_num != item->room_num) {
+            Item_UpdateRoom(Item_GetIndex(item), room_num);
+        }
+        Item_SetFinished(item, true);
+        Item_StartFade(item);
+        // The pit is what kills her; damage only ever passes through her to
+        // Lara. The tally is untouched, as it was before she reported at all.
+        Item_TakeDamage(
+            item, item->hit_points, IDF_NO_HIT_STATUS | IDF_NO_KILL_STATS,
+            nullptr);
+    }
+}
+
+static void M_Control(const int16_t item_num)
+{
     ITEM *const item = Item_Get(item_num);
     M_PRIV *const p = item->priv;
+    if (!p->anchored) {
+        return;
+    }
+
     const ITEM *const lara_item = Lara_GetItem();
 
     if (Item_IsTriggerActive(item)) {
         if (!LOT_EnableBaddieAI(item_num, true)) {
             return;
         }
-        item->status = IS_ACTIVE;
+        Item_SetVisible(item, true);
     }
 
-    if (item->hit_points < LARA_MAX_HITPOINTS) {
+    // Her own hit points stand in for Lara's, so they are only worth reading
+    // back while she is alive. Once the pit has taken them, they stay taken.
+    if (item->hit_points > 0 && item->hit_points < LARA_MAX_HITPOINTS) {
         Lara_TakeDamage((LARA_MAX_HITPOINTS - item->hit_points) * 10, false);
         item->hit_points = LARA_MAX_HITPOINTS;
     }
 
     if (!p->status) {
-        const XYZ_32 pos = {
-            .x = 2 * m_AnchorX - lara_item->pos.x,
-            .z = 2 * m_AnchorZ - lara_item->pos.z,
-            .y = lara_item->pos.y,
-        };
-
-        int16_t room_num = item->room_num;
-        const SECTOR *sector = Room_GetSector(pos, &room_num);
-        const int32_t h = Room_GetHeight(sector, pos);
-        item->floor = h;
-
-        room_num = lara_item->room_num;
-        sector = Room_GetSector(lara_item->pos, &room_num);
-        int32_t lh = Room_GetHeight(sector, lara_item->pos);
-
-        const int16_t relative_anim = Item_GetRelativeAnim(lara_item);
-        const int16_t relative_frame = Item_GetRelativeFrame(lara_item);
-        Item_SwitchToObjAnim(item, relative_anim, relative_frame, O_LARA);
-        item->pos = pos;
-        item->rot = lara_item->rot;
-        item->rot.y -= DEG_180;
-        Item_UpdateRoom(item_num, lara_item->room_num);
-
-        if (h >= lh + WALL_L && !lara_item->gravity) {
-            item->current_anim_state = LS(LS_FAST_FALL);
-            item->goal_anim_state = LS(LS_FAST_FALL);
-            Item_SwitchToAnim(item, LA(LA_SMASH_JUMP), M_SMASH_JUMP_FRAME);
-            item->speed = 0;
-            item->fall_speed = 0;
-            item->gravity = true;
-            item->pos.y += 50;
-            p->status = true;
-        }
+        M_SyncToLara(item, lara_item);
     }
 
+    // Synchronizing with Lara may have invoked Bacon Lara's death, hence check
+    // the flag again on the same frame.
     if (p->status) {
-        Item_Animate(item);
-
-        int16_t room_num = item->room_num;
-        const SECTOR *sector = Room_GetSector(item->pos, &room_num);
-        const int32_t h = Room_GetHeight(sector, item->pos);
-        item->floor = h;
-
-        Room_TestTriggers(item);
-        if (item->pos.y >= h) {
-            item->floor = h;
-            item->pos.y = h;
-            Room_TestTriggers(item);
-            item->gravity = false;
-            item->fall_speed = 0;
-            item->goal_anim_state = LS(LS_DEATH);
-            item->required_anim_state = LS(LS_DEATH);
-        }
+        M_FallToDeath(item);
     }
 }
 
 static bool M_Draw(const ITEM *const item)
 {
     M_PRIV *const p = item->priv;
-    if (p->status || item->current_anim_state == LS(LS_DEATH)) {
+    if (p->status || !Item_IsInPlay(item)) {
         return Object_DrawAnimatingItem(item);
     }
 
@@ -157,20 +223,11 @@ static void M_Setup(OBJECT *const obj)
     obj->save_flags = true;
     obj->save_anim = true;
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", LARA_MAX_HITPOINTS, "Maximum hit points."));
-}
-
-bool BaconLara_InitialiseAnchor(const int32_t room_index)
-{
-    if (room_index >= Room_GetCount()) {
-        return false;
-    }
-    const ROOM *const room = Room_Get(room_index);
-    m_AnchorX = room->pos.x + room->size.x * (WALL_L >> 1);
-    m_AnchorZ = room->pos.z + room->size.z * (WALL_L >> 1);
-    return true;
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(LARA_MAX_HITPOINTS),
+        OBJECT_PROPERTY_SETTER(
+            M_PRIV, anchor_room, -1, M_CheckAnchorRoom, M_SetAnchorRoom,
+            "Room whose center Bacon Lara mirrors Lara's movement about. "
+            "-1 uses the room she is placed in. Value range: minimum -1."));
 }
 
 REGISTER_OBJECT(O_BACON_LARA, M_Setup)

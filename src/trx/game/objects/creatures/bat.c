@@ -22,25 +22,19 @@ typedef enum {
     M_STATE_DEATH,
 } M_STATE;
 
+typedef struct {
+    int32_t damage;
+} M_PRIV;
+
 static BITE m_BatBite = {
     .pos = { 0, 16, 45 },
     .mesh_num = 4,
 };
 
-static int32_t M_GetAttackDamage(const ITEM *const item)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, "damage", &damage)) {
-        return damage.as_int;
-    }
-
-    return M_DAMAGE;
-}
-
 static void M_FixEmbeddedPosition(int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
-    if (item->status == IS_ACTIVE) {
+    if (Item_IsInPlay(item)) {
         return;
     }
 
@@ -75,6 +69,7 @@ static void M_Control(const int16_t item_num)
     }
 
     ITEM *const item = Item_Get(item_num);
+    const M_PRIV *const p = item->priv;
     CREATURE *const bat = item->creature_data;
     int16_t angle = 0;
     if (item->hit_points <= 0) {
@@ -112,7 +107,7 @@ static void M_Control(const int16_t item_num)
         case M_STATE_ATTACK:
             if (item->touch_bits) {
                 Creature_Effect(item, &m_BatBite, Spawn_Blood);
-                Lara_TakeDamage(M_GetAttackDamage(item), true);
+                Lara_TakeDamage(p->damage, true);
             } else {
                 item->goal_anim_state = M_STATE_FLY;
                 bat->mood = MOOD_BORED;
@@ -139,6 +134,8 @@ static void M_Setup(OBJECT *const obj)
     if (!obj->loaded) {
         return;
     }
+
+    obj->priv_size = sizeof(M_PRIV);
     obj->initialise_func = M_Initialise;
     obj->control_func = M_Control;
     obj->collision_func = Creature_Collision;
@@ -153,11 +150,9 @@ static void M_Setup(OBJECT *const obj)
     obj->save_anim = true;
     obj->save_flags = true;
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."),
-        OBJECT_PROPERTY_INT(
-            "damage", M_DAMAGE, "Damage dealt by the bat attack."));
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS),
+        OBJECT_PROPERTY(
+            M_PRIV, damage, M_DAMAGE, "Damage dealt by the bat attack."));
 }
 
 REGISTER_OBJECT(O_BAT, M_Setup)

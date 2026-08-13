@@ -1,0 +1,1276 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import ast
+import csv
+import re
+import sys
+import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Iterator
+
+ROOT = Path(__file__).resolve().parents[3]
+OBJECT_SOURCE = ROOT / "src/trx/game/objects"
+OBJECT_SETUP_SOURCE = ROOT / "src/trx/game/objects/setup.c"
+MD_OUTPUT = ROOT / "docs/trx/OBJECTS.md"
+XML_OUTPUT = ROOT / "data/te"
+HEADER_SOURCE = ROOT / "src/trx/game"
+PICKUPS_DEF = ROOT / "src/trx/game/objects/pickups.def"
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from shared.cdefs import expand_def_file  # noqa: E402
+
+PICKUPS_DEF_INCLUDE_RE = re.compile(
+    r"[ \t]*#include\s*<trx/game/objects/pickups\.def>[ \t]*\n"
+)
+DEFINE_RE = re.compile(
+    r"[ \t]*#define\s+(?P<name>\w+)\((?P<params>[^)]*)\)"
+    r"(?P<body>(?:.*\\\n)*.*)\n"
+)
+UNDEF_RE = re.compile(r"[ \t]*#undef\s+(?P<name>\w+)[ \t]*\n")
+
+
+def expand_pickup_includes(source: str) -> str:
+    """Expand `#define X_...; #include pickups.def; #undef X_...` blocks.
+
+    pickups.def is an X-macro file: consumers #define the family macros
+    they care about, #include the file to expand them, then #undef them
+    again. Regex scanning can't see through the #include, so run the real
+    C preprocessor over pickups.def with the consumer's macro bodies and
+    splice the expansion back into the source in place of the block.
+    """
+    while (include_match := PICKUPS_DEF_INCLUDE_RE.search(source)) is not None:
+        # Walk backward over contiguous #define lines immediately preceding
+        # the #include (allowing blank lines between them).
+        defines: list[re.Match[str]] = []
+        block_start = include_match.start()
+        pos = block_start
+        while True:
+            line_start = source.rfind("\n", 0, pos - 1) + 1 if pos > 0 else 0
+            line = source[line_start:pos]
+            if line.strip() == "":
+                pos = line_start
+                continue
+            if (define_match := DEFINE_RE.match(source, line_start)) is not None:
+                defines.append(define_match)
+                block_start = line_start
+                pos = line_start
+                continue
+            break
+        defines.reverse()
+
+        macro_defs: dict[str, str] = {}
+        for define_match in defines:
+            signature = (
+                f"{define_match.group('name')}({define_match.group('params')})"
+            )
+            body = define_match.group("body").replace("\\\n", "\n").strip()
+            macro_defs[signature] = body
+
+        pos = include_match.end()
+        while (undef_match := UNDEF_RE.match(source, pos)) is not None:
+            pos = undef_match.end()
+
+        expansion = expand_def_file(PICKUPS_DEF, macro_defs) if macro_defs else ""
+        source = source[:block_start] + expansion + source[pos:]
+    return source
+
+
+RANGE_RE = re.compile(r"Value range:\s*(.*?)(?=\.\s|$)", re.IGNORECASE)
+MIN_RE = re.compile(r"\bminimum\s+(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+MAX_RE = re.compile(r"\bmaximum\s+(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+
+
+@dataclass(frozen=True, slots=True)
+class ValueRange:
+    min_value: str | None
+    max_value: str | None
+    description: str
+
+
+@dataclass(frozen=True, slots=True)
+class GameConfig:
+    name: str
+    version: int
+    object_catalog_path: Path
+    music_catalog_path: Path
+
+
+GAMES = [
+    GameConfig(
+        "Tomb Raider 1",
+        1,
+        ROOT / "data/trx/ship/games/tr1/catalog_objects.csv",
+        ROOT / "data/trx/ship/games/tr1/catalog_music.csv",
+    ),
+    GameConfig(
+        "Tomb Raider 2",
+        2,
+        ROOT / "data/trx/ship/games/tr2/catalog_objects.csv",
+        ROOT / "data/trx/ship/games/tr2/catalog_music.csv",
+    ),
+    GameConfig(
+        "Tomb Raider 3",
+        3,
+        ROOT / "data/trx/ship/games/tr3/catalog_objects.csv",
+        ROOT / "data/trx/ship/games/tr3/catalog_music.csv",
+    ),
+]
+
+
+@dataclass(slots=True)
+class PropertyInfo:
+    internal_name: str
+    macro_type: str
+    value_expr: str
+    description: str
+    constants: dict[str, str]
+
+    @property
+    def display_name(self) -> str:
+        return " ".join(
+            word.capitalize() for word in self.internal_name.split("_")
+        )
+
+    @property
+    def is_numeric(self) -> bool:
+        return self.macro_type in ("INT", "FLOAT", "DOUBLE")
+
+    @property
+    def value_range(self) -> ValueRange | None:
+        if not self.is_numeric:
+            return None
+
+        match = RANGE_RE.search(self.description)
+        if match is None:
+            return None
+
+        range_text = match.group(1)
+        min_match = MIN_RE.search(range_text)
+        max_match = MAX_RE.search(range_text)
+        stripped = (
+            self.description[: match.start()] + self.description[match.end() :]
+        ).strip()
+        return ValueRange(
+            min_match.group(1) if min_match else None,
+            max_match.group(1) if max_match else None,
+            stripped,
+        )
+
+
+PropertyMap = dict[str, PropertyInfo]
+
+
+def strip_comments(source: str) -> str:
+    source = re.sub(r"//.*", "", source)
+    return re.sub(r"/\*.*?\*/", "", source, flags=re.DOTALL)
+
+
+def parse_c_string(expr: str) -> str:
+    expr = expr.strip()
+    string_pattern = re.compile(r'"(?:\\.|[^"\\])*"')
+
+    parts: list[str] = []
+    pos = 0
+    while pos < len(expr):
+        while pos < len(expr) and expr[pos].isspace():
+            pos += 1
+        if pos >= len(expr):
+            break
+
+        match = string_pattern.match(expr, pos)
+        if match is None:
+            raise ValueError(f"unsupported C string expression: {expr!r}")
+
+        parts.append(ast.literal_eval(match.group(0)))
+        pos = match.end()
+
+    if not parts:
+        raise ValueError(f"expected C string literal: {expr!r}")
+
+    return "".join(parts)
+
+
+def get_enum_info(info: PropertyInfo) -> tuple[str, tuple[str, ...]] | None:
+    if info.macro_type != "INT":
+        return None
+
+    if not (
+        match := re.fullmatch(
+            r"(?P<desc>.*?)\s*-\s*"
+            r"(?P<entries>(?:\d+\s*:\s*[^;]+(?:;\s*|\.?\s*$))+)",
+            info.description,
+        )
+    ):
+        return None
+
+    description = match.group("desc")
+    entry_text = match.group("entries")
+
+    matches = re.findall(r"(?P<index>\d+)\s*:\s*(?P<value>[^;.]+)", entry_text)
+    if len(matches) < 2:
+        return None
+
+    entries: list[str] = []
+    for expected_index, (index, value) in enumerate(matches):
+        if int(index) != expected_index:
+            raise ValueError(
+                f"{info.internal_name}: enum indices must start at 0 and be contiguous."
+            )
+        words = value.strip().split()
+        entries.append(" ".join(word.capitalize() for word in words))
+
+    return description.rstrip() + ".", tuple(entries)
+
+
+@dataclass(slots=True)
+class GameCatalog:
+    config: GameConfig
+    object_ids: dict[str, str]
+    music_catalog: dict[str, str]
+
+    @property
+    def short_name(self) -> str:
+        return f"TR{self.config.version}"
+
+    def moveable_id(self, object_id: str) -> str | None:
+        return self.object_ids.get(object_id)
+
+    @classmethod
+    def from_config(cls, config: GameConfig) -> GameCatalog:
+        object_ids = {
+            object_id: game_id
+            for game_id, object_id in cls._read_object_rows(
+                config.object_catalog_path
+            )
+        }
+        music_catalog = cls._read_music_rows(config.music_catalog_path)
+        return cls(config, object_ids, music_catalog)
+
+    @staticmethod
+    def _read_object_rows(path: Path) -> list[tuple[str, str]]:
+        rows: list[tuple[str, str]] = []
+        with path.open(newline="") as fh:
+            for row in csv.reader(fh, skipinitialspace=True):
+                if len(row) < 2:
+                    continue
+                game_id, object_id = row[:2]
+                rows.append((game_id.strip(), object_id.strip()))
+        return rows
+
+    @staticmethod
+    def _read_music_rows(path: Path) -> dict[str, str]:
+        rows: dict[str, str] = {}
+        with path.open(newline="") as fh:
+            for row in csv.reader(fh, skipinitialspace=True):
+                if len(row) < 2:
+                    continue
+                game_id, music_id = row[:2]
+                rows[music_id.strip()] = game_id.strip()
+        return rows
+
+
+@dataclass(slots=True)
+class RegisteredPropertyCatalog:
+    properties_by_object: dict[str, PropertyMap]
+    object_categories: dict[str, str]
+
+    @classmethod
+    def load(cls) -> RegisteredPropertyCatalog:
+        result: dict[str, PropertyMap] = {}
+        object_categories: dict[str, str] = {}
+        global_constants = read_global_constants()
+        global_structs = read_global_structs()
+        for path, category in read_source_files():
+            source = strip_comments(path.read_text())
+            source = expand_pickup_includes(source)
+            constants = global_constants | read_local_constants(source)
+            function_bodies = read_function_bodies(source)
+            structs = global_structs | read_struct_members(source)
+            registrations: list[tuple[str, list[PropertyInfo]]] = []
+
+            func_to_objects: dict[str, list[str]] = {}
+            for args in iter_macro_calls(source, "REGISTER_OBJECT"):
+                parts = split_args(args)
+                if len(parts) != 2:
+                    continue
+                object_id, func_name = parts[0].strip(), parts[1].strip()
+                func_to_objects.setdefault(func_name, []).append(object_id)
+
+            for func_name, object_ids in func_to_objects.items():
+                if func_name not in function_bodies:
+                    continue
+                declarations = collect_object_property_declarations(
+                    func_name, function_bodies, structs, constants
+                )
+                for object_id in object_ids:
+                    registrations.append((object_id, declarations))
+                    object_categories.setdefault(object_id, category)
+
+            for object_id, declarations in registrations:
+                for declaration in declarations:
+                    declaration.constants = constants
+                    name = declaration.internal_name
+                    result.setdefault(object_id, {})[name] = declaration
+
+        return cls(result, object_categories)
+
+    def has_object(self, object_id: str) -> bool:
+        return object_id in self.properties_by_object
+
+    def properties_for(self, object_id: str) -> PropertyMap:
+        return self.properties_by_object[object_id]
+
+    def iter_object_ids(self) -> list[str]:
+        return list(self.properties_by_object)
+
+
+def read_local_constants(source: str) -> dict[str, str]:
+    constants: dict[str, str] = {
+        "NO_ITEM": "-1",
+    }
+    define_pattern = re.compile(r"^\s*#define\s+(\w+)\s+(.+)$", re.MULTILINE)
+    for name, value in define_pattern.findall(source):
+        if "(" in name:
+            continue
+        constants[name] = value.strip()
+
+    const_pattern = re.compile(
+        r"^\s*static\s+const\s+\w+(?:_t)?\s+(\w+)\s*=\s*([^;]+);",
+        re.MULTILINE,
+    )
+    for name, value in const_pattern.findall(source):
+        constants[name] = value.strip()
+
+    constants.update(read_enum_constants(source))
+    return constants
+
+
+def read_enum_constants(source: str) -> dict[str, str]:
+    """Enumerators and the numbers they stand for.
+
+    A property bound to an enum member states its default as an enumerator, so
+    the docs have to resolve one the way the compiler does: counting up from the
+    last stated value.
+    """
+    constants: dict[str, str] = {}
+    enum_re = re.compile(r"enum\s*\{(?P<body>[^{}]*)\}", re.MULTILINE)
+    for match in enum_re.finditer(source):
+        next_value = 0
+        for entry in match.group("body").split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            name, _, value = (part.strip() for part in entry.partition("="))
+            if not re.fullmatch(r"[A-Za-z_]\w*", name):
+                continue
+            if value:
+                try:
+                    next_value = int(value, 0)
+                except ValueError:
+                    # A value this cannot read leaves the run of implicit ones
+                    # after it unknowable, so the enum is left alone.
+                    break
+            constants[name] = str(next_value)
+            next_value += 1
+    return constants
+
+
+def read_global_structs() -> dict[str, dict[str, str]]:
+    """Struct members from the headers, for a priv struct an object shares."""
+    structs: dict[str, dict[str, str]] = {}
+    for path in HEADER_SOURCE.rglob("*.h"):
+        structs.update(read_struct_members(strip_comments(path.read_text())))
+    return structs
+
+
+def read_global_constants() -> dict[str, str]:
+    constants: dict[str, str] = {}
+    for path in HEADER_SOURCE.rglob("*.h"):
+        constants.update(
+            read_local_constants(strip_comments(path.read_text()))
+        )
+    return constants
+
+
+def split_args(args: str) -> list[str]:
+    parts: list[str] = []
+    part_start = 0
+    paren_depth = 0
+    brace_depth = 0
+    bracket_depth = 0
+    in_string = False
+    escaped = False
+    for offset, char in enumerate(args):
+        if in_string:
+            if escaped:
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char == "(":
+            paren_depth += 1
+        elif char == ")":
+            paren_depth -= 1
+        elif char == "{":
+            brace_depth += 1
+        elif char == "}":
+            brace_depth -= 1
+        elif char == "[":
+            bracket_depth += 1
+        elif char == "]":
+            bracket_depth -= 1
+        elif (
+            char == ","
+            and paren_depth == 0
+            and brace_depth == 0
+            and bracket_depth == 0
+        ):
+            parts.append(args[part_start:offset].strip())
+            part_start = offset + 1
+    parts.append(args[part_start:].strip())
+    return parts
+
+
+_BALANCE_SCANNERS: dict[tuple[str, str], re.Pattern[str]] = {}
+
+
+def find_balanced_end(
+    source: str,
+    content_start: int,
+    open_char: str,
+    close_char: str,
+) -> int:
+    # Jump straight to the next character that can change nesting or string
+    # state, skipping the ordinary characters in between, rather than walking
+    # the source one character at a time.
+    scanner = _BALANCE_SCANNERS.get((open_char, close_char))
+    if scanner is None:
+        chars = "".join(re.escape(c) for c in (open_char, close_char, '"', "\\"))
+        scanner = re.compile(f"[{chars}]")
+        _BALANCE_SCANNERS[open_char, close_char] = scanner
+
+    depth = 1
+    in_string = False
+    idx = content_start
+    while depth != 0:
+        match = scanner.search(source, idx)
+        if match is None:
+            return len(source)
+        idx = match.end()
+        char = match.group()
+        if in_string:
+            if char == "\\":
+                idx += 1
+            elif char == '"':
+                in_string = False
+        elif char == '"':
+            in_string = True
+        elif char == open_char:
+            depth += 1
+        elif char == close_char:
+            depth -= 1
+    return idx
+
+
+def iter_balanced_calls(
+    source: str,
+    pattern: re.Pattern[str],
+) -> Iterator[tuple[re.Match[str], str]]:
+    pos = 0
+    while True:
+        match = pattern.search(source, pos)
+        if match is None:
+            return
+
+        args_start = match.end()
+        args_end = find_balanced_end(source, args_start, "(", ")")
+        yield match, source[args_start : args_end - 1]
+        pos = args_end
+
+
+def iter_macro_calls(source: str, macro_name: str) -> list[str]:
+    pattern = re.compile(rf"{re.escape(macro_name)}\(")
+    return [args for _, args in iter_balanced_calls(source, pattern)]
+
+
+# C member type -> the type name the docs and the Tomb Editor catalogs use.
+# An enum member rides in its integer storage, as it did when the declaration
+# named its own type.
+MEMBER_TYPES = {
+    "bool": "BOOL",
+    "int8_t": "INT",
+    "uint8_t": "INT",
+    "int16_t": "INT",
+    "uint16_t": "INT",
+    "int32_t": "INT",
+    "uint32_t": "INT",
+    "float": "FLOAT",
+    "double": "DOUBLE",
+    "XYZ_32": "XYZ",
+    "RGB_888": "RGB",
+}
+
+MEMBER_RE = re.compile(r"^\s*(?P<type>[A-Za-z_]\w*)\s+(?P<name>\w+)\s*;")
+
+
+def read_struct_members(source: str) -> dict[str, dict[str, str]]:
+    """struct name -> member name -> the C type of that member.
+
+    Only the members the struct itself declares: one nested a level down is not
+    addressable as a property, and the braces around it are what a plain regex
+    cannot see past.
+    """
+    structs: dict[str, dict[str, str]] = {}
+    for match in re.finditer(r"typedef struct(?:\s+\w+)?\s*\{", source):
+        depth, index = 1, match.end()
+        members: dict[str, str] = {}
+        line_start = index
+        while depth and index < len(source):
+            char = source[index]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+            elif char == "\n":
+                if depth == 1:
+                    member = MEMBER_RE.match(source[line_start:index])
+                    if member:
+                        members[member.group("name")] = member.group("type")
+                line_start = index + 1
+            index += 1
+        name = re.match(r"\s*(\w+)\s*;", source[index:])
+        if name:
+            structs[name.group(1)] = members
+    return structs
+
+
+def infer_stored_type(value_expr: str, constants: dict[str, str]) -> str:
+    """The type a stored property carries, read off the value it declares.
+
+    A stored property has no member to take its type from, so the value states
+    it - the same way the compiler reads it through Value_Of. The value may be
+    written as a constant, so resolve one before looking.
+    """
+    expr = resolve_identifiers(value_expr, constants, 1).strip()
+    if expr.startswith("(bool)") or expr in ("true", "false"):
+        return "BOOL"
+    if "XYZ_32" in expr:
+        return "XYZ"
+    if "RGB_888" in expr:
+        return "RGB"
+    if re.search(r"\d\.\d", expr):
+        return "DOUBLE"
+    return "INT"
+
+
+# Named declarations that stand for a whole property. The tuple is what the
+# macro fills in: the member it binds, the type of that member, and the
+# description it carries.
+NAMED_DECLARATIONS = {
+    "ITEM_PROPERTY_MAX_HIT_POINTS": (
+        "max_hit_points", "ITEM", "Maximum hit points."),
+}
+
+
+def iter_object_property_declarations(
+    source: str,
+    structs: dict[str, dict[str, str]],
+    constants: dict[str, str],
+) -> list[PropertyInfo]:
+    declarations: list[PropertyInfo] = []
+    pattern = re.compile(
+        r"\b(?:OBJECT_PROPERTY"
+        r"(?P<variant>_STORED_SETTER|_STORED|_SETTER|_CHECKED|_ITEM)?"
+        r"|(?P<named>" + "|".join(NAMED_DECLARATIONS) + r"))\(",
+        re.MULTILINE,
+    )
+    # How many hooks sit between the default and the description.
+    HOOK_COUNTS = {"_CHECKED": 1, "_SETTER": 2, "_STORED_SETTER": 2, "_ITEM": 2}
+    for match, args in iter_balanced_calls(source, pattern):
+        named = match.group("named")
+        if named is not None:
+            name, struct, description = NAMED_DECLARATIONS[named]
+            declarations.append(
+                PropertyInfo(
+                    internal_name=name,
+                    macro_type=MEMBER_TYPES.get(
+                        structs.get(struct, {}).get(name), "INT"),
+                    value_expr=" ".join(args.split()),
+                    description=description,
+                    constants={},
+                )
+            )
+            continue
+        variant = match.group("variant") or ""
+        parts = [" ".join(part.split()) for part in split_args(args)]
+        stored = variant.startswith("_STORED")
+        hooks = HOOK_COUNTS.get(variant, 0)
+        if hooks:
+            parts = parts[: -hooks - 1] + parts[-1:]
+        # An item-bound property names a member of ITEM rather than of a priv
+        # struct, so the struct is not written out.
+        if variant == "_ITEM":
+            parts = ["ITEM"] + parts
+        if stored:
+            if len(parts) != 3:
+                continue
+            internal_name, value, description = parts
+            internal_name = parse_c_string(internal_name)
+            macro_type = infer_stored_type(value, constants)
+        else:
+            if len(parts) != 4:
+                continue
+            struct_name, internal_name, value, description = parts
+            member_type = structs.get(struct_name, {}).get(internal_name)
+            # An unknown member type means the two have drifted apart, which
+            # the compiler catches; the docs report what they can read.
+            macro_type = MEMBER_TYPES.get(member_type, "INT")
+        # An RGB default reads as its channels, not as the literal carrying
+        # them.
+        if macro_type == "RGB":
+            channels = re.search(r"\{(?P<channels>[^{}]*)\}", value)
+            if channels:
+                value = ", ".join(
+                    part.strip() for part in channels.group("channels").split(",")
+                )
+        declarations.append(
+            PropertyInfo(
+                internal_name=internal_name,
+                macro_type=macro_type,
+                value_expr=value,
+                description=parse_c_string(description),
+                constants={},
+            )
+        )
+    return declarations
+
+
+def read_source_files() -> list[tuple[Path, str]]:
+    def _category(path: Path) -> str:
+        rel = path.relative_to(OBJECT_SOURCE)
+        top = rel.parts[0] if len(rel.parts) > 1 else ""
+        if top == "creatures":
+            return "enemy"
+        if top == "traps":
+            return "trap"
+        return "general"
+
+    return [
+        (OBJECT_SETUP_SOURCE, "general"),
+        *(
+            (path, _category(path))
+            for path in OBJECT_SOURCE.rglob("*.c")
+            if path != OBJECT_SETUP_SOURCE
+        ),
+    ]
+
+
+def find_function_body(source: str, func_name: str) -> str | None:
+    pattern = re.compile(
+        rf"\b{re.escape(func_name)}\s*\([^)]*\)\s*\{{",
+        re.MULTILINE,
+    )
+    match = pattern.search(source)
+    if match is None:
+        return None
+    body_start = match.end()
+    idx = find_balanced_end(source, body_start, "{", "}")
+    return source[body_start : idx - 1]
+
+
+def read_function_bodies(source: str) -> dict[str, str]:
+    bodies: dict[str, str] = {}
+    pattern = re.compile(
+        r"\b([A-Za-z_]\w*)\s*\([^;{}]*\)\s*\{",
+        re.MULTILINE,
+    )
+    for match in pattern.finditer(source):
+        func_name = match.group(1)
+        body_start = match.end()
+        idx = find_balanced_end(source, body_start, "{", "}")
+        bodies[func_name] = source[body_start : idx - 1]
+    return bodies
+
+
+def collect_object_property_declarations(
+    func_name: str,
+    function_bodies: dict[str, str],
+    structs: dict[str, dict[str, str]],
+    constants: dict[str, str],
+    visited: set[str] | None = None,
+) -> list[PropertyInfo]:
+    if visited is None:
+        visited = set()
+    if func_name in visited:
+        return []
+    body = function_bodies.get(func_name)
+    if body is None:
+        return []
+
+    visited.add(func_name)
+    declarations: list[PropertyInfo] = []
+    for props_args in iter_macro_calls(body, "OBJECT_PROPERTIES"):
+        props_parts = split_args(props_args)
+        if len(props_parts) < 2:
+            continue
+        decl_text = "{" + ", ".join(props_parts[1:]) + "}"
+        declarations.extend(
+            iter_object_property_declarations(decl_text, structs, constants)
+        )
+
+    call_pattern = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
+    for match in call_pattern.finditer(body):
+        callee = match.group(1)
+        if callee in function_bodies:
+            declarations.extend(
+                collect_object_property_declarations(
+                    callee, function_bodies, structs, constants, visited
+                )
+            )
+
+    return declarations
+
+
+IDENTIFIER_RE = re.compile(r"\b[A-Za-z_]\w*\b")
+
+
+def resolve_identifiers(
+    expr: str, constants: dict[str, str], game_version: int
+) -> str:
+    # Replace every known identifier with its value, repeating so a value that
+    # itself names another constant resolves too. Each pass rewrites all the
+    # identifiers in one scan and looks each up in the map, rather than sweeping
+    # the whole expression once per known constant.
+    def replace(match: re.Match[str]) -> str:
+        value = constants.get(match.group(0))
+        return f"({value})" if value is not None else match.group(0)
+
+    expr = expr.replace("g_TRVersion", str(game_version))
+    for _ in range(16):
+        next_expr = IDENTIFIER_RE.sub(replace, expr)
+        if next_expr == expr:
+            break
+        expr = next_expr
+    return expr.replace("g_TRVersion", str(game_version))
+
+
+def convert_ternary(expr: str) -> str:
+    ternary_pattern = re.compile(
+        r"\(([^()?:]+)\?\s*([^():]+)\s*:\s*([^()]+)\)"
+    )
+    while True:
+        match = ternary_pattern.search(expr)
+        if match is None:
+            return expr
+        condition, true_value, false_value = match.groups()
+        expr = (
+            expr[: match.start()]
+            + f"({true_value.strip()} if {condition.strip()} else {false_value.strip()})"
+            + expr[match.end() :]
+        )
+
+
+class MusicToGameIDTransformer(ast.NodeTransformer):
+    def __init__(self, music_catalog: dict[str, str]) -> None:
+        self.music_catalog = music_catalog
+
+    @staticmethod
+    def get_music_symbol(node: ast.AST) -> str | None:
+        if not isinstance(node, ast.Call):
+            return None
+        if (
+            not isinstance(node.func, ast.Name)
+            or node.func.id != "Music_ToGameID"
+        ):
+            return None
+        if len(node.args) != 1 or node.keywords:
+            return None
+        arg = node.args[0]
+        if not isinstance(arg, ast.Name):
+            return None
+        return arg.id
+
+    def visit_Call(self, node: ast.Call) -> ast.AST:
+        self.generic_visit(node)
+
+        music_symbol = self.get_music_symbol(node)
+        if music_symbol is None:
+            return node
+
+        mapped_id = self.music_catalog.get(music_symbol)
+        value = int(mapped_id) if mapped_id is not None else -1
+        return ast.copy_location(ast.Constant(value=value), node)
+
+
+def strip_redundant_parens(expr: str) -> str:
+    """Drop the parens a resolved constant leaves around a compound literal.
+
+    Only literals: everything else may need the parens it was written with, and
+    a value that resolves to a number is left for the evaluator to fold.
+    """
+    expr = expr.strip()
+    while "{" in expr and expr.startswith("((") and expr.endswith("))"):
+        depth = 0
+        for index, char in enumerate(expr):
+            depth += (char == "(") - (char == ")")
+            if depth == 0:
+                break
+        if index != len(expr) - 1:
+            break
+        expr = expr[1:-1].strip()
+    return expr
+
+
+def evaluate_expression(
+    expr: str,
+    constants: dict[str, str],
+    game_version: int,
+    music_catalog: dict[str, str],
+) -> str:
+    expr = convert_ternary(resolve_identifiers(expr, constants, game_version))
+    expr = expr.replace("(bool)", "")
+    expr = strip_redundant_parens(expr)
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except SyntaxError:
+        return expr
+
+    tree = MusicToGameIDTransformer(music_catalog).visit(tree)
+    ast.fix_missing_locations(tree)
+
+    allowed_nodes = (
+        ast.Expression,
+        ast.Constant,
+        ast.Call,
+        ast.Name,
+        ast.Load,
+        ast.UnaryOp,
+        ast.BinOp,
+        ast.BoolOp,
+        ast.Compare,
+        ast.IfExp,
+        ast.unaryop,
+        ast.operator,
+        ast.boolop,
+        ast.cmpop,
+    )
+    if not all(isinstance(node, allowed_nodes) for node in ast.walk(tree)):
+        return expr
+
+    try:
+        value = eval(
+            compile(tree, "<object-property>", "eval"), {"__builtins__": {}}
+        )
+    except Exception:
+        return expr
+    if isinstance(value, bool):
+        # A comparison in the declaration evaluates to a Python bool; spell it
+        # the way a C bool literal already reaches here.
+        return "true" if value else "false"
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    return str(value)
+
+
+def extract_music_symbol(expr: str) -> str | None:
+    try:
+        tree = ast.parse(expr, mode="eval")
+    except SyntaxError:
+        return None
+
+    return MusicToGameIDTransformer.get_music_symbol(tree.body)
+
+
+def format_value(
+    info: PropertyInfo,
+    game_version: int,
+    music_catalog: dict[str, str],
+) -> str:
+    if info.macro_type == "RGB":
+        channels = [
+            evaluate_expression(
+                channel, info.constants, game_version, music_catalog
+            )
+            for channel in split_args(info.value_expr)
+        ]
+        return f"({', '.join(channels)})"
+    return evaluate_expression(
+        info.value_expr, info.constants, game_version, music_catalog
+    )
+
+
+def _colspan_cells(values: list[str]) -> list[tuple[str, int]]:
+    result: list[tuple[str, int]] = []
+    i = 0
+    while i < len(values):
+        v = values[i]
+        span = 1
+        while i + span < len(values) and values[i + span] == v:
+            span += 1
+        result.append((v, span))
+        i += span
+    return result
+
+
+def natural_sort_key(text: str):
+    return [
+        int(part) if part.isdigit() else part
+        for part in re.split(r"(\d+)", text)
+    ]
+
+
+class MarkdownExporter:
+    CATEGORY_ORDER = ["enemy", "trap", "general"]
+    CATEGORY_LABELS = {
+        "enemy": "Enemies",
+        "trap": "Traps",
+        "general": "General",
+    }
+
+    def __init__(
+        self,
+        property_catalog: RegisteredPropertyCatalog,
+        games: list[GameCatalog],
+    ) -> None:
+        self.property_catalog = property_catalog
+        self.games = games
+
+    def export(self, output: Path) -> None:
+        by_category = self._categorize_objects()
+        lines = [
+            "---",
+            "title: Objects",
+            "order: 14",
+            "---",
+            "",
+            "# Objects",
+            "",
+            "This page lists documented moveable object properties.",
+        ]
+
+        for cat in self.CATEGORY_ORDER:
+            objects = by_category[cat]
+            if not objects:
+                continue
+            lines.extend(["", f"## {self.CATEGORY_LABELS[cat]}"])
+            for object_id in objects:
+                props = self.property_catalog.properties_for(object_id)
+                table_rows = self._format_object_table(object_id, props)
+                if not table_rows:
+                    continue
+                lines.extend(["", f"#### {object_id}", *table_rows])
+
+        output.write_text("\n".join(lines) + "\n")
+
+    def _categorize_objects(self) -> dict[str, list[str]]:
+        by_category: dict[str, list[str]] = {
+            c: [] for c in self.CATEGORY_ORDER
+        }
+        seen: set[str] = set()
+        for game in self.games:
+            for object_id in game.object_ids:
+                if object_id in seen or not self.property_catalog.has_object(
+                    object_id
+                ):
+                    continue
+                seen.add(object_id)
+                cat = self.property_catalog.object_categories.get(
+                    object_id, "general"
+                )
+                by_category.setdefault(cat, []).append(object_id)
+
+        for object_id in self.property_catalog.iter_object_ids():
+            if object_id in seen:
+                continue
+            seen.add(object_id)
+            cat = self.property_catalog.object_categories.get(
+                object_id, "general"
+            )
+            by_category.setdefault(cat, []).append(object_id)
+        for object_ids in by_category.values():
+            object_ids.sort(key=natural_sort_key)
+        return by_category
+
+    def _format_object_table(
+        self,
+        object_id: str,
+        props: PropertyMap,
+    ) -> list[str]:
+        prop_names = list(props)
+        if not prop_names:
+            return []
+
+        th_games = "".join(
+            (
+                f'<th align="center">{game.short_name} ({moveable_id})</th>'
+                if moveable_id
+                else f'<th align="center">{game.short_name}</th>'
+            )
+            for game in self.games
+            for moveable_id in [game.moveable_id(object_id)]
+        )
+        rows = [
+            '<table width="100%">',
+            f"<thead><tr><th>Property</th>{th_games}<th>Description</th></tr></thead>",
+            "<tbody>",
+        ]
+
+        for name in prop_names:
+            info = props[name]
+            values: list[str] = []
+            for game in self.games:
+                val = format_value(
+                    info, game.config.version, game.music_catalog
+                )
+                if (sym := extract_music_symbol(info.value_expr)) is not None:
+                    val = f"{val} ({sym})"
+                values.append(val)
+            td_vals = "".join(
+                (
+                    f'<td colspan="{span}" align="center">{v}</td>'
+                    if span > 1
+                    else f'<td align="center">{v}</td>'
+                )
+                for v, span in _colspan_cells(values)
+            )
+            rows.append(
+                f"<tr><td><code>{info.internal_name}</code></td>{td_vals}<td>{info.description}</td></tr>"
+            )
+
+        rows += ["</tbody>", "</table>"]
+        return rows
+
+
+class XmlExporter:
+    PROPERTY_CATEGORY = "TRX"
+
+    def __init__(
+        self,
+        property_catalog: RegisteredPropertyCatalog,
+        game: GameCatalog,
+    ) -> None:
+        self.property_catalog = property_catalog
+        self.game = game
+
+    def export(self, output: Path, include_extras: bool) -> None:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        root = ET.Element("propertyCatalog")
+        grouped_moveables = self._group_moveables(include_extras)
+
+        for key, group in grouped_moveables.items():
+            if include_extras:
+                root.append(
+                    ET.Comment(
+                        self._format_placeholder_comment(group["objects"])
+                    )
+                )
+            moveable = ET.SubElement(root, "moveable")
+            if include_extras:
+                moveable.set("id", "-1")
+            else:
+                moveable.set("id", self._compress_ids(group["ids"]))
+
+            for property_dict in key:
+                prop = ET.SubElement(moveable, "property")
+                for k, v in property_dict:
+                    prop.set(k, v)
+
+        tree = ET.ElementTree(root)
+        try:
+            ET.indent(tree, space="    ")
+        except AttributeError:
+            pass
+
+        tree.write(
+            output,
+            encoding="utf-8",
+            xml_declaration=True,
+        )
+        with output.open("ab") as fh:
+            fh.write(b"\n")
+
+    def _group_moveables(
+        self, include_extras: bool
+    ) -> dict[tuple, dict[str, list]]:
+        grouped_moveables: dict[tuple, dict[str, list]] = {}
+        for object_id, moveable_id in self._iter_objects(include_extras):
+            if not self.property_catalog.has_object(object_id):
+                continue
+
+            props = self.property_catalog.properties_for(object_id)
+            # TODO: Tomb Editor supports color properties but its TRX injector
+            # does not. Once TE is updated, write out RGB values as well.
+            properties = [
+                self._build_property_dict(name, props[name])
+                for name in props
+                if props[name].macro_type != "RGB"
+            ]
+            key = tuple(tuple(sorted(prop.items())) for prop in properties)
+            group = grouped_moveables.setdefault(
+                key,
+                {
+                    "ids": [],
+                    "objects": [],
+                },
+            )
+            group["ids"].append(int(moveable_id))
+            group["objects"].append(object_id)
+        return grouped_moveables
+
+    def _iter_objects(self, include_extras: bool) -> list[tuple[str, str]]:
+        if include_extras:
+            return [
+                (object_id, "-1")
+                for object_id in sorted(
+                    self.property_catalog.iter_object_ids()
+                )
+                if object_id not in self.game.object_ids
+            ]
+
+        return sorted(
+            self.game.object_ids.items(),
+            key=lambda item: int(item[1]),
+        )
+
+    def _build_property_dict(
+        self,
+        name: str,
+        info: PropertyInfo,
+    ) -> dict[str, str]:
+        prop = {
+            "internalName": info.internal_name,
+            "displayName": info.display_name,
+            "category": self.PROPERTY_CATEGORY,
+        }
+
+        enum_info = get_enum_info(info)
+        if enum_info is None:
+            prop["type"] = {
+                "INT": "Int",
+                "FLOAT": "Float",
+                "DOUBLE": "Float",
+                "BOOL": "Bool",
+                "XYZ": "Vec3",
+            }[info.macro_type]
+        else:
+            prop["type"] = "Enum"
+
+        default_value = self._format_default_value(info)
+        if enum_info is None:
+            prop["defaultValue"] = default_value
+
+            value_range = info.value_range
+            min_value = None
+            max_value = None
+            description = info.description
+            if info.is_numeric:
+                min_value = self._default_min_value(default_value)
+            if value_range is not None:
+                min_value = value_range.min_value or min_value
+                max_value = value_range.max_value
+                description = value_range.description
+            if min_value is not None:
+                prop["minValue"] = min_value
+            if max_value is not None:
+                prop["maxValue"] = max_value
+            prop["description"] = description
+            return prop
+
+        description, entries = enum_info
+        try:
+            prop["defaultValue"] = entries[int(default_value)]
+        except (ValueError, IndexError):
+            prop["defaultValue"] = default_value
+
+        prop["entries"] = ", ".join(entries)
+        prop["description"] = description
+        return prop
+
+    def _format_default_value(self, info: PropertyInfo) -> str:
+        value = format_value(
+            info, self.game.config.version, self.game.music_catalog
+        )
+        prop_type = info.macro_type
+
+        if prop_type == "BOOL":
+            if value == "0":
+                return "false"
+            if value == "1":
+                return "true"
+
+        if prop_type == "XYZ":
+            match = re.fullmatch(
+                r"\(*\(\s*XYZ_32\s*\)\s*"
+                r"\{\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\}\s*\)*",
+                value,
+            )
+            if match:
+                x, y, z = match.groups()
+                return f"TEN.Vec3({x}, {y}, {z})"
+
+        return value
+
+    @staticmethod
+    def _default_min_value(default_value: str) -> str:
+        try:
+            value = float(default_value)
+        except ValueError:
+            return "0"
+
+        if value < 0:
+            return default_value
+        return "0"
+
+    @staticmethod
+    def _compress_ids(ids: list[int]) -> str:
+        if not ids:
+            raise ValueError("expected at least one moveable id")
+        ids = sorted(ids)
+        ranges, start = [], ids[0]
+        for i, value in enumerate(ids[1:] + [None], 1):
+            if value != ids[i - 1] + 1:
+                end = ids[i - 1]
+                if start == end:
+                    ranges.append(str(start))
+                elif end == start + 1:
+                    ranges += [str(start), str(end)]
+                else:
+                    ranges.append(f"{start}-{end}")
+                start = value
+        return ",".join(ranges)
+
+    @staticmethod
+    def _format_placeholder_comment(objects: list[str]) -> str:
+        if len(objects) == 1:
+            return f"placeholder for {objects[0]}"
+
+        objects = sorted(objects, key=natural_sort_key)
+        return f"placeholder for {objects[0]}..{objects[-1]}"
+
+
+def main() -> None:
+    property_catalog = RegisteredPropertyCatalog.load()
+    games = [GameCatalog.from_config(config) for config in GAMES]
+
+    for game in games:
+        exporter = XmlExporter(property_catalog, game)
+        exporter.export(
+            XML_OUTPUT / f"tr{game.config.version}/Properties/default.xml",
+            include_extras=False,
+        )
+        exporter.export(
+            XML_OUTPUT / f"tr{game.config.version}/Properties/extra.xml",
+            include_extras=True,
+        )
+
+    MarkdownExporter(property_catalog, games).export(MD_OUTPUT)
+
+
+if __name__ == "__main__":
+    main()

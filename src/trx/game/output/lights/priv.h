@@ -1,11 +1,21 @@
 #pragma once
 
+#include <trx/game/output/lights.h>
 #include <trx/game/output/uniforms.h>
 #include <trx/game/rooms.h>
 #include <trx/game/types.h>
 
 #define OUTPUT_LIGHT_CYCLE 32
 #define OUTPUT_DYNAMIC_FALLOFF_SHIFT 8
+
+// A colored dynamic light's falloff counts in steps of this many world units
+// (the OG's >> 7 in the TR3 CreateDynamicLight). How far the light reaches is
+// then that many steps, give or take what each game makes of it.
+#define OUTPUT_DYNAMIC_RADIUS_SHIFT 7
+// The furthest one can be asked to reach. The falloff is stored shifted up by
+// OUTPUT_DYNAMIC_FALLOFF_SHIFT, and this keeps the result in range; no game
+// looks past eight sectors for a dynamic light in any case.
+#define OUTPUT_DYNAMIC_FALLOFF_MAX 0x7FFF
 
 // How a dynamic light's shade/falloff fields are encoded. Uploaded to the
 // shader as the light's `kind`, where the TR1/2 family picks the lighting
@@ -99,9 +109,7 @@ typedef struct {
     } lights[OUTPUT_TR4_MAX_STAGED_LIGHTS];
 } OUTPUT_UNIFORM_LS_TR4;
 
-// 5 level bulbs + 5 FX bulbs (TR4 only; binding point 4).
-#define OUTPUT_MAX_FOG_BULBS 10
-
+// Binding point 4; OUTPUT_MAX_FOG_BULBS bulbs at once.
 typedef struct {
     int32_t count;
     int32_t _pad[3];

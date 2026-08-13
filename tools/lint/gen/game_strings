@@ -1,0 +1,1179 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import os
+import re
+import sys
+from collections.abc import Iterable
+from copy import deepcopy
+from dataclasses import dataclass
+from enum import Enum, auto
+from pathlib import Path
+from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from shared.cdefs import expand_def_file
+from shared.files import find_versioned_files
+from shared.json_utils import load_json5_from_string, write_json_to_string
+from shared.paths import DATA_DIR, REPO_DIR, SRC_DIR, CommonPaths
+from shared.utils import chunks, uniq
+from shared.vfs import VirtualFilesystem
+
+REVIEW_MARKER = r"\{review}"
+
+RE_GAME_STRING_USAGE = re.compile(
+    r'GS(?:_ID|_PTR)?\(\s*"((?:\\.|[^"\\])*)"\s*\)'
+)
+RE_GAME_STRING_DEFINE = re.compile(
+    r'GS_DEFINE\(\s*([A-Za-z0-9_./-]+)\s*,\s*"((?:\\.|[^"\\])*)"\)'
+)
+RE_UI_SETTING_USAGE = re.compile(
+    r"X_UI_ROW\(\s*([a-z0-9_.]+)\s*\)",
+    flags=re.M | re.DOTALL,
+)
+RE_ENUM_MAP_USAGE = re.compile(
+    r"ENUM_MAP\(\s*[A-Z0-9_]+\s*,\s*([A-Z0-9_]+)\s*,"
+)
+RE_ENUM_MAP_DEFINE = re.compile(
+    r"ENUM_MAP\(\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*,"
+)
+RE_ENUM_MAP_SELF_DEFINE = re.compile(
+    r"ENUM_MAP_SELF\(\s*([A-Z0-9_]+)\s*,\s*([A-Z0-9_]+)\s*\)"
+)
+RE_INPUT_ROLE_USAGE = re.compile(
+    r"X_INPUT_ROLE\(\s*(INPUT_ROLE_[A-Z0-9_]+)\s*,"
+)
+RE_OBJ_NAME_DEFINE = re.compile(r'@NAME\("([^"]+)"((?:,\s*"[^"]*")+)\)')
+
+RE_LUA_GAME_STRING_USAGE = re.compile(
+    r"trx\.locale\.(?:get|format)\(\s*"
+    r"""(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)')"""
+)
+# The help key of a trx.console.register{} spec. Loose on purpose: keeping a key
+# too many is harmless where pruning one too few loses a command its text.
+RE_LUA_HELP_ID_USAGE = re.compile(
+    r"\bhelp\s*=\s*"
+    r"""(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)')"""
+)
+RE_LUA_DECLARE_CALL = re.compile(r"\btrx\.locale\.declare\s*\(")
+# The ["key"] = part of a trx.locale.declare{} row. What follows it is read by
+# read_lua_string_expr, which a regex cannot do: the text may be a long-bracket
+# string or several pieces joined with `..`.
+RE_LUA_DECLARE_KEY = re.compile(
+    r"""\[\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)')\s*\]\s*="""
+)
+ROOT_SECTIONS = ("general", "console", "enums", "dynamic", "settings")
+TOP_LEVEL_SECTION_ORDER = (
+    "extends",
+    "language_name",
+    "general",
+    "console",
+    "dynamic",
+    "enums",
+    "settings",
+    "objects",
+    "cutscenes",
+    "levels",
+    "demos",
+)
+
+
+def enum_label_key(enum_type: str, enum_value: str) -> str:
+    return f"enums/{enum_type}/{enum_value}"
+
+
+def resolve_enum_label_key(
+    enum_value: str, enum_value_types: dict[str, str]
+) -> str:
+    enum_type = enum_value_types.get(enum_value)
+    if enum_type is None:
+        return f"ENUM_{enum_value}"
+    return enum_label_key(enum_type, enum_value)
+
+
+def sort_mapping_rec(value: Any) -> Any:
+    if isinstance(value, dict):
+        if set(value.keys()).issubset({"title", "description"}):
+            ordered: dict[str, Any] = {}
+            if "title" in value:
+                ordered["title"] = sort_mapping_rec(value["title"])
+            if "description" in value:
+                ordered["description"] = sort_mapping_rec(value["description"])
+            for key in sorted(value.keys()):
+                if key not in ordered:
+                    ordered[key] = sort_mapping_rec(value[key])
+            return ordered
+        return {
+            key: sort_mapping_rec(value[key]) for key in sorted(value.keys())
+        }
+    if isinstance(value, list):
+        return [sort_mapping_rec(item) for item in value]
+    return value
+
+
+def format_strings_file(source: Any) -> str:
+    source = deepcopy(source)
+    ordered_source: dict[str, Any] = {}
+    for section in TOP_LEVEL_SECTION_ORDER:
+        if section in source:
+            value = source[section]
+            ordered_source[section] = (
+                sort_mapping_rec(value) if isinstance(value, dict) else value
+            )
+    for section in sorted(source.keys()):
+        if section in ordered_source:
+            continue
+        value = source[section]
+        ordered_source[section] = (
+            sort_mapping_rec(value) if isinstance(value, dict) else value
+        )
+    content = write_json_to_string(ordered_source)
+    content = (
+        """{
+    // For usage, refer to the documentation here:
+    // https://lostartefacts.dev/trx/docs/stable/game_strings
+    """
+        + content[1:].strip()
+        + "\n"
+    )
+    content = re.sub(r'"\n(\s*[\]}])', r'",\n\1', content, flags=re.M)
+    return content
+
+
+def step(func=None):
+    if func is None:
+        return step
+    step.registry.append(func)
+    return func
+
+
+def clean(source: str | list[str] | None) -> str | list[str] | None:
+    if not source:
+        return source
+    if isinstance(source, list):
+        return [clean(item) for item in source]
+    if isinstance(source, dict):
+        return {key: clean(value) for key, value in source.items()}
+    if not isinstance(source, str):
+        return source
+    return source.replace(REVIEW_MARKER, "")
+
+
+step.registry = []
+
+
+@dataclass
+class GameStringFile:
+    path: Path
+    data: dict[str, Any]
+
+    @property
+    def extends(self) -> str | None:
+        return self.data.get("extends")
+
+    def __init__(self, path: Path, data: dict[str, Any]) -> None:
+        self.path = path
+        self.data = data
+
+
+@dataclass
+class GameStringSet:
+    main: GameStringFile
+    translations: dict[str, GameStringFile]
+
+    def __init__(self, vfs: VirtualFilesystem, location: Path) -> None:
+        main_path = list(location.glob("*strings.json5"))[0]
+        main_data = load_json5_from_string(vfs.get(main_path))
+        self.main = GameStringFile(main_path, main_data)
+        self.translations = {
+            re.match(".*-(.*)", path.stem).group(1): GameStringFile(
+                path, load_json5_from_string(vfs.get(path))
+            )
+            for path in location.glob("*strings-*.json5")
+        }
+
+
+def get_strings_map(path: Path) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for line in path.read_text().splitlines():
+        if match := RE_GAME_STRING_DEFINE.match(line):
+            result[match.group(1)] = (
+                match.group(2)
+                .replace("\\n", "\n")
+                .replace('\\"', '"')
+                .replace("\\\\", "\\")
+            )
+    return result
+
+
+def get_config_aliases(path: Path) -> dict[str, str]:
+    aliases: dict[str, str] = {}
+    if not path.exists():
+        return aliases
+    ex_re = re.compile(
+        r'^X_CFG_[A-Z0-9_]+_EX\(\s*"([^"]+)"\s*,\s*([a-z0-9_.]+)\s*,'
+    )
+    for line in path.read_text().splitlines():
+        if match := ex_re.match(line.strip()):
+            aliases[match.group(2)] = match.group(1)
+    return aliases
+
+
+def gs_get(game_strings: dict[str, Any], key: str) -> Any:
+    if "/" not in key:
+        return game_strings.get(key)
+    parts = key.split("/")
+    cur: Any = game_strings
+    for part in parts:
+        if not isinstance(cur, dict):
+            return None
+        cur = cur.get(part)
+        if cur is None:
+            return None
+    return cur
+
+
+def gs_set(game_strings: dict[str, Any], key: str, value: Any) -> None:
+    if "/" not in key:
+        game_strings[key] = value
+        return
+    parts = key.split("/")
+    cur: dict[str, Any] = game_strings
+    for part in parts[:-1]:
+        nxt = cur.get(part)
+        if not isinstance(nxt, dict):
+            nxt = {}
+            cur[part] = nxt
+        cur = nxt
+    cur[parts[-1]] = value
+
+
+def gs_delete(game_strings: dict[str, Any], key: str) -> None:
+    if "/" not in key:
+        game_strings.pop(key, None)
+        return
+    parts = key.split("/")
+    cur: Any = game_strings
+    for part in parts[:-1]:
+        if not isinstance(cur, dict):
+            return
+        cur = cur.get(part)
+        if cur is None:
+            return
+    if isinstance(cur, dict):
+        cur.pop(parts[-1], None)
+
+
+def gs_flatten(game_strings: dict[str, Any], prefix: str = "") -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in game_strings.items():
+        full_key = f"{prefix}/{key}" if prefix else key
+        if isinstance(value, dict):
+            result.update(gs_flatten(value, full_key))
+        else:
+            result[full_key] = value
+    return result
+
+
+def split_root_key(key: str) -> tuple[str, str]:
+    for prefix in ROOT_SECTIONS:
+        full_prefix = f"{prefix}/"
+        if key.startswith(full_prefix):
+            return prefix, key[len(full_prefix) :]
+    raise ValueError(f"game string key must have a known root prefix: {key}")
+
+
+def get_root_dict(
+    file_data: dict[str, Any], section: str, create: bool = False
+) -> dict[str, Any] | None:
+    section_data = file_data.get(section)
+    if isinstance(section_data, dict):
+        return section_data
+    if not create:
+        return None
+    section_data = {}
+    file_data[section] = section_data
+    return section_data
+
+
+def root_get(file_data: dict[str, Any], key: str) -> Any:
+    section, path = split_root_key(key)
+    section_data = get_root_dict(file_data, section)
+    if section_data is None:
+        return None
+    return gs_get(section_data, path)
+
+
+def root_set(file_data: dict[str, Any], key: str, value: Any) -> None:
+    section, path = split_root_key(key)
+    section_data = get_root_dict(file_data, section, create=True)
+    gs_set(section_data, path, value)
+
+
+def root_delete(file_data: dict[str, Any], key: str) -> None:
+    section, path = split_root_key(key)
+    section_data = get_root_dict(file_data, section)
+    if section_data is not None:
+        gs_delete(section_data, path)
+
+
+def root_flatten(file_data: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for section in ROOT_SECTIONS:
+        section_data = get_root_dict(file_data, section)
+        if section_data is None:
+            continue
+        result.update(gs_flatten(section_data, section))
+    return result
+
+
+def unescape(value: str) -> str:
+    """The text a source-level string literal stands for."""
+    return (
+        value.replace("\\n", "\n")
+        .replace('\\"', '"')
+        .replace("\\'", "'")
+        .replace("\\\\", "\\")
+    )
+
+
+def get_used_strings(
+    path: Path, enum_value_types: dict[str, str], aliases: dict[str, str] | None = None
+) -> Iterable[tuple[int, str]]:
+    source = re.sub("//.*", "", path.read_text(), flags=re.M)
+    source = re.sub(r"^\s*#define\s+.*$", "", source, flags=re.M)
+    for match in re.finditer(RE_GAME_STRING_USAGE, source):
+        yield source.count("\n", 0, match.start()) + 1, unescape(match.group(1))
+    for match in re.finditer(RE_UI_SETTING_USAGE, source):
+        option_name = match.group(1)
+        if aliases is not None:
+            option_name = aliases.get(option_name, option_name)
+        yield source.count("\n", 0, match.start()) + 1, (
+            f"settings/{option_name}/title"
+        )
+        yield source.count("\n", 0, match.start()) + 1, (
+            f"settings/{option_name}/description"
+        )
+    for match in re.finditer(RE_ENUM_MAP_USAGE, source):
+        enum_value = match.group(1)
+        yield source.count("\n", 0, match.start()) + 1, resolve_enum_label_key(
+            enum_value, enum_value_types
+        )
+    for match in re.finditer(RE_INPUT_ROLE_USAGE, source):
+        enum_value = match.group(1)
+        yield source.count("\n", 0, match.start()) + 1, enum_label_key(
+            "INPUT_ROLE", enum_value
+        )
+
+
+def long_bracket_size(source: str, i: int) -> int | None:
+    """Length of the long bracket opening at i - ``[[``, ``[=[`` - if there is one."""
+    if source[i] != "[":
+        return None
+    j = i + 1
+    while j < len(source) and source[j] == "=":
+        j += 1
+    if j < len(source) and source[j] == "[":
+        return j + 1 - i
+    return None
+
+
+def blank(text: str) -> str:
+    """`text` with every character but its newlines turned into a space."""
+    return "".join("\n" if ch == "\n" else " " for ch in text)
+
+
+def strip_lua_noncode(source: str, *, strip_long_strings: bool = True) -> str:
+    """Blank out everything in a Lua source that a script does not execute.
+
+    Comments go, and so do long-bracket strings: in src/lua those hold
+    the api.define examples, and a key named in an example is documentation, not
+    a usage. Quoted strings stay, because that is where a key is written. What
+    goes is replaced space for space, so both the line numbers and the offsets
+    still line up with the source they came from.
+
+    A caller that has already located a genuine call passes
+    ``strip_long_strings=False`` to read the text a long bracket holds, which is
+    how a declaration writes one long line across several.
+
+    Scanning rather than substituting, so that a ``--`` inside a string reads as
+    two dashes rather than as the start of a comment.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(source)
+
+    def long_bracket_end(start: int, size: int) -> int:
+        closing = "]" + "=" * (size - 2) + "]"
+        end = source.find(closing, start + size)
+        return n if end == -1 else end + len(closing)
+
+    def skip_long_bracket(start: int, size: int) -> int:
+        stop = long_bracket_end(start, size)
+        out.append(blank(source[start:stop]))
+        return stop
+
+    while i < n:
+        ch = source[i]
+        if ch in ("'", '"'):
+            quote = ch
+            out.append(ch)
+            i += 1
+            while i < n and source[i] != quote:
+                if source[i] == "\\" and i + 1 < n:
+                    out.append(source[i : i + 2])
+                    i += 2
+                    continue
+                out.append(source[i])
+                i += 1
+            if i < n:
+                out.append(source[i])
+                i += 1
+            continue
+        if source.startswith("--", i):
+            start = i
+            i += 2
+            size = long_bracket_size(source, i) if i < n else None
+            if size is not None:
+                i = long_bracket_end(i, size)
+            else:
+                while i < n and source[i] != "\n":
+                    i += 1
+            out.append(blank(source[start:i]))
+            continue
+        size = long_bracket_size(source, i)
+        if size is not None:
+            if strip_long_strings:
+                i = skip_long_bracket(i, size)
+            else:
+                stop = long_bracket_end(i, size)
+                out.append(source[i:stop])
+                i = stop
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def get_used_lua_strings(path: Path) -> Iterable[tuple[int, str]]:
+    """Game string keys named from a Lua script."""
+    source = strip_lua_noncode(path.read_text())
+    for regex in (RE_LUA_GAME_STRING_USAGE, RE_LUA_HELP_ID_USAGE):
+        for match in re.finditer(regex, source):
+            literal = match.group(1) if match.group(1) is not None else match.group(2)
+            yield source.count("\n", 0, match.start()) + 1, unescape(literal)
+
+
+def lua_declare_blocks(source: str) -> Iterable[tuple[int, int]]:
+    """Where each trx.locale.declare() argument list starts and ends.
+
+    Balanced on parentheses, skipping over quoted strings so a bracket a
+    translator wrote into the text does not end the call early.
+    """
+    n = len(source)
+    for match in RE_LUA_DECLARE_CALL.finditer(source):
+        start = match.end()
+        i = start
+        depth = 1
+        while i < n and depth > 0:
+            ch = source[i]
+            if ch in ("'", '"'):
+                i += 1
+                while i < n and source[i] != ch:
+                    i += 2 if source[i] == "\\" else 1
+                i += 1
+                continue
+            if ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+            i += 1
+        yield start, max(start, i - 1)
+
+
+def read_lua_string(source: str, i: int) -> tuple[str, int] | None:
+    """The one string literal at `i`, and where it ends.
+
+    Quoted or long-bracket. A long bracket takes no escapes, and drops the
+    newline it opens on, the way Lua reads one.
+    """
+    if i >= len(source):
+        return None
+    if source[i] in ("'", '"'):
+        quote = source[i]
+        j = i + 1
+        while j < len(source) and source[j] != quote:
+            j += 2 if source[j] == "\\" else 1
+        return unescape(source[i + 1 : j]), min(j + 1, len(source))
+    size = long_bracket_size(source, i)
+    if size is None:
+        return None
+    closing = "]" + "=" * (size - 2) + "]"
+    end = source.find(closing, i + size)
+    if end == -1:
+        return None
+    text = source[i + size : end]
+    return text.removeprefix("\n"), end + len(closing)
+
+
+def read_lua_string_expr(source: str, i: int) -> tuple[str, int] | None:
+    """The text at `i`, however many literals `..` joins to make it.
+
+    A declaration writes one long line of English across several source lines,
+    so what a key is worth is not always a single literal.
+    """
+    parts: list[str] = []
+    while i < len(source) and source[i] in " \t\r\n":
+        i += 1
+    while True:
+        piece = read_lua_string(source, i)
+        if piece is None:
+            break
+        text, i = piece
+        parts.append(text)
+        j = i
+        while j < len(source) and source[j] in " \t\r\n":
+            j += 1
+        if not source.startswith("..", j):
+            break
+        i = j + 2
+        while i < len(source) and source[i] in " \t\r\n":
+            i += 1
+    if not parts:
+        return None
+    return "".join(parts), i
+
+
+def get_declared_lua_strings(path: Path) -> Iterable[tuple[int, str, str]]:
+    """Game string keys a Lua script declares, and the English behind them."""
+    raw = path.read_text()
+    # The blocks are found in a source with the long strings gone, so a call
+    # inside an api.define example declares nothing; the text is then read from
+    # one that kept them, so a declaration may write its English as one.
+    source = strip_lua_noncode(raw)
+    with_long_strings = strip_lua_noncode(raw, strip_long_strings=False)
+    for start, end in lua_declare_blocks(source):
+        for match in RE_LUA_DECLARE_KEY.finditer(source, start, end):
+            key = match.group(1) if match.group(1) is not None else match.group(2)
+            value = read_lua_string_expr(with_long_strings, match.end())
+            if value is None:
+                continue
+            line = source.count("\n", 0, match.start()) + 1
+            yield line, unescape(key), value[0]
+
+
+def merge_lua_declarations(
+    game_strings: dict[str, str], lua_files: list[Path]
+) -> None:
+    """Fold what the Lua scripts declare into the entries.def strings map.
+
+    A key belongs to one place. Declaring one twice, or declaring one
+    GS_DEFINE() already has, leaves the English text ambiguous, so it is
+    reported rather than resolved.
+    """
+    seen: dict[str, str] = {}
+    errors: list[str] = []
+    for path in lua_files:
+        for line, key, value in get_declared_lua_strings(path):
+            origin = f"{path.relative_to(REPO_DIR)}:{line}"
+            if key in seen:
+                errors.append(
+                    f"{origin}: {key} is already declared in {seen[key]}"
+                )
+            elif key in game_strings:
+                errors.append(f"{origin}: {key} is already a GS_DEFINE()")
+            elif not any(key.startswith(f"{s}/") for s in ROOT_SECTIONS):
+                errors.append(
+                    f"{origin}: {key} must start with one of: "
+                    + ", ".join(ROOT_SECTIONS)
+                )
+            else:
+                seen[key] = origin
+                game_strings[key] = value
+    if errors:
+        sys.exit(
+            "Error: bad trx.locale.declare() entries:\n"
+            + "\n".join(f"  - {error}" for error in errors)
+        )
+
+
+def get_enum_value_types(paths: list[Path]) -> dict[str, str]:
+    value_types: dict[str, str] = {}
+    for path in paths:
+        source = re.sub("//.*", "", path.read_text(), flags=re.M)
+        source = re.sub(r"/\*.*?\*/", "", source, flags=re.S)
+        source = re.sub(r"^\s*#define\s+.*$", "", source, flags=re.M)
+        for enum_type, enum_value in RE_ENUM_MAP_DEFINE.findall(source):
+            value_types[enum_value] = enum_type
+        for enum_type, enum_value in RE_ENUM_MAP_SELF_DEFINE.findall(source):
+            value_types[enum_value] = enum_type
+    return value_types
+
+
+def get_used_ui_theme_strings(
+    vfs: VirtualFilesystem, path: Path
+) -> Iterable[tuple[int, str]]:
+    if not path.exists():
+        return
+    source = load_json5_from_string(vfs.get(path))
+    if not isinstance(source, dict):
+        return
+    for _, theme_data in source.get("bars", {}).items():
+        if not isinstance(theme_data, dict):
+            continue
+        name_gs = theme_data.get("name_gs")
+        if isinstance(name_gs, str):
+            yield 0, name_gs
+
+
+def get_used_outfit_strings(
+    vfs: VirtualFilesystem, path: Path
+) -> Iterable[tuple[int, str]]:
+    if not path.exists():
+        return
+    source = load_json5_from_string(vfs.get(path))
+    if not isinstance(source, dict):
+        return
+    outfits = source.get("outfits")
+    if not isinstance(outfits, dict):
+        return
+    for _, outfit_data in outfits.items():
+        if not isinstance(outfit_data, dict):
+            continue
+        name_gs = outfit_data.get("name_gs")
+        if isinstance(name_gs, str):
+            yield 0, name_gs
+
+
+def get_used_mod_strings() -> Iterable[tuple[int, str]]:
+    for mod_path in (DATA_DIR / "trx" / "ship" / "games").glob("*"):
+        if (mod_path / "gameflow.json5").exists():
+            yield 0, f"dynamic/mods/{mod_path.name}/title"
+
+
+def get_used_preset_strings(
+    vfs: VirtualFilesystem, presets_dir: Path
+) -> Iterable[tuple[int, str]]:
+    if not presets_dir.exists():
+        return
+    for preset_path in presets_dir.glob("*.json5"):
+        source = load_json5_from_string(vfs.get(preset_path))
+        if not isinstance(source, dict):
+            continue
+        name_gs = source.get("name_gs")
+        if isinstance(name_gs, str):
+            yield 0, name_gs
+
+
+def get_objects_map(paths: list[Path]) -> dict[str, dict[str, str | list[str]]]:
+    """
+    Parse object-name definitions from names.def-like files.
+    Supports:
+      X_OBJ_NAME_DEFINE(..., "key", X_OBJ_NAMES("Name1", "Name2", ...))
+    The files may include other .def files (pickups.def), so they are expanded
+    with the real C preprocessor first.
+    """
+    result: dict[str, dict[str, str | list[str]]] = {}
+    for path in paths:
+        if path.suffix != ".def" or "X_OBJ_NAME_DEFINE(" not in path.read_text():
+            continue
+        text = expand_def_file(
+            path,
+            {
+                "X_OBJ_NAME_DEFINE(id, key, names)": "@NAME(key, names)",
+                "X_OBJ_NAMES(...)": "__VA_ARGS__",
+                "X_OBJ_ALIAS_DEFINE(a, b)": "",
+            },
+        )
+        for match in RE_OBJ_NAME_DEFINE.finditer(text):
+            key = match.group(1)
+            names_list = uniq(re.findall(r'"([^"]+)"', match.group(2)))
+            result.setdefault(key, {})["name"] = (
+                names_list[0] if len(names_list) == 1 else names_list
+            )
+    return result
+
+
+class RunContext:
+    def __init__(
+        self, vfs: VirtualFilesystem, args: argparse.Namespace
+    ) -> None:
+        self.vfs = vfs
+        self.args = args
+
+        self.base = GameStringSet(vfs, CommonPaths.shipped_data_dir / "cfg")
+        self.mods = {
+            mod_path.name: GameStringSet(vfs, mod_path)
+            for mod_path in (DATA_DIR / "trx" / "ship" / "games").glob("*")
+            if mod_path.is_dir()
+        }
+
+        versioned_files = list(find_versioned_files(REPO_DIR))
+        source_files = [
+            path for path in versioned_files if path.suffix in [".c", ".h", ".def"]
+        ]
+        # The test fixtures name keys that exist to be looked up in a test, and
+        # keys that exist to be missing. Neither says anything about what the
+        # game ships.
+        lua_files = [
+            path
+            for path in versioned_files
+            if path.suffix == ".lua" and SRC_DIR / "tests" not in path.parents
+        ]
+        self.enum_value_types = get_enum_value_types(source_files)
+        self.config_aliases = get_config_aliases(CommonPaths.src_dir / "config/map.def")
+        self.game_strings_def_path = (
+            CommonPaths.src_dir / "game/game_strings/entries.def"
+        )
+        self.game_strings_dict = get_strings_map(self.game_strings_def_path)
+        merge_lua_declarations(self.game_strings_dict, lua_files)
+        self.used_game_strings = sum(
+            [
+                list(
+                    get_used_strings(
+                        path,
+                        enum_value_types=self.enum_value_types,
+                        aliases=self.config_aliases,
+                    )
+                )
+                for path in source_files
+            ],
+            [],
+        )
+        self.used_game_strings += sum(
+            [list(get_used_lua_strings(path)) for path in lua_files],
+            [],
+        )
+        self.used_game_strings += list(
+            get_used_ui_theme_strings(
+                vfs, CommonPaths.shipped_data_dir / "cfg/ui.json5"
+            )
+        )
+        self.used_game_strings += list(
+            get_used_outfit_strings(
+                vfs, CommonPaths.shipped_data_dir / "cfg/outfits.json5"
+            )
+        )
+        self.used_game_strings += list(
+            get_used_preset_strings(
+                vfs, CommonPaths.shipped_data_dir / "cfg/presets"
+            )
+        )
+        self.used_game_strings += list(get_used_mod_strings())
+
+        self.object_names_dict = get_objects_map(source_files)
+
+    @property
+    def all_files(self) -> Iterable[GameStringFile]:
+        for gs in (self.base, *self.mods.values()):
+            yield gs.main
+            yield from gs.translations.values()
+
+
+class BaseResolver:
+    """Base logic for filling missing game_strings translations."""
+
+    def __init__(self, base_file: GameStringFile, trans_file: GameStringFile) -> None:
+        self.base_file = base_file
+        self.trans_file = trans_file
+
+    def fill(self) -> Any:
+        self.fill_base_strings()
+        self.fill_object_names()
+        self.fill_level_object_names()
+        return self.trans_file.data
+
+    def fill_base_strings(self) -> None:
+        base_gs = root_flatten(self.base_file.data)
+        trans_gs = root_flatten(self.trans_file.data)
+        source = trans_gs if self.trans_file.extends else base_gs
+        missing = {}
+        for key in source:
+            base_value = clean(base_gs.get(key))
+            trans_value = clean(trans_gs.get(key))
+            if isinstance(base_value, (dict, list)):
+                if not trans_value:
+                    root_set(self.trans_file.data, key, base_value)
+                continue
+            if not trans_value:
+                missing[key] = base_value
+        for chunk in chunks(list(missing.items()), n=50):
+            filled = dict(self.fill_chunk(chunk))
+            for key, value in filled.items():
+                root_set(self.trans_file.data, key, value)
+
+    def fill_object_names(self) -> None:
+        base_objs = self.base_file.data.get("objects", {})
+        trans_objs = self.trans_file.data.setdefault("objects", {})
+        missing_objs: dict[str, str] = {}
+        for key, obj in base_objs.items():
+            if not isinstance(obj, dict):
+                continue
+            base_name = obj.get("name")
+            if isinstance(base_name, list) and base_name:
+                base_name = base_name[0]  # Only take the first
+            trans_obj = trans_objs.get(key)
+            if not isinstance(trans_obj, dict):
+                continue
+            if not clean(trans_obj.get("name")):
+                missing_objs[f"{key}/name"] = clean(base_name)
+            if "description" in obj:
+                base_description = clean(obj.get("description"))
+                if base_description == "":
+                    trans_obj["description"] = ""
+                elif not clean(trans_obj.get("description")):
+                    missing_objs[f"{key}/description"] = base_description
+        for chunk in chunks(list(missing_objs.items()), n=50):
+            filled = dict(self.fill_chunk(chunk))
+            for packed_key, value in filled.items():
+                obj_key, field = packed_key.rsplit("/", 1)
+                trans_objs.setdefault(obj_key, {})[field] = value
+        if not self.trans_file.data["objects"]:
+            del self.trans_file.data["objects"]
+
+    def fill_level_object_names(self) -> None:
+        base_levels = self.base_file.data.get("levels")
+        trans_levels = self.trans_file.data.get("levels")
+        if self.trans_file.extends:
+            return
+        if not isinstance(base_levels, list) or not isinstance(trans_levels, list):
+            return
+
+        missing: list[tuple[str, str]] = []
+        for level_index, base_level in enumerate(base_levels):
+            if level_index >= len(trans_levels):
+                break
+            if not isinstance(base_level, dict):
+                continue
+            trans_level = trans_levels[level_index]
+            if not isinstance(trans_level, dict):
+                continue
+
+            base_objects = base_level.get("objects")
+            if not isinstance(base_objects, dict) or not base_objects:
+                continue
+
+            trans_objects = trans_level.setdefault("objects", {})
+            if not isinstance(trans_objects, dict):
+                trans_objects = {}
+                trans_level["objects"] = trans_objects
+
+            for obj_key, obj in base_objects.items():
+                if not isinstance(obj, dict):
+                    continue
+                base_name = obj.get("name")
+                if isinstance(base_name, list) and base_name:
+                    base_name = base_name[0]  # Only take the first
+                trans_obj = trans_objects.get(obj_key)
+                if not isinstance(trans_obj, dict) or not clean(
+                    trans_obj.get("name")
+                ):
+                    missing.append((f"{level_index}:{obj_key}", clean(base_name)))
+
+        for chunk in chunks(missing, n=50):
+            filled = dict(self.fill_chunk(chunk))
+            for packed_key, v in filled.items():
+                level_index_str, obj_key = packed_key.split(":", 1)
+                level_index = int(level_index_str)
+                if level_index >= len(trans_levels):
+                    continue
+                trans_level = trans_levels[level_index]
+                if not isinstance(trans_level, dict):
+                    continue
+                trans_objects = trans_level.setdefault("objects", {})
+                if not isinstance(trans_objects, dict):
+                    trans_objects = {}
+                    trans_level["objects"] = trans_objects
+                trans_objects.setdefault(obj_key, {})["name"] = v
+
+
+class AIResolver(BaseResolver):
+    def __init__(
+        self, base_file: Any, trans_file: GameStringFile, target_lang: str, model: str
+    ) -> None:
+        super().__init__(base_file, trans_file)
+        self.target_lang = target_lang
+        self.model = model
+        try:
+            import openai
+        except ImportError:
+            sys.exit("Error: openai library is required for --fill")
+        if not openai.api_key and not os.getenv("OPENAI_API_KEY"):
+            sys.exit("Error: OPENAI_API_KEY env var must be set for --fill")
+        openai.api_key = os.getenv("OPENAI_API_KEY", openai.api_key)
+
+    @property
+    def system_prompt(self) -> str:
+        return f"""
+            Translate the user-provided JSON to language '{self.target_lang}'
+            for a Tomb Raider game. You are not allowed to compress identical
+            lines - output must exactly match input."""
+
+    def fill_chunk(self, chunk: list[tuple[str, str]]) -> list[tuple[str, str]]:
+        import openai
+
+        keys = [row[0] for row in chunk]
+        values = [row[1] for row in chunk]
+        messages = [
+            {"role": "system", "content": self.system_prompt},
+            {
+                "role": "user",
+                "content": json.dumps(values, ensure_ascii=False),
+            },
+        ]
+        buf = ""
+        response = openai.chat.completions.create(
+            model=self.model, messages=messages, temperature=0, stream=True
+        )
+        for chunk_resp in response:
+            delta = chunk_resp.choices[0].delta.content
+            if delta:
+                buf += delta
+        try:
+            parsed = json.loads(buf)
+        except Exception as e:
+            sys.exit(f"Error parsing AI response: {e}\n{buf}")
+        parsed = [REVIEW_MARKER + (text or "") for text in parsed]
+        return list(zip(keys, parsed, strict=True))
+
+
+class BlankResolver(BaseResolver):
+    def fill_chunk(self, chunk: list[tuple[str, str]]) -> dict[str, str]:
+        return {key: REVIEW_MARKER for key, _ in chunk}
+
+
+@step
+def remove_unused_defines(ctx: RunContext) -> None:
+    """Remove any GS_DEFINE() macros from the game_strings/entries.def that
+    aren't used.
+    """
+    used = {key for _, key in ctx.used_game_strings}
+    orig = ctx.game_strings_def_path.read_text().splitlines(keepends=True)
+    filtered: list[str] = []
+    for line in orig:
+        stripped = line.strip()
+        if m := RE_GAME_STRING_DEFINE.match(stripped):
+            if m.group(1) not in used:
+                continue
+        filtered.append(line)
+    ctx.vfs.put(ctx.game_strings_def_path, "".join(filtered))
+
+
+@step
+def sync_base_strings(ctx: RunContext) -> None:
+    """Sync base strings and clear changed keys in translations and mods."""
+    old_flat = root_flatten(ctx.base.main.data)
+    used = {key for _, key in ctx.used_game_strings}
+    new_flat = dict(ctx.game_strings_dict)
+    missing_used = sorted(
+        key
+        for key in used
+        if key.startswith("settings/") and key not in new_flat
+    )
+    if missing_used:
+        preview = "\n".join(f"  - {key}" for key in missing_used[:20])
+        extra = "" if len(missing_used) <= 20 else f"\n  ... and {len(missing_used) - 20} more"
+        sys.exit(
+            "Error: used game string keys are missing from "
+            "src/trx/game/game_strings/entries.def:\n"
+            f"{preview}{extra}"
+        )
+    changed = [k for k, v in new_flat.items() if old_flat.get(k) != v]
+
+    for section in ROOT_SECTIONS:
+        ctx.base.main.data[section] = {}
+    for key, value in new_flat.items():
+        root_set(ctx.base.main.data, key, value)
+    for key in changed:
+        for file in ctx.base.translations.values():
+            if not file.extends:
+                root_set(file.data, key, REVIEW_MARKER)
+        for gs in ctx.mods.values():
+            if root_get(gs.main.data, key):
+                root_set(gs.main.data, key, REVIEW_MARKER)
+                for file in gs.translations.values():
+                    if not file.extends:
+                        root_set(file.data, key, REVIEW_MARKER)
+
+    old = ctx.base.main.data.get("objects", {})
+    new = {}
+    for key, value in ctx.object_names_dict.items():
+        old_value = old.get(key, {})
+        if not isinstance(old_value, dict):
+            old_value = {}
+        new[key] = {**old_value, **value}
+    changed = [
+        k for k, v in new.items() if json.dumps(old.get(k)) != json.dumps(v)
+    ]
+    ctx.base.main.data["objects"] = new
+    for key in changed:
+        for file in ctx.base.translations.values():
+            if not file.extends:
+                trans_obj = file.data.setdefault("objects", {}).setdefault(key, {})
+                trans_obj["name"] = REVIEW_MARKER
+                base_obj = new.get(key, {})
+                if isinstance(base_obj, dict) and "description" in base_obj:
+                    if base_obj["description"] == "":
+                        trans_obj["description"] = ""
+                    else:
+                        trans_obj["description"] = REVIEW_MARKER
+        for gs in ctx.mods.values():
+            if gs.main.data.get("objects", {}).get(key):
+                mod_obj = gs.main.data.setdefault("objects", {}).setdefault(key, {})
+                mod_obj["name"] = REVIEW_MARKER
+                for file in gs.translations.values():
+                    if not file.extends:
+                        trans_obj = file.data.setdefault("objects", {}).setdefault(
+                            key, {}
+                        )
+                        trans_obj["name"] = REVIEW_MARKER
+                        base_obj = new.get(key, {})
+                        if isinstance(base_obj, dict) and "description" in base_obj:
+                            if base_obj["description"] == "":
+                                trans_obj["description"] = ""
+                            else:
+                                trans_obj["description"] = REVIEW_MARKER
+
+
+@step
+def resolve_missing_translations(ctx: RunContext) -> None:
+    """Fill missing translations from base and mods."""
+    for gs in (ctx.base, *ctx.mods.values()):
+        base_file = gs.main
+        for lang, trans_file in gs.translations.items():
+            if ctx.args.fill:
+                resolver = AIResolver(
+                    base_file,
+                    trans_file,
+                    target_lang=lang,
+                    model=ctx.args.model,
+                )
+            else:
+                resolver = BlankResolver(base_file, trans_file)
+            merged = resolver.fill()
+            trans_file.data = merged
+
+
+@step
+def remove_duplicate_mod_strings(ctx: RunContext) -> None:
+    """Removes mods base keys if they're identical to the main base strings.
+    Only applies to game strings.
+    """
+    base_gs = root_flatten(ctx.base.main.data)
+    for gs in ctx.mods.values():
+        mod_gs = root_flatten(gs.main.data)
+        if not mod_gs:
+            continue
+        for key in list(mod_gs.keys()):
+            if key in base_gs and base_gs[key] == mod_gs[key]:
+                root_delete(gs.main.data, key)
+                for file in gs.translations.values():
+                    if root_get(file.data, key) is not None:
+                        root_delete(file.data, key)
+
+
+@step
+def remove_extra_translation_strings(ctx: RunContext) -> None:
+    """Remove translation keys that aren't present in the base files.
+    Applies both to game strings and object names.
+    """
+    for gs in (ctx.base, *ctx.mods.values()):
+        base_data = gs.main.data
+        for file in gs.translations.values():
+            gs_trans = root_flatten(file.data)
+            if gs_trans:
+                allowed = root_flatten(base_data)
+                for key in list(gs_trans):
+                    if key not in allowed:
+                        root_delete(file.data, key)
+            obj_trans = file.data.get("objects")
+            if obj_trans:
+                allowed_objs = base_data.get("objects", {})
+                for key in list(obj_trans):
+                    if key not in allowed_objs:
+                        del obj_trans[key]
+
+
+@step
+def sort_game_strings(ctx):
+    """Sort game strings by key."""
+    for file in ctx.all_files:
+        for section in ROOT_SECTIONS:
+            if section_data := file.data.get(section):
+                file.data[section] = sort_mapping_rec(section_data)
+            elif not file.data.get(section):
+                file.data.pop(section, None)
+
+
+@step
+def flatten_object_names(ctx):
+    """Flatten single-item object "names" arrays into "name" properties."""
+    for file in ctx.all_files:
+        if object_names_map := file.data.get("objects"):
+            for key, obj in object_names_map.items():
+                if obj.get("names"):
+                    names = obj.pop("names")
+                else:
+                    names = obj["name"]
+                if isinstance(names, list):
+                    names = uniq(names)
+                if isinstance(names, list) and len(names) == 1:
+                    obj["name"] = names[0]
+                else:
+                    obj["name"] = names
+
+
+class Mode(Enum):
+    REPORT = auto()
+    FIX = auto()
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Update game strings JSON files to reflect the GS_DEFINE() macros "
+            "and the trx.locale.declare() tables."
+        )
+    )
+    parser.add_argument(
+        "--fill",
+        action="store_true",
+        help="Fill missing translations (AI if model specified, else blank).",
+    )
+    parser.add_argument(
+        "--model",
+        default=os.getenv("OPENAI_MODEL", "gpt-4.1-mini"),
+        help="OpenAI model to use for translation (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--fix",
+        action="store_true",
+        help="Apply fixes. Defaults to dry-run reporting warnings.",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    mode = Mode.FIX if args.fix else Mode.REPORT
+
+    vfs = VirtualFilesystem()
+    ctx = RunContext(vfs, args)
+    for f in step.registry:
+        f(ctx)
+
+    # write all modified data back to virtual filesystem
+    for file in ctx.all_files:
+        ctx.vfs.put(file.path, format_strings_file(file.data))
+
+    if mode == Mode.REPORT:
+        if vfs.show_diff():
+            sys.exit(1)
+    else:
+        if vfs.show_diff():
+            vfs.commit()
+
+
+if __name__ == "__main__":
+    main()

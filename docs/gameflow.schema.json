@@ -34,11 +34,7 @@
     },
     "main_menu_picture": {
       "type": "string",
-      "description": "Path to the main menu background image."
-    },
-    "main_script": {
-      "type": "string",
-      "description": "Path to a global Lua script to execute after game initialization, before the first level loads."
+      "description": "Path to the main menu background image. Omit it to run the title level live behind the menu instead."
     },
     "savegame_file_fmt": {
       "type": "string",
@@ -164,7 +160,6 @@
   },
   "required": [
     "engine",
-    "main_menu_picture",
     "savegame_file_fmt",
     "levels"
   ],
@@ -197,6 +192,10 @@
         "music_track": {
           "type": "integer"
         },
+        "lara_outfit": {
+          "type": "string",
+          "description": "Outfit Lara wears in the title level's cutscenes. Only outfits whose meshes the title level holds can be worn."
+        },
         "inherit_injections": {
           "type": "boolean"
         },
@@ -224,10 +223,6 @@
       "properties": {
         "type": {
           "type": "string"
-        },
-        "script": {
-          "type": "string",
-          "description": "Path to a Lua script executed after loading this level."
         },
         "path": {
           "$ref": "#/$defs/path"
@@ -495,9 +490,6 @@
         },
         {
           "$ref": "#/definitions/seq_set_lara_start_anim"
-        },
-        {
-          "$ref": "#/definitions/seq_setup_bacon_lara"
         },
         {
           "$ref": "#/definitions/seq_disable_floor"
@@ -958,23 +950,6 @@
       "required": [
         "type",
         "anim"
-      ],
-      "additionalProperties": false
-    },
-    "seq_setup_bacon_lara": {
-      "type": "object",
-      "description": "Sets the room number in which Bacon Lara will be anchored to enable correct mirroring behaviour with Lara.",
-      "properties": {
-        "type": {
-          "const": "setup_bacon_lara"
-        },
-        "anchor_room": {
-          "type": "integer"
-        }
-      },
-      "required": [
-        "type",
-        "anchor_room"
       ],
       "additionalProperties": false
     },

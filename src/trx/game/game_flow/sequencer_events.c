@@ -12,7 +12,6 @@
 #include <trx/game/lara.h>
 #include <trx/game/lua.h>
 #include <trx/game/music.h>
-#include <trx/game/objects/creatures/bacon_lara.h>
 #include <trx/game/option/passport.h>
 #include <trx/game/output.h>
 #include <trx/game/phase.h>
@@ -54,7 +53,6 @@
     X(GFS_SETUP_UV_ROTATE,   M_HandleSetupUVRotate)                            \
     X(GFS_ENABLE_LIGHTNING,  M_HandleEnableLightning)                          \
     X(GFS_SETUP_LENS_FLARE,  M_HandleSetupLensFlare)                          \
-    X(GFS_SETUP_BACON_LARA,  M_HandleSetupBaconLara)                           \
     X(GFS_DISABLE_FLOOR,     M_HandleDisableFloor)
 // clang-format on
 
@@ -74,11 +72,11 @@ static void M_FinishLevelBasic(void)
     const GF_LEVEL *const current_level = Game_GetCurrentLevel();
 
     if (current_level == GF_GetLastLevel()) {
-        g_Config.profile.new_game_plus_unlock = true;
+        CONFIG_SET(g_Config.profile.new_game_plus_unlock, true);
         Config_Update();
     }
 
-    RESUME_INFO *const resume = Savegame_GetCurrentInfo(current_level);
+    RESUME_INFO *const resume = SG_Resume_GetEntry(current_level);
     if (resume != nullptr) {
         resume->flags.available = true;
         resume->level_completed = true;
@@ -109,8 +107,8 @@ M_GF_HANDLER(M_HandleLevelComplete)
     if (next_level == nullptr) {
         return (GF_COMMAND) { .action = GF_NOOP };
     }
-    Savegame_PersistGameToCurrentInfo(next_level);
-    RESUME_INFO *const next_resume = Savegame_GetCurrentInfo(next_level);
+    SG_Resume_StoreGameToEntry(next_level);
+    RESUME_INFO *const next_resume = SG_Resume_GetEntry(next_level);
     if (next_resume != nullptr) {
         next_resume->prev_level = current_level->num;
     }
@@ -144,12 +142,10 @@ M_GF_HANDLER(M_HandlePlayLevel)
         Music_Stop();
     }
 
-    Lua_FireEventInt32(LUA_EVENT_AFTER_LEVEL_FILE, level->num);
-
     // post load
     switch (seq_ctx) {
     case GFSC_SAVED: {
-        const SAVEGAME_SLOT_REF slot = Savegame_GetBoundSlot();
+        const SAVEGAME_SLOT_REF slot = SG_Manager_GetBoundSlot();
         if (!Savegame_Load(slot)) {
             LOG_ERROR("Failed to load save file!");
             Game_SetCurrentLevel(nullptr);
@@ -164,14 +160,18 @@ M_GF_HANDLER(M_HandlePlayLevel)
             Savegame_SetInitialVersion(SG_CURRENT_VERSION);
             GF_InventoryModifier_Scan(Game_GetCurrentLevel());
             GF_InventoryModifier_Apply(Game_GetCurrentLevel(), GF_INV_REGULAR);
+            const RESUME_INFO *const resume = SG_Resume_GetEntry(level);
+            if (resume != nullptr && resume->burning) {
+                Lara_CatchFire();
+            }
         }
         break;
     }
     GF_DisableObjectsIfNeeded();
 
-    Lua_FireEventInt32(LUA_EVENT_AFTER_LEVEL_STATE, level->num);
-
-    g_Passport.ask_for_save = g_Config.gameplay.enable_save_crystals
+    const SAVE_CRYSTAL_MODE crystal_mode = g_Config.gameplay.save_crystal_mode;
+    g_Passport.ask_for_save = (crystal_mode == SAVE_CRYSTAL_SAVE
+                               || crystal_mode == SAVE_CRYSTAL_SAVE_PICKUP)
         && seq_ctx == GFSC_NORMAL
         && GF_GetLevelTableType(level->type) == GFLT_MAIN
         && level != GF_GetFirstLevel() && level != GF_GetGymLevel();
@@ -356,9 +356,8 @@ M_GF_HANDLER(M_HandleGlobeSelect)
         const GF_LEVEL *const current_level = Game_GetCurrentLevel();
         const GF_LEVEL *const next_level = GF_GetLevel(GFLT_MAIN, gf_cmd.param);
         if (next_level != nullptr) {
-            Savegame_PersistGameToCurrentInfo(next_level);
-            RESUME_INFO *const next_resume =
-                Savegame_GetCurrentInfo(next_level);
+            SG_Resume_StoreGameToEntry(next_level);
+            RESUME_INFO *const next_resume = SG_Resume_GetEntry(next_level);
             if (next_resume != nullptr) {
                 next_resume->prev_level =
                     current_level != nullptr ? current_level->num : -1;
@@ -429,20 +428,6 @@ M_GF_HANDLER(M_HandleSetupLensFlare)
             .z = data->pos.z << 8,
         };
         Output_LensFlares_SetSun(pos, data->color);
-    }
-    return (GF_COMMAND) { .action = GF_NOOP };
-}
-
-M_GF_HANDLER(M_HandleSetupBaconLara)
-{
-    // TODO: move me to lua!
-    if (seq_ctx != GFSC_STORY) {
-        const GF_SEQUENCE_EVENT *const event = &sequence->events[event_idx];
-        const int32_t anchor_room = (int32_t)(intptr_t)event->data;
-        if (!BaconLara_InitialiseAnchor(anchor_room)) {
-            LOG_ERROR("Could not anchor Bacon Lara to room %d", anchor_room);
-            return (GF_COMMAND) { .action = GF_EXIT_TO_TITLE };
-        }
     }
     return (GF_COMMAND) { .action = GF_NOOP };
 }

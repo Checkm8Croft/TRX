@@ -1,6 +1,7 @@
 #include <trx/game/items/anim.h>
 
 #include <trx/config.h>
+#include <trx/core/math/geom.h>
 #include <trx/game/interpolation.h>
 #include <trx/game/items/actions.h>
 #include <trx/game/lara.h>
@@ -40,6 +41,24 @@ static bool M_ShouldPlaySFXAlways(
 ANIM *Item_GetAnim(const ITEM *const item)
 {
     return Anim_GetAnim(item->anim_num);
+}
+
+bool Item_GetPendingOrigin(const ITEM *const item, XYZ_32 *const out_pos)
+{
+    const ANIM *const anim = Item_GetAnim(item);
+    for (int32_t i = 0; i < anim->num_commands; i++) {
+        const ANIM_COMMAND *const command = &anim->commands[i];
+        if (command->type != AC_MOVE_ORIGIN) {
+            continue;
+        }
+        const XYZ_16 *const offset = (XYZ_16 *)command->data;
+        XYZ_32 pos = XYZ_32_OffsetYaw(item->pos, item->rot.y, offset->z);
+        pos = XYZ_32_OffsetYaw(pos, item->rot.y + DEG_90, offset->x);
+        pos.y += offset->y;
+        *out_pos = pos;
+        return true;
+    }
+    return false;
 }
 
 bool Item_TestAnimEqual(const ITEM *const item, const int16_t anim_idx)
@@ -227,7 +246,10 @@ void Item_Animate(ITEM *const item)
             case AC_DEACTIVATE:
                 const OBJECT *const obj = Object_Get(item->object_id);
                 item->after_death = obj->intelligent ? 1 : 64;
-                item->status = IS_DEACTIVATED;
+                Item_SetFinished(item, true);
+                if (obj->leaves_corpse) {
+                    Item_StartFade(item);
+                }
                 break;
 
             default:

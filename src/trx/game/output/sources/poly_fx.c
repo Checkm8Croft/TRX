@@ -15,6 +15,7 @@
 #include <trx/game/output/utils.h>
 #include <trx/game/sparks.h>
 #include <trx/gl/utils.h>
+#include <trx/version.h>
 
 #include <math.h>
 #include <stddef.h>
@@ -39,7 +40,7 @@ typedef struct {
     uint8_t corner_count;
     float z_depth_adjust;
     float shade;
-    RGB_F tint;
+    RGBA_F tint;
     XYZ_32 world_pos[4];
     OUTPUT_UVW uvw[4];
     OUTPUT_TEXTURE_SIZE texture_size[4];
@@ -289,7 +290,7 @@ static bool M_HasMatchingTintState(
     const M_PRIM *const prim_1, const M_PRIM *const prim_2)
 {
     return prim_1->tint.r == prim_2->tint.r && prim_1->tint.g == prim_2->tint.g
-        && prim_1->tint.b == prim_2->tint.b;
+        && prim_1->tint.b == prim_2->tint.b && prim_1->tint.a == prim_2->tint.a;
 }
 
 static bool M_HasMatchingRenderState(
@@ -381,6 +382,60 @@ static bool M_IsDirty(const SCENE_SOURCE *const source, const SCENE_PASS pass)
     return false;
 }
 
+static void M_StagePrim(
+    const int32_t sprite_idx, const uint8_t corner_count,
+    const XYZ_32 *const world_pos, const float (*disp)[2],
+    const RGBA_8888 *const color, const uint16_t flags,
+    const float z_depth_adjust, const float shade,
+    const OUTPUT_LIGHT_INFO *const light_info, VECTOR *const target)
+{
+    M_PRIM prim;
+    prim.sprite_idx = sprite_idx;
+    prim.use_custom_uv = false;
+    prim.use_own_light = light_info != nullptr;
+    prim.corner_count = corner_count;
+    prim.z_depth_adjust = z_depth_adjust;
+    prim.shade = shade;
+    prim.tint = Output_GetTint();
+    memset(prim.world_pos, 0, sizeof(prim.world_pos));
+    memcpy(prim.world_pos, world_pos, sizeof(prim.world_pos[0]) * corner_count);
+    memset(prim.uvw, 0, sizeof(prim.uvw));
+    memset(prim.texture_size, 0, sizeof(prim.texture_size));
+    if (disp != nullptr) {
+        memset(prim.disp, 0, sizeof(prim.disp));
+        memcpy(prim.disp, disp, sizeof(prim.disp[0]) * corner_count);
+    } else {
+        memset(prim.disp, 0, sizeof(prim.disp));
+    }
+    memset(prim.color, 0, sizeof(prim.color));
+    memcpy(prim.color, color, sizeof(prim.color[0]) * corner_count);
+    prim.flags = flags;
+    // The OG draws additive polys with specular disabled (HWR_DrawSortList
+    // drawtype 2); the flag tells the shader to drop the overbright excess,
+    // as the mesh batcher does for its blend-add pass.
+    if (target == m_Priv.scheduled_blend_add) {
+        prim.flags |= VERT_ADDITIVE;
+    }
+    if (light_info != nullptr) {
+        prim.light_info = *light_info;
+    } else {
+        prim.light_info = (OUTPUT_LIGHT_INFO) {};
+    }
+    Vector_Add(target, &prim);
+}
+
+static VECTOR *M_GetScheduledVectorForDrawType(
+    M_PRIV *const p, const DRAW_TYPE draw_type)
+{
+    if (draw_type == DRAW_BLEND_ADD || draw_type == DRAW_REFLECTIVE_BLEND_ADD) {
+        return p->scheduled_blend_add;
+    }
+    if (draw_type == DRAW_BLEND_SUB) {
+        return p->scheduled_blend_sub;
+    }
+    return p->scheduled_transparent;
+}
+
 void OutputSource_PolyFX_Init(void)
 {
     M_PRIV *const p = &m_Priv;
@@ -409,6 +464,7 @@ void OutputSource_PolyFX_Init(void)
     glEnableVertexAttribArray(OUTPUT_MESH_ATTR_FLAGS);
     glEnableVertexAttribArray(OUTPUT_MESH_ATTR_COLOR);
     glEnableVertexAttribArray(OUTPUT_MESH_ATTR_SHADE);
+    glDisableVertexAttribArray(OUTPUT_MESH_ATTR_REFLECTIVITY);
 
     glVertexAttribPointer(
         OUTPUT_MESH_ATTR_POS, 4, GL_FLOAT, GL_FALSE, sizeof(M_VERTEX),
@@ -435,6 +491,7 @@ void OutputSource_PolyFX_Init(void)
     glVertexAttribPointer(
         OUTPUT_MESH_ATTR_SHADE, 1, GL_FLOAT, GL_FALSE, sizeof(M_VERTEX),
         (void *)(intptr_t)offsetof(M_VERTEX, shade));
+    glVertexAttrib1f(OUTPUT_MESH_ATTR_REFLECTIVITY, 1.0f);
 }
 
 void OutputSource_PolyFX_Shutdown(void)
@@ -468,54 +525,6 @@ void OutputSource_PolyFX_Shutdown(void)
         glDeleteBuffers(1, &p->vbo);
         p->vbo = 0;
     }
-}
-
-static void M_StagePrim(
-    const int32_t sprite_idx, const uint8_t corner_count,
-    const XYZ_32 *const world_pos, const float (*disp)[2],
-    const RGBA_8888 *const color, const uint16_t flags,
-    const float z_depth_adjust, const float shade,
-    const OUTPUT_LIGHT_INFO *const light_info, VECTOR *const target)
-{
-    M_PRIM prim;
-    prim.sprite_idx = sprite_idx;
-    prim.use_custom_uv = false;
-    prim.use_own_light = light_info != nullptr;
-    prim.corner_count = corner_count;
-    prim.z_depth_adjust = z_depth_adjust;
-    prim.shade = shade;
-    prim.tint = Output_GetTint();
-    memset(prim.world_pos, 0, sizeof(prim.world_pos));
-    memcpy(prim.world_pos, world_pos, sizeof(prim.world_pos[0]) * corner_count);
-    memset(prim.uvw, 0, sizeof(prim.uvw));
-    memset(prim.texture_size, 0, sizeof(prim.texture_size));
-    if (disp != nullptr) {
-        memset(prim.disp, 0, sizeof(prim.disp));
-        memcpy(prim.disp, disp, sizeof(prim.disp[0]) * corner_count);
-    } else {
-        memset(prim.disp, 0, sizeof(prim.disp));
-    }
-    memset(prim.color, 0, sizeof(prim.color));
-    memcpy(prim.color, color, sizeof(prim.color[0]) * corner_count);
-    prim.flags = flags;
-    if (light_info != nullptr) {
-        prim.light_info = *light_info;
-    } else {
-        prim.light_info = (OUTPUT_LIGHT_INFO) {};
-    }
-    Vector_Add(target, &prim);
-}
-
-static VECTOR *M_GetScheduledVectorForDrawType(
-    M_PRIV *const p, const DRAW_TYPE draw_type)
-{
-    if (draw_type == DRAW_BLEND_ADD || draw_type == DRAW_REFLECTIVE_BLEND_ADD) {
-        return p->scheduled_blend_add;
-    }
-    if (draw_type == DRAW_BLEND_SUB) {
-        return p->scheduled_blend_sub;
-    }
-    return p->scheduled_transparent;
 }
 
 void OutputSource_PolyFX_StageSpriteQuadWorld(
@@ -786,6 +795,23 @@ void OutputSource_PolyFX_StageSpark(const SPARK *const spark)
                   (int32_t)spark->prev_color.b, (int32_t)spark->color.b, ratio),
           };
 
+    // TR4 draws non-sprite sparks as short line streaks trailing behind the
+    // velocity; TR3 draws them as flat quads.
+    if (g_TRVersion == 4 && (spark->flags & SPARK_F_SPRITE) == 0U) {
+        const XYZ_32 tail = {
+            .x = pos.x - (spark->vel.x >> 4),
+            .y = pos.y - (spark->vel.y >> 4),
+            .z = pos.z - (spark->vel.z >> 4),
+        };
+        const RGBA_8888 head_color = { render_color.r, render_color.g,
+                                       render_color.b, 255 };
+        const RGBA_8888 tail_color = { render_color.r >> 1, render_color.g >> 1,
+                                       render_color.b >> 1, 255 };
+        OutputSource_PolyFX_StageLineSegment(
+            tail, tail_color, pos, head_color, 1.0f, draw_type);
+        return;
+    }
+
     const int32_t render_width = use_current_state
         ? (int32_t)spark->size.width
         : (int32_t)LERP(
@@ -816,6 +842,16 @@ void OutputSource_PolyFX_StageSpark(const SPARK *const spark)
     };
 
     RGBA_8888 color = { render_color.r, render_color.g, render_color.b, 255 };
+
+    // The OG TR4 submits spark colors raw with specular disabled, skipping
+    // CalcColorSplit; the TR4 shader lights sprite verts in the 128-neutral
+    // scale, so halve to compensate. Flat sparks modulate without the
+    // doubling and stay raw.
+    if (g_TRVersion == 4 && (spark->flags & SPARK_F_SPRITE) != 0U) {
+        color.r >>= 1;
+        color.g >>= 1;
+        color.b >>= 1;
+    }
 
     if ((spark->flags & SPARK_F_ROTATE) != 0U) {
         const int32_t rot_angle = use_current_state

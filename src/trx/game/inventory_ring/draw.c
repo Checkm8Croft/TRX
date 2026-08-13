@@ -4,6 +4,7 @@
 #include <trx/core/math.h>
 #include <trx/core/utils.h>
 #include <trx/game/game.h>
+#include <trx/game/game/draw.h>
 #include <trx/game/input.h>
 #include <trx/game/interpolation.h>
 #include <trx/game/inventory_ring.h>
@@ -246,7 +247,7 @@ static void M_DrawItem(
             rate);
     } else if (inv_item->object_id == O_STOPWATCH_OPTION) {
         const RESUME_INFO *const current_info =
-            Savegame_GetCurrentInfo(Game_GetCurrentLevel());
+            SG_Resume_GetEntry(Game_GetCurrentLevel());
         const int32_t total_seconds = current_info->stats.timer / LOGIC_FPS;
         const int32_t hours = (total_seconds % 43200) * DEG_1 * -360 / 43200;
         const int32_t minutes = (total_seconds % 3600) * DEG_1 * -360 / 3600;
@@ -298,10 +299,18 @@ void InvRing_Draw(INV_RING *const ring)
     draw_ring.camera.pos.z = draw_radius + M_CAMERA_2_RING;
 
     if (ring->mode == INV_TITLE_MODE) {
-        if (ring->background_path != nullptr) {
-            Output_Overlay_DrawImageBilinear(ring->background_path);
+        if (ring->live_scene) {
+            // The inventory lighting mode is meant for the ring items; the
+            // level behind them renders with its own in-game lighting.
+            Output_SetInventoryLightingMode(false);
+            Game_Draw(false);
+            Output_SetInventoryLightingMode(true);
+        } else {
+            if (ring->background_path != nullptr) {
+                Output_Overlay_DrawImageBilinear(ring->background_path);
+            }
+            Interpolation_Interpolate();
         }
-        Interpolation_Interpolate();
     } else {
         const float opacity = g_Config.ui.inventory_fade_effects
             ? Fader_GetCurrentValue(&ring->back_fader)

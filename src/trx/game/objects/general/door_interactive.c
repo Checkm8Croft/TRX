@@ -55,8 +55,7 @@ static bool M_Open(
 
     Item_SwitchToAnim(lara_item, LA(lara_anim), 0);
     item->goal_anim_state = door_goal_state;
-    Item_AddActive(item_num);
-    item->status = IS_ACTIVE;
+    Item_AddSimulated(item_num);
     lara->interact_target.is_moving = false;
     lara->gun_status = LGS_HANDS_BUSY;
     return true;
@@ -132,8 +131,7 @@ static void M_DoubleDoorsCollision(
         if (Lara_MovePosition(item, &m_DoubleDoorsPosition)) {
             Item_SwitchToAnim(lara_item, LA(LA_DOUBLEDOORS_PUSH), 0);
             lara_item->current_anim_state = LS(LS_PUSH_DOORS);
-            Item_AddActive(item_num);
-            item->status = IS_ACTIVE;
+            Item_AddSimulated(item_num);
             Lara_Interact_FinishControl(LARA_INTERACT_DOOR);
         } else {
             lara->interact_target.item_num = item_num;
@@ -152,7 +150,7 @@ static void M_UWDoorCollision(
     ITEM *const item = Item_Get(item_num);
     LARA_INFO *const lara = Lara_GetLaraInfo();
 
-    const bool can_interact = (g_Input.action && item->status != IS_ACTIVE
+    const bool can_interact = (g_Input.action && !Item_IsInPlay(item)
                                && (lara->water_status == LWS_UNDERWATER
                                    || lara->water_status == LWS_CHEAT)
                                && lara->gun_status == LGS_ARMLESS
@@ -168,8 +166,7 @@ static void M_UWDoorCollision(
                 lara_item->current_anim_state = LS(LS_CONTROLLED);
                 lara_item->fall_speed = 0;
                 item->goal_anim_state = M_STATE_OPEN;
-                Item_AddActive(item_num);
-                item->status = IS_ACTIVE;
+                Item_AddSimulated(item_num);
                 Item_Animate(item);
                 lara->interact_target.is_moving = false;
                 lara->gun_status = LGS_HANDS_BUSY;
@@ -182,7 +179,7 @@ static void M_UWDoorCollision(
         }
 
         lara_item->rot.y += DEG_180;
-    } else if (item->status == IS_ACTIVE) {
+    } else if (Item_IsInPlay(item)) {
         Object_Collision(item_num, lara_item, coll);
     }
 }

@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from harness import LintWarning, file_check
+from shared.cfuncs import definitions, is_static, name_of
+
+
+def check(path, text):
+    for line_num, signature in definitions(text):
+        name = name_of(signature)
+        if name is None or not name.startswith("M_") or is_static(signature):
+            continue
+        yield LintWarning(
+            path, f"{name} is a module function and belongs static", line=line_num
+        )
+
+
+file_check(check)

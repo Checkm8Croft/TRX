@@ -5,10 +5,12 @@
 #include <trx/core/utils.h>
 #include <trx/debug.h>
 #include <trx/game/camera.h>
+#include <trx/game/clock.h>
 #include <trx/game/collision.h>
 #include <trx/game/const.h>
 #include <trx/game/effects.h>
 #include <trx/game/fx.h>
+#include <trx/game/game/control.h>
 #include <trx/game/gun/misc.h>
 #include <trx/game/gun/smoke.h>
 #include <trx/game/input.h>
@@ -17,17 +19,11 @@
 #include <trx/game/lua.h>
 #include <trx/game/music.h>
 #include <trx/game/output.h>
+#include <trx/game/output/lights.h>
 #include <trx/game/random.h>
 #include <trx/game/shell.h>
 #include <trx/game/sparks.h>
 #include <trx/version.h>
-
-static CAMERA_INFO m_LocalCamera = {};
-static OBJECT_MESH **m_CapturedObjectMeshes = nullptr;
-static OBJECT_ID *m_CapturedObjectMeshOwners = nullptr;
-static int32_t m_CapturedObjectMeshCount = 0;
-static bool m_DrawLeftGunFlash = false;
-static bool m_DrawRightGunFlash = false;
 
 typedef struct {
     bool is_valid;
@@ -38,6 +34,13 @@ typedef struct {
     LARA_GUN_TYPE thigh_r_type;
     bool holsters_visible;
 } M_LARA_CUTSCENE_STATE;
+
+static CAMERA_INFO m_LocalCamera = {};
+static OBJECT_MESH **m_CapturedObjectMeshes = nullptr;
+static OBJECT_ID *m_CapturedObjectMeshOwners = nullptr;
+static int32_t m_CapturedObjectMeshCount = 0;
+static bool m_DrawLeftGunFlash = false;
+static bool m_DrawRightGunFlash = false;
 
 static M_LARA_CUTSCENE_STATE m_LaraCutsceneState = {};
 
@@ -247,14 +250,12 @@ static void M_DrawGunFlash(const LARA_MESH hand_mesh)
 
 static void M_Control(void)
 {
-    Output_ResetDynamicLights();
+    Game_TickBeginFrame();
     Camera_UpdateCutscene();
     M_ControlGun();
-    Item_Control();
-    Effect_Control();
-    Sparks_Control();
+    Game_TickWorld();
     FX_Control();
-    Output_AnimateTextures(1);
+    Game_TickEndFrame();
     Lara_Hair_Control(true);
 }
 
@@ -263,10 +264,10 @@ static void M_ReplayActors(
     const int32_t end_frame)
 {
     for (int32_t frame_idx = start_frame; frame_idx < end_frame; frame_idx++) {
-        Lua_FireEventInt32(LUA_EVENT_BEFORE_CONTROL, 0);
+        LUA_FireEvent(LUA_EVENT_BEFORE_CONTROL);
         cine_data->frame_idx = frame_idx;
         M_Control();
-        Lua_FireEventInt32(LUA_EVENT_AFTER_CONTROL, 0);
+        LUA_FireEvent(LUA_EVENT_AFTER_CONTROL);
     }
 }
 
@@ -301,7 +302,7 @@ static void M_InitialisePlayer(const int16_t item_num)
     obj->control_func = M_PlayerControl;
     obj->shadow_size = (UNIT_SHADOW * 10) / 16;
 
-    Item_AddActive(item_num);
+    Item_AddSimulated(item_num);
     ITEM *const item = Item_Get(item_num);
     CAMERA_INFO *const camera = Cutscene_GetCamera();
     Camera_GetCineData()->position.target_angle = item->rot.y;
@@ -341,7 +342,7 @@ static void M_Skip(const int32_t frames)
     if (target_frame > source_frame) {
         M_ReplayActors(cine_data, source_frame, target_frame);
     } else {
-        Lua_ReloadLevelScript();
+        LUA_ReloadLevelScript();
         M_ResetActorsToStart();
         M_ReplayActors(cine_data, 0, target_frame);
     }
@@ -382,11 +383,13 @@ void Cutscene_End(void)
 GF_COMMAND Cutscene_Control(void)
 {
     Interpolation_Remember();
+    Music_SetSpeed(Clock_GetSpeedMultiplier());
     Music_SyncTimestamp(Camera_GetCineData()->frame_idx / (double)LOGIC_FPS);
 
     Input_Update();
     Shell_ProcessInput();
     if (g_InputDB.menu_confirm || g_InputDB.menu_back) {
+        Input_HoldOffSkip();
         return (GF_COMMAND) { .action = GF_LEVEL_COMPLETE };
     } else if (g_InputDB.pause) {
         const GF_COMMAND gf_cmd = GF_PauseGame();
@@ -425,6 +428,7 @@ void Cutscene_Draw(void)
 {
     Interpolation_Interpolate();
     Camera_Apply();
+    Output_FlushPendingLights();
     Room_DrawAllRooms(g_Camera.interp.room_num, g_Camera.target.room_num);
     if (m_DrawLeftGunFlash) {
         M_DrawGunFlash(LM_HAND_L);

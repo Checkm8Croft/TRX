@@ -9,6 +9,7 @@
 #include <trx/game/items/carrier.h>
 #include <trx/game/lara.h>
 #include <trx/game/lara/common.h>
+#include <trx/game/lua/events.h>
 #include <trx/game/objects/common.h>
 #include <trx/game/objects/property.h>
 #include <trx/game/output.h>
@@ -74,23 +75,14 @@ typedef enum {
 typedef struct {
     int16_t dragon_front_item_num;
     M_MODE mode;
+    int32_t touch_damage;
+    int32_t swipe_damage;
 } M_PRIV;
 
 static const BITE m_DragonMouth = {
     .pos = { .x = 35, .y = 171, .z = 1168 },
     .mesh_num = 12,
 };
-
-static int32_t M_GetDamage(
-    const ITEM *const item, const char *const key, const int32_t default_value)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, key, &damage)) {
-        return damage.as_int;
-    }
-
-    return default_value;
-}
 
 static void M_LoadPriv(ITEM *const item, JSON_READ_IO *const io)
 {
@@ -121,7 +113,7 @@ static bool M_IsTwoPhaseMode(const ITEM *const item)
 
 static bool M_CanDropItemsBack(const ITEM *const item)
 {
-    return item->hit_points <= 0 && item->status == IS_DEACTIVATED;
+    return item->hit_points <= 0 && item->is_finished;
 }
 
 static void M_InitialiseFront(const int16_t item_num)
@@ -136,7 +128,7 @@ static void M_InitialiseBack(const int16_t item_num)
     M_PRIV *const p = dragon_back_item->priv;
     p->mode = M_MODE_TWO_PHASE;
 
-    dragon_back_item->status = IS_INVISIBLE;
+    Item_SetVisible(dragon_back_item, false);
     dragon_back_item->shade.value_1 = -1;
     dragon_back_item->mesh_bits = 0x1FFFFF;
 
@@ -148,12 +140,12 @@ static void M_InitialiseBack(const int16_t item_num)
     dragon_front_item->pos = dragon_back_item->pos;
     dragon_front_item->rot.y = dragon_back_item->rot.y;
     dragon_front_item->room_num = dragon_back_item->room_num;
-    dragon_front_item->flags = IF_INVISIBLE;
+    dragon_front_item->init_flags = IF_INVISIBLE;
     dragon_front_item->shade.value_1 = -1;
     Item_Initialise(p->dragon_front_item_num);
 }
 
-static bool M_TriggerBack(ITEM *const item, const TRIGGER *const trigger)
+static bool M_TriggerBack(ITEM *const item, const ITEM_TRIGGER *const trigger)
 {
     M_PRIV *const p = item->priv;
     p->mode = M_MODE_ONE_PHASE;
@@ -162,8 +154,7 @@ static bool M_TriggerBack(ITEM *const item, const TRIGGER *const trigger)
 
 static void M_ActivateBack(ITEM *const dragon_back_item)
 {
-    if (dragon_back_item->active
-        || dragon_back_item->status == IS_DEACTIVATED) {
+    if (dragon_back_item->is_simulated || dragon_back_item->is_finished) {
         return;
     }
 
@@ -177,9 +168,9 @@ static void M_ActivateBack(ITEM *const dragon_back_item)
     dragon_front_item->touch_bits = 0;
 
     LOT_EnableBaddieAI(dragon_front_item_num, true);
-    Item_AddActive(dragon_front_item_num);
-    Item_AddActive(Item_GetIndex(dragon_back_item));
-    dragon_back_item->status = IS_ACTIVE;
+    Item_AddSimulated(dragon_front_item_num);
+    Item_AddSimulated(Item_GetIndex(dragon_back_item));
+    Item_SetVisible(dragon_back_item, true);
 }
 
 static void M_MarkDragonDead(ITEM *const dragon_back_item)
@@ -193,12 +184,22 @@ static void M_MarkDragonDead(ITEM *const dragon_back_item)
     creature->flags = -1;
     Stats_AddKill();
 
+    // In one phase the shot that emptied its hit points reported the death. In
+    // two it has lain at zero since the knock-down that let Lara reach the
+    // dagger, so only the dagger can report the end.
+    if (M_IsTwoPhaseMode(dragon_back_item)) {
+        LUA_FireEventInt32(LUA_EVENT_KILL, dragon_front_item_num);
+    }
+
     // Allow drops to occur at the beginning of the cinematic camera for a
-    // better window to avoid seeing the items spawn.
-    const ITEM_STATUS current_status = dragon_back_item->status;
-    dragon_back_item->status = IS_DEACTIVATED;
+    // better window to avoid seeing the items spawn. Carrier_TestItemDrops only
+    // drops for a finished item, so force that phase and restore it. A raw
+    // write, not Item_SetFinished: the value never changes across the call, so
+    // nothing should observe the momentary flip.
+    const bool was_finished = dragon_back_item->is_finished;
+    dragon_back_item->is_finished = true;
     Carrier_TestItemDrops(Item_GetIndex(dragon_back_item));
-    dragon_back_item->status = current_status;
+    dragon_back_item->is_finished = was_finished;
 }
 
 static void M_PushLaraAway(
@@ -265,7 +266,7 @@ static void M_Bones(const int16_t item_num)
 static void M_HandleSaveBack(ITEM *const item, const SAVEGAME_STAGE stage)
 {
     if (stage == SAVEGAME_STAGE_AFTER_LOAD) {
-        if (item->status == IS_DEACTIVATED && M_IsTwoPhaseMode(item)) {
+        if (item->is_finished && M_IsTwoPhaseMode(item)) {
             const int32_t y_pos = item->pos.y;
             int16_t room_num = item->room_num;
             const SECTOR *const sector = Room_GetSector(item->pos, &room_num);
@@ -378,18 +379,18 @@ static void M_ControlBack(const int16_t item_num)
             } else if (creature->flags == M_DISSOLVE_TIME) {
                 Room_TestTriggers(dragon_back_item);
                 LOT_DisableBaddieAI(dragon_front_item_num);
-                dragon_front_item->status = IS_DEACTIVATED;
-                dragon_back_item->status = IS_DEACTIVATED;
+                Item_SetFinished(dragon_front_item, true);
+                Item_SetFinished(dragon_back_item, true);
                 if (is_two_phase) {
-                    Item_Kill(dragon_front_item_num);
-                    Item_Kill(dragon_back_item_num);
+                    Item_Destroy(dragon_front_item_num);
+                    Item_Destroy(dragon_back_item_num);
                 } else {
-                    Item_RemoveActive(dragon_front_item_num);
-                    Item_RemoveActive(dragon_back_item_num);
-                    dragon_front_item->collidable = false;
-                    dragon_back_item->collidable = false;
-                    dragon_front_item->flags |= IF_ONE_SHOT;
-                    dragon_back_item->flags |= IF_ONE_SHOT;
+                    Item_RemoveSimulated(dragon_front_item_num);
+                    Item_RemoveSimulated(dragon_back_item_num);
+                    dragon_front_item->is_collidable = false;
+                    dragon_back_item->is_collidable = false;
+                    dragon_front_item->trigger.spent = true;
+                    dragon_back_item->trigger.spent = true;
                 }
             } else if (creature->flags < M_BONE_TIME) {
                 dragon_front_item->pos.y += M_DISSOLVE_SHIFT;
@@ -408,9 +409,8 @@ static void M_ControlBack(const int16_t item_num)
         const bool is_ahead = info.ahead && info.distance > M_CLOSE_RANGE
             && info.distance < M_STOP_RANGE;
         if (dragon_front_item->touch_bits) {
-            Lara_TakeDamage(
-                M_GetDamage(dragon_front_item, "touch_damage", M_TOUCH_DAMAGE),
-                true);
+            const M_PRIV *const front = dragon_front_item->priv;
+            Lara_TakeDamage(front->touch_damage, true);
         }
 
         switch (dragon_front_item->current_anim_state) {
@@ -513,20 +513,16 @@ static void M_ControlBack(const int16_t item_num)
 
         case M_STATE_SWIPE_LEFT:
             if ((dragon_front_item->touch_bits & M_TOUCH_L) != 0) {
-                Lara_TakeDamage(
-                    M_GetDamage(
-                        dragon_front_item, "swipe_damage", M_SWIPE_DAMAGE),
-                    true);
+                const M_PRIV *const front = dragon_front_item->priv;
+                Lara_TakeDamage(front->swipe_damage, true);
                 creature->flags = 0;
             }
             break;
 
         case M_STATE_SWIPE_RIGHT:
             if ((dragon_front_item->touch_bits & M_TOUCH_R) != 0) {
-                Lara_TakeDamage(
-                    M_GetDamage(
-                        dragon_front_item, "swipe_damage", M_SWIPE_DAMAGE),
-                    true);
+                const M_PRIV *const front = dragon_front_item->priv;
+                Lara_TakeDamage(front->swipe_damage, true);
                 creature->flags = 0;
             }
             break;
@@ -554,6 +550,7 @@ static void M_SetupFront(OBJECT *const obj)
         return;
     }
 
+    obj->priv_size = sizeof(M_PRIV);
     SOFT_ASSERT(
         Object_Get(O_DRAGON_BACK)->loaded, "Dragon back object missing");
     obj->initialise_func = M_InitialiseFront;
@@ -571,14 +568,12 @@ static void M_SetupFront(OBJECT *const obj)
 
     Object_GetBone(obj, 10)->rot.z = true;
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."),
-        OBJECT_PROPERTY_INT(
-            "touch_damage", M_TOUCH_DAMAGE,
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS),
+        OBJECT_PROPERTY(
+            M_PRIV, touch_damage, M_TOUCH_DAMAGE,
             "Damage dealt while Lara is touching the dragon."),
-        OBJECT_PROPERTY_INT(
-            "swipe_damage", M_SWIPE_DAMAGE,
+        OBJECT_PROPERTY(
+            M_PRIV, swipe_damage, M_SWIPE_DAMAGE,
             "Damage dealt by the dragon swipe attack."));
 }
 

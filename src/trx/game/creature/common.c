@@ -59,7 +59,7 @@ static bool M_TestSwitchOrKill(
     LOG_WARNING(
         "Object %d is not loaded; item %d cannot be converted.", target_id,
         item_num);
-    Item_Kill(item_num);
+    Item_Destroy(item_num);
     return false;
 }
 
@@ -116,7 +116,7 @@ static void M_GetBaddieTarget(const int16_t item_num, const bool goody)
     }
 
     const ITEM *const target = creature->enemy;
-    if (target == nullptr || target->status != IS_ACTIVE) {
+    if (target == nullptr || !Item_IsInPlay(target)) {
         creature->enemy = best_item;
     } else {
         const int32_t dx = (target->pos.x - item->pos.x) >> 6;
@@ -215,7 +215,64 @@ static bool M_SwitchToLand(
     return true;
 }
 
-const ITEM *M_GetBaddieOverlap(const int16_t item_num)
+static bool M_TestDrowned(
+    const ITEM *const item, const BOUNDS_16 *const bounds,
+    const int16_t room_num)
+{
+    if (item->hit_points <= 0) {
+        return false;
+    }
+
+    switch (g_Config.gameplay.creature_drown_policy) {
+    case CREATURE_DROWN_POLICY_DEFAULT:
+        return Room_Get(room_num)->flags.underwater;
+    case CREATURE_DROWN_POLICY_SUBMERGED:
+        const int32_t water_height = Room_GetWaterHeight(item->pos, room_num);
+        return water_height != NO_HEIGHT
+            && water_height + STEP_L <= item->pos.y - ABS(bounds->min.y);
+    default:
+        return false;
+    }
+}
+
+// The kill total is Lara's tally, and this function is reached by removing an
+// item rather than by earning it.
+static void M_Kill(ITEM *const item)
+{
+    Item_TakeDamage(
+        item, item->hit_points, IDF_NO_HIT_STATUS | IDF_NO_KILL_STATS, nullptr);
+}
+
+static bool M_SameZone(const CREATURE *const creature, ITEM *const target_item)
+{
+    if (creature->lot.setup.fly != 0) {
+        return true;
+    }
+
+    int16_t *const zone = Box_GetGroundZone(
+        Room_GetFlipStatus(), (creature->lot.setup.step >> 8) - 1);
+    ITEM *const item = Item_Get(creature->item_num);
+
+    const ROOM *room = Room_Get(item->room_num);
+    item->box_num = Room_GetWorldSector(room, item->pos.x, item->pos.z)->box;
+
+    room = Room_Get(target_item->room_num);
+    target_item->box_num =
+        Room_GetWorldSector(room, target_item->pos.x, target_item->pos.z)->box;
+
+    return zone[item->box_num] == zone[target_item->box_num];
+}
+
+static bool M_TestWaterBelow(const ITEM *const item, const int32_t y)
+{
+    int16_t room_num = item->room_num;
+    Room_GetSector(
+        (XYZ_32) { item->pos.x, y + STEP_L, item->pos.z }, &room_num);
+    const ROOM *const room = Room_Get(room_num);
+    return room->flags.underwater || room->flags.swamp;
+}
+
+static const ITEM *M_GetBaddieOverlap(const int16_t item_num)
 {
     const ITEM *item = Item_Get(item_num);
     if (item->speed == 0 || item->hit_points <= 0) {
@@ -233,7 +290,7 @@ const ITEM *M_GetBaddieOverlap(const int16_t item_num)
     int16_t link = Room_Get(item->room_num)->item_num;
     while (link != NO_ITEM && link != item_num) {
         item = Item_Get(link);
-        if (item != Lara_GetItem() && item->status == IS_ACTIVE) {
+        if (item != Lara_GetItem() && Item_IsInPlay(item)) {
             if (g_TRVersion >= 3 && item->hit_points > 0) {
                 const int32_t dx = ABS(item->pos.x - x);
                 const int32_t dz = ABS(item->pos.z - z);
@@ -263,26 +320,6 @@ const ITEM *M_GetBaddieOverlap(const int16_t item_num)
     return nullptr;
 }
 
-static bool M_TestDrowned(
-    const ITEM *const item, const BOUNDS_16 *const bounds,
-    const int16_t room_num)
-{
-    if (item->hit_points <= 0) {
-        return false;
-    }
-
-    switch (g_Config.gameplay.creature_drown_policy) {
-    case CREATURE_DROWN_POLICY_DEFAULT:
-        return Room_Get(room_num)->flags.underwater;
-    case CREATURE_DROWN_POLICY_SUBMERGED:
-        const int32_t water_height = Room_GetWaterHeight(item->pos, room_num);
-        return water_height != NO_HEIGHT
-            && water_height + STEP_L <= item->pos.y - ABS(bounds->min.y);
-    default:
-        return false;
-    }
-}
-
 void Creature_Initialise(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
@@ -291,7 +328,7 @@ void Creature_Initialise(const int16_t item_num)
         || GF_GetCurrentLevel()->type == GFL_DEMO) {
         item->rot.y += (Random_GetControl() - DEG_90) >> 1;
     }
-    item->collidable = true;
+    item->is_collidable = true;
     item->creature_data = nullptr;
     item->extra_rotations = nullptr;
 }
@@ -299,7 +336,7 @@ void Creature_Initialise(const int16_t item_num)
 bool Creature_Activate(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
-    if (item->status != IS_INVISIBLE) {
+    if (item->is_visible) {
         return item->creature_data != nullptr;
     }
 
@@ -307,7 +344,7 @@ bool Creature_Activate(const int16_t item_num)
         return false;
     }
 
-    item->status = IS_ACTIVE;
+    Item_SetVisible(item, true);
     return true;
 }
 
@@ -427,7 +464,7 @@ bool Creature_EnsureHabitat(
     if (wh != nullptr) {
         *wh = water_height;
     }
-    if (item->status == IS_INACTIVE) {
+    if (Item_IsInactive(item)) {
         return false;
     }
 
@@ -732,6 +769,14 @@ void Creature_Float(const int16_t item_num)
     const SECTOR *const sector = Room_GetSector(item->pos, &room_num);
     item->floor = Room_GetHeight(sector, item->pos);
     Item_UpdateRoom(item_num, room_num);
+
+    // A drowned body never runs the animation command that starts the fade, so
+    // it begins once the body has risen as far as it is going to. OG also waits
+    // for the death animation to loop back to its first frame, which is how
+    // TR4's rest; the earlier games hold on the last frame instead.
+    if (item->pos.y <= wh) {
+        Item_StartFade(item);
+    }
 }
 
 void Creature_Underwater(ITEM *const item, const int32_t depth)
@@ -884,7 +929,7 @@ bool Creature_Animate(
     }
 
     Item_Animate(item);
-    if (item->status == IS_DEACTIVATED) {
+    if (item->is_finished) {
         Creature_Die(item_num, false);
         return false;
     }
@@ -1101,8 +1146,12 @@ bool Creature_Animate(
                 item->pos.x = old.x;
                 item->pos.z = old.z;
             }
-        } else if (
-            fly_check || Object_IsType(item->object_id, g_WaterObjects)) {
+        } else {
+            if (!fly_check && !Object_IsType(item->object_id, g_WaterObjects)
+                && M_TestWaterBelow(item, y)) {
+                dy = -lot->setup.fly;
+            }
+
             const int32_t ceiling = Room_GetCeiling(
                 sector, (XYZ_32) { item->pos.x, y, item->pos.z });
             int32_t min_y = bounds->min.y;
@@ -1126,13 +1175,6 @@ bool Creature_Animate(
                 } else {
                     dy = 0;
                 }
-            }
-        } else {
-            sample_pos = (XYZ_32) { item->pos.x, y + STEP_L, item->pos.z };
-            Room_GetSector(sample_pos, &room_num);
-            const ROOM *const room = Room_Get(room_num);
-            if (room->flags.underwater || room->flags.swamp) {
-                dy = -lot->setup.fly;
             }
         }
 
@@ -1194,7 +1236,7 @@ bool Creature_Animate(
             (XYZ_32) { item->pos.x, item->pos.y - (STEP_L * 2), item->pos.z },
             &room_num);
         if (M_TestDrowned(item, bounds, room_num)) {
-            Item_TakeDamage(item, item->hit_points, IDF_NO_HIT_STATUS, nullptr);
+            Item_TakeFatalDamage(item, nullptr);
         }
     }
 
@@ -1263,51 +1305,51 @@ void Creature_Die(const int16_t item_num, const bool explode)
 
     case O_DRAGON_FRONT:
     case O_TORSO:
-        item->hit_points = 0;
+        M_Kill(item);
         return;
 
     case O_SKIDOO_ARMED:
         if (explode) {
-            Item_Explode(item_num, -1, 0);
+            Item_Shatter(item_num, -1, 0);
             ITEM *const vehicle_item = Item_Get(item_num);
-            vehicle_item->hit_points = 0;
-            vehicle_item->status = IS_INVISIBLE;
+            M_Kill(vehicle_item);
+            Item_SetVisible(vehicle_item, false);
             return;
         }
         break;
 
     case O_SKIDOO_DRIVER:
         if (explode) {
-            Item_Explode(item_num, -1, 0);
+            Item_Shatter(item_num, -1, 0);
         }
-        item->hit_points = 0;
+        M_Kill(item);
         const int16_t vehicle_item_num = SkidooDriver_GetSkidooItemNum(item);
         if (vehicle_item_num == NO_ITEM) {
             return;
         }
         ITEM *const vehicle_item = Item_Get(vehicle_item_num);
-        vehicle_item->hit_points = 0;
-        vehicle_item->status = IS_INVISIBLE;
+        M_Kill(vehicle_item);
+        Item_SetVisible(vehicle_item, false);
         return;
 
     default:
         break;
     }
 
-    item->collidable = false;
-    item->hit_points = 0;
+    item->is_collidable = false;
+    M_Kill(item);
     if (explode) {
-        Item_Explode(item_num, -1, 0);
-        Item_Kill(item_num);
+        Item_Shatter(item_num, -1, 0);
+        Item_Destroy(item_num);
     } else {
-        Item_RemoveActive(item_num);
+        Item_RemoveSimulated(item_num);
     }
 
     const OBJECT *const obj = Object_Get(item->object_id);
     if (obj->intelligent) {
         LOT_DisableBaddieAI(item_num);
     }
-    item->flags |= IF_ONE_SHOT;
+    item->trigger.spent = true;
 
     Carrier_TestItemDrops(item_num);
 }
@@ -1412,26 +1454,6 @@ int16_t Creature_AIGuard(CREATURE *const creature)
         return DEG_90;
     }
     return 0;
-}
-
-static bool M_SameZone(const CREATURE *const creature, ITEM *const target_item)
-{
-    if (creature->lot.setup.fly != 0) {
-        return true;
-    }
-
-    int16_t *const zone = Box_GetGroundZone(
-        Room_GetFlipStatus(), (creature->lot.setup.step >> 8) - 1);
-    ITEM *const item = Item_Get(creature->item_num);
-
-    const ROOM *room = Room_Get(item->room_num);
-    item->box_num = Room_GetWorldSector(room, item->pos.x, item->pos.z)->box;
-
-    room = Room_Get(target_item->room_num);
-    target_item->box_num =
-        Room_GetWorldSector(room, target_item->pos.x, target_item->pos.z)->box;
-
-    return zone[item->box_num] == zone[target_item->box_num];
 }
 
 void Creature_GetAITarget(CREATURE *const creature)
@@ -1561,7 +1583,7 @@ void Creature_GetAITarget(CREATURE *const creature)
 
                     if (target->object_id == O_KEY_ITEM_4
                         && target->room_num != NO_ROOM && !target->ai_bits
-                        && target->status != IS_INVISIBLE && !target->clear_body
+                        && target->is_visible && !target->clear_body
                         && M_SameZone(creature, target)) {
                         creature->enemy = target;
                         return;
@@ -1573,7 +1595,7 @@ void Creature_GetAITarget(CREATURE *const creature)
                 ITEM *const target = Item_Get(i);
                 if (target->object_id == O_SMALL_MEDIPACK_ITEM
                     && target->room_num != NO_ROOM && !target->ai_bits
-                    && target->status != IS_INVISIBLE && !target->clear_body
+                    && target->is_visible && !target->clear_body
                     && M_SameZone(creature, target)) {
                     creature->enemy = target;
                     return;

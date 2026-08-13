@@ -1,13 +1,29 @@
 #include <trx/config/enum.h>
 #include <trx/core/enum_map.h>
+#include <trx/core/log.h>
+#include <trx/game/catalog/manager.h>
+#include <trx/game/console/enum.h>
 #include <trx/game/game_buf.h>
 #include <trx/game/game_flow/types.h>
 #include <trx/game/gun/types.h>
-#include <trx/game/input.h>
+#include <trx/game/gym.h>
+#include <trx/game/input/enum.h>
+#include <trx/game/items/actions/ids.h>
+#include <trx/game/items/enum.h>
+#include <trx/game/lara/enum.h>
 #include <trx/game/lara/skin/types.h>
 #include <trx/game/lara/types.h>
+#include <trx/game/lua/events.h>
+#include <trx/game/music/enum.h>
+#include <trx/game/music/ids.h>
+#include <trx/game/objects/general/generic_switch.h>
+#include <trx/game/objects/general/pickup.h>
 #include <trx/game/objects/ids.h>
+#include <trx/game/rooms/enum.h>
+#include <trx/game/savegame/types.h>
 #include <trx/game/screenshot.h>
+#include <trx/game/shell/mod.h>
+#include <trx/game/sound/ids.h>
 #include <trx/game/ui/settings.h>
 
 static __attribute__((constructor)) void M_Init(void)
@@ -16,6 +32,41 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(INPUT_ROLE, role_name, #state_name);
 #include <trx/game/input/roles.def>
 #undef X_INPUT_ROLE
+
+    // The catalogs: every object, sample, music track, Lara state, Lara
+    // animation and item action TRX knows, by its canonical name. These are the
+    // names a script says - the O_/SFX_/MX_ prefixes come off in the
+    // declaration, not here, because the prefix is what tells them apart in C.
+#define X_CATALOG_ID(enum_value) ENUM_MAP_SELF(OBJECT_ID, enum_value);
+#include <trx/game/catalog/objects.def>
+#undef X_CATALOG_ID
+
+#define X_CATALOG_ID(enum_value) ENUM_MAP_SELF(SAMPLE_TRX_ID, enum_value);
+#include <trx/game/catalog/samples.def>
+#undef X_CATALOG_ID
+
+#define X_CATALOG_ID(enum_value) ENUM_MAP_SELF(MUSIC_TRX_ID, enum_value);
+#include <trx/game/catalog/music.def>
+#undef X_CATALOG_ID
+
+#define X_CATALOG_ID(enum_value) ENUM_MAP_SELF(LARA_TRX_STATE, enum_value);
+#include <trx/game/catalog/lara_states.def>
+#undef X_CATALOG_ID
+
+#define X_CATALOG_ID(enum_value) ENUM_MAP_SELF(LARA_TRX_ANIMATION, enum_value);
+#include <trx/game/catalog/lara_anims.def>
+#undef X_CATALOG_ID
+
+#define X_CATALOG_ID(enum_value) ENUM_MAP_SELF(ITEM_TRX_ACTION, enum_value);
+#include <trx/game/catalog/item_actions.def>
+#undef X_CATALOG_ID
+
+    ENUM_MAP(CATALOG_CONTEXT, CATALOG_OBJECTS, "objects");
+    ENUM_MAP(CATALOG_CONTEXT, CATALOG_MUSIC, "music");
+    ENUM_MAP(CATALOG_CONTEXT, CATALOG_SAMPLES, "samples");
+    ENUM_MAP(CATALOG_CONTEXT, CATALOG_LARA_STATES, "lara_states");
+    ENUM_MAP(CATALOG_CONTEXT, CATALOG_LARA_ANIMS, "lara_anims");
+    ENUM_MAP(CATALOG_CONTEXT, CATALOG_ITEM_ACTIONS, "item_actions");
 
     ENUM_MAP(GAME_BUFFER, GBUF_TEXTURE_PAGES, "Texture pages");
     ENUM_MAP(GAME_BUFFER, GBUF_PALETTES, "Color palettes");
@@ -57,6 +108,78 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(GAME_BUFFER, GBUF_SAMPLES, "Samples");
     ENUM_MAP(GAME_BUFFER, GBUF_WALKABLES, "Walkables buffer");
 
+    ENUM_MAP(COMMAND_RESULT, CR_SUCCESS, "ok");
+    ENUM_MAP(COMMAND_RESULT, CR_FAILURE, "failure");
+    ENUM_MAP(COMMAND_RESULT, CR_UNAVAILABLE, "unavailable");
+    ENUM_MAP(COMMAND_RESULT, CR_BAD_INVOCATION, "bad_invocation");
+
+    // GYM_TRACK_NONE and GYM_TRACK_NUMBER_OF are sentinels, not tracks: leaving
+    // them unmapped keeps them out of trx.assault.Track.
+    ENUM_MAP(GYM_TRACK_TYPE, GYM_TRACK_ASSAULT, "course");
+    ENUM_MAP(GYM_TRACK_TYPE, GYM_TRACK_QUAD, "quad");
+
+    ENUM_MAP(ITEM_TRIGGER_KIND, ITEM_TRIGGER_NORMAL, "trigger");
+    ENUM_MAP(ITEM_TRIGGER_KIND, ITEM_TRIGGER_HEAVY, "heavy");
+    ENUM_MAP(ITEM_TRIGGER_KIND, ITEM_TRIGGER_SWITCH, "switch");
+    ENUM_MAP(ITEM_TRIGGER_KIND, ITEM_TRIGGER_HEAVY_SWITCH, "heavy_switch");
+    ENUM_MAP(ITEM_TRIGGER_KIND, ITEM_TRIGGER_ANTI, "antitrigger");
+
+    // LUA_EVENT_NUMBER_OF is a sentinel, not an event.
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_GAME_START, "game_start");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_TITLE_START, "title_start");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_PICKUP, "pickup");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_BEFORE_CONTROL, "before_control");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_AFTER_CONTROL, "after_control");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_FLIP_EFFECT, "flip_effect");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_ROOM_CHANGE, "room_change");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_TRIGGER, "trigger");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_SHOW, "show");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_HIDE, "hide");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_FINISH, "finish");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_ENTER_SIM, "enter_sim");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_LEAVE_SIM, "leave_sim");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_ACTIVATE, "activate");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_DEACTIVATE, "deactivate");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_DESTROY, "destroy");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_ENTER_WORLD, "enter_world");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_LEAVE_WORLD, "leave_world");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_HIT, "hit");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_KILL, "kill");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_FLYBY_END, "flyby_end");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_CUTSCENE_TRIGGER, "cutscene_trigger");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_CUTSCENE_START, "cutscene_start");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_CUTSCENE_END, "cutscene_end");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_LEVEL_UNLOAD, "level_unload");
+
+    // LOG_LEVEL_MAX is a sentinel, not a level.
+    ENUM_MAP(LOG_LEVEL, LOG_LEVEL_DEBUG, "debug");
+    ENUM_MAP(LOG_LEVEL, LOG_LEVEL_INFO, "info");
+    ENUM_MAP(LOG_LEVEL, LOG_LEVEL_WARNING, "warning");
+    ENUM_MAP(LOG_LEVEL, LOG_LEVEL_ERROR, "error");
+
+    ENUM_MAP(MUSIC_PLAY_MODE, MPM_ONCE, "once");
+    ENUM_MAP(MUSIC_PLAY_MODE, MPM_LOOP, "loop");
+    ENUM_MAP(MUSIC_PLAY_MODE, MPM_DELAY, "delay");
+    ENUM_MAP(MUSIC_PLAY_MODE, MPM_NO_REPEAT, "no_repeat");
+    ENUM_MAP(MUSIC_PLAY_MODE, MPM_OVERLAY, "overlay");
+
+    ENUM_MAP(PICKUP_MODE, PICKUP_MODE_NORMAL, "normal");
+    ENUM_MAP(PICKUP_MODE, PICKUP_MODE_PLINTH_LOW, "plinth_low");
+    ENUM_MAP(PICKUP_MODE, PICKUP_MODE_PLINTH_HIGH, "plinth_high");
+    ENUM_MAP(PICKUP_MODE, PICKUP_MODE_HIDDEN, "hidden");
+    ENUM_MAP(PICKUP_MODE, PICKUP_MODE_CROWBAR, "crowbar");
+    ENUM_MAP(PICKUP_MODE, PICKUP_MODE_SARCOPHAGUS, "sarcophagus");
+    ENUM_MAP(PICKUP_MODE, PICKUP_MODE_PLINTH_SCION, "plinth_scion");
+
+    ENUM_MAP(ROOM_FLIP_STATUS, RFS_NONE, "none");
+    ENUM_MAP(ROOM_FLIP_STATUS, RFS_UNFLIPPED, "unflipped");
+    ENUM_MAP(ROOM_FLIP_STATUS, RFS_FLIPPED, "flipped");
+
+    ENUM_MAP(SWITCH_MODE, SWITCH_MODE_NORMAL, "normal");
+    ENUM_MAP(SWITCH_MODE, SWITCH_MODE_HIDDEN_REACH, "hidden_reach");
+    ENUM_MAP(SWITCH_MODE, SWITCH_MODE_HIDDEN_PICKUP, "hidden_pickup");
+    ENUM_MAP(SWITCH_MODE, SWITCH_MODE_SHOVE, "shove");
+
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_LOOP_GAME, "loop_game");
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_PLAY_FMV, "play_fmv");
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_PLAY_CUTSCENE, "play_cutscene");
@@ -74,7 +197,6 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_REMOVE_MEDIPACKS, "remove_medipacks");
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_REMOVE_FLARES, "remove_flares");
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_DISABLE_FLOOR, "disable_floor");
-    ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_SETUP_BACON_LARA, "setup_bacon_lara");
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_REMOVE_SCIONS, "remove_scions");
     ENUM_MAP(
         GF_SEQUENCE_EVENT_TYPE, GFS_REMOVE_BINOCULARS, "remove_binoculars");
@@ -87,9 +209,15 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(
         GF_SEQUENCE_EVENT_TYPE, GFS_ADD_SECRET_REWARD, "add_secret_reward");
 
+    ENUM_MAP(GF_LEVEL_TABLE_TYPE, GFLT_TITLE, "title");
+    ENUM_MAP(GF_LEVEL_TABLE_TYPE, GFLT_MAIN, "main");
+    ENUM_MAP(GF_LEVEL_TABLE_TYPE, GFLT_CUTSCENES, "cutscenes");
+    ENUM_MAP(GF_LEVEL_TABLE_TYPE, GFLT_DEMOS, "demos");
+
     ENUM_MAP(GF_LEVEL_TYPE, GFL_TITLE, "title");
     ENUM_MAP(GF_LEVEL_TYPE, GFL_NORMAL, "normal");
     ENUM_MAP(GF_LEVEL_TYPE, GFL_CUTSCENE, "cutscene");
+    ENUM_MAP(GF_LEVEL_TYPE, GFL_DEMO, "demo");
     ENUM_MAP(GF_LEVEL_TYPE, GFL_GYM, "gym");
     ENUM_MAP(GF_LEVEL_TYPE, GFL_BONUS, "bonus");
     ENUM_MAP(GF_LEVEL_TYPE, GFL_DUMMY, "dummy");
@@ -98,6 +226,15 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(WEATHER_TYPE, WEATHER_NONE, "none");
     ENUM_MAP(WEATHER_TYPE, WEATHER_RAIN, "rain");
     ENUM_MAP(WEATHER_TYPE, WEATHER_SNOW, "snow");
+
+    ENUM_MAP(SHELL_MOD_TYPE, MOD_BASE_GAME, "base_game");
+    ENUM_MAP(SHELL_MOD_TYPE, MOD_EXPANSION_PACK, "expansion_pack");
+    ENUM_MAP(SHELL_MOD_TYPE, MOD_MISC, "misc");
+    ENUM_MAP(SHELL_MOD_TYPE, MOD_DIRECT_LEVEL, "direct_level");
+    ENUM_MAP(SHELL_MOD_TYPE, MOD_CUSTOM, "custom");
+
+    ENUM_MAP(SAVEGAME_SLOT_POOL, SAVEGAME_SLOT_POOL_NORMAL, "normal");
+    ENUM_MAP(SAVEGAME_SLOT_POOL, SAVEGAME_SLOT_POOL_QUICK, "quick");
 
     ENUM_MAP(GF_DEATH_TILE, GF_DEATH_TILE_LAVA, "lava");
     ENUM_MAP(GF_DEATH_TILE, GF_DEATH_TILE_RAPIDS, "rapids");
@@ -134,6 +271,35 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(UI_BAR_TYPE, UI_BAR_ALLY_HP, "ally_hp");
     ENUM_MAP(UI_BAR_TYPE, UI_BAR_PROGRESS, "progress");
 
+    ENUM_MAP(LARA_MESH, LM_HIPS, "hips");
+    ENUM_MAP(LARA_MESH, LM_THIGH_L, "thigh_l");
+    ENUM_MAP(LARA_MESH, LM_CALF_L, "calf_l");
+    ENUM_MAP(LARA_MESH, LM_FOOT_L, "foot_l");
+    ENUM_MAP(LARA_MESH, LM_THIGH_R, "thigh_r");
+    ENUM_MAP(LARA_MESH, LM_CALF_R, "calf_r");
+    ENUM_MAP(LARA_MESH, LM_FOOT_R, "foot_r");
+    ENUM_MAP(LARA_MESH, LM_TORSO, "torso");
+    ENUM_MAP(LARA_MESH, LM_UARM_R, "uarm_r");
+    ENUM_MAP(LARA_MESH, LM_LARM_R, "larm_r");
+    ENUM_MAP(LARA_MESH, LM_HAND_R, "hand_r");
+    ENUM_MAP(LARA_MESH, LM_UARM_L, "uarm_l");
+    ENUM_MAP(LARA_MESH, LM_LARM_L, "larm_l");
+    ENUM_MAP(LARA_MESH, LM_HAND_L, "hand_l");
+    ENUM_MAP(LARA_MESH, LM_HEAD, "head");
+
+    ENUM_MAP(LARA_WATER_STATE, LWS_ABOVE_WATER, "above_water");
+    ENUM_MAP(LARA_WATER_STATE, LWS_UNDERWATER, "underwater");
+    ENUM_MAP(LARA_WATER_STATE, LWS_SURFACE, "surface");
+    ENUM_MAP(LARA_WATER_STATE, LWS_CHEAT, "cheat");
+    ENUM_MAP(LARA_WATER_STATE, LWS_WADE, "wade");
+
+    ENUM_MAP(LARA_GUN_STATE, LGS_ARMLESS, "armless");
+    ENUM_MAP(LARA_GUN_STATE, LGS_HANDS_BUSY, "hands_busy");
+    ENUM_MAP(LARA_GUN_STATE, LGS_DRAW, "draw");
+    ENUM_MAP(LARA_GUN_STATE, LGS_UNDRAW, "undraw");
+    ENUM_MAP(LARA_GUN_STATE, LGS_READY, "ready");
+    ENUM_MAP(LARA_GUN_STATE, LGS_SPECIAL, "special");
+
     ENUM_MAP_SELF(LARA_SKIN_BRAID_MODE, BRAID_MODE_NONE);
     ENUM_MAP_SELF(LARA_SKIN_BRAID_MODE, BRAID_MODE_TR1_HEAD_ONLY);
     ENUM_MAP_SELF(LARA_SKIN_BRAID_MODE, BRAID_MODE_TR1_FULL);
@@ -154,6 +320,14 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP_SELF(LARA_SKIN_EXTRA_MESH, EXTRA_MESH_GLASSES_OPAQUE);
     ENUM_MAP_SELF(LARA_SKIN_EXTRA_MESH, EXTRA_MESH_GLASSES_TRANSPARENT);
     ENUM_MAP_SELF(LARA_SKIN_EXTRA_MESH, EXTRA_MESH_CROWBAR);
+    ENUM_MAP_SELF(LARA_SKIN_EXTRA_MESH, EXTRA_MESH_WOODEN_TORCH);
+    ENUM_MAP_SELF(LARA_SKIN_EXTRA_MESH, EXTRA_MESH_BINOCULARS);
+    ENUM_MAP_SELF(LARA_SKIN_EXTRA_MESH, EXTRA_MESH_HOOK_AND_POLE);
+    ENUM_MAP_SELF(LARA_SKIN_EXTRA_MESH, EXTRA_MESH_DETONATOR);
+    ENUM_MAP_SELF(LARA_SKIN_EXTRA_MESH, EXTRA_MESH_SHOVEL);
+    ENUM_MAP_SELF(LARA_SKIN_EXTRA_MESH, EXTRA_MESH_JERRYCAN);
+    ENUM_MAP_SELF(LARA_SKIN_EXTRA_MESH, EXTRA_MESH_SANDBAG);
+    ENUM_MAP_SELF(LARA_SKIN_EXTRA_MESH, EXTRA_MESH_WATERSKIN);
 
     ENUM_MAP_SELF(LARA_EXTRA_STATE, LS_EXTRA_BREATH);
     ENUM_MAP_SELF(LARA_EXTRA_STATE, LS_EXTRA_TREX_KILL);

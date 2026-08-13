@@ -47,6 +47,21 @@ typedef struct {
     int32_t heavy_mask;
 } TRIGGER_STATUS;
 
+// A flip-map slot's accumulated trigger state. The mask is the 0..31 editor
+// mask; only the savegame packs it back into the released save word.
+typedef struct {
+    uint8_t mask;
+    bool is_one_shot;
+} FLIP_SLOT;
+
+// The lean description a flip-slot trigger acts on, mapped from floordata at
+// the trigger-handler boundary, as with ITEM_TRIGGER.
+typedef struct {
+    bool from_switch;
+    uint16_t mask;
+    bool one_shot;
+} FLIP_TRIGGER;
+
 typedef struct {
     int16_t room_num;
     XYZ_16 normal;

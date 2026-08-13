@@ -36,8 +36,19 @@ bool File_IsRelative(const char *path);
 // Return true when path points to an existing file.
 bool File_Exists(const char *path);
 
+// Return the process working directory (owning string), or nullptr.
+char *File_GetCurrentDirectory(void);
+
 // Return parent directory component of path (owning string), or nullptr.
 char *File_GetParentDirectory(const char *path);
+
+// Return the name of the file path points at, pointing into path itself, or
+// nullptr when path is nullptr. Path with no directory in it is its own name.
+const char *File_GetBaseName(const char *path);
+
+// Return the name of the file path points at, without its directory and
+// without its extension (owning string), or nullptr when path is nullptr.
+char *File_GetStem(const char *path);
 
 // ============================================================================
 // File handle functions
@@ -103,6 +114,9 @@ void File_WriteU32(MYFILE *file, uint32_t value);
 // Write formatted string to file using a static-format buffer.
 // The formatted text is written via fputs; no trailing newline is added.
 void File_WriteString(MYFILE *file, const char *fmt, ...);
+
+// Delete the file at path. Returns false if it could not be deleted.
+bool File_Delete(const char *path);
 
 // ============================================================================
 // Directory functions

@@ -28,6 +28,15 @@ typedef struct {
     const OUTPUT_OBJECT_MESH_POLICY *policy;
 } M_POLICY_ENTRY;
 
+typedef void (*M_FACE_VERTEX_FUNC)(
+    OUTPUT_MESH_VERTEX *vertex, const FACE *face, int32_t vertex_idx,
+    const void *user);
+
+typedef struct {
+    const XYZ_F *positions;
+    const XYZ_F *normals;
+} M_GEOMETRY_UPDATE;
+
 static M_PRIV m_Priv = {};
 static VECTOR *m_MeshPolicies = nullptr;
 
@@ -85,6 +94,23 @@ static SCENE_PASS M_GetScenePass(
     return Output_Textures_GetObjectTextureScenePass(face->texture_idx);
 }
 
+static float M_GetReflectivity(const FACE *const face)
+{
+    if ((face->effects & 0x2u) == 0u) {
+        return 1.0f;
+    }
+
+    // The OG scales the reflection pass's vertex color by the face's 5-bit
+    // reflectivity: (value << 3), applied as (color * m) >> 8.
+    return ((face->effects >> 2) & 0x1Fu) * (8.0f / 256.0f);
+}
+
+static bool M_IsReflectiveFace(
+    const OBJECT_MESH *const obj_mesh, const FACE *const face)
+{
+    return obj_mesh->enable_reflections || face->enable_reflections;
+}
+
 static void M_AddObjectFace(
     MESH_BUILDER *const builder, const OBJECT_MESH *const obj_mesh,
     const FACE *const face, uint16_t flags, const int32_t mesh_idx)
@@ -106,6 +132,10 @@ static void M_AddObjectFace(
         Output_Textures_GetObjectTextureScenePass(face->texture_idx)
         == SCENE_PASS_OPAQUE) {
         flags |= VERT_NO_ALPHA_DISCARD;
+    }
+
+    if (M_IsReflectiveFace(obj_mesh, face)) {
+        flags |= VERT_REFLECTIVE;
     }
 
     if (obj_mesh->num_lights <= 0) {
@@ -166,6 +196,7 @@ static void M_AddObjectFace(
             .normal = { .x = normal.x, .y = normal.y, .z = normal.z },
             .flags = flags,
             .uvw_idx = uvw_idx,
+            .reflectivity = M_GetReflectivity(face),
             .shade = shade,
             .color = color,
             .trapezoid_ratio = {
@@ -233,19 +264,75 @@ static void M_FreeMeshes(M_PRIV *const p)
     Memory_ArenaReset(&p->alloc);
 }
 
-static void M_UpdateFlags(const OBJECT_MESH *const mesh, M_MESH *const batch)
+// The GPU buffer stores one vertex per face corner, in the same order the
+// faces were flattened in M_PrepareMeshes (tex faces, then flat faces), so
+// this walk mirrors that layout.
+static void M_ForEachFaceVertex(
+    const OBJECT_MESH *const mesh, M_MESH *const batch,
+    const M_FACE_VERTEX_FUNC func, const void *const user)
 {
-    uint16_t mask = VERT_REFLECTIVE | VERT_NO_LIGHTING;
-    uint16_t flags = 0;
-    if (mesh->enable_reflections) {
-        flags |= VERT_REFLECTIVE;
-    }
     OUTPUT_MESH_VERTEX *const vertices =
         Vector_GetData(batch->mesh_batch->vertices);
-    for (int32_t i = 0; i < batch->mesh_batch->vertices->count; i++) {
-        vertices[i].flags &= ~mask;
-        vertices[i].flags |= flags;
+    int32_t vertex_idx = 0;
+
+    const struct {
+        int16_t count;
+        const FACE *data;
+    } face_lists[] = {
+        { mesh->tex_faces.count, mesh->tex_faces.data },
+        { mesh->flat_faces.count, mesh->flat_faces.data },
+    };
+    for (int32_t list = 0; list < 2; list++) {
+        for (int32_t i = 0; i < face_lists[list].count; i++) {
+            const FACE *const face = &face_lists[list].data[i];
+            for (int32_t j = 0; j < face->vertex_count; j++) {
+                func(&vertices[vertex_idx + j], face, j, user);
+            }
+            vertex_idx += face->vertex_count;
+        }
     }
+}
+
+static void M_UpdateVertexFlags(
+    OUTPUT_MESH_VERTEX *const vertex, const FACE *const face,
+    const int32_t vertex_idx, const void *const user)
+{
+    const OBJECT_MESH *const mesh = user;
+    vertex->flags &= ~(VERT_REFLECTIVE | VERT_NO_LIGHTING);
+    if (M_IsReflectiveFace(mesh, face)) {
+        vertex->flags |= VERT_REFLECTIVE;
+    }
+}
+
+static void M_ResyncVertexGeometry(
+    OUTPUT_MESH_VERTEX *const vertex, const FACE *const face,
+    const int32_t vertex_idx, const void *const user)
+{
+    const M_GEOMETRY_UPDATE *const update = user;
+    const int32_t idx = face->vertices[vertex_idx];
+    const XYZ_F *const pos = &update->positions[idx];
+    vertex->pos.x = pos->x;
+    vertex->pos.y = pos->y;
+    vertex->pos.z = pos->z;
+    if (update->normals != nullptr) {
+        vertex->normal = update->normals[idx];
+    }
+}
+
+static void M_UpdateFlags(const OBJECT_MESH *const mesh, M_MESH *const batch)
+{
+    M_ForEachFaceVertex(mesh, batch, M_UpdateVertexFlags, mesh);
+}
+
+static void M_ResyncGeometry(
+    const OBJECT_MESH *const mesh, M_MESH *const batch,
+    const XYZ_F *const positions, const XYZ_F *const normals)
+{
+    const M_GEOMETRY_UPDATE update = {
+        .positions = positions,
+        .normals = normals,
+    };
+    M_ForEachFaceVertex(mesh, batch, M_ResyncVertexGeometry, &update);
 }
 
 static void M_Stage(const OBJECT_MESH *const mesh)
@@ -374,6 +461,22 @@ void OutputSource_Objects_ObserveObjectMeshUpdate(const int32_t mesh_idx)
         return;
     }
     M_UpdateFlags(Object_GetMesh(mesh_idx), batch);
+    MeshBatcher_UpdateMeshGeometry(p->batcher, batch->mesh_batch);
+}
+
+void OutputSource_Objects_ObserveObjectMeshGeometry(
+    const int32_t mesh_idx, const XYZ_F *const positions,
+    const XYZ_F *const normals)
+{
+    M_PRIV *const p = &m_Priv;
+    if (p->meshes == nullptr) {
+        return;
+    }
+    M_MESH *const batch = &p->meshes[mesh_idx];
+    if (batch->mesh_batch == nullptr) {
+        return;
+    }
+    M_ResyncGeometry(Object_GetMesh(mesh_idx), batch, positions, normals);
     MeshBatcher_UpdateMeshGeometry(p->batcher, batch->mesh_batch);
 }
 

@@ -450,7 +450,7 @@ static void M_KillLara(const ITEM *const item, ITEM *const lara)
         return;
     }
 
-    lara->hit_points = -1;
+    Lara_Kill();
     lara->pos.y = lara->floor;
     lara->speed = 0;
     lara->fall_speed = 0;
@@ -509,7 +509,9 @@ static const OBJECT_BOUNDS *M_Bounds(void)
 
 static bool M_Draw(const ITEM *const item)
 {
-    if (item->status == IS_ACTIVE) {
+    // A block shoved by a lift or sliding pillar moves without being on the
+    // simulation list, so it is not in play; it still draws unclipped.
+    if (Item_IsInPlay(item) || M_IsForcedMoving(item)) {
         return Object_DrawUnclippedItem(item);
     } else {
         return Object_DrawAnimatingItem(item);
@@ -551,15 +553,13 @@ static void M_HandleSave(ITEM *const item, const SAVEGAME_STAGE stage)
         }
 
         const int16_t item_num = Item_GetIndex(item);
-        if (item->flags & IF_KILLED) {
+        if (item->is_destroyed) {
             Walkable_Remove(item_num);
             return;
         }
-        if (item->status == IS_ACTIVE && !item->gravity
-            && !M_IsForcedMoving(item)
+        if (Item_IsInPlay(item) && !item->gravity && !M_IsForcedMoving(item)
             && item->current_anim_state == M_STATE_STILL) {
-            Item_RemoveActive(Item_GetIndex(item));
-            item->status = IS_INACTIVE;
+            Item_RemoveSimulated(Item_GetIndex(item));
         }
 
         // Reposition walkable to its linked sector.
@@ -574,7 +574,7 @@ static void M_Collision(
     ITEM *const item = Item_Get(item_num);
     const OBJECT *const obj = Object_Get(item->object_id);
 
-    if (item->status == IS_INVISIBLE) {
+    if (!item->is_visible) {
         return;
     }
 
@@ -591,7 +591,7 @@ static void M_Collision(
         M_SetPushPull(item, false);
     }
 
-    if (!g_Input.action || item->status == IS_ACTIVE || lara_item->gravity
+    if (!g_Input.action || Item_IsInPlay(item) || lara_item->gravity
         || lara_item->pos.y != item->pos.y || M_IsForcedMoving(item)) {
         return;
     }
@@ -703,8 +703,7 @@ static void M_Collision(
         }
 
         M_SetLinked(item);
-        item->status = IS_ACTIVE;
-        Item_AddActive(item_num);
+        Item_AddSimulated(item_num);
         M_UpdateStoppers(item, true);
         MovableBlock_UpdateBox(item, false);
         M_SetPushPull(item, true);
@@ -735,9 +734,9 @@ static void M_ResetPosition(ITEM *const item)
     M_SetLinked(item);
     MovableBlock_UpdateBox(item, true);
 
-    Item_RemoveActive(item_num);
+    Item_RemoveSimulated(item_num);
     item->timer = -1;
-    item->status = IS_INACTIVE;
+    Item_SetFinished(item, false);
 }
 
 static void M_SnapToLara(
@@ -824,7 +823,7 @@ static void M_AnimatePushPull(ITEM *const item)
             item->pos.z = (item->pos.z & -M_GRID_SNAP) | M_GRID_SNAP;
         } else if (Item_TestFrameEqual(lara_item, -1)) {
             item->current_anim_state = M_STATE_STILL;
-            item->status = IS_DEACTIVATED;
+            Item_SetFinished(item, true);
         }
         break;
 
@@ -844,7 +843,7 @@ static void M_Control(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
 
-    if (item->status == IS_INVISIBLE) {
+    if (!item->is_visible) {
         return;
     }
 
@@ -858,8 +857,8 @@ static void M_Control(const int16_t item_num)
         return;
     }
 
-    if ((item->flags & IF_ONE_SHOT) != 0) {
-        Item_Kill(item_num);
+    if (item->trigger.spent) {
+        Item_Destroy(item_num);
         Walkable_Remove(item_num);
         MovableBlock_UpdateBox(item, false);
         return;
@@ -927,17 +926,17 @@ static void M_Control(const int16_t item_num)
         item->gravity = false;
         item->fall_speed = 0;
         item->pos.y = under_block_height;
-        item->status = IS_DEACTIVATED;
+        Item_SetFinished(item, true);
         ItemAction_Run(ITEM_ACTION_FLOOR_SHAKE, item);
         Sound_Effect(SFX_PUSHBLOCK_LAND, &item->pos, SPM_NORMAL);
     } else if (
         // If block is at/under floor height, no gravity, and isn't being
-        // pushed/pulled anymore. Prevents blocks from getting stuck in
-        // IS_INACTIVE if retriggered.
+        // pushed/pulled anymore. Clears is_finished so a retrigger can move
+        // the block again.
         item->pos.y >= under_block_height && !item->gravity
         && !M_IsPushPull(item) && !M_IsForcedMoving(item)) {
-        item->status = IS_INACTIVE;
-        Item_RemoveActive(item_num);
+        Item_SetFinished(item, false);
+        Item_RemoveSimulated(item_num);
     }
 
     // Don't update room number if on a walkable because room number can fall
@@ -950,15 +949,15 @@ static void M_Control(const int16_t item_num)
         Item_UpdateRoom(item_num, room_num);
     }
 
-    if (item->status == IS_DEACTIVATED) {
+    if (item->is_finished) {
         const GAME_VECTOR target = {
             .pos = item->pos,
             .room_num = item->room_num,
         };
         Walkable_Reposition(item_num, M_GetLinked(item), target);
         M_SetLinked(item);
-        item->status = IS_INACTIVE;
-        Item_RemoveActive(item_num);
+        Item_SetFinished(item, false);
+        Item_RemoveSimulated(item_num);
         M_UpdateStoppers(item, false);
         MovableBlock_UpdateBox(item, true);
         Room_TestTriggers(item);
@@ -972,7 +971,7 @@ static void M_Control(const int16_t item_num)
 static int32_t M_GetFloorHeight(
     const ITEM *const item, const XYZ_32 pos, const int32_t height)
 {
-    if (item->status == IS_INVISIBLE || item->gravity) {
+    if (!item->is_visible || item->gravity) {
         return height;
     }
 
@@ -1021,7 +1020,7 @@ static int32_t M_GetFloorHeight(
 static int32_t M_GetCeilingHeight(
     const ITEM *const item, const XYZ_32 pos, const int32_t height)
 {
-    if (item->status == IS_INVISIBLE || item->gravity) {
+    if (!item->is_visible || item->gravity) {
         return height;
     }
 
@@ -1112,8 +1111,7 @@ static void M_Setup(OBJECT *const obj)
 void MovableBlock_UpdateBox(const ITEM *const item, const bool blocked)
 {
     if (blocked
-        && (item->status == IS_ACTIVE || item->status == IS_INVISIBLE
-            || (item->flags & IF_KILLED) != 0)) {
+        && (Item_IsInPlay(item) || !item->is_visible || item->is_destroyed)) {
         return;
     }
 
@@ -1151,8 +1149,7 @@ void MovableBlock_DropStack(const XYZ_32 drop_pos, const int16_t room_num)
         ITEM *const item = Item_Get(item_num);
         M_SetGravityFrames(item, i);
         M_SetForcedMoving(item, false);
-        item->status = IS_ACTIVE;
-        Item_AddActive(item_num);
+        Item_AddSimulated(item_num);
         Item_Animate(item);
     }
 
@@ -1169,7 +1166,6 @@ void MovableBlock_ShiftStackY(
     for (int16_t i = 0; i < stack->count; i++) {
         const int16_t item_num = *(const int16_t *)Vector_Get(stack, i);
         ITEM *const item = Item_Get(item_num);
-        item->status = IS_ACTIVE;
         M_SetForcedMoving(item, true);
         item->pos.y = new_y;
         int16_t sector_room_num = room_num;
@@ -1184,7 +1180,7 @@ void MovableBlock_ShiftStackY(
             };
             Walkable_Reposition(item_num, M_GetLinked(item), target);
             M_SetLinked(item);
-            item->status = IS_INACTIVE;
+            Item_SetFinished(item, false);
             M_SetForcedMoving(item, false);
         }
     }
@@ -1202,7 +1198,6 @@ void MovableBlock_SlideStack(
     for (int16_t i = 0; i < stack->count; i++) {
         const int16_t item_num = *(const int16_t *)Vector_Get(stack, i);
         ITEM *const item = Item_Get(item_num);
-        item->status = IS_ACTIVE;
         M_SetForcedMoving(item, true);
         item->pos.x = dest_item->pos.x;
         item->pos.z = dest_item->pos.z;
@@ -1218,7 +1213,7 @@ void MovableBlock_SlideStack(
             };
             Walkable_Reposition(item_num, M_GetLinked(item), target);
             M_SetLinked(item);
-            item->status = IS_INACTIVE;
+            Item_SetFinished(item, false);
             M_SetForcedMoving(item, false);
         }
     }

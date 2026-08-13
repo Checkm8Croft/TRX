@@ -13,7 +13,7 @@ static const uint8_t m_Falloffs[2] = { 13, 7 };
 
 static int32_t M_GetDamage(void)
 {
-    OBJECT_PROPERTY_VALUE damage = {};
+    TRX_VALUE damage = {};
     const OBJECT *const obj = Object_Get(O_SOPHIA);
     if (ObjectProperty_GetObjectValue(obj, "plasma_ball_damage", &damage)) {
         return damage.as_int;
@@ -122,13 +122,13 @@ static void M_Control(const int16_t effect_num)
 
     if (effect->pos.y >= h || effect->pos.y < c
         || Room_Get(room_num)->flags.underwater) {
-        Effect_Kill(effect_num);
+        Effect_Destroy(effect_num);
         return;
     }
 
     if (effect->flag2 == 0 && Lara_IsNearItem(&effect->pos, 200)) {
         Lara_TakeDamage(M_GetDamage(), true);
-        Effect_Kill(effect_num);
+        Effect_Destroy(effect_num);
         return;
     }
 
@@ -147,7 +147,7 @@ static void M_Control(const int16_t effect_num)
 
 static void M_Setup(OBJECT *const obj)
 {
-    obj->control_func = M_Control;
+    obj->effect_control_func = M_Control;
     obj->draw_func = nullptr;
 }
 

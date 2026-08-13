@@ -242,7 +242,7 @@ static bool M_CanDropItems(const ITEM *const item)
     if (item->hit_points > 0) {
         return false;
     }
-    if ((item->flags & IF_KILLED) != 0) {
+    if (item->is_destroyed) {
         return true;
     }
     return item->current_anim_state == M_STATE_DEATH
@@ -258,10 +258,10 @@ static void M_Die(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
     item->hit_points = 0;
-    item->collidable = false;
-    Item_Kill(item_num);
+    item->is_collidable = false;
+    Item_Destroy(item_num);
     LOT_DisableBaddieAI(item_num);
-    item->flags |= IF_INVISIBLE;
+    item->trigger.spent = true;
 }
 
 static void M_Initialise(int16_t item_num)
@@ -643,10 +643,8 @@ static void M_Setup(OBJECT *const obj)
     Object_GetBone(obj, 6)->rot.y = true;
     Object_GetBone(obj, 13)->rot.y = true;
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."),
-        OBJECT_PROPERTY_INT(
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS),
+        OBJECT_PROPERTY_STORED(
             "fire_ball_damage", TONY_FIRE_BALL_DAMAGE,
             "Damage dealt by direct fire ball hits."));
 }

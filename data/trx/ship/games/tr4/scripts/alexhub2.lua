@@ -1,12 +1,10 @@
-trx.events.before_item_setup(function(level)
+trx.events.on_game_start(function()
   trx.objects.animating_14.properties.collidable = false
   trx.objects.animating_15.properties.collidable = false
   trx.objects.animating_16.properties.collidable = false
-end)
-
-trx.events.before_item_setup(function(level)
-  trx.items[43].properties.crowbar = true
-  trx.items[80].properties.crowbar = true
+  trx.items[42].properties.crowbar = true
+  trx.items[79].properties.crowbar = true
+  trx.items[82].properties.crowbar = true
   trx.items[83].properties.crowbar = true
-  trx.items[84].properties.crowbar = true
+  trx.items[36].properties.pickup_mode = trx.items.PickupMode.CROWBAR
 end)

@@ -8,8 +8,6 @@
 #include <trx/game/sound.h>
 #include <trx/game/spawn.h>
 
-#define M_DEFAULT_DAMAGE 200
-
 typedef enum {
     // clang-format off
     M_STATE_ON  = 0,
@@ -21,7 +19,7 @@ static void M_Collision(
     const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
 {
     ITEM *const item = Item_Get(item_num);
-    if (item->status == IS_ACTIVE && item->object_id == O_PROPELLER_2
+    if (Item_IsInPlay(item) && item->object_id == O_PROPELLER_2
         && item->current_anim_state == M_STATE_OFF) {
         Object_Collision(item_num, lara_item, coll);
     } else {
@@ -31,14 +29,15 @@ static void M_Collision(
 
 static void M_Setup(OBJECT *const obj)
 {
+    obj->priv_size = sizeof(PROPELLER_PRIV);
     obj->control_func = Propeller_Control;
     obj->collision_func = M_Collision;
     obj->save_flags = true;
     obj->save_anim = true;
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_INT(
-            "damage", M_DEFAULT_DAMAGE,
+        OBJECT_PROPERTY(
+            PROPELLER_PRIV, damage, PROPELLER_DEFAULT_DAMAGE,
             "Damage dealt while Lara is touching the propeller."));
 }
 
@@ -51,26 +50,17 @@ static void M_SpawnBlood(const ITEM *const item, const int32_t count)
         item->rot.y + DEG_90, lara_item->room_num, count);
 }
 
-static int32_t M_GetDamage(const ITEM *const item)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, "damage", &damage)) {
-        return damage.as_int;
-    }
-
-    return M_DEFAULT_DAMAGE;
-}
-
 void Propeller_Control(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
+    const PROPELLER_PRIV *const p = item->priv;
 
-    if (Item_IsTriggerActive(item) && !(item->flags & IF_ONE_SHOT)) {
+    if (Item_IsTriggerActive(item) && !item->trigger.spent) {
         item->goal_anim_state = M_STATE_ON;
 
         if ((item->touch_bits & 6) != 0) {
             const ITEM *const lara_item = Lara_GetItem();
-            Lara_TakeDamage(M_GetDamage(item), true);
+            Lara_TakeDamage(p->damage, true);
             if (lara_item->hit_points <= 0) {
                 M_SpawnBlood(item, 5);
             }
@@ -100,10 +90,10 @@ void Propeller_Control(const int16_t item_num)
 
     Item_Animate(item);
 
-    if (item->status == IS_DEACTIVATED) {
-        Item_RemoveActive(item_num);
+    if (item->is_finished) {
+        Item_RemoveSimulated(item_num);
         if (item->object_id != O_POWER_SAW) {
-            item->collidable = false;
+            item->is_collidable = false;
         }
     }
 }

@@ -22,6 +22,7 @@
 // clang-format on
 
 typedef struct {
+    int32_t damage;
     bool initialised;
     bool on_fire;
     int16_t effect_num;
@@ -61,7 +62,7 @@ static void M_InitialiseFire(ITEM *const pendulum_item)
         pendulum_item->room_num, pendulum_item->pos, fire_obj_id);
     if (fire_item_idx != NO_ITEM) {
         ITEM *const fire_item = Item_Get(fire_item_idx);
-        Item_Kill(fire_item_idx);
+        Item_Destroy(fire_item_idx);
         fire_item->room_num = NO_ROOM;
         p->on_fire = true;
     }
@@ -170,22 +171,11 @@ static void M_KillFireEffect(ITEM *const item)
         return;
     }
 
-    Effect_Kill(p->effect_num);
+    Effect_Destroy(p->effect_num);
     p->effect_num = NO_EFFECT;
     if (g_TRVersion == 1) {
         Sound_StopEffect(SFX_LOOP_FOR_SMALL_FIRES);
     }
-}
-
-static int32_t M_GetDamage(const ITEM *const item)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, "damage", &damage)) {
-        return damage.as_int;
-    }
-
-    return item->object_id == O_SWINGING_AXE ? M_DEFAULT_AXE_DAMAGE
-                                             : M_DEFAULT_PENDULUM_DAMAGE;
 }
 
 static void M_Control(const int16_t item_num)
@@ -217,8 +207,7 @@ static void M_Control(const int16_t item_num)
         working = true;
         if (!Item_IsTriggerActive(item) && Item_TestFrameEqual(item, -1)) {
             Item_SwitchToAnim(item, 0, 0);
-            item->status = IS_INACTIVE;
-            Item_RemoveActive(item_num);
+            Item_RemoveSimulated(item_num);
             item->enable_interpolation = false;
             M_KillFireEffect(item);
             return;
@@ -226,7 +215,7 @@ static void M_Control(const int16_t item_num)
     }
 
     if (working && item->touch_bits != 0) {
-        Lara_TakeDamage(M_GetDamage(item), true);
+        Lara_TakeDamage(p->damage, true);
 
         if (p->on_fire) {
             Lara_CatchFire();
@@ -262,7 +251,7 @@ static void M_Control(const int16_t item_num)
 static void M_HandleSave(ITEM *const item, const SAVEGAME_STAGE stage)
 {
     if (stage == SAVEGAME_STAGE_AFTER_LOAD) {
-        item->enable_interpolation = item->status == IS_ACTIVE;
+        item->enable_interpolation = Item_IsInPlay(item);
     }
 }
 
@@ -285,8 +274,8 @@ static void M_SetupAxe(OBJECT *const obj)
     obj->collision_func = Object_Collision_Trap;
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_INT(
-            "damage", M_DEFAULT_AXE_DAMAGE,
+        OBJECT_PROPERTY(
+            M_PRIV, damage, M_DEFAULT_AXE_DAMAGE,
             "Damage dealt while Lara is touching the swinging axe."));
 }
 
@@ -296,8 +285,8 @@ static void M_SetupPendulum(OBJECT *const obj)
     obj->collision_func = Object_Collision;
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_INT(
-            "damage", M_DEFAULT_PENDULUM_DAMAGE,
+        OBJECT_PROPERTY(
+            M_PRIV, damage, M_DEFAULT_PENDULUM_DAMAGE,
             "Damage dealt while Lara is touching the pendulum."));
 }
 

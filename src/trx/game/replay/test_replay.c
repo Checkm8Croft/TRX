@@ -1,6 +1,7 @@
 #include <trx/game/replay/test_replay.h>
 
 #include <trx/config.h>
+#include <trx/config/registry.h>
 #include <trx/core/enum_map.h>
 #include <trx/core/filesystem.h>
 #include <trx/core/log.h>
@@ -12,6 +13,7 @@
 #include <trx/game/input/backends/controller.h>
 #include <trx/game/input/backends/keyboard.h>
 #include <trx/game/input/common.h>
+#include <trx/game/input/sdl.h>
 #include <trx/game/lara.h>
 #include <trx/game/lua.h>
 #include <trx/game/random.h>
@@ -33,17 +35,11 @@ typedef struct {
     SHELL_ARGS *args;
     M_STARTUP_SNAPSHOT startup;
     bool used_deprecated_args;
+    // The headers are read twice: once for the startup settings the shell
+    // needs before it registers any option, and again once the options exist.
+    // Only the second pass has anywhere to put a setting.
+    bool apply_config;
 } M_PARSE_CTX;
-
-static inline M_PARSE_CTX M_ParseCtxInit(void)
-{
-    return (M_PARSE_CTX) {
-        .startup.settings = {
-            .level_request = { .num = -1 },
-            .save_to_load = -1,
-        },
-    };
-}
 
 typedef struct {
     bool collecting;
@@ -58,15 +54,24 @@ typedef struct {
     VECTOR *events; // vector of char*
 } M_FRAME;
 
+// A setting the recording asks for that no option answers to yet, kept until
+// the game's script has declared its own.
+typedef struct {
+    char *key;
+    char *value;
+} M_DEFERRED_OPTION;
+
 // Replay private state
 typedef struct {
     char *data; // Replay file data buffer
     size_t size; // Size of data buffer
     VECTOR *headers; // Vector of char* header lines
+    VECTOR *deferred_config; // Vector of M_DEFERRED_OPTION
     VECTOR *frames; // Vector of M_FRAME frames to play
     int32_t frame_idx; // Current playback frame index
     int32_t next_frame_idx; // Next frame to process
     bool replay_quiet;
+    bool skipping; // a skip stretch has the drawing off
     struct {
         bool seen;
         bool quiet_applied;
@@ -85,10 +90,11 @@ typedef struct {
     } test_mode;
 } M_PRIV;
 
-static M_PRIV m_Priv = {};
-
 typedef bool (*M_EVENT_HANDLER)(const char *token);
+
 typedef bool (*M_HEADER_HANDLER)(const char *line, M_PARSE_CTX *ctx);
+
+static M_PRIV m_Priv = {};
 
 // Event parsers
 static bool M_ParseQuitEvent(const char *event_str);
@@ -100,6 +106,8 @@ static bool M_ParseNoopEvent(const char *event_str);
 static bool M_ParseLuaEvent(const char *event_str);
 static bool M_ParseTestCaseEvent(const char *event_str);
 static bool M_ParseExpectEvent(const char *event_str);
+static bool M_ParseSkipStartEvent(const char *event_str);
+static bool M_ParseSkipEndEvent(const char *event_str);
 
 // Header parsers
 static bool M_ParseSeedControl(const char *line, M_PARSE_CTX *ctx);
@@ -118,12 +126,21 @@ static const M_HEADER_HANDLER m_HeaderHandlers[] = {
 };
 
 static const M_EVENT_HANDLER m_EventHandlers[] = {
-    M_ParseQuitEvent,   M_ParseTestCaseEvent,
-    M_ParseExpectEvent, M_ParseKeyDownEvent,
-    M_ParseKeyUpEvent,  M_ParseTextInputEvent,
-    M_ParseNoopEvent,   M_ParseCommandEvent,
-    M_ParseLuaEvent,    nullptr,
+    M_ParseQuitEvent,      M_ParseTestCaseEvent, M_ParseExpectEvent,
+    M_ParseKeyDownEvent,   M_ParseKeyUpEvent,    M_ParseTextInputEvent,
+    M_ParseNoopEvent,      M_ParseCommandEvent,  M_ParseLuaEvent,
+    M_ParseSkipStartEvent, M_ParseSkipEndEvent,  nullptr,
 };
+
+static inline M_PARSE_CTX M_ParseCtxInit(void)
+{
+    return (M_PARSE_CTX) {
+        .startup.settings = {
+            .level_request = { .num = -1 },
+            .save_to_load = -1,
+        },
+    };
+}
 
 static void M_TestPrint(const char *const fmt, ...)
 {
@@ -513,6 +530,39 @@ static bool M_ParseNoopEvent(const char *const event_str)
     return true;
 }
 
+static void M_StopSkipping(void)
+{
+    M_PRIV *const p = &m_Priv;
+    if (!p->skipping) {
+        return;
+    }
+    p->skipping = false;
+    Shell_SetHeadless(false);
+}
+
+static bool M_ParseSkipStartEvent(const char *const event_str)
+{
+    if (strcmp(event_str, "skip start") != 0) {
+        return false;
+    }
+    M_PRIV *const p = &m_Priv;
+    // A run already told to draw nothing must not start drawing at skip end.
+    if (!p->skipping && !Shell_GetArgs()->headless) {
+        p->skipping = true;
+        Shell_SetHeadless(true);
+    }
+    return true;
+}
+
+static bool M_ParseSkipEndEvent(const char *const event_str)
+{
+    if (strcmp(event_str, "skip end") != 0) {
+        return false;
+    }
+    M_StopSkipping();
+    return true;
+}
+
 static bool M_ParseTestCaseEvent(const char *const event_str)
 {
     M_PRIV *const p = &m_Priv;
@@ -576,7 +626,7 @@ static bool M_ParseExpectEvent(const char *const event_str)
         "if not ((function() return %s\n end)()) then error('expect failed') "
         "end",
         expr);
-    LUA_RESULT eval_result = Lua_Eval(script);
+    LUA_RESULT eval_result = LUA_Eval(script);
 
     p->test_mode.case_checks++;
     if (eval_result.code == LUA_OK) {
@@ -591,7 +641,7 @@ static bool M_ParseExpectEvent(const char *const event_str)
             eval_result.message != nullptr ? eval_result.message : "lua error");
     }
 
-    Lua_FreeResult(&eval_result);
+    LUA_FreeResult(&eval_result);
     Memory_Free(script);
     Memory_Free(expr);
     return true;
@@ -656,10 +706,10 @@ static bool M_ParseLuaEvent(const char *const event_str)
     LUA_RESULT eval_result = {};
     if (M_GetBracedPayload(event_str, "lua ", &chunk_start, &chunk_len)) {
         char *const chunk = String_Format("%.*s", (int)chunk_len, chunk_start);
-        eval_result = Lua_Eval(chunk);
+        eval_result = LUA_Eval(chunk);
         Memory_Free(chunk);
     } else {
-        eval_result = Lua_Eval(event_str + 4);
+        eval_result = LUA_Eval(event_str + 4);
     }
     if (eval_result.code == LUA_ERRSYNTAX) {
         LOG_ERROR(
@@ -671,7 +721,7 @@ static bool M_ParseLuaEvent(const char *const event_str)
             "LUA error on frame %d: %s", p->frame_idx, eval_result.message);
         Shell_Terminate(1);
     }
-    Lua_FreeResult(&eval_result);
+    LUA_FreeResult(&eval_result);
     return true;
 }
 
@@ -867,18 +917,33 @@ static bool M_ParseConfig(const char *const line, M_PARSE_CTX *const ctx)
     char keybuf[64];
     char valbuf[128];
     if (sscanf(line, "config %63s %127s", keybuf, valbuf) == 2) {
+        if (!ctx->apply_config) {
+            return true;
+        }
         // Strip surrounding quotes from the value, if present
         size_t vlen = strlen(valbuf);
         if (vlen >= 2 && valbuf[0] == '"' && valbuf[vlen - 1] == '"') {
             valbuf[vlen - 1] = '\0';
             memmove(valbuf, valbuf + 1, vlen - 1);
         }
-        const CONFIG_OPTION *opt = Config_GetOptionByPath(keybuf);
-        if (opt) {
-            Config_SetOptionValueFromString(opt, valbuf);
-        } else {
-            LOG_WARNING("Unknown option: %s", keybuf);
+        CONFIG_OPTION *opt = Config_FindOption(keybuf);
+        if (opt != nullptr) {
+            Config_Option_SetFromString(opt, valbuf, false);
+            return true;
         }
+        // A game declares its own settings as its script runs, which is after
+        // the header is read. The name is kept rather than refused, and tried
+        // again once those options exist.
+        M_PRIV *const p = &m_Priv;
+        if (p->deferred_config == nullptr) {
+            p->deferred_config = Vector_Create(sizeof(M_DEFERRED_OPTION));
+        }
+        Vector_Add(
+            p->deferred_config,
+            &(M_DEFERRED_OPTION) {
+                .key = Memory_DupStr(keybuf),
+                .value = Memory_DupStr(valbuf),
+            });
         return true;
     }
     return false;
@@ -1083,9 +1148,37 @@ SHELL_ARGS *TestReplay_Open(const char *path)
     return ctx.args;
 }
 
+// The settings the recording named that no option answered to when the header
+// was read. A game's script has run by now, so its own settings are here.
+void TestReplay_ApplyDeferredConfig(void)
+{
+    M_PRIV *const p = &m_Priv;
+    if (p->deferred_config == nullptr) {
+        return;
+    }
+    for (int32_t i = 0; i < p->deferred_config->count; i++) {
+        M_DEFERRED_OPTION *const deferred = Vector_Get(p->deferred_config, i);
+        CONFIG_OPTION *const option = Config_FindOption(deferred->key);
+        if (option == nullptr) {
+            LOG_WARNING("Unknown option: %s", deferred->key);
+        } else {
+            Config_Option_SetFromString(option, deferred->value, false);
+        }
+        Memory_FreePointer(&deferred->key);
+        Memory_FreePointer(&deferred->value);
+    }
+    Vector_Free(p->deferred_config);
+    p->deferred_config = nullptr;
+    // Announced rather than discarded as in TestReplay_Start: the game's script
+    // has run, so a trx.config.on_change watcher is already attached and was
+    // told the option's default. It hears the recorded value from here.
+    Config_Update();
+}
+
 void TestReplay_Start(void)
 {
     M_PARSE_CTX ctx = M_ParseCtxInit();
+    ctx.apply_config = true;
     M_PRIV *const p = &m_Priv;
     for (int32_t i = 0; i < p->headers->count; i++) {
         const char *const ln = *(const char **)Vector_Get(p->headers, i);
@@ -1100,7 +1193,9 @@ void TestReplay_Start(void)
             LOG_WARNING("Unknown line: %s", ln);
         }
     }
-    g_SavedConfig = g_Config;
+    // The settings the recording asked for are where this replay starts, not
+    // something that moved while it ran.
+    Config_DiscardPendingChanges();
     Shell_FreeArgs(ctx.args);
     M_FreeStartupSnapshot(&ctx.startup);
 }
@@ -1109,6 +1204,7 @@ void TestReplay_Close(void)
 {
     M_PRIV *const p = &m_Priv;
     M_TestReportSummary();
+    M_StopSkipping();
 
     if (p->test_mode.quiet_applied) {
         Log_SetMinLevel(p->test_mode.log_level_before_quiet);
@@ -1119,6 +1215,16 @@ void TestReplay_Close(void)
     if (p->headers) {
         Vector_Free(p->headers);
         p->headers = nullptr;
+    }
+    if (p->deferred_config != nullptr) {
+        for (int32_t i = 0; i < p->deferred_config->count; i++) {
+            M_DEFERRED_OPTION *const deferred =
+                Vector_Get(p->deferred_config, i);
+            Memory_FreePointer(&deferred->key);
+            Memory_FreePointer(&deferred->value);
+        }
+        Vector_Free(p->deferred_config);
+        p->deferred_config = nullptr;
     }
     if (p->frames) {
         for (int32_t i = 0; i < p->frames->count; i++) {

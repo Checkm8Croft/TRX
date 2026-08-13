@@ -330,7 +330,7 @@ static void M_Control(const int16_t item_num)
     // bite and distance when the creature is friendly.
     ITEM *const lara_item = Lara_GetItem();
     const bool hurt_by_lara = creature->hurt_by_lara;
-    ITEM *const enemy = creature->enemy;
+    ITEM *enemy = creature->enemy;
     if (enemy == nullptr) {
         creature->enemy = lara_item;
         creature->hurt_by_lara = true;
@@ -358,9 +358,13 @@ static void M_Control(const int16_t item_num)
         lara_info.distance = XYZ_32_GetLength2((XYZ_32) { dx, 0, dz });
     }
 
-    Creature_Mood(item, &info, false);
+    Creature_Mood(item, &info, !is_ally);
     angle = Creature_Turn(item, creature->maximum_turn);
 
+    enemy = creature->enemy;
+    if (!is_ally) {
+        creature->enemy = lara_item;
+    }
     if (item->hit_status
         || (!is_ally
             && (lara_info.distance < M_ALERT_DIST
@@ -370,6 +374,7 @@ static void M_Control(const int16_t item_num)
         }
         Creature_AlertAllGuards(item_num);
     }
+    creature->enemy = enemy;
 
     switch (item->current_anim_state) {
     case M_STATE_STOP:
@@ -416,6 +421,7 @@ static void M_Control(const int16_t item_num)
             item->goal_anim_state = M_STATE_STOP;
         } else if ((item->ai_bits & AI_PATROL_1) != 0) {
             item->goal_anim_state = M_STATE_WALK;
+            head = 0;
         } else if (creature->mood == MOOD_ESCAPE) {
             item->goal_anim_state = M_STATE_WALK;
         } else if (
@@ -538,10 +544,7 @@ static void M_Setup(OBJECT *const obj)
     Object_GetBone(obj, 0)->rot.x = true;
     Object_GetBone(obj, 0)->rot.y = true;
     Object_GetBone(obj, 7)->rot.y = true;
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS));
 }
 
 REGISTER_OBJECT(O_RX_WORKER_3, M_Setup)

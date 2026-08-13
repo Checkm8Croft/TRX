@@ -214,7 +214,7 @@ static void M_TriggeredItem(const INJECTION *const injection)
     if (g_TRVersion >= 2) {
         item->shade.value_2 = item->shade.value_1;
     }
-    item->flags = VFile_ReadU16(injection->fp);
+    item->init_flags = VFile_ReadU16(injection->fp);
 
     if (injection->version < INJ_VERSION_7) {
         return;
@@ -377,8 +377,8 @@ static void M_FloorDataEdits(
         const uint16_t z = VFile_ReadU16(injection->fp);
         const int32_t fd_edit_count = VFile_ReadS32(injection->fp);
 
-        // Verify that the given room and coordinates are accurate.
-        // Individual FD functions must check that sector is actually set.
+        // Verify that the given room and coordinates are accurate. Individual
+        // FD functions must check that sector is set.
         const ROOM *room = nullptr;
         SECTOR *sector = nullptr;
         if (room_num < 0 || room_num >= Room_GetCount()) {

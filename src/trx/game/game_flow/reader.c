@@ -20,17 +20,17 @@
 
 #include <string.h>
 
+#define M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(name)                            \
+    int32_t name(                                                              \
+        const M_CONTEXT *ctx, GF_SEQUENCE_EVENT *event, void *extra_data,      \
+        void *user_arg)
+
 typedef struct {
     GAME_FLOW *gf;
     const char *script_path;
     JSON_READ_IO *io;
     bool validation_mode;
 } M_CONTEXT;
-
-#define M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(name)                            \
-    int32_t name(                                                              \
-        const M_CONTEXT *ctx, GF_SEQUENCE_EVENT *event, void *extra_data,      \
-        void *user_arg)
 
 typedef int32_t (*M_SEQUENCE_EVENT_HANDLER_FUNC)(
     const M_CONTEXT *ctx, GF_SEQUENCE_EVENT *event, void *extra_data,
@@ -76,7 +76,6 @@ static M_SEQUENCE_EVENT_HANDLER m_SequenceEventHandlers[] = {
     { GFS_PLAY_CUTSCENE,     M_HandleIntEvent, "cutscene_id" },
     { GFS_PLAY_FMV,          M_HandleIntEvent, "fmv_id" },
     { GFS_PLAY_MUSIC,        M_HandleIntEvent, "music_track" },
-    { GFS_SETUP_BACON_LARA,  M_HandleIntEvent, "anchor_room" },
     { GFS_DISABLE_FLOOR,     M_HandleIntEvent, "height" },
     { GFS_SETUP_UV_ROTATE,   M_HandleIntEvent, "speed" },
 
@@ -122,6 +121,17 @@ static bool M_ReadObjectID(
 static M_SEQUENCE_EVENT_HANDLER *M_GetSequenceEventHandlers(void)
 {
     return m_SequenceEventHandlers;
+}
+
+// What a script keys its own data by. The case is lowered here rather than in
+// File_GetStem, which is a path split and holds no case policy.
+static char *M_MakeLevelKey(const char *const path)
+{
+    char *const key = File_GetStem(path);
+    for (char *c = key; c != nullptr && *c != '\0'; c++) {
+        *c = (*c >= 'A' && *c <= 'Z') ? *c + ('a' - 'A') : *c;
+    }
+    return key;
 }
 
 // Read a "path" value that may be either a plain string or an array of
@@ -352,19 +362,18 @@ static bool M_LoadRoot(const M_CONTEXT *const ctx)
 
     M_ReadModMeta(io, &ctx->gf->meta);
 
-    JSON_MUST(JSON_READ(io, "main_menu_picture", &tmp_s));
-    ctx->gf->main_menu_background_path =
-        Memory_DupStr(TRXPath_TryResolve(TRX_DYNAMIC_PATH_IMAGE_FILE, tmp_s));
+    // A title that names no picture shows its own level behind the menu. One
+    // that names a picture and cannot find it is a broken install, not that.
+    tmp_s = nullptr;
+    if (JSON_OPTIONAL(JSON_READ(io, "main_menu_picture", &tmp_s))
+        && tmp_s != nullptr) {
+        ctx->gf->main_menu_background_path = Memory_DupStr(
+            TRXPath_TryResolve(TRX_DYNAMIC_PATH_IMAGE_FILE, tmp_s));
+    }
+    ctx->gf->main_menu_use_live_scene = tmp_s == nullptr;
 
     JSON_MUST(JSON_READ(io, "savegame_file_fmt", &tmp_s));
     ctx->gf->savegame_file_fmt = Memory_DupStr(tmp_s);
-
-    tmp_s = nullptr;
-    if (JSON_OPTIONAL(JSON_READ(io, "main_script", &tmp_s))
-        && tmp_s != nullptr) {
-        ctx->gf->main_script_path = Memory_DupStr(
-            TRXPath_TryResolve(TRX_DYNAMIC_PATH_SCRIPT_FILE, tmp_s));
-    }
 
     if (JSON_PUSH(io, "ambient_tracks")) {
         const int32_t count = JSON_ARRAY_LEN(io);
@@ -832,16 +841,18 @@ static bool M_LoadLevel(
             : TRX_DYNAMIC_PATH_LEVEL_FILE;
         JSON_MUST(
             M_ReadPath(io, "path", false, path_type, &level->path, false));
+        level->key = M_MakeLevelKey(level->path);
     }
-    {
-        const char *tmp_script = nullptr;
-        if (JSON_OPTIONAL(JSON_READ(io, "script", &tmp_script))
-            && tmp_script != nullptr) {
-            level->script_path = Memory_DupStr(
-                TRXPath_TryResolve(TRX_DYNAMIC_PATH_SCRIPT_FILE, tmp_script));
-        } else {
-            level->script_path = nullptr;
-        }
+    // A level's script is named after the level: wall.tr2 runs
+    // scripts/wall.lua where the game ships one. Nothing declares it, and a
+    // level without one is the common case, so a miss is silent.
+    if (level->key != nullptr) {
+        // The resolver spells its answer into the same rotating buffers
+        // String_FormatStatic hands out, so what it is asked for is owned here.
+        char *rel = String_Format("%s.lua", level->key);
+        level->script_path = Memory_DupStr(
+            TRXPath_PeekResolve(TRX_DYNAMIC_PATH_LEVEL_SCRIPT_FILE, rel));
+        Memory_FreePointer(&rel);
     }
 
     {
@@ -855,9 +866,13 @@ static bool M_LoadLevel(
     {
         const bool outfit_optional = level->type == GFL_TITLE
             || level->type == GFL_DUMMY || level->type == GFL_CURRENT;
-        if (!outfit_optional) {
-            const char *tmp = nullptr;
+        const char *tmp = nullptr;
+        if (outfit_optional) {
+            JSON_OPTIONAL(JSON_READ(io, "lara_outfit", &tmp));
+        } else {
             JSON_MUST(JSON_READ(io, "lara_outfit", &tmp));
+        }
+        if (tmp != nullptr) {
             if (!ctx->validation_mode
                 && !Lara_Skin_IsOutfitAvailable(
                     Lara_Skin_FindOutfitByName(tmp))) {
@@ -993,7 +1008,6 @@ static bool M_LoadGameFlowDoc(
     GF_Shutdown();
 
     M_CONTEXT ctx = { .gf = &g_GameFlow, .validation_mode = validation_mode };
-    ctx.gf->main_script_path = nullptr;
     ctx.gf->path = Memory_DupStr(path);
     ctx.script_path = g_GameFlow.path;
     ctx.io = nullptr;

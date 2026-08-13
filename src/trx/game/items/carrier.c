@@ -9,7 +9,7 @@
 #include <trx/game/objects.h>
 #include <trx/game/rooms.h>
 #include <trx/game/rooms/utils.h>
-#include <trx/version.h>
+#include <trx/game/rules.h>
 
 #define M_DROP_FAST_RATE GRAVITY
 #define M_DROP_SLOW_RATE 1
@@ -24,36 +24,27 @@ static const GAME_OBJECT_PAIR m_LegacyMap[] = {
     { NO_OBJECT, NO_OBJECT },
 };
 
-static bool M_ShouldCenterDrop(const OBJECT_ID obj_id)
+static bool M_ShouldSnapDrop(const OBJECT_ID obj_id)
 {
-    switch (obj_id) {
-    case O_QUEST_ITEM_1:
-    case O_QUEST_ITEM_2:
-    case O_QUEST_ITEM_3:
-    case O_QUEST_ITEM_4:
-    case O_QUEST_ITEM_5:
-    case O_QUEST_ITEM_6:
+    if (Object_IsType(obj_id, g_QuestObjects)) {
         return false;
-
-    default:
-        return g_TRVersion == 3;
     }
+
+    return g_Rules.carrier.snap_to_sector;
 }
 
 static void M_Drop(ITEM *const pickup)
 {
+    Item_SetVisible(pickup, true);
     if (Object_IsType(pickup->object_id, g_QuestObjects)) {
-        pickup->status = IS_ACTIVE;
-        Item_AddActive(Item_GetIndex(pickup));
-    } else {
-        pickup->status = IS_INACTIVE;
+        Item_AddSimulated(Item_GetIndex(pickup));
     }
 }
 
 static OBJECT_ID M_ConvertDroppedGun(const OBJECT_ID obj_id)
 {
     if (g_GameFlow.convert_dropped_guns && Object_IsType(obj_id, g_GunObjects)
-        && Inv_RequestItem(obj_id) && obj_id != O_PISTOL_ITEM) {
+        && Inv_HasItem(obj_id) && obj_id != O_PISTOL_ITEM) {
         return Object_GetCognate(obj_id, g_GunAmmoObjectMap);
     }
     return obj_id;
@@ -155,7 +146,6 @@ static void M_AnimateDrop(CARRIED_ITEM *const item)
         pickup->fall_speed = 0;
         m_AnimatingCount--;
     } else {
-        pickup->status = IS_ACTIVE;
         pickup->fall_speed +=
             (!in_water && pickup->fall_speed < FAST_FALL_SPEED)
             ? M_DROP_FAST_RATE
@@ -195,7 +185,7 @@ static void M_InitialiseDataDrops(void)
             if (Object_IsType(pickup->object_id, g_PickupObjects)
                 && XYZ_32_AreEquivalent(pickup->pos, carrier->pos)) {
                 Vector_Add(pickups, (void *)&pickup_num);
-                Item_RemoveDrawn(pickup_num);
+                Item_DetachFromRoom(pickup_num);
                 pickup->room_num = NO_ROOM;
             }
 
@@ -211,7 +201,7 @@ static void M_InitialiseDataDrops(void)
         CARRIED_ITEM *drop = carrier->carried_item;
         for (int32_t j = 0; j < pickups->count; j++) {
             drop->spawn_num = *(const int16_t *)Vector_Get(pickups, j);
-            Item_RemoveDrawn(drop->spawn_num);
+            Item_DetachFromRoom(drop->spawn_num);
             drop->room_num = NO_ROOM;
             drop->fall_speed = 0;
             drop->status = DS_CARRIED;
@@ -336,7 +326,7 @@ DROP_STATUS Carrier_GetSaveStatus(const CARRIED_ITEM *item)
 {
     if (item->status == DS_DROPPED) {
         const ITEM *const pickup = Item_Get(item->spawn_num);
-        return pickup->status == IS_INVISIBLE ? DS_COLLECTED : DS_DROPPED;
+        return !pickup->is_visible ? DS_COLLECTED : DS_DROPPED;
     }
     return item->status;
 }
@@ -375,7 +365,7 @@ void Carrier_SyncItem(
         if (pickup_item->room_num != NO_ROOM) {
             Item_UpdateRoom(carried_item->spawn_num, NO_ROOM);
         }
-        pickup_item->status = IS_INVISIBLE;
+        Item_SetVisible(pickup_item, false);
         break;
     }
 }
@@ -405,14 +395,14 @@ void Carrier_TestItemDrops(const int16_t item_num)
             Item_UpdateRoom(item->spawn_num, carrier->room_num);
             ITEM *const pickup = Item_Get(item->spawn_num);
             pickup->pos = carrier->pos;
-            if (g_TRVersion != 3) {
+            if (g_Rules.carrier.inherit_facing) {
                 pickup->rot = carrier->rot;
             }
             M_Drop(pickup);
         }
 
         ITEM *const pickup = Item_Get(item->spawn_num);
-        if (M_ShouldCenterDrop(pickup->object_id)) {
+        if (M_ShouldSnapDrop(pickup->object_id)) {
             int16_t room_num = carrier->room_num;
             pickup->pos.x = ROUND_TO_SECTOR(carrier->pos.x) + WALL_L / 2;
             pickup->pos.z = ROUND_TO_SECTOR(carrier->pos.z) + WALL_L / 2;

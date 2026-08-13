@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from harness import LintWarning, file_check
+from shared.cdecls import out_of_order
+
+
+def check(path, text):
+    for decl, above in out_of_order(text):
+        yield LintWarning(
+            path,
+            f"{decl.label} belongs above the {above.kind} on line {above.line}",
+            line=decl.line,
+        )
+
+
+file_check(check)

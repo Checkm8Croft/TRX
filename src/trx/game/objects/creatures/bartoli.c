@@ -27,8 +27,7 @@ static void M_CreateBoom(const OBJECT_ID obj_id, const ITEM *const origin_item)
     sphere_item->room_num = origin_item->room_num;
     sphere_item->shade.value_1 = -1;
     Item_Initialise(item_num);
-    Item_AddActive(item_num);
-    sphere_item->status = IS_ACTIVE;
+    Item_AddSimulated(item_num);
 }
 
 static void M_ConvertBartoliToDragon(const int16_t item_num)
@@ -43,7 +42,7 @@ static void M_ConvertBartoliToDragon(const int16_t item_num)
             dragon_obj->activate_func(dragon_item);
         }
     }
-    Item_Kill(item_num);
+    Item_Destroy(item_num);
 }
 
 static bool M_CheckLaraProximity(const ITEM *const origin_item)

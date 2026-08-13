@@ -64,8 +64,8 @@ static void M_Initialise(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
 
-    if (item->active) {
-        Item_RemoveActive(item_num);
+    if (item->is_simulated) {
+        Item_RemoveSimulated(item_num);
     }
 
     if (item->creature_data != nullptr) {
@@ -78,10 +78,10 @@ static void M_Initialise(const int16_t item_num)
     p->destroyed = false;
     p->targetable = true;
 
-    item->active = false;
-    item->status = IS_INACTIVE;
-    item->flags = 0;
-    item->collidable = true;
+    item->is_simulated = false;
+    Item_SetFinished(item, false);
+    item->trigger = (ITEM_TRIGGER_STATE) { 0 };
+    item->is_collidable = true;
 
     M_ResetItemState(item);
 }
@@ -93,7 +93,7 @@ static void M_Control(const int16_t item_num)
     }
 
     ITEM *const item = Item_Get(item_num);
-    if (item->status != IS_ACTIVE) {
+    if (!Item_IsInPlay(item)) {
         return;
     }
 
@@ -168,7 +168,8 @@ static void M_Control(const int16_t item_num)
             if (rot_x > 0x3800) {
                 if (p->bounce_stage == 2) {
                     item->rot.x = 0x3800;
-                    Item_RemoveActive(item_num);
+                    Item_RemoveSimulated(item_num);
+                    Item_SetFinished(item, true);
                     return;
                 }
 
@@ -190,7 +191,8 @@ static void M_Control(const int16_t item_num)
             if (rot_x < -0x2A00) {
                 if (p->bounce_stage == 2) {
                     item->rot.x = -0x2A00;
-                    Item_RemoveActive(item_num);
+                    Item_RemoveSimulated(item_num);
+                    Item_SetFinished(item, true);
                     return;
                 }
 
@@ -212,7 +214,7 @@ static void M_Control(const int16_t item_num)
 static bool M_IsTargetable(const ITEM *const item)
 {
     const M_PRIV *const p = item->priv;
-    return p != nullptr && p->targetable && item->status == IS_ACTIVE
+    return p != nullptr && p->targetable && Item_IsInPlay(item)
         && item->hit_points > 0;
 }
 
@@ -225,8 +227,8 @@ static bool M_CanTakeDamage(const ITEM *const item)
 static bool M_CanBeProjectileTarget(const ITEM *const item)
 {
     const M_PRIV *const p = item->priv;
-    return p != nullptr && p->targetable && item->status == IS_ACTIVE
-        && item->collidable && item->hit_points > 0;
+    return p != nullptr && p->targetable && Item_IsInPlay(item)
+        && item->is_collidable && item->hit_points > 0;
 }
 
 static void M_Setup(OBJECT *const obj)
@@ -245,8 +247,7 @@ static void M_Setup(OBJECT *const obj)
     obj->shadow_size = 128;
     obj->radius = 102;
     obj->intelligent = false;
-    OBJECT_PROPERTIES(
-        obj, OBJECT_PROPERTY_INT("max_hit_points", 8, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(8));
 }
 
 REGISTER_OBJECT(O_ASSAULT_TARGET, M_Setup)

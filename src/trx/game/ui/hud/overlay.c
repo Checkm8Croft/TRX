@@ -14,6 +14,9 @@
 #include <trx/game/ui/scaler.h>
 #include <trx/version.h>
 
+#define M_REGION_PAD_X 20.0f
+#define M_REGION_PAD_Y 14.0f
+
 typedef struct UI_OVERLAY_STATE {
     struct {
         bool state;
@@ -200,6 +203,7 @@ static void M_DebugPosTopLeft(void)
         UI_Label(GS("general/overlay/debug_position"));
         UI_Label(GS("general/overlay/debug_rotation"));
         UI_Label(GS("general/overlay/debug_speed"));
+        UI_Label(GS("general/overlay/debug_interaction"));
     }
     if (g_Config.debug.enable_debug_anim) {
         UI_Label(GS("general/overlay/debug_animation"));
@@ -225,6 +229,10 @@ static void M_DebugPosTopLeft(void)
             "\\{small}%d, %d",
             vehicle != nullptr ? vehicle->speed : lara->speed,
             vehicle != nullptr ? vehicle->fall_speed : lara->fall_speed));
+        UI_Label(String_FormatStatic(
+            "\\{small}%d / %d / %d", lara_info->interact_target.item_num,
+            lara_info->interact_target.is_moving,
+            lara_info->interact_target.move_count));
     }
     if (g_Config.debug.enable_debug_anim) {
         UI_Label(String_FormatStatic(
@@ -459,7 +467,7 @@ void UI_BeginOverlayRegion(const float x, const float y)
         UI_STACK_H_ALIGN_CENTER;
     // clang-format on
     UI_BeginModal(x, y);
-    UI_BeginPad(20.0f, 14.0f);
+    UI_BeginPad(M_REGION_PAD_X, M_REGION_PAD_Y);
     UI_BeginStackEx((UI_STACK_SETTINGS) {
         .orientation = UI_STACK_VERTICAL,
         .align = { .h = h_align },
@@ -472,6 +480,11 @@ void UI_EndOverlayRegion(void)
     UI_EndStack();
     UI_EndPad();
     UI_EndModal();
+}
+
+float UI_Overlay_GetTextInset(void)
+{
+    return M_REGION_PAD_Y + UI_TEXT_HEIGHT;
 }
 
 void UI_Overlay_ShowArrow(

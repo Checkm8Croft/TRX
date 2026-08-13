@@ -44,6 +44,27 @@ static struct {
     { .gun_type = LGT_UNKNOWN, .input_role = (INPUT_ROLE)-1 },
 };
 
+static const LARA_TRX_STATE m_CrawlStates[] = {
+    // clang-format off
+    LS_CRAWL_IDLE,
+    LS_CRAWL_FORWARD,
+    LS_CRAWL_BACK,
+    LS_CRAWL_TURN_LEFT,
+    LS_CRAWL_TURN_RIGHT,
+    LS_CRAWL_TO_CLIMB,
+    LS_TRX_INVALID, // sentinel
+    // clang-format on
+};
+
+// What Lara reaches for when the weapon in her hands has run dry: the pistols,
+// so long as she carries them and they have anything left to spend.
+static LARA_GUN_TYPE M_GetFallbackGunType(void)
+{
+    return Inv_HasItem(O_PISTOL_ITEM) && Gun_HasRoundsLeft(LGT_PISTOLS)
+        ? LGT_PISTOLS
+        : LGT_UNARMED;
+}
+
 static void M_CheckSmashablesBehindTarget(
     const ITEM *const target, const GAME_VECTOR start,
     const GAME_VECTOR hit_pos, const int32_t max_dist)
@@ -88,6 +109,16 @@ static bool M_IsUsableUnderwater(const LARA_GUN_TYPE gun_type)
     return gun_type == LGT_HARPOON;
 }
 
+// Where Lara is deep enough that only an underwater weapon can come out.
+// Wading is not such a place: it takes the rest of them under conditions of
+// its own.
+static bool M_IsOnlyUnderwaterUsable(void)
+{
+    const LARA_INFO *const lara = Lara_GetLaraInfo();
+    return lara->water_status == LWS_UNDERWATER
+        || lara->water_status == LWS_SURFACE;
+}
+
 static bool M_IsTooSubmerged(const LARA_GUN_TYPE gun_type)
 {
     const LARA_INFO *const lara = Lara_GetLaraInfo();
@@ -99,8 +130,7 @@ static LARA_GUN_TYPE M_NeedToQuickDraw(void)
     LARA_INFO *const lara = Lara_GetLaraInfo();
     for (int32_t i = 0; m_QuicDrawKeys[i].gun_type != LGT_UNKNOWN; i++) {
         if (Input_IsPressedDB(m_QuicDrawKeys[i].input_role)
-            && Inv_RequestItem(Gun_GetGunObject(m_QuicDrawKeys[i].gun_type))
-                > 0) {
+            && Inv_HasItem(Gun_GetGunObject(m_QuicDrawKeys[i].gun_type))) {
             return m_QuicDrawKeys[i].gun_type;
         }
     }
@@ -130,7 +160,7 @@ static bool M_CanEquip(void)
     if (Lara_Vehicle_IsMounted()) {
         return false;
     }
-    if (!Inv_RequestItem(Gun_GetGunObject(lara->request_gun_type))) {
+    if (!Inv_HasItem(Gun_GetGunObject(lara->request_gun_type))) {
         return false;
     }
     switch (lara->water_status) {
@@ -200,6 +230,18 @@ static bool M_NeedToUndraw(void)
     }
 }
 
+static bool M_IsLaraCrawling(void)
+{
+    return Lara_HasState(m_CrawlStates);
+}
+
+// All games refuse Lara to light a flare from the hotkey input while on all
+// fours, but only TR4 onwards make her say so.
+static bool M_IsFlareInputBlocked(void)
+{
+    return g_TRVersion >= 4 && M_IsLaraCrawling();
+}
+
 static void M_DecideRequestedWeapon(void)
 {
     LARA_INFO *const lara = Lara_GetLaraInfo();
@@ -208,17 +250,32 @@ static void M_DecideRequestedWeapon(void)
         LARA_GUN_TYPE requested_gun = lara->last_gun_type != LGT_UNARMED
             ? lara->last_gun_type
             : LGT_PISTOLS;
-        if (Inv_RequestItem(Gun_GetGunObject(requested_gun)) == 0) {
+        if (g_Config.gameplay.enable_underwater_auto_draw
+            && M_IsOnlyUnderwaterUsable()
+            && !M_IsUsableUnderwater(requested_gun)) {
             for (LARA_GUN_TYPE gun = 0; gun < NUM_WEAPONS; gun++) {
-                if (Inv_RequestItem(Gun_GetGunObject(gun)) > 0) {
+                if (M_IsUsableUnderwater(gun)
+                    && Inv_HasItem(Gun_GetGunObject(gun))) {
                     requested_gun = gun;
                     break;
                 }
             }
         }
-        if (Inv_RequestItem(Gun_GetGunObject(requested_gun)) != 0) {
+        if (!Inv_HasItem(Gun_GetGunObject(requested_gun))) {
+            for (LARA_GUN_TYPE gun = 0; gun < NUM_WEAPONS; gun++) {
+                if (Inv_HasItem(Gun_GetGunObject(gun))) {
+                    requested_gun = gun;
+                    break;
+                }
+            }
+        }
+        if (Inv_HasItem(Gun_GetGunObject(requested_gun))) {
             lara->request_gun_type = requested_gun;
         }
+        return;
+    }
+
+    if (g_Input.use_flare && M_IsFlareInputBlocked()) {
         return;
     }
 
@@ -226,7 +283,7 @@ static void M_DecideRequestedWeapon(void)
         if (lara->gun_type == LGT_FLARE) {
             lara->gun_status = LGS_UNDRAW;
         } else if (
-            Inv_RequestItem(O_FLAREBOX_ITEM)
+            Inv_HasItem(O_FLAREBOX_ITEM)
             && (!g_Config.gameplay.fix_free_flare_glitch
                 || lara_item->current_anim_state != LS(LS_PICKUP))) {
             lara->request_gun_type = LGT_FLARE;
@@ -270,7 +327,7 @@ static void M_DrawRequestedWeapon(void)
 static void M_TryUndrawWeapon(void)
 {
     LARA_INFO *const lara = Lara_GetLaraInfo();
-    if (g_Input.use_flare && Inv_RequestItem(O_FLAREBOX_ITEM)) {
+    if (g_Input.use_flare && Inv_HasItem(O_FLAREBOX_ITEM)) {
         lara->request_gun_type = LGT_FLARE;
     }
     if (M_NeedToUndraw()) {
@@ -326,6 +383,20 @@ void Gun_Control(void)
     }
 
     Gun_Smoke_Control();
+
+    // Crawling holds the hands busy, so the refusal has to be answered here
+    // rather than in M_DecideRequestedWeapon, which armless Lara alone reaches.
+    if (g_InputDB.use_flare && M_IsFlareInputBlocked()) {
+        Sound_Effect(SFX_LARA_NO, nullptr, SPM_ALWAYS);
+    }
+
+    // Selecting a flare from the inventory while crawling will cache the
+    // requested gun type, resulting in a free ghost flare when she stands up.
+    if (lara->request_gun_type == LGT_FLARE && lara->gun_type != LGT_FLARE
+        && g_Config.gameplay.fix_free_flare_glitch && M_IsLaraCrawling()) {
+        lara->request_gun_type = LGT_UNARMED;
+        return;
+    }
 
     M_UpdateGunState();
 
@@ -407,21 +478,17 @@ void Gun_Control(void)
         break;
 
     case LGS_READY:
-        const bool is_firing = lara->pistol_ammo.ammo != 0 && g_Input.action;
-        Lara_Skin_SetCombatFace(is_firing);
+        const bool has_rounds = Gun_HasRoundsLeft(lara->gun_type);
+        Lara_Skin_SetCombatFace(has_rounds && g_Input.action);
         M_RequestCombatCamera();
 
         if (g_Input.action) {
-            AMMO_INFO *const ammo = Gun_GetAmmoInfo(lara->gun_type);
-            ASSERT(ammo != nullptr);
-
-            if (ammo->ammo <= 0) {
-                ammo->ammo = 0;
+            if (!has_rounds) {
+                Inv_SetAmmo(lara->gun_type, 0);
                 if (g_TRVersion >= 2) {
                     Sound_Effect(SFX_CLICK, &lara_item->pos, SPM_NORMAL);
                 }
-                lara->request_gun_type =
-                    Inv_RequestItem(O_PISTOL_ITEM) ? LGT_PISTOLS : LGT_UNARMED;
+                lara->request_gun_type = M_GetFallbackGunType();
                 break;
             }
         }
@@ -475,25 +542,22 @@ int32_t Gun_FireWeapon(
     const WEAPON_INFO *const weapon = &g_Weapons[weapon_type];
     LARA_INFO *const lara = Lara_GetLaraInfo();
 
-    AMMO_INFO *const ammo = Gun_GetAmmoInfo(weapon_type);
-    ASSERT(ammo != nullptr);
+    ASSERT(Inv_HasAmmoSlot(weapon_type));
 
-    if (ammo == &lara->pistol_ammo || Game_IsBonusFlagSet(GBF_NGPLUS)) {
-        ammo->ammo = 1000;
-    }
-    if (ammo->ammo <= 0) {
-        ammo->ammo = 0;
+    if (!Gun_HasRoundsLeft(weapon_type)) {
+        Inv_SetAmmo(weapon_type, 0);
         if (g_TRVersion == 1) {
             Sound_Effect(SFX_LARA_EMPTY, &src->pos, SPM_NORMAL);
-            if (Inv_RequestItem(O_PISTOL_ITEM)) {
-                lara->request_gun_type = LGT_PISTOLS;
-            } else {
+            const LARA_GUN_TYPE fallback = M_GetFallbackGunType();
+            if (fallback == LGT_UNARMED) {
                 lara->gun_status = LGS_UNDRAW;
+            } else {
+                lara->request_gun_type = fallback;
             }
         }
         return 0;
     }
-    ammo->ammo--;
+    Gun_SpendRound(weapon_type);
     Stats_AddAmmoUsed();
     lara->has_fired = true;
 
@@ -557,7 +621,7 @@ int32_t Gun_FireWeapon(
             Room_GetSector(hit_pos.pos, &hit_pos.room_num);
         }
         if (!object_on_los) {
-            Spawn_RicochetRay(start, hit_pos);
+            Spawn_RicochetRay(start, hit_pos, 8);
         }
         return -1;
     }
@@ -571,9 +635,7 @@ int32_t Gun_FireWeapon(
     };
     Room_GetSector(hit_pos.pos, &hit_pos.room_num);
     Gun_SmashItems(start, hit_pos, nullptr, NO_OBJECT);
-    Gun_HitTarget(
-        target, &start, &hit_pos,
-        weapon->damage * (Game_IsBonusFlagSet(GBF_JAPANESE) ? 2 : 1));
+    Gun_HitTarget(target, &start, &hit_pos, weapon->damage);
     M_CheckSmashablesBehindTarget(target, start, hit_pos, weapon->target_dist);
     return 1;
 }

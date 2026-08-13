@@ -23,7 +23,7 @@ static const uint8_t m_Falloffs[2] = { 13, 7 };
 
 static int32_t M_GetDamage(void)
 {
-    OBJECT_PROPERTY_VALUE damage = {};
+    TRX_VALUE damage = {};
     const OBJECT *const obj = Object_Get(O_CLAW_MUTANT);
     if (ObjectProperty_GetObjectValue(obj, "plasma_ball_damage", &damage)) {
         return damage.as_int;
@@ -160,7 +160,7 @@ static void M_Control(const int16_t effect_num)
             }
         }
 
-        Effect_Kill(effect_num);
+        Effect_Destroy(effect_num);
         return;
     }
 
@@ -172,7 +172,7 @@ static void M_Control(const int16_t effect_num)
         }
 
         Lara_TakeDamage(M_GetDamage(), true);
-        Effect_Kill(effect_num);
+        Effect_Destroy(effect_num);
         return;
     }
 
@@ -191,7 +191,7 @@ static void M_Control(const int16_t effect_num)
 
 static void M_Setup(OBJECT *const obj)
 {
-    obj->control_func = M_Control;
+    obj->effect_control_func = M_Control;
     obj->draw_func = nullptr;
 }
 

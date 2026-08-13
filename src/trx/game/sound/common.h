@@ -1,5 +1,6 @@
 #pragma once
 
+#include <trx/core/handle.h>
 #include <trx/core/math.h>
 #include <trx/game/sound/enum.h>
 #include <trx/game/sound/ids.h>
@@ -11,7 +12,6 @@
 #define SOUND_DEFAULT_PITCH 0x10000
 
 bool Sound_Init(void);
-void Sound_Shutdown(void);
 bool Sound_IsInitialised(void);
 
 void Sound_SetMasterVolume(float volume);
@@ -47,11 +47,12 @@ bool Sound_IsAvailable(SAMPLE_TRX_ID sample_id);
 // Returns SFX_INVALID if no samples are available.
 SAMPLE_ID Sound_GetMaxDirectSampleID(void);
 
-// Play a sample with the given number.
-// pos is an optional argument that takes the world position to play the sound
-// at and can be nullptr.
-bool Sound_Effect_Direct(SAMPLE_ID sfx_num, const XYZ_32 *pos, uint32_t flags);
-bool Sound_Effect(SAMPLE_TRX_ID sfx_num, const XYZ_32 *pos, uint32_t flags);
+// Play a sample with the given number. pos is an optional world position to
+// play the sound at, and can be nullptr. Returns the active-sound slot the
+// sample plays in, or -1 when it does not play.
+int32_t Sound_Effect_Direct(
+    SAMPLE_ID sfx_num, const XYZ_32 *pos, uint32_t flags);
+int32_t Sound_Effect(SAMPLE_TRX_ID sfx_num, const XYZ_32 *pos, uint32_t flags);
 
 void Sound_StopEffect_Direct(SAMPLE_ID sfx_num);
 void Sound_StopEffect(SAMPLE_TRX_ID sfx_num);
@@ -62,3 +63,21 @@ void Sound_UpdateEffects(void);
 void Sound_PauseAll(void);
 void Sound_UnpauseAll(void);
 void Sound_StopAll(void);
+
+// The number of active-sound slots. A slot addresses a playing voice whether it
+// holds one or not, so this is fixed rather than a count of what plays now.
+int32_t Sound_GetActiveSlotCount(void);
+
+// Fills the sample id the slot is playing. Returns false when the slot is idle.
+bool Sound_GetActiveSlot(int32_t slot, SAMPLE_ID *out_sample_id);
+
+// A handle to the voice currently in the slot, and the sample a handle still
+// names or false. Each play hands the slot to a new voice; the generation is
+// what keeps a handle from addressing the voice that later took its slot.
+TRX_HANDLE Sound_GetActiveSlotHandle(int32_t slot);
+bool Sound_ResolveActiveSlot(TRX_HANDLE handle, SAMPLE_ID *out_sample_id);
+
+// Stops, pauses or resumes the voice in a slot.
+void Sound_StopActiveSlot(int32_t slot);
+void Sound_PauseActiveSlot(int32_t slot);
+void Sound_UnpauseActiveSlot(int32_t slot);

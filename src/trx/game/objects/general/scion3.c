@@ -20,7 +20,7 @@ static bool M_ShouldSpawnBlood(const ITEM *const item)
 
 static bool M_CanTakeDamage(const ITEM *const item)
 {
-    return item->status == IS_ACTIVE;
+    return Item_IsInPlay(item);
 }
 
 static void M_Control(const int16_t item_num)
@@ -31,7 +31,7 @@ static void M_Control(const int16_t item_num)
         if (!LOT_EnableBaddieAI(item_num, true)) {
             return;
         }
-        item->status = IS_ACTIVE;
+        Item_SetVisible(item, true);
     }
 
     M_PRIV *const p = item->priv;
@@ -42,10 +42,10 @@ static void M_Control(const int16_t item_num)
     }
 
     if (p->counter == 0) {
-        item->status = IS_INVISIBLE;
+        Item_SetVisible(item, false);
         item->hit_points = 0;
         Room_TestTriggers(item);
-        Item_RemoveDrawn(item_num);
+        Item_DetachFromRoom(item_num);
     }
 
     if (p->counter % 10 == 0) {
@@ -67,7 +67,7 @@ static void M_Control(const int16_t item_num)
 
     p->counter++;
     if (p->counter >= LOGIC_FPS * 3) {
-        Item_Kill(item_num);
+        Item_Destroy(item_num);
     }
 }
 
@@ -80,8 +80,7 @@ static void M_Setup(OBJECT *const obj)
     obj->priv_size = sizeof(M_PRIV);
     obj->save_flags = true;
     obj->save_hitpoints = true;
-    OBJECT_PROPERTIES(
-        obj, OBJECT_PROPERTY_INT("max_hit_points", 5, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(5));
 }
 
 REGISTER_OBJECT(O_SCION_ITEM_3, M_Setup)

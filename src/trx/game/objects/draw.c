@@ -187,7 +187,8 @@ bool Object_DrawAnimatingItemWithSwap(
         return false;
     }
 
-    Output_CalculateObjectLighting(item, &frames[0]->bounds);
+    Output_CalculateObjectLighting(
+        item, frames[0] != nullptr ? &frames[0]->bounds : bounds);
 
     const int16_t *extra_rotation = item->extra_rotations;
 
@@ -318,7 +319,7 @@ void Object_ApplyExtraRotation(
 
 bool Object_DrawSpriteItem(const ITEM *const item)
 {
-    const RGB_F tint = Output_GetTint();
+    const RGBA_F tint = Output_GetTint();
     SHADE shade = item->shade;
     if (shade.value_1 < 0) {
         shade.value_1 = SHADE_NEUTRAL;
@@ -340,7 +341,7 @@ bool Object_DrawSpriteItem(const ITEM *const item)
 
 bool Object_DrawPickupItem(const ITEM *const item)
 {
-    if ((item->flags & IF_INVISIBLE) != 0) {
+    if (item->trigger.spent) {
         return false;
     }
 

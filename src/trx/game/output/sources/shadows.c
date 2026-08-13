@@ -4,6 +4,7 @@
 #include <trx/core/memory.h>
 #include <trx/game/output.h>
 #include <trx/game/output/mesh_batcher/mesh_builder.h>
+#include <trx/version.h>
 
 typedef struct {
     MESH_BATCHER *batcher;
@@ -17,13 +18,14 @@ static OUTPUT_MESH *M_GenerateShadow(
     MESH_BUILDER *const builder, const int32_t fidelity)
 {
     const int32_t y = -5;
-    const RGBA_8888 color = { 0, 0, 0, 128 };
+    const RGBA_8888 color = { 0, 0, 0, g_TRVersion == 4 ? 0x4F : 128 };
     const OUTPUT_MESH_VERTEX center = {
         .pos = { 0.0f, (float)y, 0.0f, 0.0f },
         .normal = { 0.0f, 0.0f, 0.0f },
         .flags = VERT_FLAT_SHADED | VERT_NO_LIGHTING | VERT_NO_WIBBLE,
         .uvw_idx = -1,
         .trapezoid_ratio = { 1.0f, 1.0f },
+        .reflectivity = 1.0f,
         .shade = SHADE_NEUTRAL,
         .color = color,
     };
@@ -39,7 +41,10 @@ static OUTPUT_MESH *M_GenerateShadow(
         edge.pos.z = z;
         MeshBuilder_AddVertex(builder, &edge);
     }
-    MeshBuilder_AddFan(builder, SCENE_PASS_TRANSPARENT, false, true);
+    // The shadow never writes depth: it lies on the floor and occludes
+    // nothing, and its depth-writing copy would be a second sorted draw for an
+    // instance drawn at partial coverage.
+    MeshBuilder_AddFan(builder, SCENE_PASS_TRANSPARENT, false, false);
     return MeshBuilder_Seal(builder);
 }
 
@@ -88,7 +93,10 @@ void OutputSource_Shadows_StageShadow(void)
         .mesh = mesh,
         .cwmatrix = *g_MatrixPtr,
         .wmatrix = *g_WMatrixPtr,
-        .tint = { 1.0f, 1.0f, 1.0f },
+        // The shadow is black, so the tint only reaches it through its alpha:
+        // an item drawn at partial coverage takes its shadow along with it.
+        .tint = Output_GetTint(),
+        .sort_layer = -1,
         .room = Output_GetCurrentRoom(),
     };
     // XXX: Mesh batcher currently collects the transparent faces for the

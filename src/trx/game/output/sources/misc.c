@@ -228,9 +228,11 @@ void OutputSource_Misc_Init(void)
     glDisableVertexAttribArray(OUTPUT_MESH_ATTR_TRAPEZOID_RATIO);
     glDisableVertexAttribArray(OUTPUT_MESH_ATTR_FLAGS);
     glDisableVertexAttribArray(OUTPUT_MESH_ATTR_SHADE);
+    glDisableVertexAttribArray(OUTPUT_MESH_ATTR_REFLECTIVITY);
     glVertexAttribPointer(
         OUTPUT_MESH_ATTR_POS, 4, GL_FLOAT, GL_FALSE, sizeof(M_VERTEX),
         (void *)(intptr_t)offsetof(M_VERTEX, pos));
+    glVertexAttrib1f(OUTPUT_MESH_ATTR_REFLECTIVITY, 1.0f);
 
     M_GenerateSphere(p, &p->primitive_ranges[M_PRIMITIVE_SPHERE], 12);
     M_GenerateCuboid(p, &p->primitive_ranges[M_PRIMITIVE_CUBOID]);
@@ -246,6 +248,7 @@ void OutputSource_Misc_Shutdown(void)
     if (p->vertices != nullptr) {
         Vector_Free(p->vertices);
         p->vertices = nullptr;
+        p->vertex_count = 0;
     }
     if (p->scheduled_spheres != nullptr) {
         Vector_Free(p->scheduled_spheres);

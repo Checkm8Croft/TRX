@@ -1,9 +1,12 @@
 #include <trx/game/fx/footprint.h>
 
 #include <trx/config.h>
+#include <trx/core/json/util/read_io.h>
+#include <trx/core/json/util/write_io.h>
 #include <trx/core/math.h>
 #include <trx/core/utils.h>
 #include <trx/game/collision.h>
+#include <trx/game/fx/common.h>
 #include <trx/game/lara.h>
 #include <trx/game/matrix.h>
 #include <trx/game/objects.h>
@@ -19,7 +22,14 @@
 #define M_FOOTPRINT_Z_DEPTH_ADJUST -0.5f
 
 typedef struct {
-    FX_FOOTPRINT prints[M_MAX_FOOTPRINTS];
+    XYZ_32 pos;
+    int16_t room_num;
+    int16_t y_rot;
+    int16_t life;
+} M_FOOTPRINT;
+
+typedef struct {
+    M_FOOTPRINT prints[M_MAX_FOOTPRINTS];
     int32_t next_idx;
 } M_PRIV;
 
@@ -41,7 +51,156 @@ static const SAMPLE_TRX_ID m_StepSounds[14] = {
     SFX_FOOTSTEPS_METAL,
 };
 
-void FX_Footprint_Reset(void)
+static void M_GetWorldPoint(
+    const M_FOOTPRINT *const print, const XYZ_32 local, XYZ_32 *const out_world)
+{
+    const int32_t s = Math_Sin(print->y_rot);
+    const int32_t c = Math_Cos(print->y_rot);
+    const int32_t dx = TRIGMULT2(local.x, c) + TRIGMULT2(local.z, s);
+    const int32_t dz = TRIGMULT2(local.z, c) - TRIGMULT2(local.x, s);
+    out_world->x = print->pos.x + dx;
+    out_world->y = print->pos.y + local.y;
+    out_world->z = print->pos.z + dz;
+}
+
+static int32_t M_GetVertexYOffset(
+    const M_FOOTPRINT *const print, const XYZ_32 world_pos)
+{
+    int16_t room_num = print->room_num;
+    const XYZ_32 pos = { world_pos.x, print->pos.y, world_pos.z };
+    const SECTOR *const sector = Room_GetSector(pos, &room_num);
+    if (sector == nullptr) {
+        return 0;
+    }
+
+    const int32_t height = Room_GetHeight(sector, pos);
+    if (height == NO_HEIGHT) {
+        return 0;
+    }
+
+    int32_t dy = height - print->pos.y;
+    if (ABS(dy) > 128) {
+        dy = 0;
+    }
+    return dy;
+}
+
+static bool M_HasActivePrints(void)
+{
+    for (int32_t i = 0; i < M_MAX_FOOTPRINTS; i++) {
+        if (m_Priv.prints[i].life != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void M_Save(JSON_WRITE_IO *const io)
+{
+    if (!M_HasActivePrints()) {
+        return;
+    }
+
+    JSONW_PUSH_ARRAY(io);
+    for (int32_t i = 0; i < M_MAX_FOOTPRINTS; i++) {
+        const M_FOOTPRINT *const print = &m_Priv.prints[i];
+        JSONW_PUSH_OBJECT(io);
+        JSONW_WRITE(io, "pos", print->pos);
+        JSONW_WRITE(io, "room_num", print->room_num);
+        JSONW_WRITE(io, "y_rot", print->y_rot);
+        JSONW_WRITE(io, "life", print->life);
+        JSONW_POP_AND_APPEND(io);
+    }
+    JSONW_POP_AND_SET(io, "prints");
+}
+
+static bool M_Load(JSON_READ_IO *const io)
+{
+    if (!JSON_OPTIONAL(JSON_PUSH(io, "prints"))) {
+        return true;
+    }
+
+    const int32_t count = JSON_ARRAY_LEN(io);
+    for (int32_t i = 0; i < count; i++) {
+        if (i >= M_MAX_FOOTPRINTS) {
+            LOG_WARNING(
+                "Malformed save: too many footprints. Extra footprints will "
+                "be ignored.");
+            break;
+        }
+
+        M_FOOTPRINT *const print = &m_Priv.prints[i];
+        JSON_MUST(JSON_PUSH_INDEX(io, i));
+        JSON_MUST(JSON_READ(io, "pos", &print->pos));
+        JSON_MUST(JSON_READ(io, "room_num", &print->room_num));
+        JSON_MUST(JSON_READ(io, "y_rot", &print->y_rot));
+        JSON_MUST(JSON_READ(io, "life", &print->life));
+        JSON_MUST(JSON_POP(io));
+    }
+
+    JSON_MUST(JSON_POP(io));
+    JSON_FINISH();
+}
+
+static void M_Control(void)
+{
+    if (!g_Config.visuals.enable_footprints) {
+        return;
+    }
+    M_PRIV *const p = &m_Priv;
+    for (int32_t i = 0; i < M_MAX_FOOTPRINTS; i++) {
+        M_FOOTPRINT *const print = &p->prints[i];
+        if (print->life != 0) {
+            print->life--;
+        }
+    }
+}
+
+static void M_Draw(void)
+{
+    if (!g_Config.visuals.enable_footprints) {
+        return;
+    }
+
+    const M_PRIV *const p = &m_Priv;
+    const int32_t sprite_idx = Sparks_GetSpriteIndex(SPARK_TYPE_FOOTPRINT);
+    if (sprite_idx == NO_ITEM) {
+        return;
+    }
+
+    const XYZ_32 corners[3] = {
+        { .x = 0, .y = 0, .z = -64 },
+        { .x = -128, .y = 0, .z = 64 },
+        { .x = 128, .y = 0, .z = 64 },
+    };
+
+    for (int32_t i = 0; i < M_MAX_FOOTPRINTS; i++) {
+        const M_FOOTPRINT *const print = &p->prints[i];
+        if (print->life == 0) {
+            continue;
+        }
+
+        XYZ_32 world[3] = {};
+        for (int32_t j = 0; j < 3; j++) {
+            M_GetWorldPoint(print, corners[j], &world[j]);
+            world[j].y += M_GetVertexYOffset(print, world[j]);
+        }
+
+        int32_t c = print->life < 29 ? (print->life << 2) : 112;
+        CLAMP(c, 0, 255);
+
+        const RGBA_8888 color = { c, c, c, 255 };
+        const RGBA_8888 tri_color[3] = { color, color, color };
+
+        for (int32_t j = 0; j < 4; j++) {
+            OutputSource_PolyFX_StageSpriteTriWorldDepth(
+                sprite_idx, world, tri_color, M_FOOTPRINT_Z_DEPTH_ADJUST,
+                DRAW_BLEND_SUB);
+        }
+    }
+}
+
+static void M_Reset(void)
 {
     M_PRIV *const p = &m_Priv;
     memset(p, 0, sizeof(*p));
@@ -78,7 +237,7 @@ void FX_Footprint_Add(const ITEM *const lara_item, const bool is_left_foot)
         return;
     }
 
-    FX_FOOTPRINT *const print = &m_Priv.prints[m_Priv.next_idx];
+    M_FOOTPRINT *const print = &m_Priv.prints[m_Priv.next_idx];
     print->pos.x = pos.x;
     print->pos.y = y;
     print->pos.z = pos.z;
@@ -88,113 +247,13 @@ void FX_Footprint_Add(const ITEM *const lara_item, const bool is_left_foot)
     p->next_idx = (p->next_idx + 1) % M_MAX_FOOTPRINTS;
 }
 
-static void M_GetWorldPoint(
-    const FX_FOOTPRINT *const print, const XYZ_32 local,
-    XYZ_32 *const out_world)
-{
-    const int32_t s = Math_Sin(print->y_rot);
-    const int32_t c = Math_Cos(print->y_rot);
-    const int32_t dx = TRIGMULT2(local.x, c) + TRIGMULT2(local.z, s);
-    const int32_t dz = TRIGMULT2(local.z, c) - TRIGMULT2(local.x, s);
-    out_world->x = print->pos.x + dx;
-    out_world->y = print->pos.y + local.y;
-    out_world->z = print->pos.z + dz;
-}
+static const FX_MODULE m_Module = {
+    .control_func = M_Control,
+    .draw_func = M_Draw,
+    .reset_func = M_Reset,
+    .save_key = "footprints",
+    .save_func = M_Save,
+    .load_func = M_Load,
+};
 
-static int32_t M_GetVertexYOffset(
-    const FX_FOOTPRINT *const print, const XYZ_32 world_pos)
-{
-    int16_t room_num = print->room_num;
-    const XYZ_32 pos = { world_pos.x, print->pos.y, world_pos.z };
-    const SECTOR *const sector = Room_GetSector(pos, &room_num);
-    if (sector == nullptr) {
-        return 0;
-    }
-
-    const int32_t height = Room_GetHeight(sector, pos);
-    if (height == NO_HEIGHT) {
-        return 0;
-    }
-
-    int32_t dy = height - print->pos.y;
-    if (ABS(dy) > 128) {
-        dy = 0;
-    }
-    return dy;
-}
-
-void FX_Footprint_Control(void)
-{
-    if (!g_Config.visuals.enable_footprints) {
-        return;
-    }
-    M_PRIV *const p = &m_Priv;
-    for (int32_t i = 0; i < M_MAX_FOOTPRINTS; i++) {
-        FX_FOOTPRINT *const print = &p->prints[i];
-        if (print->life != 0) {
-            print->life--;
-        }
-    }
-}
-
-void FX_Footprint_Draw(void)
-{
-    if (!g_Config.visuals.enable_footprints) {
-        return;
-    }
-
-    const M_PRIV *const p = &m_Priv;
-    const int32_t sprite_idx = Sparks_GetSpriteIndex(SPARK_TYPE_FOOTPRINT);
-    if (sprite_idx == NO_ITEM) {
-        return;
-    }
-
-    const XYZ_32 corners[3] = {
-        { .x = 0, .y = 0, .z = -64 },
-        { .x = -128, .y = 0, .z = 64 },
-        { .x = 128, .y = 0, .z = 64 },
-    };
-
-    for (int32_t i = 0; i < M_MAX_FOOTPRINTS; i++) {
-        const FX_FOOTPRINT *const print = &p->prints[i];
-        if (print->life == 0) {
-            continue;
-        }
-
-        XYZ_32 world[3] = {};
-        for (int32_t j = 0; j < 3; j++) {
-            M_GetWorldPoint(print, corners[j], &world[j]);
-            world[j].y += M_GetVertexYOffset(print, world[j]);
-        }
-
-        int32_t c = print->life < 29 ? (print->life << 2) : 112;
-        CLAMP(c, 0, 255);
-
-        const RGBA_8888 color = { c, c, c, 255 };
-        const RGBA_8888 tri_color[3] = { color, color, color };
-
-        for (int32_t j = 0; j < 4; j++) {
-            OutputSource_PolyFX_StageSpriteTriWorldDepth(
-                sprite_idx, world, tri_color, M_FOOTPRINT_Z_DEPTH_ADJUST,
-                DRAW_BLEND_SUB);
-        }
-    }
-}
-
-bool FX_Footprint_HasActivePrints(void)
-{
-    for (int32_t i = 0; i < M_MAX_FOOTPRINTS; i++) {
-        if (m_Priv.prints[i].life != 0) {
-            return true;
-        }
-    }
-    return false;
-}
-
-FX_FOOTPRINT *FX_Footprint_GetPrint(const int32_t idx)
-{
-    if (idx < 0 || idx >= M_MAX_FOOTPRINTS) {
-        return nullptr;
-    }
-    return &m_Priv.prints[idx];
-}
+REGISTER_FX(m_Module)

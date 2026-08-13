@@ -56,20 +56,24 @@ whichever key you have bound, and not include it as part of the command itself.
 - `/burn off`
   Displays a remarkable disregard for basic fire safety. Toggles whether or not Lara is on fire.
 
+- `/dry`  
+  Dries Lara off after a swim, cutting the dramatic dripping short. Towel service, on demand!
+
 - `/give {item_name}`  
   `/give {num} {item_name}`  
   `/give all`  
   `/give guns` or `/guns`  
   `/give moreguns` or `/moreguns`  
   `/give keys` or `/keys`  
-  Gives Lara an item. Try `/give guns` to arm her to the teeth, and `/give keys` to get her all important puzzle items. Ain't nobody got time for searching!
+  Gives Lara an item. Try `/give guns` to arm her to the teeth, and `/give keys` to get her all important puzzle items. Ain't nobody got time for searching! `/give all` hands over one of everything, ammunition and medipacks included.
 
 - `/secret`  
+  `/secret {num}`  
   `/secret take`  
   `/secret take {num}`  
   `/secret give`  
   `/secret give {num}`  
-  Uncovers Lara's secret stash: list discovered secrets, pilfer one or all with `take`, or gift one or all back with `give`.
+  Uncovers Lara's secret stash: list discovered secrets, pilfer one or all with `take`, or gift one or all back with `give`. A number on its own is a gift.
 
 - `/kill`  
   `/kill all`  
@@ -92,7 +96,7 @@ whichever key you have bound, and not include it as part of the command itself.
   Turns on infinite sprint. Lara's always been a speedster, but with this, even cheetahs are asking her for running tips!
 
 - `/teatime`  
-  Calls your loyal butler to whatever ends of the world you're exploring right now. Effective immediately.
+  Calls your loyal butler to any end of the world you're exploring right now. Effective immediately.
 
 - `/spawn {object}`  
   Spawn an object of your choice. Not guaranteed to behave, but good for testing and oddly therapeutic for goofing off.
@@ -121,6 +125,15 @@ whichever key you have bound, and not include it as part of the command itself.
   - forced changes to level-enforced options last for the current session and are not saved while the option remains enforced.
   - some options need a game or level re-launch to apply.
   - option names use `-`, not `_`, because reasons.
+
+- `/rule`<br>
+  `/rule {rule}`<br>
+  `/rule {rule} {value}`<br>
+  `/rule {rule} -`<br>
+  Retrieve or change the numbers the game plays by, like how fast the cold gets to Lara. Rules were made to be broken. With no arguments, lists every rule and its value.
+  - use `-` as `{value}` to restore the rule to default.
+  - rules are saved with your game and restored with it; a new game starts from the defaults.
+  - rule names use `-`, not `_`, same as options.
 
 - `/cheats on`  
   `/cheats off`  
@@ -166,10 +179,13 @@ whichever key you have bound, and not include it as part of the command itself.
   `/fps {num}`  
   Displays or sets the game's frames per second. Higher FPS = smoother Lara.
 
-- `/weather off`  
+- `/weather none`  
   `/weather snow`  
   `/weather rain`  
-  Changes the current level weather. Your game, your forecast.
+  `/weather {type} {severity}`  
+  `/weather {severity}`  
+  Changes the current level weather, and how heavily it falls: 1 is the usual
+  amount, 0 clears the sky and 4 is a downpour. Your game, your forecast.
 
 ## Environmental commands
 
@@ -192,6 +208,11 @@ whichever key you have bound, and not include it as part of the command itself.
 - `/sfx`  
   `/sfx {sound}`  
   Plays a sound effect on demand. Because sometimes you just need Lara to grunt on cue.
+
+- `/disco`  
+  `/disco on`  
+  `/disco off`  
+  Sends colored lights spinning around Lara, with a haze for them to hang in. Tomb raiding, now with a dance floor.
 
 ## Game flow commands
 

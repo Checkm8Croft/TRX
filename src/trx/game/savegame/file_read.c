@@ -1,10 +1,12 @@
 #include <trx/config.h>
 #include <trx/core/json/util/read_io.h>
+#include <trx/core/json/util/value.h>
+#include <trx/core/utils.h>
 #include <trx/debug.h>
 #include <trx/game/camera.h>
+#include <trx/game/cutseq.h>
 #include <trx/game/effects.h>
-#include <trx/game/fx/footprint.h>
-#include <trx/game/fx/ring.h>
+#include <trx/game/fx/common.h>
 #include <trx/game/fx/weather.h>
 #include <trx/game/game.h>
 #include <trx/game/game_buf.h>
@@ -22,9 +24,12 @@
 #include <trx/game/random.h>
 #include <trx/game/rooms.h>
 #include <trx/game/rope.h>
+#include <trx/game/rules.h>
 #include <trx/game/savegame.h>
 #include <trx/game/stats.h>
 #include <trx/version.h>
+
+#include <string.h>
 
 #define M_SHOULD JSON_SHOULD
 #define M_OPTIONAL JSON_OPTIONAL
@@ -138,11 +143,12 @@ static bool M_ReadArm(
 }
 
 static bool M_ReadAmmo(
-    JSON_READ_IO *const io, const char *const key, AMMO_INFO *const ammo)
+    JSON_READ_IO *const io, const char *const key, const LARA_GUN_TYPE gun_type)
 {
-    ASSERT(ammo != nullptr);
+    int32_t ammo = 0;
     M_MUST(JSON_PUSH(io, key));
-    M_MUST(JSON_READ(io, "ammo", &ammo->ammo));
+    M_MUST(JSON_READ(io, "ammo", &ammo));
+    Inv_SetAmmo(gun_type, ammo);
     M_MUST(JSON_POP(io));
     M_FINISH();
 }
@@ -251,6 +257,18 @@ static bool M_ReadLara(JSON_READ_IO *const io)
     M_SHOULD(JSON_READ(io, "electric", &lara->electric));
 
     M_MUST(JSON_READ(io, "mesh_effects", &lara->mesh_effects));
+
+    // Introduced in TRX 1.10
+    memset(lara->wet, 0, sizeof(lara->wet));
+    if (M_OPTIONAL(JSON_PUSH(io, "wet"))) {
+        const int32_t count = MIN(JSON_ARRAY_LEN(io), LM_NUMBER_OF);
+        for (int32_t i = 0; i < count; i++) {
+            int32_t value = 0;
+            M_MUST(JSON_READ_A(io, i, &value));
+            lara->wet[i] = value;
+        }
+        M_MUST(JSON_POP(io));
+    }
     M_MUST(JSON_READ(io, "extra_anim", &lara->extra_anim));
     M_MUST(JSON_READ(io, "water_surface_dist", &lara->water_surface_dist));
 
@@ -326,24 +344,19 @@ static bool M_ReadLara(JSON_READ_IO *const io)
     // Arms need no repair; the gun control recomputes them every frame.
     M_MUST(M_ReadArm(io, "left_arm", &lara->left_arm));
     M_MUST(M_ReadArm(io, "right_arm", &lara->right_arm));
-    M_MUST(M_ReadAmmo(io, "pistols", &lara->pistol_ammo));
-    M_MUST(M_ReadAmmo(io, "magnums", &lara->magnum_ammo));
-    M_MUST(M_ReadAmmo(io, "uzis", &lara->uzi_ammo));
-    M_MUST(M_ReadAmmo(io, "shotgun", &lara->shotgun_ammo));
-    M_MUST(M_ReadAmmo(io, "harpoon", &lara->harpoon_ammo));
-    M_MUST(M_ReadAmmo(io, "grenade", &lara->grenade_ammo));
-    M_MUST(M_ReadAmmo(io, "m16", &lara->m16_ammo));
-    M_SHOULD(M_ReadAmmo(io, "autos", &lara->autos_ammo));
-    M_SHOULD(M_ReadAmmo(io, "desert_eagle", &lara->desert_eagle_ammo));
-    M_SHOULD(M_ReadAmmo(io, "mp5", &lara->mp5_ammo));
-    M_SHOULD(M_ReadAmmo(io, "rocket", &lara->rocket_ammo));
-    M_SHOULD(M_ReadAmmo(io, "crossbow", &lara->crossbow_ammo));
-    M_SHOULD(M_ReadAmmo(io, "revolver", &lara->revolver_ammo));
+    for (const SAVEGAME_AMMO_ENTRY *entry = g_Savegame_WeaponAmmo;
+         entry->key != nullptr; entry++) {
+        if (entry->required) {
+            M_MUST(M_ReadAmmo(io, entry->key, entry->gun_type));
+        } else {
+            M_SHOULD(M_ReadAmmo(io, entry->key, entry->gun_type));
+        }
+    }
 
     if (M_OPTIONAL(JSON_PUSH(io, "weapon"))) {
         lara->gun_item_num = Item_Create();
         ITEM *const weapon_item = Item_Get(lara->gun_item_num);
-        weapon_item->status = IS_ACTIVE;
+        weapon_item->is_visible = true;
         weapon_item->room_num = NO_ROOM;
         // Introduced in TRX 1.2
         if (!M_SHOULD(
@@ -542,14 +555,17 @@ static bool M_ReadItem(JSON_READ_IO *const io, const int16_t read_index)
     }
 
     if (obj->save_hitpoints) {
-        M_MUST(JSON_READ(io, "hitpoints", &item->hit_points));
-        M_MUST(JSON_READ(io, "max_hitpoints", &item->max_hit_points));
+        int16_t hit_points = 0;
+        int16_t max_hit_points = 0;
+        M_MUST(JSON_READ(io, "hitpoints", &hit_points));
+        M_MUST(JSON_READ(io, "max_hitpoints", &max_hit_points));
         ObjectProperty_SetItemValueRaw(
             item, "max_hit_points",
-            (OBJECT_PROPERTY_VALUE) {
-                .type = OBJECT_PROPERTY_TYPE_INT,
-                .as_int = item->max_hit_points,
+            (TRX_VALUE) {
+                .type = TVT_S32,
+                .as_int = max_hit_points,
             });
+        item->hit_points = hit_points;
     }
     M_MUST(ObjectProperty_ReadItemOverrides(io, item));
 
@@ -563,28 +579,63 @@ static bool M_ReadItem(JSON_READ_IO *const io, const int16_t read_index)
             }
         }
         // TRX 1.8 introduced fixing animated spikes on load
-        M_SHOULD(JSON_READ(io, "flags", &item->flags));
+        uint16_t flags = 0;
+        M_SHOULD(JSON_READ(io, "flags", &flags));
+        item->trigger = (ITEM_TRIGGER_STATE) {
+            .mask = (flags & IF_CODE_BITS) >> TRIGGER_MASK_SHIFT,
+            .reversed = (flags & IF_REVERSE) != 0,
+            .switch_spent = (flags & IF_ONE_SHOT_SWITCH) != 0,
+            .anti_spent = (flags & IF_ONE_SHOT_ANTITRIGGER) != 0,
+        };
+        item->is_destroyed = (flags & IF_DESTROYED) != 0;
+        item->trigger.spent = (flags & IF_ONE_SHOT) != 0;
         M_SHOULD(JSON_READ(io, "timer", &item->timer));
-        ITEM_STATUS saved_status = item->status;
+        // Unpack the released save format's status into the visibility and
+        // finished axes; is_simulated comes from the separate "active" field
+        // below. A missing key leaves the level-load axes untouched.
+        int32_t saved_status = -1;
         M_SHOULD(JSON_READ(io, "status", &saved_status));
+        if (saved_status >= 0) {
+            item->is_visible = saved_status != IS_INVISIBLE;
+            item->is_finished = saved_status == IS_DEACTIVATED;
+        }
+        // Written since the axes split; a hidden finished item packs to
+        // IS_INVISIBLE, so the status alone would drop the marker. Released
+        // saves lack the key and keep the value derived above.
+        M_OPTIONAL(JSON_READ(io, "finished", &item->is_finished));
 
-        if ((item->flags & IF_KILLED) != 0) {
-            Item_Kill(item_num);
-            item->status = saved_status;
+        if (item->is_destroyed) {
+            Item_Destroy(item_num);
         } else {
             bool is_active = false;
             M_SHOULD(JSON_READ(io, "active", &is_active));
-            if (is_active && !item->active) {
-                Item_AddActive(item_num);
+            if (is_active && !item->is_simulated) {
+                Item_AddSimulated(item_num);
+                // Item_AddSimulated skips control-less items, which cannot
+                // join the simulation list; they still carry the axis, set
+                // where something else simulates them (the skidoo the driver
+                // puppets, in skidoo_driver.c).
+                item->is_simulated = true;
+            } else if (
+                !is_active && saved_status == IS_ACTIVE
+                && Object_IsType(item->object_id, g_ReceptacleObjects)) {
+                // A released save recorded a receptacle's armed "key inserted"
+                // state as IS_ACTIVE without the active bit - the keyhole was
+                // control-less and never joined the active list. New saves
+                // carry active=true and take the branch above. Re-arm it so
+                // the pending key trigger still fires (Keyhole_Trigger reads
+                // Item_IsInPlay, which needs is_simulated).
+                Item_AddSimulated(item_num);
             }
-            item->status = saved_status;
             M_SHOULD(JSON_READ(io, "gravity", &item->gravity));
             // Introduced in TRX 1.2
-            M_OPTIONAL(JSON_READ(io, "collidable", &item->collidable));
+            M_OPTIONAL(JSON_READ(io, "collidable", &item->is_collidable));
         }
         // Introduced in TRX 1.2, not written if zero
         M_OPTIONAL(JSON_READ(io, "ai_bits", &item->ai_bits));
         M_OPTIONAL(JSON_READ(io, "ai_tag", &item->ai_tag));
+        // Introduced in TRX 1.10, not written if zero
+        M_OPTIONAL(JSON_READ(io, "fade", &item->fade));
 
         bool intelligent = obj->intelligent;
         // Introduced in TRX 1.2
@@ -730,104 +781,22 @@ static bool M_ReadFlare(JSON_READ_IO *const io)
     int32_t flare_age;
     M_MUST(JSON_READ(io, "age", &flare_age));
     FlareItem_SetAge(item, flare_age & 0x7FFF, (flare_age & 0x8000) != 0);
-    Item_AddActive(item_num);
+    Item_AddSimulated(item_num);
     M_FINISH();
 }
 
-static bool M_ReadFXRing(JSON_READ_IO *const io, FX_RING *const ring)
-{
-    ASSERT(ring != nullptr);
-
-    M_MUST(JSON_READ(io, "on", &ring->on));
-    M_MUST(JSON_READ(io, "life", &ring->life));
-    M_MUST(JSON_READ(io, "speed", &ring->speed));
-    M_MUST(JSON_READ(io, "radius", &ring->radius));
-    M_MUST(JSON_READ(io, "prev_radius", &ring->prev_radius));
-
-    XYZ_16 rot = {};
-    M_MUST(JSON_READ(io, "rot", &rot));
-    ring->rot = (XZ_16) { rot.x, rot.z };
-
-    XYZ_16 prev_rot = {};
-    M_MUST(JSON_READ(io, "prev_rot", &prev_rot));
-    ring->prev_rot = (XZ_16) { prev_rot.x, prev_rot.z };
-
-    M_MUST(JSON_READ(io, "pos", &ring->pos));
-    M_MUST(JSON_READ(io, "prev_pos", &ring->prev_pos));
-    M_FINISH();
-}
-
-static bool M_ReadFXRings(
-    JSON_READ_IO *const io, const FX_RING_TYPE type, const char *const key)
-{
-    if (!M_OPTIONAL(JSON_PUSH(io, key))) {
-        return true;
-    }
-
-    const int32_t ring_count = JSON_ARRAY_LEN(io);
-    for (int32_t i = 0; i < ring_count; i++) {
-        M_MUST(JSON_PUSH_INDEX(io, i));
-        FX_RING *const ring = FX_Ring_GetRing(type, i);
-        if (ring != nullptr) {
-            M_MUST(M_ReadFXRing(io, ring));
-        } else {
-            LOG_WARNING(
-                "Malformed save: too many %s rings. Extra rings will be "
-                "ignored.",
-                key);
-        }
-        M_MUST(JSON_POP(io));
-    }
-
-    M_MUST(JSON_POP(io));
-    M_FINISH();
-}
-
-static bool M_ReadFXFootprint(JSON_READ_IO *const io, FX_FOOTPRINT *const print)
-{
-    ASSERT(print != nullptr);
-
-    M_MUST(JSON_READ(io, "pos", &print->pos));
-    M_MUST(JSON_READ(io, "room_num", &print->room_num));
-    M_MUST(JSON_READ(io, "y_rot", &print->y_rot));
-    M_MUST(JSON_READ(io, "life", &print->life));
-    M_FINISH();
-}
-
-static bool M_ReadFXFootprints(JSON_READ_IO *const io)
-{
-    if (!M_OPTIONAL(JSON_PUSH(io, "footprints"))) {
-        return true;
-    }
-
-    if (M_OPTIONAL(JSON_PUSH(io, "prints"))) {
-        const int32_t print_count = JSON_ARRAY_LEN(io);
-        for (int32_t i = 0; i < print_count; i++) {
-            M_MUST(JSON_PUSH_INDEX(io, i));
-            FX_FOOTPRINT *const print = FX_Footprint_GetPrint(i);
-            if (print != nullptr) {
-                M_MUST(M_ReadFXFootprint(io, print));
-            } else {
-                LOG_WARNING(
-                    "Malformed save: too many footprints. Extra footprints "
-                    "will be ignored.");
-            }
-            M_MUST(JSON_POP(io));
-        }
-        M_MUST(JSON_POP(io));
-    }
-
-    M_MUST(JSON_POP(io));
-    M_FINISH();
-}
-
-static bool M_ShouldLoadMusicTimestamp(
+// Returns the timestamp to resume the track at, or -1.0 to play it from the
+// start.
+static double M_GetMusicSeekTimestamp(
     const MUSIC_ID track_id, const MUSIC_PLAY_MODE mode,
-    const MUSIC_ID ambient_track)
+    const MUSIC_ID ambient_track, const double timestamp)
 {
     const bool is_ambient = mode == MPM_LOOP && track_id == ambient_track;
-    return !is_ambient
-        || g_Config.audio.music_load_condition == MUSIC_LOAD_CONDITION_ALWAYS;
+    if (is_ambient
+        && g_Config.audio.music_load_condition != MUSIC_LOAD_CONDITION_ALWAYS) {
+        return -1.0;
+    }
+    return timestamp;
 }
 
 static bool M_ReadMusicTracks(JSON_READ_IO *const io)
@@ -862,13 +831,9 @@ static bool M_ReadMusicTracks(JSON_READ_IO *const io)
             if (track_id == MX_INACTIVE) {
                 continue;
             }
-            if (!Music_Play_Direct(track_id, mode)) {
-                LOG_WARNING("Could not load stream track %d", track_id);
-                continue;
-            }
-
-            if (M_ShouldLoadMusicTimestamp(track_id, mode, ambient_track)
-                && !Music_SeekTrackTimestamp(track_id, mode, timestamp)) {
+            const double seek_to = M_GetMusicSeekTimestamp(
+                track_id, mode, ambient_track, timestamp);
+            if (Music_Play_DirectAt(track_id, mode, seek_to) < 0) {
                 LOG_WARNING(
                     "Could not load stream track %d at timestamp %lf.",
                     track_id, timestamp);
@@ -881,20 +846,12 @@ static bool M_ReadMusicTracks(JSON_READ_IO *const io)
         M_MUST(JSON_READ(io, "current_track", &current_track));
         M_MUST(JSON_READ(io, "timestamp", &timestamp));
 
-        const bool is_ambient =
-            current_track != MX_INACTIVE && current_track == ambient_track;
-        if (!is_ambient && current_track != MX_INACTIVE
-            && !Music_Play_Direct(current_track, MPM_ONCE)) {
-            LOG_WARNING("Could not load current track %d.", current_track);
-        }
-
-        const MUSIC_ID track_to_seek =
-            is_ambient ? ambient_track : current_track;
-        const MUSIC_PLAY_MODE mode_to_seek = is_ambient ? MPM_LOOP : MPM_ONCE;
-        if (M_ShouldLoadMusicTimestamp(
-                track_to_seek, mode_to_seek, ambient_track)
-            && !Music_SeekTrackTimestamp(
-                track_to_seek, mode_to_seek, timestamp)) {
+        const bool is_ambient = current_track == ambient_track;
+        const MUSIC_PLAY_MODE mode = is_ambient ? MPM_LOOP : MPM_ONCE;
+        const double seek_to = M_GetMusicSeekTimestamp(
+            current_track, mode, ambient_track, timestamp);
+        if (current_track != MX_INACTIVE
+            && Music_Play_DirectAt(current_track, mode, seek_to) < 0) {
             LOG_WARNING(
                 "Could not load current track %d at timestamp %lf.",
                 current_track, timestamp);
@@ -921,7 +878,10 @@ static bool M_ReadMusicTrackFlags(JSON_READ_IO *const io)
     for (int32_t i = 0; i < count; i++) {
         uint32_t flags;
         M_MUST(JSON_READ_A(io, i, &flags));
-        Music_SetTrackFlags(i, flags);
+        MUSIC_TRACK_STATE *const track = Music_GetTrackState(i);
+        track->mask = (flags & MTF_CODE_BITS) >> TRIGGER_MASK_SHIFT;
+        track->is_one_shot = (flags & MTF_ONE_SHOT) != 0;
+        track->delay = flags & 0xFF;
     }
 
     M_FINISH();
@@ -952,29 +912,38 @@ static bool M_ReadResumeInfo(JSON_READ_IO *const io, RESUME_INFO *const resume)
         JSON_READ(io, "back_gun_type", &resume->back_gun_type)); // LGT_UNKNOWN
     M_MUST(JSON_READ(io, "costume", &resume->flags.costume));
 
-    M_MUST(JSON_READ(io, "pistol_ammo", &resume->pistol_ammo));
-    M_MUST(JSON_READ(io, "uzi_ammo", &resume->uzi_ammo));
-    M_MUST(JSON_READ(io, "shotgun_ammo", &resume->shotgun_ammo));
-    M_MUST(JSON_READ(io, "magnum_ammo", &resume->magnum_ammo));
-    // Introduced in TRX 1.1
-    M_SHOULD(JSON_READ(io, "autos_ammo", &resume->autos_ammo));
-    M_SHOULD(JSON_READ(io, "desert_eagle_ammo", &resume->desert_eagle_ammo));
+    for (const SAVEGAME_RESUME_WEAPON *entry = g_Savegame_ResumeWeapons;
+         entry->has_key != nullptr; entry++) {
+        int32_t ammo = 0;
+        bool has_weapon = false;
+        if (entry->required) {
+            M_MUST(JSON_READ(io, entry->ammo_key, &ammo));
+            M_MUST(JSON_READ(io, entry->has_key, &has_weapon));
+        } else {
+            M_SHOULD(JSON_READ(io, entry->ammo_key, &ammo));
+            M_SHOULD(JSON_READ(io, entry->has_key, &has_weapon));
+        }
+        resume->inv.ammo[entry->gun_type] = ammo;
+        Inv_State_SetCount(
+            &resume->inv, Gun_GetGunObject(entry->gun_type),
+            has_weapon ? 1 : 0);
+    }
 
-    M_MUST(JSON_READ(io, "m16_ammo", &resume->m16_ammo));
-    M_MUST(JSON_READ(io, "grenade_ammo", &resume->grenade_ammo));
-    M_MUST(JSON_READ(io, "harpoon_ammo", &resume->harpoon_ammo));
-    M_MUST(JSON_READ(io, "num_medis", &resume->small_medipacks));
-    M_MUST(JSON_READ(io, "num_big_medis", &resume->large_medipacks));
-    M_MUST(JSON_READ(io, "num_flares", &resume->flares));
-    M_MUST(JSON_READ(io, "num_scions", &resume->num_scions));
+    // Introduced in TRX 1.9
+    bool has_binoculars = false;
+    M_SHOULD(JSON_READ(io, "has_binoculars", &has_binoculars));
+    Inv_State_SetCount(&resume->inv, O_BINOCULARS_ITEM, has_binoculars ? 1 : 0);
 
-    // Introduced in TRX 1.2
-    M_SHOULD(JSON_READ(io, "num_quest_item_1", &resume->num_quest_item_1));
-    M_SHOULD(JSON_READ(io, "num_quest_item_2", &resume->num_quest_item_2));
-    M_SHOULD(JSON_READ(io, "num_quest_item_3", &resume->num_quest_item_3));
-    M_SHOULD(JSON_READ(io, "num_quest_item_4", &resume->num_quest_item_4));
-    M_SHOULD(JSON_READ(io, "num_quest_item_5", &resume->num_quest_item_5));
-    M_SHOULD(JSON_READ(io, "num_quest_item_6", &resume->num_quest_item_6));
+    for (const SAVEGAME_RESUME_ITEM *entry = g_Savegame_ResumeItems;
+         entry->key != nullptr; entry++) {
+        int32_t qty = 0;
+        if (entry->required) {
+            M_MUST(JSON_READ(io, entry->key, &qty));
+        } else {
+            M_SHOULD(JSON_READ(io, entry->key, &qty));
+        }
+        Inv_State_SetCount(&resume->inv, entry->object_id, qty);
+    }
 
     M_MUST(JSON_READ(io, "available", &resume->flags.available));
 
@@ -986,29 +955,9 @@ static bool M_ReadResumeInfo(JSON_READ_IO *const io, RESUME_INFO *const resume)
     M_SHOULD(JSON_READ(io, "prev_level", &resume->prev_level));
     M_SHOULD(JSON_READ(io, "hurt_allies", &resume->hurt_allies));
 
-    M_MUST(JSON_READ(io, "has_pistols", &resume->flags.has_pistols));
-    M_MUST(JSON_READ(io, "has_shotgun", &resume->flags.has_shotgun));
-    M_MUST(JSON_READ(io, "has_uzis", &resume->flags.has_uzis));
-    M_MUST(JSON_READ(io, "has_m16", &resume->flags.has_m16));
-    M_MUST(JSON_READ(io, "has_grenade", &resume->flags.has_grenade));
-    M_MUST(JSON_READ(io, "has_harpoon", &resume->flags.has_harpoon));
-
-    // Introduced in TRX 1.1
-    M_MUST(JSON_READ(io, "has_magnums", &resume->flags.has_magnums));
-    M_SHOULD(JSON_READ(io, "has_autos", &resume->flags.has_autos));
-    M_SHOULD(
-        JSON_READ(io, "has_desert_eagle", &resume->flags.has_desert_eagle));
-    M_SHOULD(JSON_READ(io, "has_mp5", &resume->flags.has_mp5));
-    M_SHOULD(JSON_READ(io, "mp5_ammo", &resume->mp5_ammo));
-    M_SHOULD(JSON_READ(io, "has_rocket", &resume->flags.has_rocket));
-    M_SHOULD(JSON_READ(io, "rocket_ammo", &resume->rocket_ammo));
-
-    // Introduced in TRX 1.9
-    M_SHOULD(JSON_READ(io, "has_crossbow", &resume->flags.has_crossbow));
-    M_SHOULD(JSON_READ(io, "crossbow_ammo", &resume->crossbow_ammo));
-    M_SHOULD(JSON_READ(io, "has_revolver", &resume->flags.has_revolver));
-    M_SHOULD(JSON_READ(io, "revolver_ammo", &resume->revolver_ammo));
-    M_SHOULD(JSON_READ(io, "has_binoculars", &resume->flags.has_binoculars));
+    // Introduced in TRX 1.10
+    resume->burning = false;
+    M_SHOULD(JSON_READ(io, "burning", &resume->burning));
 
     M_MUST(JSON_READ(io, "timer", &resume->stats.timer));
     M_MUST(JSON_READ(io, "ammo_hits", &resume->stats.ammo_hits));
@@ -1016,9 +965,10 @@ static bool M_ReadResumeInfo(JSON_READ_IO *const io, RESUME_INFO *const resume)
     M_MUST(JSON_READ(io, "medipacks_used", &resume->stats.medipacks_used));
     M_MUST(
         JSON_READ(io, "distance_travelled", &resume->stats.distance_travelled));
-    M_MUST(JSON_READ(io, "kills", &resume->stats.kill_count));
-    M_SHOULD(JSON_READ(io, "crystals", &resume->stats.crystal_count));
-    M_MUST(JSON_READ(io, "pickups", &resume->stats.pickup_count));
+    M_MUST(JSON_READ(io, "kills", &resume->stats.counts[STATS_CAT_KILLS]));
+    M_SHOULD(
+        JSON_READ(io, "crystals", &resume->stats.counts[STATS_CAT_CRYSTALS]));
+    M_MUST(JSON_READ(io, "pickups", &resume->stats.counts[STATS_CAT_PICKUPS]));
     M_MUST(JSON_READ(io, "secrets", &resume->stats.secret_flags));
     M_SHOULD(JSON_READ(io, "death_count", &resume->stats.death_count));
     Stats_UpdateSecrets(&resume->stats);
@@ -1034,7 +984,7 @@ bool SG_File_LoadInventory(JSON_READ_IO *const io)
     for (int32_t i = 0; g_Savegame_InventoryItems[i].key != nullptr; i++) {
         int16_t qty;
         if (JSON_READ(io, g_Savegame_InventoryItems[i].key, &qty)) {
-            while (Inv_RequestItem(g_Savegame_InventoryItems[i].object_id)
+            while (Inv_GetItemCount(g_Savegame_InventoryItems[i].object_id)
                    != 0) {
                 Inv_RemoveItem(g_Savegame_InventoryItems[i].object_id);
             }
@@ -1073,7 +1023,9 @@ bool SG_File_LoadFlipmaps(JSON_READ_IO *const io)
     for (size_t i = 0; i < count; i++) {
         uint32_t flags;
         M_MUST(JSON_READ_A(io, i, &flags));
-        Room_SetFlipSlotFlags(i, flags << 8);
+        FLIP_SLOT *const slot = Room_GetFlipSlot(i);
+        slot->mask = ((flags << 8) & FSF_CODE_BITS) >> TRIGGER_MASK_SHIFT;
+        slot->is_one_shot = ((flags << 8) & FSF_ONE_SHOT) != 0;
     }
     M_MUST(JSON_POP(io));
 
@@ -1173,19 +1125,10 @@ bool SG_File_LoadEffects(JSON_READ_IO *const io)
 
 bool SG_File_LoadFX(JSON_READ_IO *const io)
 {
-    FX_Ring_Reset();
-    FX_Footprint_Reset();
-
     if (!M_OPTIONAL(JSON_PUSH(io, "vfx"))) {
         return true;
     }
-    if (M_OPTIONAL(JSON_PUSH(io, "rings"))) {
-        M_MUST(M_ReadFXRings(io, FX_RING_TYPE_BLAST, "blast"));
-        M_MUST(M_ReadFXRings(io, FX_RING_TYPE_KNOCKBACK, "knockback"));
-        M_MUST(M_ReadFXRings(io, FX_RING_TYPE_SUMMON, "summon"));
-        M_MUST(JSON_POP(io));
-    }
-    M_MUST(M_ReadFXFootprints(io));
+    M_MUST(FX_Load(io));
     M_MUST(JSON_POP(io));
     M_FINISH();
 }
@@ -1230,7 +1173,7 @@ bool SG_File_LoadResumeInfoList(JSON_READ_IO *const io)
     }
     for (int32_t i = 0; i < length; i++) {
         const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, i);
-        RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
+        RESUME_INFO *const resume = SG_Resume_GetEntry(level);
         M_MUST(JSON_PUSH_INDEX(io, i));
         const bool has_prev_level = JSON_ReadIO_HasKey(io, "prev_level");
         M_MUST(M_ReadResumeInfo(io, resume));
@@ -1249,6 +1192,35 @@ bool SG_File_LoadResumeInfoList(JSON_READ_IO *const io)
     M_FINISH();
 }
 
+bool SG_File_LoadRules(JSON_READ_IO *const io)
+{
+    // Introduced in TRX 1.10, only carrying the rules that are off their
+    // defaults. Keyed by name over the rules this build has, so a block that
+    // names one it dropped, omits one it gained, or is absent entirely still
+    // loads. What the save does not carry stays where SG_Resume_ResetAllEntries
+    // left it.
+    if (!M_OPTIONAL(JSON_PUSH(io, "rules"))) {
+        return true;
+    }
+
+    const JSON_OBJECT *const rules = JSON_ReadIO_GetCurrentObject(io);
+    for (const RULE *rule = Rules_GetMap(); rule->name != nullptr; rule++) {
+        if (!JSON_ReadIO_HasKey(io, rule->name)) {
+            continue;
+        }
+        TRX_VALUE value;
+        M_MUST(JSONValue_Read(rules, rule->name, rule->type, nullptr, &value));
+        const char *const err =
+            Value_WritePtr(rule->type, rule->target, &value);
+        if (err != nullptr) {
+            LOG_WARNING("%s: %s", rule->name, err);
+        }
+    }
+
+    M_MUST(JSON_POP(io));
+    M_FINISH();
+}
+
 bool SG_File_LoadMisc(JSON_READ_IO *const io)
 {
     M_MUST(JSON_PUSH(io, "misc"));
@@ -1256,7 +1228,8 @@ bool SG_File_LoadMisc(JSON_READ_IO *const io)
     {
         int32_t bonus_flag = false;
         M_MUST(JSON_READ(io, "bonus_flag", &bonus_flag));
-        Game_SetBonusFlag(bonus_flag);
+        // saves made before Japanese mode was retired may carry its bit
+        Game_SetBonusFlag(bonus_flag & GBF_NGPLUS);
     }
 
     {
@@ -1288,8 +1261,16 @@ bool SG_File_LoadMisc(JSON_READ_IO *const io)
     }
 
     {
+        // Introduced in TRX 1.10
+        uint64_t cutscenes_played = 0;
+        if (M_OPTIONAL(JSON_READ(io, "cutscenes_played", &cutscenes_played))) {
+            CutSeq_SetPlayedMask(cutscenes_played);
+        }
+    }
+
+    {
         const GF_LEVEL *const current_level = Game_GetCurrentLevel();
-        RESUME_INFO *const resume = Savegame_GetCurrentInfo(current_level);
+        RESUME_INFO *const resume = SG_Resume_GetEntry(current_level);
         resume->stats.death_count = -1;
         M_MUST(JSON_READ(io, "death_count", &resume->stats.death_count));
     }

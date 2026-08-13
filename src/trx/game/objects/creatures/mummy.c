@@ -8,7 +8,6 @@
 #include <trx/game/objects/common.h>
 #include <trx/game/pathing.h>
 #include <trx/game/savegame.h>
-#include <trx/game/stats.h>
 
 // clang-format off
 #define M_HIT_POINTS 18
@@ -22,7 +21,7 @@ typedef enum {
 
 static bool M_CanDropItems(const ITEM *const item)
 {
-    return item->hit_points <= 0 || item->status == IS_DEACTIVATED;
+    return item->hit_points <= 0 || item->is_finished;
 }
 
 static void M_Initialise(const int16_t item_num)
@@ -41,7 +40,7 @@ static void M_Control(const int16_t item_num)
         if (!LOT_EnableBaddieAI(item_num, true)) {
             return;
         }
-        item->status = IS_ACTIVE;
+        Item_SetVisible(item, true);
     }
 
     if (item->current_anim_state == M_STATE_STOP) {
@@ -60,14 +59,11 @@ static void M_Control(const int16_t item_num)
     Creature_Head(item, head);
     Item_Animate(item);
 
-    if (item->status == IS_DEACTIVATED) {
-        // Count kill if Lara touches mummy and it falls.
-        if (item->hit_points > 0) {
-            Stats_AddKill();
-        }
-        Item_RemoveActive(item_num);
+    if (item->is_finished) {
+        // The mummy topples when Lara touches it, rather than taking damage.
+        Item_TakeFatalDamage(item, Lara_GetItem());
+        Item_RemoveSimulated(item_num);
         Carrier_TestItemDrops(item_num);
-        item->hit_points = 0;
     }
 }
 
@@ -82,15 +78,13 @@ static void M_Setup(OBJECT *const obj)
     obj->collision_func = Object_Collision;
     obj->can_drop_items_func = M_CanDropItems;
 
+    obj->leaves_corpse = true;
     obj->save_flags = true;
     obj->save_hitpoints = true;
     obj->save_anim = true;
 
     Object_GetBone(obj, 2)->rot.y = true;
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS));
 }
 
 REGISTER_OBJECT(O_MUMMY, M_Setup)

@@ -74,12 +74,19 @@ runs:
     - name: "Build dependency: lua (universal)"
       if: steps.restore-cache.outputs.cache-hit != 'true'
       shell: bash
-      run: sudo port -N install lua +universal
+      # The `lua` port is stuck on 5.3; we need the 5.4 API. It installs as
+      # lua5.4.pc, hence -Dlua_dep=lua5.4 at meson setup time.
+      run: sudo port -N install lua54 +universal
 
     - name: "Build dependency: uthash (universal)"
       if: steps.restore-cache.outputs.cache-hit != 'true'
       shell: bash
       run: sudo port -N install uthash +universal
+
+    - name: "Build dependency: rubberband (universal)"
+      if: steps.restore-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: sudo port -N install rubberband +universal
 
     - name: "Build dependency: ffmpeg (universal)"
       if: steps.restore-cache.outputs.cache-hit != 'true'
@@ -119,6 +126,7 @@ runs:
           --enable-cross-compile \
           --prefix=${{ inputs.FFMPEG_INSTALL_TMP_X86_64 }} \
           --cc='clang -arch x86_64' \
+          --cxx='clang++ -arch x86_64' \
           $FFMPEG_CONFIG_OPTIONS
 
         # Build and install.

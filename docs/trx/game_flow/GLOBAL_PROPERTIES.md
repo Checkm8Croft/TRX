@@ -32,13 +32,11 @@ remains distinct for each game.
     ],
     "convert_dropped_guns": false,
     "enforced_config": {
-        "enable_save_crystals": false,
+        "save_crystal_mode": "off",
     },
     "hidden_config": [
         "enable_legal",
     ],
-    // Optional global Lua script file
-    "main_script": "data/scripts/global.lua",
     "levels": [
         {
             "path": "data/gym.phd",
@@ -230,14 +228,6 @@ remains distinct for each game.
     </td>
   </tr>
   <tr valign="top">
-    <td><code>main_script</code></td>
-    <td>String</td>
-    <td>
-      Path to a global Lua script to execute after game initialization, before
-      the first level loads.
-    </td>
-  </tr>
-  <tr valign="top">
     <td>
       <a name="name"></a>
       <code>name</code>
@@ -250,8 +240,12 @@ remains distinct for each game.
   </tr>
   <tr valign="top">
     <td><code>main_menu_picture</code></td>
-    <td>String<strong>*</strong></td>
-    <td>Path to the main menu background image.</td>
+    <td>String</td>
+    <td>
+      Path to the main menu background image. Omit it to show the title level
+      itself behind the menu, in which case what plays there is up to the
+      title's own script.
+    </td>
   </tr>
   <tr valign="top">
     <td><code>savegame_file_fmt</code></td>
@@ -349,7 +343,7 @@ remains distinct for each game.
         enable_3d_pickups": false,
     },
     "hidden_config": [
-        "enable_save_crystals",
+        "save_crystal_mode",
     ],
 }
 ```
@@ -371,8 +365,12 @@ remains distinct for each game.
   </tr>
   <tr valign="top">
     <td><code>main_menu_picture</code></td>
-    <td>String<strong>*</strong></td>
-    <td>Path to the main menu background image.</td>
+    <td>String</td>
+    <td>
+      Path to the main menu background image. Omit it to show the title level
+      itself behind the menu, in which case what plays there is up to the
+      title's own script.
+    </td>
   </tr>
   <tr valign="top">
     <td><code>savegame_file_fmt</code></td>

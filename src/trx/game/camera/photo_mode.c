@@ -67,7 +67,11 @@ static void M_ResetCamera(const bool exiting)
     g_Camera = exiting ? m_OriginalCamera : m_StartingCamera;
     // ensure Camera_EnsureEnvironment() picks up the flag change
     g_Camera.underwater = camera.underwater;
-    Viewport_AlterFOV(exiting ? -1 : m_OriginalFOV, m_OriginalFOVMode);
+    // Cinematic cameras control the FOV during their sequences, so avoid
+    // resetting to user FOV on exit to prevent a 1-frame flicker.
+    Viewport_AlterFOV(
+        exiting && m_OriginalCamera.type != CAM_CINEMATIC ? -1 : m_OriginalFOV,
+        m_OriginalFOVMode);
     m_CurrentFOV = m_OriginalFOV / DEG_1;
 }
 
@@ -403,6 +407,11 @@ void Camera_PhotoMode_Resume(void)
         // stale pre-step orientation basis.
         M_SyncCameraOrientationFromView();
     } else {
+        if (m_OriginalCamera.type == CAM_FLYBY_MODE) {
+            // The flyby finished between pausing and resuming photo mode.
+            // Resync the original camera to the one generated post-flyby.
+            m_OriginalCamera = g_Camera;
+        }
         g_Camera = m_PreviousState.camera;
     }
     Camera_SetChunky(m_PreviousState.is_chunky);

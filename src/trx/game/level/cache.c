@@ -9,7 +9,6 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
-#include <string.h>
 #include <uthash.h>
 
 #define M_CACHE_MAGIC UINT32_C(0x4C434831)
@@ -110,6 +109,18 @@ static uint64_t M_GetLevelHash(const GF_LEVEL *const level)
     return entry->hash;
 }
 
+static const char *M_GetPath(const char *const filename)
+{
+    const SHELL_ARGS *const args = Shell_GetArgs();
+    if (args == nullptr || args->startup.mod == nullptr
+        || args->startup.mod->name == nullptr) {
+        return nullptr;
+    }
+
+    return String_FormatStatic(
+        "%s/%s/%s", Shell_GetCacheDir(), args->startup.mod->name, filename);
+}
+
 uint64_t LevelCache_InitChecksum(
     const char *const scope, const uint32_t version)
 {
@@ -164,32 +175,8 @@ const char *LevelCache_GetLevelKey(const GF_LEVEL *const level)
         break;
     }
 
-    const char *name = level->path != nullptr ? level->path : "unknown";
-    const char *const slash = strrchr(name, '/');
-    const char *const backslash = strrchr(name, '\\');
-    if (slash != nullptr && backslash != nullptr) {
-        name = slash > backslash ? slash + 1 : backslash + 1;
-    } else if (slash != nullptr) {
-        name = slash + 1;
-    } else if (backslash != nullptr) {
-        name = backslash + 1;
-    }
-
-    const size_t stem_len = strcspn(name, ".");
-    return String_FormatStatic(
-        "%c%d_%.*s", type_key, level->num, (int)stem_len, name);
-}
-
-static const char *M_GetPath(const char *const filename)
-{
-    const SHELL_ARGS *const args = Shell_GetArgs();
-    if (args == nullptr || args->startup.mod == nullptr
-        || args->startup.mod->name == nullptr) {
-        return nullptr;
-    }
-
-    return String_FormatStatic(
-        "%s/%s/%s", Shell_GetCacheDir(), args->startup.mod->name, filename);
+    const char *const name = level->key != nullptr ? level->key : "unknown";
+    return String_FormatStatic("%c%d_%s", type_key, level->num, name);
 }
 
 MYFILE *LevelCache_OpenBinaryRead(

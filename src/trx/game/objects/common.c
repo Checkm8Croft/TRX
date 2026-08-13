@@ -11,6 +11,11 @@
 #include <trx/game/objects/vars.h>
 #include <trx/game/output/common.h>
 
+typedef struct {
+    int32_t game_id;
+    OBJECT obj;
+} M_UNCATALOGED_SLOT;
+
 static OBJECT m_Objects[O_NUMBER_OF] = {};
 static STATIC_OBJECT_3D *m_StaticObjects3D = nullptr;
 static STATIC_OBJECT_2D *m_StaticObjects2D = nullptr;
@@ -18,6 +23,9 @@ static int32_t m_StaticObjects3DCount = 0;
 static int32_t m_StaticObjects2DCount = 0;
 static OBJECT_MESH **m_MeshPointers = nullptr;
 static int32_t m_MeshCount = 0;
+static int32_t m_MeshCapacity = 0;
+
+static VECTOR *m_UncatalogedSlots = nullptr;
 
 void Object_Reset(void)
 {
@@ -32,6 +40,12 @@ void Object_Reset(void)
     m_StaticObjects2DCount = 0;
     m_MeshPointers = nullptr;
     m_MeshCount = 0;
+    m_MeshCapacity = 0;
+
+    if (m_UncatalogedSlots != nullptr) {
+        Vector_Free(m_UncatalogedSlots);
+        m_UncatalogedSlots = nullptr;
+    }
 }
 
 void Object_InitialiseStaticObjects3D(const int32_t count)
@@ -81,6 +95,30 @@ OBJECT *Object_GetByGameID(const int32_t game_id)
         return nullptr;
     }
     return &m_Objects[object_id];
+}
+
+void Object_StoreUncatalogedSlot(const int32_t game_id, const OBJECT *const obj)
+{
+    if (m_UncatalogedSlots == nullptr) {
+        m_UncatalogedSlots = Vector_Create(sizeof(M_UNCATALOGED_SLOT));
+    }
+    const M_UNCATALOGED_SLOT slot = { .game_id = game_id, .obj = *obj };
+    Vector_Add(m_UncatalogedSlots, &slot);
+}
+
+const OBJECT *Object_GetUncatalogedSlot(const int32_t game_id)
+{
+    if (m_UncatalogedSlots == nullptr) {
+        return nullptr;
+    }
+    for (int32_t i = 0; i < m_UncatalogedSlots->count; i++) {
+        const M_UNCATALOGED_SLOT *const slot =
+            Vector_Get(m_UncatalogedSlots, i);
+        if (slot->game_id == game_id) {
+            return &slot->obj;
+        }
+    }
+    return nullptr;
 }
 
 STATIC_OBJECT_3D *Object_Get3DStatic(const int32_t static_id)
@@ -161,8 +199,9 @@ OBJECT_ID Object_GetCognateInverse(
 
 void Object_InitialiseMeshes(const int32_t mesh_count)
 {
-    m_MeshPointers =
-        GameBuf_Alloc(sizeof(OBJECT_MESH *) * mesh_count, GBUF_MESH_POINTERS);
+    m_MeshCapacity = mesh_count;
+    m_MeshPointers = GameBuf_Alloc(
+        sizeof(OBJECT_MESH *) * m_MeshCapacity, GBUF_MESH_POINTERS);
     m_MeshCount = 0;
 }
 
@@ -268,6 +307,21 @@ void Object_SwapMeshEx(
     SWAP(m_MeshPointers[mesh_idx1], m_MeshPointers[mesh_idx2]);
 
     Output_DispatchObjectMeshSwap(mesh_idx1, mesh_idx2);
+}
+
+void Object_SwapSprite(const OBJECT_ID object1_id, const OBJECT_ID object2_id)
+{
+    OBJECT *const obj1 = Object_Get(object1_id);
+    OBJECT *const obj2 = Object_Get(object2_id);
+    if (!obj1->loaded || !obj2->loaded) {
+        return;
+    }
+
+    // A sprite object keeps its sprite where a modelled one keeps its meshes:
+    // the first frame and how many there are. Nothing is dispatched, as the
+    // sprite is looked up by index as it is drawn.
+    SWAP(obj1->mesh_idx, obj2->mesh_idx);
+    SWAP(obj1->mesh_count, obj2->mesh_count);
 }
 
 ANIM *Object_GetAnim(const OBJECT *const obj, const int32_t anim_idx)

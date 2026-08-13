@@ -1,5 +1,6 @@
 #include <trx/game/objects/vehicles/quad_bike.h>
 
+#include <trx/config.h>
 #include <trx/core/json/util/read_io.h>
 #include <trx/core/json/util/write_io.h>
 #include <trx/game/anims.h>
@@ -21,15 +22,6 @@
 #include <trx/version.h>
 
 #define M_STATIC_RADIUS 100
-
-static const BITE m_QuadBites[6] = {
-    { .pos = { .x = -56, .y = -32, .z = -380 }, .mesh_num = 0 },
-    { .pos = { .x = 56, .y = -32, .z = -380 }, .mesh_num = 0 },
-    { .pos = { .x = -8, .y = 180, .z = -48 }, .mesh_num = 3 },
-    { .pos = { .x = 8, .y = 180, .z = -48 }, .mesh_num = 4 },
-    { .pos = { .x = 90, .y = 180, .z = -32 }, .mesh_num = 6 },
-    { .pos = { .x = -90, .y = 180, .z = -32 }, .mesh_num = 7 },
-};
 
 typedef enum {
     M_STATE_EMPTY,
@@ -74,11 +66,6 @@ typedef enum {
     // clang-format on
 } M_ANIM;
 
-static bool m_DontExitQuad;
-static bool m_HandbrakeStarting;
-static bool m_CanHandbrakeStart;
-static uint8_t m_ExhaustSmokeVel;
-
 typedef struct {
     int32_t velocity;
     int16_t front_rot;
@@ -103,6 +90,20 @@ typedef struct {
     int32_t front_rot_x_idx[2];
     bool test_static_collision;
 } M_PRIV;
+
+static const BITE m_QuadBites[6] = {
+    { .pos = { .x = -56, .y = -32, .z = -380 }, .mesh_num = 0 },
+    { .pos = { .x = 56, .y = -32, .z = -380 }, .mesh_num = 0 },
+    { .pos = { .x = -8, .y = 180, .z = -48 }, .mesh_num = 3 },
+    { .pos = { .x = 8, .y = 180, .z = -48 }, .mesh_num = 4 },
+    { .pos = { .x = 90, .y = 180, .z = -32 }, .mesh_num = 6 },
+    { .pos = { .x = -90, .y = 180, .z = -32 }, .mesh_num = 7 },
+};
+
+static bool m_DontExitQuad;
+static bool m_HandbrakeStarting;
+static bool m_CanHandbrakeStart;
+static uint8_t m_ExhaustSmokeVel;
 
 static void M_LoadPriv(ITEM *const item, JSON_READ_IO *const io)
 {
@@ -224,11 +225,6 @@ static void M_Initialise(const int16_t item_num)
     }
 
     item->extra_rotations = p->extra_rotation;
-
-    OBJECT_PROPERTY_VALUE value = {};
-    if (ObjectProperty_GetItemValue(item, "test_static_collision", &value)) {
-        p->test_static_collision = value.as_bool;
-    }
 }
 
 static int32_t M_GetOnQuadBike(
@@ -238,7 +234,7 @@ static int32_t M_GetOnQuadBike(
     ITEM *const lara_item = Lara_GetItem();
     LARA_INFO *const lara = Lara_GetLaraInfo();
 
-    if (!g_Input.action || (item->flags & IF_INVISIBLE) != 0
+    if (!g_Input.action || item->trigger.spent
         || lara->gun_status != LGS_ARMLESS || lara_item->gravity) {
         return 0;
     }
@@ -355,9 +351,9 @@ static void M_Explode(ITEM *const item)
     }
 
     const int16_t vehicle_item_num = Lara_Vehicle_GetIndex();
-    Item_Explode(vehicle_item_num, -2, 0);
-    Item_Kill(vehicle_item_num);
-    item->status = IS_DEACTIVATED;
+    Item_Shatter(vehicle_item_num, -2, 0);
+    Item_Destroy(vehicle_item_num);
+    Item_SetFinished(item, true);
     Sound_Effect(SFX_EXPLOSION_1, nullptr, SPM_NORMAL);
     Sound_Effect(SFX_EXPLOSION_2, nullptr, SPM_NORMAL);
     Lara_Vehicle_SetIndex(NO_ITEM);
@@ -405,9 +401,9 @@ static bool M_CheckGetOff(void)
             lara_item->fall_speed = item->fall_speed;
             lara_item->rot.x = 0;
             lara_item->rot.z = 0;
-            lara_item->hit_points = 0;
             lara->gun_status = LGS_ARMLESS;
-            item->flags |= IF_INVISIBLE;
+            Lara_Kill();
+            item->trigger.spent = true;
             return false;
         }
 
@@ -712,8 +708,8 @@ static void M_SkidooBaddieCollision(ITEM *const quad)
         while (item_num != NO_ITEM) {
             ITEM *const item = Item_Get(item_num);
 
-            if (!item->collidable || item->status == IS_INVISIBLE
-                || item == lara_item || item == quad) {
+            if (!item->is_collidable || !item->is_visible || item == lara_item
+                || item == quad) {
                 goto loop_end;
             }
 
@@ -744,8 +740,7 @@ static void M_SkidooBaddieCollision(ITEM *const quad)
                         quad->speed, quad->rot.y, item->room_num, 3);
                 }
                 if (item->hit_points > 0) {
-                    Item_TakeDamage(
-                        item, item->hit_points, IDF_NO_HIT_STATUS, quad);
+                    Item_TakeFatalDamage(item, quad);
                 }
             }
 
@@ -875,7 +870,7 @@ static int32_t M_SkidooDynamics(ITEM *const item)
     new_pos.x = item->pos.x;
     new_pos.z = item->pos.z;
 
-    if ((item->flags & IF_INVISIBLE) == 0) {
+    if (!item->trigger.spent) {
         M_SkidooBaddieCollision(item);
     }
 
@@ -1000,7 +995,7 @@ static int32_t M_SkidooDynamics(ITEM *const item)
     return anim;
 }
 
-static void M_AnimateQuadBike(
+static bool M_AnimateQuadBike(
     ITEM *const item, const int32_t hit_wall, const bool killed)
 {
     int16_t state;
@@ -1148,9 +1143,12 @@ static void M_AnimateQuadBike(
     if (Room_Get(item->room_num)->flags.underwater
         || Room_Get(item->room_num)->flags.swamp) {
         lara_item->goal_anim_state = M_STATE_FALL_OFF;
-        lara_item->hit_points = 0;
+        Lara_Kill();
         M_Explode(item);
+        return false;
     }
+
+    return true;
 }
 
 static bool M_UserControl(ITEM *item, int32_t height, int32_t *pitch)
@@ -1328,6 +1326,43 @@ static bool M_UserControl(ITEM *item, int32_t height, int32_t *pitch)
     return false;
 }
 
+static void M_Setup(OBJECT *const obj)
+{
+    if (!obj->loaded) {
+        return;
+    }
+
+    obj->initialise_func = M_Initialise;
+    obj->priv_size = sizeof(M_PRIV);
+    obj->priv_load_func = M_LoadPriv;
+    obj->priv_save_func = M_SavePriv;
+    obj->collision_func = M_Collision;
+    obj->draw_func = Object_DrawAnimatingItem;
+    obj->event_func = Vehicle_HandleEvent;
+    obj->save_position = true;
+    obj->save_flags = true;
+    obj->save_anim = true;
+
+    M_EnableWheelExtraRotations(obj);
+
+    OBJECT_PROPERTIES(
+        obj,
+        OBJECT_PROPERTY_STORED(
+            "track_1", -1, "Random music track pool, slot 1. -1 = disabled."),
+        OBJECT_PROPERTY_STORED(
+            "track_2", -1, "Random music track pool, slot 2. -1 = disabled."),
+        OBJECT_PROPERTY_STORED(
+            "track_3", -1, "Random music track pool, slot 3. -1 = disabled."),
+        OBJECT_PROPERTY_STORED(
+            "track_4", -1, "Random music track pool, slot 4. -1 = disabled."),
+        OBJECT_PROPERTY_STORED(
+            "is_heavy", true,
+            "Whether or not this vehicle can activate heavy triggers."),
+        OBJECT_PROPERTY(
+            M_PRIV, test_static_collision, false,
+            "Whether or not this vehicle can collide with static meshes."));
+}
+
 bool QuadBike_Control(void)
 {
     ITEM *const item = Lara_Vehicle_GetItem();
@@ -1453,15 +1488,23 @@ bool QuadBike_Control(void)
 
         lara_item->pos = item->pos;
         lara_item->rot = item->rot;
-        M_AnimateQuadBike(item, hit_wall, killed);
+        if (!M_AnimateQuadBike(item, hit_wall, killed)) {
+            return false;
+        }
         Item_Animate(lara_item);
         Lara_Vehicle_SyncItemAnim();
         g_Camera.target_elevation = -5460;
 
         if (quad->flags & 0x40 && item->pos.y == item->floor) {
-            Item_Explode(lara->item_num, -1, 0);
-            lara_item->hit_points = 0;
-            lara_item->flags |= IF_INVISIBLE;
+            if (g_Config.debug.enable_invulnerability) {
+                lara_item->goal_anim_state = LS(LS_STOP);
+                lara_item->current_anim_state = LS(LS_STOP);
+                Item_SwitchToAnim(lara_item, LA(LA_FREEFALL_LAND), 0);
+            } else {
+                Item_Shatter(lara->item_num, -1, 0);
+                Lara_Kill();
+                lara_item->trigger.spent = true;
+            }
             M_Explode(item);
             return false;
         }
@@ -1512,43 +1555,6 @@ bool QuadBike_Control(void)
     }
 
     return M_CheckGetOff();
-}
-
-static void M_Setup(OBJECT *const obj)
-{
-    if (!obj->loaded) {
-        return;
-    }
-
-    obj->initialise_func = M_Initialise;
-    obj->priv_size = sizeof(M_PRIV);
-    obj->priv_load_func = M_LoadPriv;
-    obj->priv_save_func = M_SavePriv;
-    obj->collision_func = M_Collision;
-    obj->draw_func = Object_DrawAnimatingItem;
-    obj->event_func = Vehicle_HandleEvent;
-    obj->save_position = true;
-    obj->save_flags = true;
-    obj->save_anim = true;
-
-    M_EnableWheelExtraRotations(obj);
-
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "track_1", -1, "Random music track pool, slot 1. -1 = disabled."),
-        OBJECT_PROPERTY_INT(
-            "track_2", -1, "Random music track pool, slot 2. -1 = disabled."),
-        OBJECT_PROPERTY_INT(
-            "track_3", -1, "Random music track pool, slot 3. -1 = disabled."),
-        OBJECT_PROPERTY_INT(
-            "track_4", -1, "Random music track pool, slot 4. -1 = disabled."),
-        OBJECT_PROPERTY_BOOL(
-            "is_heavy", true,
-            "Whether or not this vehicle can activate heavy triggers."),
-        OBJECT_PROPERTY_BOOL(
-            "test_static_collision", false,
-            "Whether or not this vehicle can collide with static meshes."));
 }
 
 REGISTER_OBJECT(O_QUAD_BIKE, M_Setup)

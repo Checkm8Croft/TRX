@@ -59,6 +59,18 @@ static const LARA_TRX_STATE m_HoldStates[] = {
     LS_PICKUP,
     LS_SWITCH_ON,
     LS_SWITCH_OFF,
+    LS_QUICK_TURN,
+    LS_TRX_INVALID, // sentinel
+    // clang-format on
+};
+
+// TR4 also keeps the arm on the flare while running and crouching.
+static const LARA_TRX_STATE m_HoldStatesTR4[] = {
+    // clang-format off
+    LS_RUN,
+    LS_CROUCH_IDLE,
+    LS_CROUCH_TURN_LEFT,
+    LS_CROUCH_TURN_RIGHT,
     LS_TRX_INVALID, // sentinel
     // clang-format on
 };
@@ -183,7 +195,8 @@ static void M_ControlInHand(void)
         return;
     }
 
-    if (g_TRVersion < 3) {
+    // A TR4 flare gives off no sparks; its light is the whole effect.
+    if (g_TRVersion != 3) {
         return;
     }
 
@@ -220,7 +233,8 @@ static bool M_CanUseFlareControl(void)
         return anim != LA_CROUCH_PICKUP && anim != LA_CRAWL_PICKUP
             && anim != LA_FAST_PICKUP;
     }
-    return Lara_Vehicle_IsMounted() || Lara_HasState(m_HoldStates);
+    return Lara_Vehicle_IsMounted() || Lara_HasState(m_HoldStates)
+        || (g_TRVersion == 4 && Lara_HasState(m_HoldStatesTR4));
 }
 
 static void M_ControlArmless(void)
@@ -300,7 +314,7 @@ void Lara_Flare_Draw(void)
         frame_num = LF_FL_DRAW;
     } else if (frame_num == LF_FL_DRAW_GOT_IT) {
         Lara_Flare_DrawMeshes();
-        if (!Game_IsBonusFlagSet(GBF_NGPLUS)) {
+        if (!Gun_HasInfiniteAmmo(LGT_FLARE)) {
             Inv_RemoveItem(O_FLAREBOX_ITEM);
         }
     } else if (frame_num >= LF_FL_IGNITE && frame_num <= LF_FL_2_HOLD - 2) {
@@ -463,8 +477,7 @@ void Lara_Flare_Dispose(const bool thrown)
         FlareItem_SetAge(item, lara_info->flare.age, false);
     }
 
-    Item_AddActive(item_num);
-    item->status = IS_ACTIVE;
+    Item_AddSimulated(item_num);
 
 finish:
     M_UndrawMeshes();

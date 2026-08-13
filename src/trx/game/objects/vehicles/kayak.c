@@ -1104,7 +1104,7 @@ static void M_KayakToBaddieCollision(const ITEM *const p)
              item_num != NO_ITEM; item_num = item->next_item) {
             item = Item_Get(item_num);
 
-            if (!item->collidable || item->status == IS_INVISIBLE) {
+            if (!item->is_collidable || !item->is_visible) {
                 continue;
             }
 
@@ -1165,7 +1165,7 @@ static void M_Setup(OBJECT *const obj)
 
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_BOOL(
+        OBJECT_PROPERTY_STORED(
             "is_heavy", true,
             "Whether or not this vehicle can activate heavy triggers."));
 }

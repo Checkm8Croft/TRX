@@ -8,21 +8,15 @@ typedef enum {
     // clang-format on
 } M_STATE;
 
-static bool M_KillOnTrigger(const ITEM *const item)
-{
-    OBJECT_PROPERTY_VALUE value = {};
-    if (!ObjectProperty_GetItemValue(item, "kill_on_trigger", &value)) {
-        return false;
-    }
-
-    return value.as_bool;
-}
+typedef struct {
+    bool kill_on_trigger;
+} M_PRIV;
 
 static void M_Collision(
     const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
 {
     ITEM *const item = Item_Get(item_num);
-    if (item->status == IS_ACTIVE && item->current_anim_state == M_STATE_OFF) {
+    if (Item_IsInPlay(item) && item->current_anim_state == M_STATE_OFF) {
         Object_Collision(item_num, lara_item, coll);
     } else {
         Object_Collision_Trap(item_num, lara_item, coll);
@@ -32,13 +26,14 @@ static void M_Collision(
 static void M_Control(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
+    const M_PRIV *const p = item->priv;
 
-    if (M_KillOnTrigger(item) && !Item_IsTriggerActive(item)) {
-        Item_Kill(item_num);
+    if (p->kill_on_trigger && !Item_IsTriggerActive(item)) {
+        Item_Destroy(item_num);
         return;
     }
 
-    if (Item_IsTriggerActive(item) && (item->flags & IF_ONE_SHOT) == 0) {
+    if (Item_IsTriggerActive(item) && !item->trigger.spent) {
         item->goal_anim_state = M_STATE_ON;
     } else if (item->goal_anim_state != M_STATE_OFF) {
         item->goal_anim_state = M_STATE_OFF;
@@ -54,9 +49,9 @@ static void M_Control(const int16_t item_num)
         Item_UpdateRoom(item_num, room_num);
     }
 
-    if (item->status == IS_DEACTIVATED) {
-        Item_RemoveActive(item_num);
-        item->collidable = false;
+    if (item->is_finished) {
+        Item_RemoveSimulated(item_num);
+        item->is_collidable = false;
     }
 }
 
@@ -67,10 +62,11 @@ static void M_Setup(OBJECT *const obj)
     obj->save_position = true;
     obj->save_flags = true;
     obj->save_anim = true;
+    obj->priv_size = sizeof(M_PRIV);
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_BOOL(
-            "kill_on_trigger", false,
+        OBJECT_PROPERTY(
+            M_PRIV, kill_on_trigger, false,
             "Kill the item immediately while its trigger is inactive."));
 }
 

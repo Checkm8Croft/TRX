@@ -1,5 +1,6 @@
 #include <trx/config.h>
 #include <trx/game/camera.h>
+#include <trx/game/cutseq.h>
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/input/backends/base.h>
 #include <trx/game/input/backends/controller.h>
@@ -8,6 +9,15 @@
 #include <trx/game/input/common.h>
 #include <trx/game/lara.h>
 #include <trx/version.h>
+
+// How long TR4 withholds the look input before it counts as a look rather
+// than a tap, in frames.
+#define M_TR4_LOOK_DELAY 6
+
+static int32_t m_LookFrames = 0;
+static bool m_IsLookHeld = false;
+static INPUT_STATE m_HoldOff = {};
+static INPUT_STATE m_HoldOffLinger = {};
 
 static void M_UpdateFromBackend(
     INPUT_STATE *const s, const INPUT_BACKEND_IMPL *const backend,
@@ -19,26 +29,77 @@ static void M_UpdateFromBackend(
     backend->custom_update(s, layout);
 }
 
+// TR4 changes target off the look input rather than one of its own. With
+// weapons ready it withholds look for the first few frames; letting go before
+// they are up counts as a tap, and changes target instead.
+static void M_UpdateTargetChange(void)
+{
+    const TARGET_CHANGE_MODE mode = g_Config.gameplay.target_change_mode;
+    const bool is_ready = Lara_GetLaraInfo()->gun_status == LGS_READY;
+
+    if (mode != TARGET_CHANGE_MODE_TR4 || !is_ready) {
+        m_LookFrames = 0;
+        m_IsLookHeld = false;
+        if (mode == TARGET_CHANGE_MODE_OFF || !is_ready) {
+            g_Input.change_target = 0;
+        }
+        return;
+    }
+
+    // Look drives it here, so a binding of its own does not.
+    g_Input.change_target = 0;
+
+    if (!g_Input.look) {
+        g_Input.change_target = m_LookFrames > 0 && !m_IsLookHeld;
+        m_LookFrames = 0;
+        m_IsLookHeld = false;
+        return;
+    }
+
+    if (!m_IsLookHeld && ++m_LookFrames > M_TR4_LOOK_DELAY) {
+        m_IsLookHeld = true;
+    }
+    g_Input.look = m_IsLookHeld;
+}
+
+void Input_HoldOffRole(const INPUT_ROLE role)
+{
+    InputState_SetRole(&m_HoldOff, role, true);
+}
+
+void Input_HoldOffSkip(void)
+{
+    Input_HoldOffRole(INPUT_ROLE_INVENTORY);
+    Input_HoldOffRole(INPUT_ROLE_MENU_BACK);
+    Input_HoldOffRole(INPUT_ROLE_MENU_CONFIRM);
+}
+
 void Input_Update(void)
 {
     InputState_Clear(&g_Input);
 
-    M_UpdateFromBackend(
-        &g_Input, &g_Input_Keyboard,
-        g_Config.input.layout[INPUT_BACKEND_KEYBOARD]);
-    M_UpdateFromBackend(
-        &g_Input, &g_Input_Controller,
-        g_Config.input.layout[INPUT_BACKEND_CONTROLLER]);
-    M_UpdateFromBackend(
-        &g_Input, &g_Input_Touch, g_Config.input.layout[INPUT_BACKEND_TOUCH]);
+    for (INPUT_BACKEND backend = 0; backend < INPUT_BACKEND_NUMBER_OF;
+         backend++) {
+        if (!Input_IsBackendEnabled(backend)) {
+            continue;
+        }
+        M_UpdateFromBackend(
+            &g_Input, Input_GetBackendImpl(backend),
+            g_Config.input.layout[backend]);
+    }
 
     // Suppress roles whose bindings are subsets of longer active combos.
-    g_Input_Keyboard.resolve_combos(
-        g_Config.input.layout[INPUT_BACKEND_KEYBOARD], &g_Input);
-    g_Input_Controller.resolve_combos(
-        g_Config.input.layout[INPUT_BACKEND_CONTROLLER], &g_Input);
-    g_Input_Touch.resolve_combos(
-        g_Config.input.layout[INPUT_BACKEND_TOUCH], &g_Input);
+    for (INPUT_BACKEND backend = 0; backend < INPUT_BACKEND_NUMBER_OF;
+         backend++) {
+        if (!Input_IsBackendEnabled(backend)) {
+            continue;
+        }
+        Input_GetBackendImpl(backend)->resolve_combos(
+            g_Config.input.layout[backend], &g_Input);
+    }
+
+    // What the devices say, before the game has its way with it.
+    const INPUT_STATE raw = g_Input;
 
     g_Input.camera_reset |= g_Input.look;
     g_Input.menu_up |= g_Input.forward;
@@ -46,7 +107,9 @@ void Input_Update(void)
     g_Input.menu_left |= g_Input.left;
     g_Input.menu_right |= g_Input.right;
     g_Input.menu_back |= g_Input.option;
-    g_Input.option &= g_Camera.type != CAM_CINEMATIC;
+    // A cutscene holds the option ring shut from the moment it is requested,
+    // which is before it takes the camera.
+    g_Input.option &= g_Camera.type != CAM_CINEMATIC && !CutSeq_IsActive();
     g_Input.roll |= g_Input.forward && g_Input.back;
     if (g_Input.left && g_Input.right) {
         g_Input.left = 0;
@@ -70,9 +133,16 @@ void Input_Update(void)
         }
     }
 
-    if (!g_Config.gameplay.enable_target_change
-        || Lara_GetLaraInfo()->gun_status != LGS_READY) {
-        g_Input.change_target = 0;
+    M_UpdateTargetChange();
+
+    for (int32_t i = 0; i < INPUT_STATE_ANY_WORDS; i++) {
+        // Read from the device, not from g_Input: a scene suppresses the
+        // option role while it plays. The grace update covers the keyboard
+        // firing a deferred combination key once it comes up.
+        const uint64_t held = m_HoldOff.any[i] & raw.any[i];
+        g_Input.any[i] &= ~(m_HoldOff.any[i] | m_HoldOffLinger.any[i]);
+        m_HoldOffLinger.any[i] = m_HoldOff.any[i] & ~held;
+        m_HoldOff.any[i] = held;
     }
 
     g_InputDB = Input_GetDebounced(g_Input);

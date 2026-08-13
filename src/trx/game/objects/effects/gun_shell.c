@@ -6,6 +6,7 @@
 #include <trx/game/random.h>
 #include <trx/game/rooms.h>
 #include <trx/game/sound.h>
+#include <trx/game/sparks.h>
 #include <trx/version.h>
 
 static void M_Control(const int16_t effect_num)
@@ -35,10 +36,12 @@ static void M_Control(const int16_t effect_num)
 
     const ROOM *const room = Room_Get(room_num);
     if (room->flags.underwater) {
+        Sparks_TriggerSmallSplash(
+            (XYZ_32) { effect->pos.x, room->max_ceiling, effect->pos.z }, 8);
         FX_Water_SetupRipple(
             effect->pos.x, room->max_ceiling, effect->pos.z,
             -8 - (Random_GetControl() & 3), true);
-        Effect_Kill(effect_num);
+        Effect_Destroy(effect_num);
         return;
     }
 
@@ -49,7 +52,7 @@ static void M_Control(const int16_t effect_num)
         effect->counter--;
 
         if (effect->counter < 0 || effect->speed < 8) {
-            Effect_Kill(effect_num);
+            Effect_Destroy(effect_num);
             return;
         }
 
@@ -64,7 +67,7 @@ static void M_Control(const int16_t effect_num)
         effect->counter--;
 
         if (effect->counter < 0 || effect->speed < 8) {
-            Effect_Kill(effect_num);
+            Effect_Destroy(effect_num);
             return;
         }
 
@@ -82,7 +85,7 @@ static void M_Control(const int16_t effect_num)
 
 static void M_Setup(OBJECT *const obj)
 {
-    obj->control_func = M_Control;
+    obj->effect_control_func = M_Control;
     obj->mesh_count = 0;
 }
 

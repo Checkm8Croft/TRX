@@ -73,6 +73,7 @@
                 "common_pickup_meshes.bin",
                 "scotland_textures.bin",
                 "bat_sprites.bin",
+                "flamethrower_sfx.bin",
             ],
         },
 
@@ -101,7 +102,6 @@
         // 3. Shakespeare Cliff
         {
             "path": "chunnel.tr2",
-            "script": "chunnel.lua",
             "music_track": 74,
             "lara_outfit": "tr3_nevada",
             "sequence": [
@@ -135,6 +135,7 @@
             ],
             "injections": [
                 "antarc_airlock.bin",
+                "undersea_wheel_frames.bin",
                 "lara_guns.bin",
                 "undersea_animating_bounds.bin",
                 "undersea_train.bin",
@@ -151,7 +152,6 @@
         // 5. It's a Madhouse!
         {
             "path": "zoo.tr2",
-            "script": "zoo.lua",
             "music_track": 34,
             "lara_outfit": "tr3_catsuit",
             "sequence": [
@@ -215,7 +215,8 @@
         "enable_item_examining",
         "disable_trex_collision",
         "fix_bear_ai",
-        "enable_save_crystals",
+        // The Lost Artefact ships no crystals in any level.
+        "save_crystal_mode",
         "enable_ps1_crystals",
         "fix_chainblock_secret_sound",
         "enable_compass_stats",
@@ -229,5 +230,6 @@
         "enable_cinematic_skips",
         "fix_animated_spikes",
         "fix_animated_sprites",
+        "fix_lift_collision",
     ],
 }

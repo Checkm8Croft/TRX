@@ -243,7 +243,7 @@ static void M_ControlRocket(ITEM *const item)
             item->required_anim_state += 32;
 
             if (item->required_anim_state > 16000) {
-                Item_Kill(Item_GetIndex(item));
+                Item_Destroy(Item_GetIndex(item));
             } else {
                 const int32_t base = 0x4000 - item->required_anim_state;
                 const RGB_888 color = {
@@ -446,11 +446,6 @@ static void M_ControlMain(const int16_t item_num)
     M_ControlBlast(item);
 }
 
-void M_InitialiseSupport(const int16_t item_num)
-{
-    m_SupportFallen = false;
-}
-
 static void M_ControlSupport(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
@@ -482,6 +477,11 @@ static void M_SetupBlast(OBJECT *const obj)
     obj->draw_func = nullptr;
     obj->save_flags = true;
     obj->save_anim = true;
+}
+
+static void M_InitialiseSupport(const int16_t item_num)
+{
+    m_SupportFallen = false;
 }
 
 static void M_SetupSupport(OBJECT *const obj)

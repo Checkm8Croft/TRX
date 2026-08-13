@@ -13,15 +13,15 @@
 #include <trx/game/stats.h>
 #include <trx/version.h>
 
-typedef struct {
-    int16_t base_x_rot;
-    bool base_x_rot_valid;
-} M_PRIV;
-
 #define M_TR3_HIT_POINTS 256
 #define M_TR3_WOBBLE_START 192
 #define M_TR3_SPEED_UW 128
 #define M_TR3_SPEED_AIR 256
+
+typedef struct {
+    int16_t base_x_rot;
+    bool base_x_rot_valid;
+} M_PRIV;
 
 static void M_SetTR3ProjectileShade(ITEM *const item)
 {
@@ -72,7 +72,7 @@ static void M_Control_TR3(const int16_t item_num)
     };
     if (Gun_SmashItems(old_pos, new_pos, nullptr, item->object_id)
         == PROJECTILE_HIT_STOP) {
-        Item_Kill(item_num);
+        Item_Destroy(item_num);
         return;
     }
 
@@ -84,7 +84,7 @@ static void M_Control_TR3(const int16_t item_num)
             continue;
         }
 
-        if (!target_item->collidable) {
+        if (!target_item->is_collidable) {
             continue;
         }
 
@@ -137,7 +137,7 @@ static void M_Control_TR3(const int16_t item_num)
             Stats_AddAmmoHits();
         }
 
-        Item_Kill(item_num);
+        Item_Destroy(item_num);
         return;
     }
 
@@ -170,7 +170,7 @@ static void M_Control_TR3(const int16_t item_num)
 
         item->hit_points--;
         if (item->hit_points <= 0) {
-            Item_Kill(item_num);
+            Item_Destroy(item_num);
             return;
         }
 
@@ -247,7 +247,7 @@ static void M_Control_TR12(const int16_t item_num)
             continue;
         }
 
-        if (!target_item->collidable) {
+        if (!target_item->is_collidable) {
             continue;
         }
 
@@ -313,7 +313,7 @@ static void M_Control_TR12(const int16_t item_num)
     }
 
     if (hit) {
-        Item_Kill(item_num);
+        Item_Destroy(item_num);
     } else if (Room_Get(item->room_num)->flags.underwater) {
         Spawn_Bubble(&item->pos, item->room_num);
     }

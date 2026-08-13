@@ -2,6 +2,7 @@
 
 #include <trx/config.h>
 #include <trx/core/strings.h>
+#include <trx/core/subsystem.h>
 #include <trx/game/camera.h>
 #include <trx/game/const.h>
 #include <trx/game/game.h>
@@ -195,7 +196,7 @@ static void M_DrawTrackTimer(const GYM_TRACK_TYPE track_type)
     }
 
     const RESUME_INFO *const resume =
-        Savegame_GetCurrentInfo(Game_GetCurrentLevel());
+        SG_Resume_GetEntry(Game_GetCurrentLevel());
     const char *const buffer =
         M_FormatAssaultTimeText(resume->stats.timer, false);
 
@@ -454,14 +455,14 @@ static void M_AnimatePickups(const int32_t frames)
     }
 }
 
-void Overlay_Init(void)
+static void M_Init(void)
 {
     if (m_UI == nullptr) {
         m_UI = UI_Overlay_Init();
     }
 }
 
-void Overlay_Shutdown(void)
+static void M_Shutdown(void)
 {
     if (m_UI != nullptr) {
         UI_Overlay_Free(m_UI);
@@ -625,3 +626,5 @@ void Overlay_AddDisplayPickup(const OBJECT_ID obj_id)
         return;
     }
 }
+
+REGISTER_SUBSYSTEM(.init = M_Init, .shutdown = M_Shutdown)

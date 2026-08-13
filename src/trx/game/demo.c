@@ -1,6 +1,7 @@
 #include <trx/game/demo.h>
 
 #include <trx/config.h>
+#include <trx/core/subsystem.h>
 #include <trx/debug.h>
 #include <trx/game/camera.h>
 #include <trx/game/game.h>
@@ -19,7 +20,7 @@
 #define L_MODIFY_CONFIG()                                                      \
     X_PROCESS_CONFIG(gameplay.disable_healing_between_levels, false);          \
     X_PROCESS_CONFIG(gameplay.enable_fast_pickups, false);                     \
-    X_PROCESS_CONFIG(gameplay.enable_target_change, false);                    \
+    X_PROCESS_CONFIG(gameplay.target_change_mode, TARGET_CHANGE_MODE_OFF);     \
     X_PROCESS_CONFIG(gameplay.enable_tr2_jumping, g_TRVersion >= 2);           \
     X_PROCESS_CONFIG(gameplay.enable_tr2_swim_cancel, g_TRVersion >= 2);       \
     X_PROCESS_CONFIG(gameplay.enable_tr2_swimming, g_TRVersion >= 2);          \
@@ -49,6 +50,12 @@ typedef struct {
 static int32_t m_LastDemoNum = 0;
 static M_PRIV m_Priv;
 
+static void M_Shutdown(void)
+{
+    m_Priv = (M_PRIV) {};
+    m_LastDemoNum = 0;
+}
+
 static void M_PrepareConfig(M_PRIV *const p)
 {
     // Changing certains settings affects negatively the original game demo
@@ -56,17 +63,16 @@ static void M_PrepareConfig(M_PRIV *const p)
     p->old_bonus_flag = Game_GetBonusFlag();
     Game_SetBonusFlag(GBF_NONE);
 #define X_PROCESS_CONFIG(var, value)                                           \
-    ASSERT(Config_PushOptionOverride(                                          \
-        &g_Config.var, &(typeof(g_Config.var)) { value }));
+    ASSERT(CONFIG_PUSH_HOLD(g_Config.var, value, CONFIG_HOLD_DEMO));
     L_MODIFY_CONFIG();
 #undef X_PROCESS_CONFIG
+    Config_Update();
 }
 
 static void M_RestoreConfig(M_PRIV *const p)
 {
     Game_SetBonusFlag(p->old_bonus_flag);
-#define X_PROCESS_CONFIG(var, value)                                           \
-    ASSERT(Config_PopOptionOverride(&g_Config.var));
+#define X_PROCESS_CONFIG(var, value) ASSERT(CONFIG_POP_HOLD(g_Config.var));
     L_MODIFY_CONFIG();
 #undef X_PROCESS_CONFIG
     Config_Update();
@@ -276,3 +282,5 @@ void Demo_StopFlashing(void)
         .flash_enabled = false,
     });
 }
+
+REGISTER_SUBSYSTEM(.shutdown = M_Shutdown)

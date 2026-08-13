@@ -375,7 +375,7 @@ static void M_ProcessEvent(const SDL_Event *const event)
 {
     if (event->type == SDL_FINGERDOWN
         && !g_Config.input.enable_touch_controls) {
-        g_Config.input.enable_touch_controls = true;
+        CONFIG_SET(g_Config.input.enable_touch_controls, true);
         TouchOverlay_SetVisible(true);
         Config_Write();
     }
@@ -430,12 +430,11 @@ static const char *M_GetName(
         }
         return nullptr;
     }
-    // Multi-position combo: join with "+"
     static char buf[256];
     buf[0] = '\0';
     for (int32_t k = 0; k < b->pos_count; k++) {
         if (k > 0) {
-            strcat(buf, "+");
+            strcat(buf, INPUT_COMBO_SEPARATOR);
         }
         const int32_t p = b->positions[k];
         if (p >= 0 && p < (int32_t)ARRAY_SIZE(m_PosGlyphs)) {
@@ -497,9 +496,9 @@ static bool M_ReadAndAssign(
 
 static bool M_AssignFromJSONObject(
     const INPUT_LAYOUT layout, const INPUT_ROLE role, const int32_t slot,
-    JSON_OBJECT *const bind_obj)
+    const JSON_OBJECT *const bind_obj)
 {
-    JSON_ARRAY *const combo_arr = JSON_ObjectGetArray(bind_obj, "combo");
+    const JSON_ARRAY *const combo_arr = JSON_ObjectGetArray(bind_obj, "combo");
     if (combo_arr != nullptr) {
         const int32_t count = combo_arr->length < INPUT_COMBO_MAX_KEYS
             ? (int32_t)combo_arr->length

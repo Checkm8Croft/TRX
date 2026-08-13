@@ -11,12 +11,18 @@
 #include <trx/game/level/cache.h>
 #include <trx/game/objects/common.h>
 #include <trx/game/output.h>
+#include <trx/game/output/textures_gl.h>
 #include <trx/game/output/vertex_range.h>
+#include <trx/game/sparks/enum.h>
+#include <trx/game/viewport.h>
+#include <trx/gl/renderer.h>
 #include <trx/gl/utils.h>
 #include <trx/version.h>
 
 #include <SDL2/SDL_mutex.h>
 #include <string.h>
+
+#define M_TRANSPARENCY_CACHE_VERSION 1
 
 typedef struct {
     OUTPUT_UVW corners[4];
@@ -84,7 +90,6 @@ static bool M_IsUVRotateEnabled(void)
     return m_UVRotateRangeCount > 0 && Output_GetUVRotateSpeed() != 0;
 }
 
-#define M_TRANSPARENCY_CACHE_VERSION 1
 static uint64_t M_ComputeTransparencyChecksum(void)
 {
     const GF_LEVEL *const level = GF_GetCurrentLevel();
@@ -641,7 +646,7 @@ void Output_Textures_Shutdown(void)
         m_Priv.tex_env_map = 0;
     }
 
-    // These are GameBuf-backed and become invalid once GameBuf_Shutdown runs.
+    // These are GameBuf-backed and become invalid once its arenas are freed.
     m_TexturePageCount = 0;
     m_TexturePages8 = nullptr;
     m_TexturePages32 = nullptr;
@@ -674,23 +679,23 @@ void Output_Textures_UpdateEnvironmentMap(void)
         return;
     }
 
-    GLint viewport[4];
-    glGetIntegerv(GL_VIEWPORT, viewport);
-    TRX_GL_CheckError();
+    // A multisampled framebuffer cannot be copied out of, so the scene has to
+    // be resolved before it can be read back here.
+    const GLuint src_fbo = TRX_GL_Renderer_ResolveSceneFbo();
+    const VIEWPORT_RECT rect = Viewport_GetRect(VIEWPORT_SCENE);
 
-    const GLint vp_x = viewport[0];
-    const GLint vp_y = viewport[1];
-    const GLint vp_w = viewport[2];
-    const GLint vp_h = viewport[3];
+    const int32_t side = MIN(rect.width, rect.height);
+    const int32_t x = (rect.width - side) / 2;
+    const int32_t y = (rect.height - side) / 2;
 
-    const int32_t side = MIN(vp_w, vp_h);
-    const int32_t x = vp_x + (vp_w - side) / 2;
-    const int32_t y = vp_y + (vp_h - side) / 2;
-    const int32_t w = side;
-    const int32_t h = side;
+    GLint prev_read_fbo = 0;
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read_fbo);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, src_fbo);
 
     glBindTexture(GL_TEXTURE_2D, m_Priv.tex_env_map);
-    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, w, h, 0);
+    glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, x, y, side, side, 0);
+
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read_fbo);
     TRX_GL_CheckError();
 }
 
@@ -710,6 +715,36 @@ GLuint Output_Textures_GetAtlasTexture(void)
 GLuint Output_Textures_GetEnvMapTexture(void)
 {
     return m_Priv.tex_env_map;
+}
+
+OUTPUT_ATLAS_RECT Output_Textures_GetEnvMapRect(void)
+{
+    // The OG reflects off spriteinfo[objects[DEFAULT_SPRITES].mesh_index + 11],
+    // spreading the normal over a fixed 64x64 window anchored at that sprite -
+    // which is just its own image, since the OG sprite is 64x64. TRX packs the
+    // TR3 and TR4 sparks into one sequence, so OG TR4's sprite 11 lives at
+    // SPARK_TYPE_LENS_FLARE_1; the OG's index and its hardcoded window size
+    // both stop applying, and the sprite's own rect is what we map across.
+    const OBJECT *const obj = Object_Get(O_SPARKS_GFX);
+    if (!obj->loaded || SPARK_TYPE_LENS_FLARE_1 >= ABS(obj->mesh_count)) {
+        return (OUTPUT_ATLAS_RECT) { .layer = -1 };
+    }
+
+    const int32_t sprite_idx = obj->mesh_idx + SPARK_TYPE_LENS_FLARE_1;
+    if (sprite_idx < 0 || sprite_idx >= Output_GetSpriteTextureCount()) {
+        return (OUTPUT_ATLAS_RECT) { .layer = -1 };
+    }
+
+    const SPRITE_TEXTURE *const sprite = Output_GetSpriteTexture(sprite_idx);
+    const float adj = 0.1f / 256.0f;
+    const float u0 = (sprite->offset & 0xFF) / 256.0f + adj;
+    const float v0 = (sprite->offset >> 8) / 256.0f + adj;
+    return (OUTPUT_ATLAS_RECT) {
+        .uv0 = { u0, v0 },
+        .uv1 = { u0 + sprite->width / 65536.0f - 2 * adj,
+                 v0 + sprite->height / 65536.0f - 2 * adj },
+        .layer = sprite->tex_page,
+    };
 }
 
 int32_t Output_Textures_GetObjectUVWIndex(int32_t texture_idx, int32_t corner)

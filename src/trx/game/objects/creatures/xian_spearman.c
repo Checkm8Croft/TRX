@@ -65,6 +65,13 @@ typedef enum {
     // clang-format on
 } M_ANIM;
 
+typedef struct {
+    int32_t hit_1_damage;
+    int32_t hit_2_damage;
+    int32_t hit_5_damage;
+    int32_t hit_6_damage;
+} M_PRIV;
+
 static const BITE m_XianSpearmanLeftSpear = {
     .pos = { .x = 0, .y = 0, .z = 920 },
     .mesh_num = 11,
@@ -74,17 +81,6 @@ static const BITE m_XianSpearmanRightSpear = {
     .pos = { .x = 0, .y = 0, .z = 920 },
     .mesh_num = 18,
 };
-
-static int32_t M_GetDamage(
-    const ITEM *const item, const char *const key, const int32_t default_value)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, key, &damage)) {
-        return damage.as_int;
-    }
-
-    return default_value;
-}
 
 static void M_DoDamage(
     const ITEM *const item, CREATURE *const creature, const int32_t damage)
@@ -112,7 +108,9 @@ static void M_Initialise(const int16_t item_num)
     Item_SwitchToAnim(item, M_ANIM_START, 0);
     item->goal_anim_state = M_STATE_START;
     item->current_anim_state = M_STATE_START;
-    item->status = IS_INACTIVE;
+    // A visible, at-rest statue until triggered; override the hidden default
+    // Item_Initialise gives an intelligent item.
+    item->is_visible = true;
     item->mesh_bits = 0;
 }
 
@@ -123,6 +121,7 @@ static void M_Control(const int16_t item_num)
     }
 
     ITEM *const item = Item_Get(item_num);
+    const M_PRIV *const p = item->priv;
     CREATURE *const creature = item->creature_data;
 
     int16_t head = 0;
@@ -140,12 +139,12 @@ static void M_Control(const int16_t item_num)
             Sound_Effect(SFX_EXPLOSION_1, nullptr, SPM_NORMAL);
             item->mesh_bits = -1;
             item->object_id = O_XIAN_SPEARMAN_STATUE;
-            Item_Explode(item_num, -1, 0);
+            Item_Shatter(item_num, -1, 0);
             item->object_id = O_XIAN_SPEARMAN;
             LOT_DisableBaddieAI(item_num);
-            Item_Kill(item_num);
-            item->status = IS_DEACTIVATED;
-            item->flags |= IF_ONE_SHOT;
+            Item_Destroy(item_num);
+            Item_SetFinished(item, true);
+            item->trigger.spent = true;
             Carrier_TestItemDrops(item_num);
         }
         return;
@@ -329,8 +328,7 @@ static void M_Control(const int16_t item_num)
         break;
 
     case M_STATE_HIT_1:
-        M_DoDamage(
-            item, creature, M_GetDamage(item, "hit_1_damage", M_HIT_1_DAMAGE));
+        M_DoDamage(item, creature, p->hit_1_damage);
         break;
 
     case M_STATE_HIT_2:
@@ -339,8 +337,7 @@ static void M_Control(const int16_t item_num)
         if (info.ahead) {
             head = info.angle;
         }
-        M_DoDamage(
-            item, creature, M_GetDamage(item, "hit_2_damage", M_HIT_2_DAMAGE));
+        M_DoDamage(item, creature, p->hit_2_damage);
         if (info.ahead && info.distance < M_ATTACK_1_RANGE) {
             const int32_t random = Random_GetControl();
             if (random < 0x4000) {
@@ -357,8 +354,7 @@ static void M_Control(const int16_t item_num)
         if (info.ahead) {
             head = info.angle;
         }
-        M_DoDamage(
-            item, creature, M_GetDamage(item, "hit_5_damage", M_HIT_5_DAMAGE));
+        M_DoDamage(item, creature, p->hit_5_damage);
         if (info.ahead && info.distance < M_ATTACK_1_RANGE) {
             item->goal_anim_state = M_STATE_STOP;
         } else {
@@ -370,8 +366,7 @@ static void M_Control(const int16_t item_num)
         if (info.ahead) {
             head = info.angle;
         }
-        M_DoDamage(
-            item, creature, M_GetDamage(item, "hit_6_damage", M_HIT_6_DAMAGE));
+        M_DoDamage(item, creature, p->hit_6_damage);
         if (info.ahead && info.distance < M_ATTACK_1_RANGE) {
             const int32_t random = Random_GetControl();
             if (random < 0x4000) {
@@ -408,6 +403,7 @@ static void M_Setup(OBJECT *const obj)
         return;
     }
 
+    obj->priv_size = sizeof(M_PRIV);
     SOFT_ASSERT(
         Object_Get(O_XIAN_SPEARMAN_STATUE)->loaded,
         "Xian spearman statue object missing");
@@ -430,17 +426,16 @@ static void M_Setup(OBJECT *const obj)
     Object_GetBone(obj, 6)->rot.y = true;
     Object_GetBone(obj, 12)->rot.y = true;
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."),
-        OBJECT_PROPERTY_INT(
-            "hit_1_damage", M_HIT_1_DAMAGE, "Damage dealt by attack 1."),
-        OBJECT_PROPERTY_INT(
-            "hit_2_damage", M_HIT_2_DAMAGE, "Damage dealt by attacks 2 to 4."),
-        OBJECT_PROPERTY_INT(
-            "hit_5_damage", M_HIT_5_DAMAGE, "Damage dealt by attack 5."),
-        OBJECT_PROPERTY_INT(
-            "hit_6_damage", M_HIT_6_DAMAGE, "Damage dealt by attack 6."));
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS),
+        OBJECT_PROPERTY(
+            M_PRIV, hit_1_damage, M_HIT_1_DAMAGE, "Damage dealt by attack 1."),
+        OBJECT_PROPERTY(
+            M_PRIV, hit_2_damage, M_HIT_2_DAMAGE,
+            "Damage dealt by attacks 2 to 4."),
+        OBJECT_PROPERTY(
+            M_PRIV, hit_5_damage, M_HIT_5_DAMAGE, "Damage dealt by attack 5."),
+        OBJECT_PROPERTY(
+            M_PRIV, hit_6_damage, M_HIT_6_DAMAGE, "Damage dealt by attack 6."));
 }
 
 REGISTER_OBJECT(O_XIAN_SPEARMAN, M_Setup)

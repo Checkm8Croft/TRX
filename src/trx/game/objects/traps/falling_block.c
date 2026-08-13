@@ -88,10 +88,10 @@ static void M_AddWalkable(const int16_t item_num)
     Walkable_Add(item_num, item->pos);
 }
 
-static bool M_Trigger(ITEM *const item, const TRIGGER *const trigger)
+static bool M_Trigger(ITEM *const item, const ITEM_TRIGGER *const trigger)
 {
     M_PRIV *const p = item->priv;
-    p->heavy_triggered = trigger->type == TT_HEAVY;
+    p->heavy_triggered = trigger->kind == ITEM_TRIGGER_HEAVY;
     return true;
 }
 
@@ -105,8 +105,7 @@ static void M_Control(const int16_t item_num)
         const ITEM *const lara_item = Lara_GetItem();
         M_PRIV *const p = item->priv;
         if (!p->heavy_triggered && lara_item->pos.y != item->pos.y + origin) {
-            item->status = IS_INACTIVE;
-            Item_RemoveActive(item_num);
+            Item_RemoveSimulated(item_num);
             return;
         }
         if (item->goal_anim_state != TRAP_ACTIVATE) {
@@ -134,7 +133,7 @@ static void M_Control(const int16_t item_num)
     }
 
     Item_Animate(item);
-    if (item->status == IS_DEACTIVATED) {
+    if (item->is_finished) {
         if (!Item_IsTriggerActive(item)) {
             Trap_Reset(item);
         }

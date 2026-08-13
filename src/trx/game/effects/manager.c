@@ -66,8 +66,8 @@ void Effect_Control(void)
         const EFFECT *const effect = Effect_Get(effect_num);
         const OBJECT *const obj = Object_Get(effect->object_id);
         const int16_t next = effect->next_active;
-        if (obj->control_func != nullptr) {
-            obj->control_func(effect_num);
+        if (obj->effect_control_func != nullptr) {
+            obj->effect_control_func(effect_num);
         }
         effect_num = next;
     }
@@ -119,11 +119,14 @@ int16_t Effect_Create(const int16_t room_num)
     effect->next_active = m_NextEffectActive;
     m_NextEffectActive = effect_num;
     effect->shade = SHADE_NEUTRAL;
+    effect->flag1 = 0;
+    effect->flag2 = 0;
+    effect->interp.is_new = true;
 
     return effect_num;
 }
 
-void Effect_Kill(const int16_t effect_num)
+void Effect_Destroy(const int16_t effect_num)
 {
     EFFECT *const effect = Effect_Get(effect_num);
     Sparks_DetachEffect(effect_num);
@@ -132,22 +135,6 @@ void Effect_Kill(const int16_t effect_num)
 
     effect->next_free = m_NextEffectFree;
     m_NextEffectFree = effect_num;
-}
-
-void Effect_KillAllActive(void)
-{
-    int16_t effect_num = Effect_GetActiveNum();
-    while (effect_num != NO_EFFECT) {
-        EFFECT *const effect = Effect_Get(effect_num);
-        const int16_t next_effect_num = effect->next_active;
-        const OBJECT *const obj = Object_Get(effect->object_id);
-
-        if (obj->control_func != nullptr
-            && (effect->object_id != O_FLAME || effect->counter >= 0)) {
-            Effect_Kill(effect_num);
-        }
-        effect_num = next_effect_num;
-    }
 }
 
 void Effect_UpdateRoom(const int16_t effect_num, const int16_t room_num)

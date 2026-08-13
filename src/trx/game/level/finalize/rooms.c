@@ -1,33 +1,82 @@
 #include <trx/core/log.h>
+#include <trx/core/math/const.h>
+#include <trx/core/math/trig.h>
 #include <trx/core/memory.h>
 #include <trx/core/utils.h>
 #include <trx/core/vector.h>
 #include <trx/debug.h>
 #include <trx/game/game_buf.h>
+#include <trx/game/items.h>
 #include <trx/game/level/finalize.h>
 #include <trx/game/objects.h>
 #include <trx/game/rooms.h>
 
 #include <string.h>
 
-static inline bool M_BoundsIntersectsPortal(
-    const STATIC_MESH *const mesh, const ROOM *const room,
-    const PORTAL *const portal)
+static inline BOUNDS_32 M_GetStaticBounds(const STATIC_MESH *const mesh)
 {
     const STATIC_OBJECT_3D *const obj = Object_Get3DStatic(mesh->static_num);
-    const BOUNDS_32 bounds = {
+
+    // The draw bounds are the object's own, and the mesh is drawn turned by
+    // its Y rotation (see M_DrawSingleRoom). A box taken without that turn
+    // sits askew of the mesh it stands for, and one at an angle the axes do
+    // not share misses the portal it leans through.
+    const int32_t cos_y = Math_Cos(mesh->rot.y);
+    const int32_t sin_y = Math_Sin(mesh->rot.y);
+    const int32_t xs[2] = { obj->draw_bounds.min.x, obj->draw_bounds.max.x };
+    const int32_t zs[2] = { obj->draw_bounds.min.z, obj->draw_bounds.max.z };
+
+    BOUNDS_32 bounds = {
         .min = {
-            .x = mesh->pos.x + obj->draw_bounds.min.x,
+            .x = INT32_MAX,
             .y = mesh->pos.y + obj->draw_bounds.min.y,
-            .z = mesh->pos.z + obj->draw_bounds.min.z,
+            .z = INT32_MAX,
         },
         .max = {
-            .x = mesh->pos.x + obj->draw_bounds.max.x,
+            .x = INT32_MIN,
             .y = mesh->pos.y + obj->draw_bounds.max.y,
-            .z = mesh->pos.z + obj->draw_bounds.max.z,
+            .z = INT32_MIN,
         },
     };
-    return Bounds32_Intersect(&bounds, &portal->bounds);
+    for (int32_t i = 0; i < 2; i++) {
+        for (int32_t j = 0; j < 2; j++) {
+            const int32_t x =
+                mesh->pos.x + ((xs[i] * cos_y + zs[j] * sin_y) >> W2V_SHIFT);
+            const int32_t z =
+                mesh->pos.z + ((zs[j] * cos_y - xs[i] * sin_y) >> W2V_SHIFT);
+            bounds.min.x = MIN(bounds.min.x, x);
+            bounds.max.x = MAX(bounds.max.x, x);
+            bounds.min.z = MIN(bounds.min.z, z);
+            bounds.max.z = MAX(bounds.max.z, z);
+        }
+    }
+
+    return bounds;
+}
+
+// Whether the mesh reaches through the portal into the room behind it. A wall
+// portal stands across the mesh, so meeting its quad is the question there. A
+// floor or ceiling portal lies flat, and a mesh that clears it sits wholly in
+// the room beyond, so what counts is standing over the opening and reaching
+// past its plane.
+static inline bool M_BoundsReachPortal(
+    const BOUNDS_32 *const bounds, const PORTAL *const portal)
+{
+    if (portal->normal.y == 0) {
+        return Bounds32_Intersect(bounds, &portal->bounds);
+    }
+
+    if (bounds->min.x > portal->bounds.max.x
+        || bounds->max.x < portal->bounds.min.x
+        || bounds->min.z > portal->bounds.max.z
+        || bounds->max.z < portal->bounds.min.z) {
+        return false;
+    }
+
+    // A portal's normal points back into the room it belongs to, so a positive
+    // Y puts the room beyond above this one.
+    return portal->normal.y > 0 ? bounds->min.y <= portal->bounds.min.y
+                                : bounds->max.y >= portal->bounds.max.y;
 }
 
 static void M_ComputePortalBounds(void)
@@ -89,6 +138,14 @@ static void M_FixStaticsVisibility(void)
         }
     }
 
+    // A room lends out the statics it holds, not the ones it was lent. Reading
+    // the vector as it grows would pass a mesh on from room to room, into ones
+    // it never reaches.
+    int32_t *own_counts = Memory_Alloc(sizeof(int32_t) * total_rooms);
+    for (int32_t i = 0; i < total_rooms; i++) {
+        own_counts[i] = room_stat_vecs[i]->count;
+    }
+
     for (int32_t i = 0; i < total_rooms; i++) {
         ROOM *const room = Room_Get(i);
         PORTALS *const portals = room->portals;
@@ -101,11 +158,11 @@ static void M_FixStaticsVisibility(void)
             if (room->flip_status != dest_room->flip_status) {
                 continue;
             }
-            int32_t orig_count = room_stat_vecs[i]->count;
-            for (int32_t m = 0; m < orig_count; m++) {
+            for (int32_t m = 0; m < own_counts[i]; m++) {
                 const STATIC_MESH *const mesh =
                     Vector_Get(room_stat_vecs[i], m);
-                if (!M_BoundsIntersectsPortal(mesh, room, portal)) {
+                const BOUNDS_32 bounds = M_GetStaticBounds(mesh);
+                if (!M_BoundsReachPortal(&bounds, portal)) {
                     continue;
                 }
                 if (Vector_Contains(room_stat_vecs[portal->room_num], mesh)) {
@@ -118,6 +175,8 @@ static void M_FixStaticsVisibility(void)
             }
         }
     }
+
+    Memory_FreePointer(&own_counts);
 
     int32_t total_needed = 0;
     for (int32_t i = 0; i < total_rooms; i++) {
@@ -178,4 +237,5 @@ void Level_Finalize_LoadRooms(LEVEL_CONTEXT *const ctx)
     M_ComputePortalBounds();
     M_FixStaticsCollision();
     M_FixStaticsVisibility();
+    Item_InitialiseDrawQueues();
 }

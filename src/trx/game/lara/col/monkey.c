@@ -1,3 +1,4 @@
+#include <trx/config.h>
 #include <trx/core/utils.h>
 #include <trx/game/camera.h>
 #include <trx/game/input.h>
@@ -171,6 +172,8 @@ static bool M_HandleIdleState(ITEM *const item, COLL_INFO *const coll)
         item->goal_anim_state = LS(LS_MONKEY_TURN_LEFT);
     } else if (g_Input.right) {
         item->goal_anim_state = LS(LS_MONKEY_TURN_RIGHT);
+    } else if (g_Input.roll && g_Config.gameplay.enable_alternative_turns) {
+        item->goal_anim_state = LS(LS_MONKEY_ROLL);
     }
 
     Lara_Col_MonkeySwingSnap(item);
@@ -184,7 +187,7 @@ static void M_MonkeyIdle(ITEM *const item, COLL_INFO *const coll)
     }
 
     // Monkey idle state can be the result of swinging on a thin ledge as well
-    // as actually being on monkeybars. LA_SWING_IN_SLOW links to this state.
+    // as being on monkeybars. LA_SWING_IN_SLOW links to this state.
     Lara_Col_HangTest(item, coll);
     if (item->goal_anim_state != LS(LS_MONKEY_IDLE)) {
         return;
@@ -196,7 +199,13 @@ static void M_MonkeyIdle(ITEM *const item, COLL_INFO *const coll)
         && coll->side_left2.floor - coll->side_left2.ceiling >= 0
         && coll->side_right2.floor - coll->side_right2.ceiling >= 0
         && !coll->hit_static) {
-        item->goal_anim_state = LS(g_Input.slow ? LS_GYMNAST : LS_PULL_UP);
+        if (g_Input.slow) {
+            item->goal_anim_state = LS(LS_GYMNAST);
+        } else {
+            item->goal_anim_state =
+                LS(g_Config.gameplay.enable_fast_pull_up ? LS_FAST_PULL_UP
+                                                         : LS_PULL_UP);
+        }
         return;
     }
 
@@ -216,15 +225,16 @@ static void M_MonkeyIdle(ITEM *const item, COLL_INFO *const coll)
         item->goal_anim_state = LS(LS_CLIMB_TO_CRAWL);
         item->required_anim_state = LS(LS_CROUCH_IDLE);
     } else if (g_Input.left || g_Input.step_left) {
-        item->goal_anim_state = LS(LS_SHIMMY_LEFT);
+        item->goal_anim_state = Lara_Col_GetShimmyState(LS_SHIMMY_LEFT);
     } else if (g_Input.right || g_Input.step_right) {
-        item->goal_anim_state = LS(LS_SHIMMY_RIGHT);
+        item->goal_anim_state = Lara_Col_GetShimmyState(LS_SHIMMY_RIGHT);
     }
 }
 
 static void M_MonkeyForward(ITEM *const item, COLL_INFO *const coll)
 {
-    if (!g_Input.action || !M_CanMonkeySwing(item)) {
+    if (item->current_anim_state != LS(LS_MONKEY_ROLL)
+        && (!g_Input.action || !M_CanMonkeySwing(item))) {
         M_MonkeySwingFall(item);
         return;
     }

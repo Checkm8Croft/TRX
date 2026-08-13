@@ -2,9 +2,13 @@
 
 #include <trx/config.h>
 #include <trx/core/memory.h>
+#include <trx/debug.h>
 #include <trx/game/camera.h>
 #include <trx/game/console.h>
+#include <trx/game/cutseq/playback.h>
+#include <trx/game/flyby_mode.h>
 #include <trx/game/game.h>
+#include <trx/game/game/control.h>
 #include <trx/game/game_flow.h>
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/gun.h>
@@ -15,12 +19,14 @@
 #include <trx/game/inventory_ring/priv.h>
 #include <trx/game/inventory_ring/vars.h>
 #include <trx/game/lara.h>
+#include <trx/game/lua/events.h>
 #include <trx/game/music.h>
 #include <trx/game/objects.h>
 #include <trx/game/option.h>
 #include <trx/game/option/examine.h>
 #include <trx/game/option/globe_select.h>
 #include <trx/game/option/passport.h>
+#include <trx/game/option/save_crystal.h>
 #include <trx/game/option/stats.h>
 #include <trx/game/output/overlay.h>
 #include <trx/game/overlay.h>
@@ -39,23 +45,97 @@
 static CLOCK_TIMER m_DemoTimer = { .type = CLOCK_TIMER_SIM };
 static int32_t m_StartLevel;
 static OBJECT_ID m_InvChosen = NO_OBJECT;
+
+// The entry each ring was left on, so that it can open there again. An object
+// id rather than a position: a ring is rebuilt as Lara's belongings change,
+// and a position would come back pointing at something else.
+static OBJECT_ID m_LastRingObject[RT_NUMBER_OF] = {
+    [RT_MAIN] = NO_OBJECT,
+    [RT_OPTION] = NO_OBJECT,
+    [RT_KEYS] = NO_OBJECT,
+    [RT_GLOBE_SELECT] = NO_OBJECT,
+};
 static INV_RING *m_ActiveRing = nullptr;
 
 // Display-only filter for the rings: hidden items stay in the real
 // inventory (g_InvRing_Source) so nothing else in the game (savegames, gun
-// logic, Inv_RequestItem callers) ever sees them as missing. Only what
+// logic, Inv_GetItemCount callers) ever sees them as missing. Only what
 // InvRing_Open/M_TransitionToRing show is affected.
 static INVENTORY_ITEM *m_VisibleRingItems[RT_NUMBER_OF][INV_RING_MAX_ITEMS];
 
-INV_RING *InvRing_GetActiveRing(void)
+// Which ring an entry belongs to, which its position says: the main ring
+// counts from zero, the keys from a hundred, the menu from two hundred and the
+// globe from three.
+static RING_TYPE M_GetRingType(const INVENTORY_ITEM *const inv_item)
 {
-    return m_ActiveRing;
+    if (inv_item->inv_pos < 100) {
+        return RT_MAIN;
+    } else if (inv_item->inv_pos < 200) {
+        return RT_KEYS;
+    } else if (inv_item->inv_pos < 300) {
+        return RT_OPTION;
+    } else {
+        return RT_GLOBE_SELECT;
+    }
+}
+
+static void M_InsertIntoRing(INVENTORY_ITEM *const inv_item, const int32_t qty)
+{
+    INV_RING_SOURCE *const source = &g_InvRing_Source[M_GetRingType(inv_item)];
+    if (source->count >= INV_RING_MAX_ITEMS) {
+        LOG_WARNING("no room in the ring for object %d", inv_item->object_id);
+        return;
+    }
+
+    int32_t n;
+    for (n = 0; n < source->count; n++) {
+        if (source->items[n]->inv_pos > inv_item->inv_pos) {
+            break;
+        }
+    }
+    for (int32_t i = source->count; i > n; i--) {
+        source->items[i] = source->items[i - 1];
+        source->qtys[i] = source->qtys[i - 1];
+    }
+    source->items[n] = inv_item;
+    source->qtys[n] = MIN(qty, MAX_QTY);
+    source->count++;
 }
 
 static bool M_IsRuntimeHidden(const OBJECT_ID object_id)
 {
     return object_id == O_BINOCULARS_OPTION
         && !g_Config.gameplay.enable_binoculars;
+}
+
+static bool M_IsRingRemembered(const RING_TYPE type)
+{
+    switch (g_Config.gameplay.ring_memory_mode) {
+    case RING_MEMORY_MAIN:
+        return type == RT_MAIN;
+    case RING_MEMORY_ALL:
+        return type == RT_MAIN || type == RT_KEYS;
+    default:
+        return false;
+    }
+}
+
+// Where a ring opens: the entry it was left on, where the player asked for
+// that and it is still something Lara carries, and the entry the caller had in
+// mind otherwise.
+static int16_t M_GetStartingObject(
+    const RING_TYPE type, const INV_RING_VISIBLE *const visible,
+    const int16_t fallback)
+{
+    if (!M_IsRingRemembered(type) || m_LastRingObject[type] == NO_OBJECT) {
+        return fallback;
+    }
+    for (int16_t i = 0; i < visible->count; i++) {
+        if (visible->items[i]->object_id == m_LastRingObject[type]) {
+            return i;
+        }
+    }
+    return fallback;
 }
 
 static INV_RING_VISIBLE M_GetVisibleRing(const RING_TYPE type)
@@ -71,11 +151,23 @@ static INV_RING_VISIBLE M_GetVisibleRing(const RING_TYPE type)
     return (INV_RING_VISIBLE) { .items = dst, .count = count };
 }
 
-static void M_ShowAmmoQuantity(const char *const fmt, const int32_t qty)
+// What Lara has for one weapon, and nothing at all where the number cannot run
+// down: a weapon that never runs out has none to show.
+static void M_ShowAmmoQuantity(
+    const LARA_GUN_TYPE gun_type, const char *const fmt, const int32_t qty)
 {
-    if (!Game_IsBonusFlagSet(GBF_NGPLUS)) {
+    if (!Gun_HasInfiniteAmmo(gun_type)) {
         InvRing_ShowItemQuantity(fmt, qty);
     }
+}
+
+// What a weapon has left, counted in shots rather than in the rounds behind
+// them: the shotgun spends six of those on one shot.
+static void M_ShowGunAmmoQuantity(
+    const LARA_GUN_TYPE gun_type, const char *const fmt)
+{
+    M_ShowAmmoQuantity(
+        gun_type, fmt, Inv_GetAmmo(gun_type) / Gun_GetRoundsPerShot(gun_type));
 }
 
 static void M_RingIsOpen(INV_RING *const ring)
@@ -95,46 +187,47 @@ static void M_RingNotActive(
     InvRing_ShowItemName(inv_item);
 
     const LARA_INFO *const lara = Lara_GetLaraInfo();
-    const int32_t qty = Inv_RequestItem(inv_item->object_id);
+    const int32_t qty = Inv_GetItemCount(inv_item->object_id);
 
     switch (inv_item->object_id) {
+    case O_PISTOL_OPTION:
+        M_ShowGunAmmoQuantity(LGT_PISTOLS, "%5d");
+        break;
     case O_SHOTGUN_OPTION:
-        M_ShowAmmoQuantity(
-            g_TRVersion == 1 ? "%5d \\{ammo shotgun}" : "%5d",
-            lara->shotgun_ammo.ammo / Gun_GetAmmoClipCount(LGT_SHOTGUN));
+        M_ShowGunAmmoQuantity(
+            LGT_SHOTGUN, g_TRVersion == 1 ? "%5d \\{ammo shotgun}" : "%5d");
         break;
     case O_MAGNUM_OPTION:
-        M_ShowAmmoQuantity(
-            g_TRVersion == 1 ? "%5d \\{ammo magnums}" : "%5d",
-            lara->magnum_ammo.ammo);
+        M_ShowGunAmmoQuantity(
+            LGT_MAGNUMS, g_TRVersion == 1 ? "%5d \\{ammo magnums}" : "%5d");
         break;
     case O_AUTOS_OPTION:
-        M_ShowAmmoQuantity("%5d", lara->autos_ammo.ammo);
+        M_ShowGunAmmoQuantity(LGT_AUTOS, "%5d");
         break;
     case O_DESERT_EAGLE_OPTION:
-        M_ShowAmmoQuantity("%5d", lara->desert_eagle_ammo.ammo);
+        M_ShowGunAmmoQuantity(LGT_DESERT_EAGLE, "%5d");
         break;
     case O_UZI_OPTION:
-        M_ShowAmmoQuantity(
-            g_TRVersion == 1 ? "%5d \\{ammo uzis}" : "%5d",
-            lara->uzi_ammo.ammo);
+        M_ShowGunAmmoQuantity(
+            LGT_UZIS, g_TRVersion == 1 ? "%5d \\{ammo uzis}" : "%5d");
         break;
     case O_HARPOON_OPTION:
-        M_ShowAmmoQuantity("%5d", lara->harpoon_ammo.ammo);
+        M_ShowGunAmmoQuantity(LGT_HARPOON, "%5d");
         break;
     case O_M16_OPTION:
-        M_ShowAmmoQuantity("%5d", lara->m16_ammo.ammo);
+        M_ShowGunAmmoQuantity(LGT_M16, "%5d");
         break;
     case O_MP5_OPTION:
-        M_ShowAmmoQuantity("%5d", lara->mp5_ammo.ammo);
+        M_ShowGunAmmoQuantity(LGT_MP5, "%5d");
         break;
     case O_GRENADE_GUN_OPTION:
-        M_ShowAmmoQuantity("%5d", lara->grenade_ammo.ammo);
+        M_ShowGunAmmoQuantity(LGT_GRENADE, "%5d");
         break;
     case O_ROCKET_GUN_OPTION:
-        M_ShowAmmoQuantity("%5d", lara->rocket_ammo.ammo);
+        M_ShowGunAmmoQuantity(LGT_ROCKET, "%5d");
         break;
 
+    case O_PISTOL_AMMO_OPTION:
     case O_SHOTGUN_AMMO_OPTION:
     case O_MAGNUM_AMMO_OPTION:
     case O_AUTOS_AMMO_OPTION:
@@ -148,17 +241,24 @@ static void M_RingNotActive(
         const OBJECT_ID ammo_object_id = Inv_GetItemPickup(inv_item->object_id);
         const LARA_GUN_TYPE gun_type = Gun_GetType(
             Object_GetCognateInverse(ammo_object_id, g_GunAmmoObjectMap));
-        M_ShowAmmoQuantity("%d", qty * Gun_GetAmmoInventoryQuantity(gun_type));
+        M_ShowAmmoQuantity(
+            gun_type, "%d", qty * Gun_GetAmmoInventoryQuantity(gun_type));
         break;
     }
 
     case O_FLAREBOX_OPTION:
-        M_ShowAmmoQuantity("%d", qty);
+        M_ShowAmmoQuantity(LGT_FLARE, "%d", qty);
         break;
 
     case O_SMALL_MEDIPACK_OPTION:
     case O_LARGE_MEDIPACK_OPTION:
         Overlay_ForceHealthBar(true);
+        if (qty > 1) {
+            InvRing_ShowItemQuantity("%d", qty);
+        }
+        break;
+
+    case O_SAVE_CRYSTAL_OPTION:
         if (qty > 1) {
             InvRing_ShowItemQuantity("%d", qty);
         }
@@ -254,15 +354,15 @@ static GF_COMMAND M_Finish(INV_RING *const ring, const bool apply_changes)
             }
             return (GF_COMMAND) {
                 .action = GF_START_SAVED_GAME,
-                .param = Savegame_SlotToParam(g_Passport.select_save_slot),
+                .param = SG_Manager_SlotToParam(g_Passport.select_save_slot),
             };
         }
 
         case PASSPORT_ACTION_NEW_GAME:
             if (apply_changes) {
-                Savegame_InitCurrentInfo();
+                SG_Resume_ResetAllEntries();
             }
-            Savegame_UnbindSlot();
+            SG_Manager_UnbindSlot();
             return (GF_COMMAND) {
                 .action = GF_START_GAME,
                 .param = g_Passport.select_level,
@@ -305,14 +405,20 @@ static GF_COMMAND M_Finish(INV_RING *const ring, const bool apply_changes)
         case PASSPORT_ACTION_STORY_SO_FAR:
             return (GF_COMMAND) {
                 .action = GF_STORY_SO_FAR,
-                .param = Savegame_SlotToParam(g_Passport.select_save_slot),
+                .param = SG_Manager_SlotToParam(g_Passport.select_save_slot),
             };
+        }
+        break;
+
+    case O_SAVE_CRYSTAL_OPTION:
+        if (apply_changes) {
+            Option_SaveCrystal_CommitSave();
         }
         break;
 
     case O_PHOTO_OPTION:
         if (apply_changes) {
-            Savegame_UnbindSlot();
+            SG_Manager_UnbindSlot();
         }
         if (GF_GetGymLevel() != nullptr) {
             return (GF_COMMAND) {
@@ -398,6 +504,19 @@ static void M_SnapshotFrameState(INV_RING *const ring)
     for (int32_t i = 0; i < ring->number_of_objects; i++) {
         M_SnapshotItemState(ring->list[i]);
     }
+}
+
+// A minimal simulation tick keeping the title level alive behind the menu:
+// the world, the camera it plays through and its actors - no player input,
+// no HUD.
+static void M_SimTick(void)
+{
+    Interpolation_Remember();
+    Game_TickBeginFrame();
+    Sound_ResetAmbient();
+    Game_TickWorld();
+    Game_TickPostControl();
+    Game_TickEndFrame();
 }
 
 static GF_COMMAND M_Control(INV_RING *const ring)
@@ -790,6 +909,11 @@ static GF_COMMAND M_Control(INV_RING *const ring)
     return (GF_COMMAND) { .action = GF_NOOP };
 }
 
+INV_RING *InvRing_GetActiveRing(void)
+{
+    return m_ActiveRing;
+}
+
 void InvRing_RemoveAllText(void)
 {
     InvRing_RemoveHeader();
@@ -811,7 +935,7 @@ INV_RING *InvRing_Open(const INVENTORY_MODE mode)
 
     if (mode == INV_TITLE_MODE) {
         InvRing_ShowVersionText();
-        Savegame_ScanSavedGames();
+        SG_Manager_ScanSavedGames();
     } else {
         InvRing_RemoveVersionText();
     }
@@ -819,32 +943,37 @@ INV_RING *InvRing_Open(const INVENTORY_MODE mode)
     if (mode != INV_GLOBE_SELECT_MODE) {
         // Reset option ring
         g_InvRing_Source[RT_OPTION].count = 0;
-        Inv_InsertItem(
+        InvRing_InsertItem(
             InvRing_GetByObjectID(O_PASSPORT_CLOSED) != nullptr
                 ? InvRing_GetByObjectID(O_PASSPORT_CLOSED)
                 : InvRing_GetByObjectID(O_PASSPORT_OPTION));
         if (g_TRVersion == 1) {
-            Inv_InsertItem(InvRing_GetByObjectID(O_CONTROL_OPTION));
-            Inv_InsertItem(InvRing_GetByObjectID(O_SOUND_OPTION));
-            Inv_InsertItem(InvRing_GetByObjectID(O_DETAIL_OPTION));
+            InvRing_InsertItem(InvRing_GetByObjectID(O_CONTROL_OPTION));
+            InvRing_InsertItem(InvRing_GetByObjectID(O_SOUND_OPTION));
+            InvRing_InsertItem(InvRing_GetByObjectID(O_DETAIL_OPTION));
         } else {
-            Inv_InsertItem(InvRing_GetByObjectID(O_DETAIL_OPTION));
-            Inv_InsertItem(InvRing_GetByObjectID(O_CONTROL_OPTION));
-            Inv_InsertItem(InvRing_GetByObjectID(O_SOUND_OPTION));
+            InvRing_InsertItem(InvRing_GetByObjectID(O_DETAIL_OPTION));
+            InvRing_InsertItem(InvRing_GetByObjectID(O_CONTROL_OPTION));
+            InvRing_InsertItem(InvRing_GetByObjectID(O_SOUND_OPTION));
         }
-        Inv_InsertItem(InvRing_GetByObjectID(O_PDA_OPTION));
+        InvRing_InsertItem(InvRing_GetByObjectID(O_PDA_OPTION));
         if (mode == INV_TITLE_MODE && GF_GetGymLevel() != nullptr) {
-            Inv_InsertItem(InvRing_GetByObjectID(O_PHOTO_OPTION));
+            InvRing_InsertItem(InvRing_GetByObjectID(O_PHOTO_OPTION));
         }
     } else if (g_InvRing_Source[RT_GLOBE_SELECT].count == 0) {
         INVENTORY_ITEM *const globe =
             InvRing_GetByObjectID(O_GLOBE_SELECT_OPTION);
         if (globe != nullptr) {
-            Inv_InsertItem(globe);
+            InvRing_InsertItem(globe);
         }
     }
 
-    g_InvRing_Source[RT_KEYS].current = 0;
+    // Sending the keys ring back to its first entry and opening it where it
+    // was left are at odds, and the memory is the one the player asked for.
+    if (g_Config.gameplay.fix_item_duplication_glitch
+        && !M_IsRingRemembered(RT_KEYS)) {
+        g_InvRing_Source[RT_KEYS].current = 0;
+    }
     for (int32_t i = 0; i < g_InvRing_Source[RT_KEYS].count; i++) {
         InvRing_InitInvItem(g_InvRing_Source[RT_KEYS].items[i]);
     }
@@ -883,9 +1012,13 @@ INV_RING *InvRing_Open(const INVENTORY_MODE mode)
 
     INV_RING *const ring = Memory_Alloc(sizeof(INV_RING));
     ring->mode = mode;
-    ring->background_style = mode == INV_TITLE_MODE
-        ? BK_IMAGE
-        : g_Config.ui.inventory_background_style;
+    // A title with no picture to show runs its level live behind the menu
+    // instead. What plays there is the title script's business.
+    ring->live_scene =
+        mode == INV_TITLE_MODE && g_GameFlow.main_menu_use_live_scene;
+    ring->background_style = mode != INV_TITLE_MODE
+        ? g_Config.ui.inventory_background_style
+        : (ring->live_scene ? BK_NONE : BK_IMAGE);
     // main_menu_background_path is the title screen's background image;
     // there is no separate configurable image for in-game inventory modes,
     // so BK_IMAGE outside of INV_TITLE_MODE falls back to no image rather
@@ -921,7 +1054,9 @@ INV_RING *InvRing_Open(const INVENTORY_MODE mode)
     case INV_KEYS_MODE: {
         const INV_RING_VISIBLE visible = M_GetVisibleRing(RT_KEYS);
         InvRing_InitRing(
-            ring, RT_KEYS, &visible, g_InvRing_Source[RT_MAIN].current);
+            ring, RT_KEYS, &visible,
+            M_GetStartingObject(
+                RT_KEYS, &visible, g_InvRing_Source[RT_MAIN].current));
         break;
     }
 
@@ -930,7 +1065,8 @@ INV_RING *InvRing_Open(const INVENTORY_MODE mode)
         if (main_visible.count > 0) {
             InvRing_InitRing(
                 ring, RT_MAIN, &main_visible,
-                g_InvRing_Source[RT_MAIN].current);
+                M_GetStartingObject(
+                    RT_MAIN, &main_visible, g_InvRing_Source[RT_MAIN].current));
         } else {
             const INV_RING_VISIBLE option_visible = M_GetVisibleRing(RT_OPTION);
             InvRing_InitRing(
@@ -941,7 +1077,13 @@ INV_RING *InvRing_Open(const INVENTORY_MODE mode)
     }
     }
 
-    g_Inv_Mode = mode;
+    g_InvRing_Mode = mode;
+
+    if (mode == INV_TITLE_MODE) {
+        Camera_Initialise();
+        LUA_FireEvent(LUA_EVENT_TITLE_START);
+    }
+
     Interpolation_Remember();
 
     if (mode == INV_TITLE_MODE) {
@@ -965,11 +1107,24 @@ void InvRing_Close(INV_RING *const ring)
         INVENTORY_ITEM *const inv_item = ring->list[ring->current_object];
         if (inv_item != nullptr) {
             Option_Close(inv_item);
+            if (ring->type < RT_NUMBER_OF) {
+                m_LastRingObject[ring->type] = inv_item->object_id;
+            }
         }
     }
     if (ring->mode == INV_TITLE_MODE) {
         Music_Stop();
         Sound_StopAll();
+    }
+    // Neither a cutscene nor a flyby may outlive the menu they played behind.
+    // In this order: dropping the cutscene fires its end event, and a script
+    // that answers one by starting a flyby - as the TR4 title does - would
+    // otherwise leave that sequence holding the camera.
+    if (ring->live_scene) {
+        CutSeq_Reset();
+        if (FlybyMode_IsActive()) {
+            FlybyMode_Deactivate();
+        }
     }
 
     if (g_Config.input.enable_buffering_inventory) {
@@ -982,6 +1137,9 @@ void InvRing_Close(INV_RING *const ring)
 
 GF_COMMAND InvRing_Control(INV_RING *const ring)
 {
+    if (ring->live_scene) {
+        M_SimTick();
+    }
     InvRing_AdjustMusicVolume(ring);
     m_ActiveRing = ring;
     INVENTORY_ITEM **const prev_list = ring->list;
@@ -1046,4 +1204,62 @@ INVENTORY_ITEM *InvRing_GetByObjectID(const OBJECT_ID object_id)
         }
     }
     return nullptr;
+}
+
+void InvRing_Rebuild(void)
+{
+    INVENTORY_ENTRY entries[INV_MAX_ENTRIES];
+    const int32_t count = Inv_GetDrawnEntries(entries, INV_MAX_ENTRIES);
+
+    for (RING_TYPE ring_type = 0; ring_type < RT_NUMBER_OF; ring_type++) {
+        if (ring_type != RT_OPTION) {
+            g_InvRing_Source[ring_type].count = 0;
+        }
+    }
+
+    for (int32_t i = 0; i < count; i++) {
+        INVENTORY_ITEM *const inv_item =
+            InvRing_GetByObjectID(entries[i].object_id);
+        if (inv_item != nullptr && M_GetRingType(inv_item) != RT_OPTION) {
+            M_InsertIntoRing(inv_item, entries[i].qty);
+        }
+    }
+}
+
+void InvRing_InsertItem(INVENTORY_ITEM *const inv_item)
+{
+    ASSERT(inv_item != nullptr);
+    M_InsertIntoRing(inv_item, 1);
+}
+
+void InvRing_NotifyRemoved(const OBJECT_ID object_id)
+{
+    if (!g_Config.gameplay.fix_item_duplication_glitch) {
+        return;
+    }
+    for (RING_TYPE ring_type = 0; ring_type < RT_NUMBER_OF; ring_type++) {
+        INV_RING_SOURCE *const source = &g_InvRing_Source[ring_type];
+        for (int32_t i = 0; i < source->count; i++) {
+            if (source->items[i]->object_id != object_id) {
+                continue;
+            }
+            if (source->current >= i) {
+                source->current = 0;
+            }
+            return;
+        }
+    }
+}
+
+void InvRing_ClearSelection(void)
+{
+    g_InvRing_Source[RT_MAIN].current = 0;
+    g_InvRing_Source[RT_KEYS].current = 0;
+}
+
+void InvRing_ForgetLastEntries(void)
+{
+    for (RING_TYPE type = 0; type < RT_NUMBER_OF; type++) {
+        m_LastRingObject[type] = NO_OBJECT;
+    }
 }

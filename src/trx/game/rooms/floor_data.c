@@ -20,7 +20,7 @@
 #define M_TRIG_TYPE(t) ((t & 0x7F00) >> 8)
 #define M_TRIG_TIMER(t) (t & 0xFF)
 #define M_TRIG_ONE_SHOT(t) ((t & 0x100) == 0x100)
-#define M_TRIG_MASK(t) (t & 0x3E00)
+#define M_TRIG_MASK(t) ((t & 0x3E00) >> TRIGGER_MASK_SHIFT)
 #define M_TRIG_CMD_TYPE(t) ((t & 0x7C00) >> 10)
 #define M_TRIG_CMD_ARG(t) (t & 0x3FF)
 #define M_TRIG_CAM_GLIDE(t) ((t & 0x3E00) >> 6)
@@ -175,6 +175,178 @@ static int32_t M_DecodeSplit(int32_t height)
         height |= 0xFFFFFFF0;
     }
     return height << 8;
+}
+
+// Anything other than the player trips triggers as a heavy object.
+static bool M_IsHeavy(const ITEM *const item)
+{
+    return item->object_id != O_LARA;
+}
+
+static bool M_TestSectorTrigger(
+    const ITEM *const item, const SECTOR *const sector, const bool is_heavy)
+{
+    LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    // The non-heavy pass runs for the flyby camera as well, and a level it
+    // plays in need not hold a player for these to read.
+    const ITEM *const lara_item = Lara_GetItem();
+    if (!is_heavy && lara_item != nullptr) {
+        if (sector->is_death_sector && M_TestLava(item)) {
+            Lara_TouchDeathSector(Level_GetDeathTile());
+        }
+
+        const LADDER_DIRECTION direction = 1 << Math_GetDirection(item->rot.y);
+        lara_info->climb_status = (sector->ladder & direction) == direction;
+    }
+
+    const TRIGGER *const trigger = sector->trigger;
+    if (trigger == nullptr || !trigger->enabled) {
+        return false;
+    }
+
+    if (g_Camera.type != CAM_HEAVY) {
+        Camera_RefreshFromTrigger(trigger);
+    }
+
+    TRIGGER_STATUS status = {
+        .is_heavy = is_heavy,
+        .heavy_mask = trigger->mask,
+        .camera_item = nullptr,
+        .switch_off = false,
+        .flip_map = false,
+        .flip_status = Room_GetFlipStatus(),
+        .flip_available = false,
+        .new_effect = -1,
+    };
+
+    if (is_heavy) {
+        switch (trigger->type) {
+        case TT_HEAVY:
+        case TT_HEAVY_ANTITRIGGER:
+            break;
+        case TT_HEAVY_SWITCH:
+            const int32_t item_mask = item->trigger.mask;
+            if (item_mask == 0) {
+                return false;
+            }
+            if (item_mask != status.heavy_mask) {
+                return false;
+            }
+            break;
+        default:
+            return false;
+        }
+    } else {
+        switch (trigger->type) {
+        case TT_PAD:
+        case TT_ANTIPAD:
+            if (!Gym_TrackManager_OnPadContact(GYM_TRACK_ASSAULT, false)) {
+                return false;
+            }
+            // A pad answers to the player standing on it, whoever asked.
+            if (lara_item == nullptr || lara_item->pos.y != lara_item->floor) {
+                return false;
+            }
+            if (item->object_id == O_LARA
+                && !Gym_TrackManager_OnPadContact(GYM_TRACK_ASSAULT, true)) {
+                return false;
+            }
+            break;
+
+        case TT_SWITCH: {
+            const bool switch_result =
+                Switch_Trigger(trigger->item_index, trigger->timer);
+            ITEM *const switch_item = Item_Get(trigger->item_index);
+            const bool intelligent =
+                Object_Get(switch_item->object_id)->intelligent;
+            if (!intelligent && g_TRVersion >= 3 && trigger->one_shot) {
+                switch_item->trigger.switch_spent = true;
+            }
+            if (!switch_result) {
+                return false;
+            }
+            status.switch_off = !intelligent
+                && switch_item->current_anim_state == SWITCH_STATE_OFF;
+            break;
+        }
+
+        case TT_KEY: {
+            if (!Keyhole_Trigger(trigger->item_index)) {
+                return false;
+            }
+            break;
+        }
+
+        case TT_PICKUP: {
+            if (!Pickup_Trigger(trigger->item_index)) {
+                return false;
+            }
+            break;
+        }
+
+        case TT_HEAVY:
+        case TT_DUMMY:
+        case TT_HEAVY_SWITCH:
+        case TT_HEAVY_ANTITRIGGER:
+            return false;
+
+        case TT_COMBAT:
+            if (lara_info->gun_status != LGS_READY) {
+                return false;
+            }
+            break;
+
+        case TT_MONKEY:
+            if (!Lara_HasState(m_MonkeyStates)) {
+                return false;
+            }
+            break;
+
+        case TT_CROUCH:
+            if (!Lara_HasState(m_CrouchStates)) {
+                return false;
+            }
+            break;
+
+        case TT_CLIMB:
+            if (!Lara_HasState(m_ClimbStates)) {
+                return false;
+            }
+            break;
+
+        default:
+            break;
+        }
+    }
+
+    for (const TRIGGER_CMD *cmd = trigger->command; cmd != nullptr;
+         cmd = cmd->next_cmd) {
+        // The command type is a 5-bit field, so it can name a type this
+        // engine has no handler for.
+        if (cmd->type < TO_NUMBER_OF && m_Handlers[cmd->type] != nullptr) {
+            m_Handlers[cmd->type](trigger, cmd, &status);
+        }
+    }
+
+    if (status.camera_item != nullptr
+        && (g_Camera.type == CAM_FIXED || g_Camera.type == CAM_HEAVY)) {
+        g_Camera.item = status.camera_item;
+    }
+
+    if (status.flip_map) {
+        Room_FlipMap();
+    }
+
+    if (status.new_effect != -1
+        && (status.flip_map || !status.flip_available)) {
+        if (!ItemAction_Intercept(
+                status.new_effect, trigger->timer, Item_GetIndex(item))) {
+            Room_SetFlipEffect(status.new_effect);
+            Room_SetFlipTimer(0);
+        }
+    }
+
+    return true;
 }
 
 void Room_ParseFloorData(
@@ -350,11 +522,16 @@ void Room_RegisterTriggerHandler(
 
 bool Room_TestTriggers(const ITEM *const item)
 {
+    return Room_TestTriggersEx(item, M_IsHeavy(item));
+}
+
+bool Room_TestTriggersEx(const ITEM *const item, const bool is_heavy)
+{
     int16_t room_num = item->room_num;
     const SECTOR *sector = Room_GetSector(
         (XYZ_32) { item->pos.x, MAX_HEIGHT, item->pos.z }, &room_num);
 
-    bool result = Room_TestSectorTrigger(item, sector);
+    bool result = M_TestSectorTrigger(item, sector, is_heavy);
     if (item->object_id != O_TORSO) {
         return result;
     }
@@ -373,7 +550,7 @@ bool Room_TestTriggers(const ITEM *const item)
                     item->pos.z + dz * WALL_L,
                 },
                 &room_num);
-            result |= Room_TestSectorTrigger(item, sector);
+            result |= M_TestSectorTrigger(item, sector, is_heavy);
         }
     }
 
@@ -382,162 +559,7 @@ bool Room_TestTriggers(const ITEM *const item)
 
 bool Room_TestSectorTrigger(const ITEM *const item, const SECTOR *const sector)
 {
-    LARA_INFO *const lara_info = Lara_GetLaraInfo();
-    const bool is_heavy = item->object_id != O_LARA;
-    if (!is_heavy) {
-        if (sector->is_death_sector && M_TestLava(item)) {
-            Lara_TouchDeathSector(Level_GetDeathTile());
-        }
-
-        const LADDER_DIRECTION direction = 1 << Math_GetDirection(item->rot.y);
-        lara_info->climb_status = (sector->ladder & direction) == direction;
-    }
-
-    const TRIGGER *const trigger = sector->trigger;
-    if (trigger == nullptr || !trigger->enabled) {
-        return false;
-    }
-
-    if (g_Camera.type != CAM_HEAVY) {
-        Camera_RefreshFromTrigger(trigger);
-    }
-
-    TRIGGER_STATUS status = {
-        .is_heavy = is_heavy,
-        .heavy_mask = trigger->mask,
-        .camera_item = nullptr,
-        .switch_off = false,
-        .flip_map = false,
-        .flip_status = Room_GetFlipStatus(),
-        .flip_available = false,
-        .new_effect = -1,
-    };
-
-    if (is_heavy) {
-        switch (trigger->type) {
-        case TT_HEAVY:
-        case TT_HEAVY_ANTITRIGGER:
-            break;
-        case TT_HEAVY_SWITCH:
-            const int32_t item_flags = item->flags & IF_CODE_BITS;
-            if (item_flags == 0) {
-                return false;
-            }
-
-            if (item_flags < 0) {
-                status.heavy_mask += item_flags;
-            } else if (item_flags != status.heavy_mask) {
-                return false;
-            }
-            break;
-        default:
-            return false;
-        }
-    } else {
-        switch (trigger->type) {
-        case TT_PAD:
-        case TT_ANTIPAD:
-            if (!Gym_TrackManager_OnPadContact(GYM_TRACK_ASSAULT, false)) {
-                return false;
-            }
-            if (item->pos.y != item->floor) {
-                return false;
-            }
-            if (item->object_id == O_LARA
-                && !Gym_TrackManager_OnPadContact(GYM_TRACK_ASSAULT, true)) {
-                return false;
-            }
-            break;
-
-        case TT_SWITCH: {
-            const bool switch_result =
-                Switch_Trigger(trigger->item_index, trigger->timer);
-            ITEM *const switch_item = Item_Get(trigger->item_index);
-            const bool intelligent =
-                Object_Get(switch_item->object_id)->intelligent;
-            if (!intelligent && g_TRVersion >= 3 && trigger->one_shot) {
-                switch_item->flags |= IF_ONE_SHOT_SWITCH;
-            }
-            if (!switch_result) {
-                return false;
-            }
-            status.switch_off = !intelligent
-                && switch_item->current_anim_state == SWITCH_STATE_OFF;
-            break;
-        }
-
-        case TT_KEY: {
-            if (!Keyhole_Trigger(trigger->item_index)) {
-                return false;
-            }
-            break;
-        }
-
-        case TT_PICKUP: {
-            if (!Pickup_Trigger(trigger->item_index)) {
-                return false;
-            }
-            break;
-        }
-
-        case TT_HEAVY:
-        case TT_DUMMY:
-        case TT_HEAVY_SWITCH:
-        case TT_HEAVY_ANTITRIGGER:
-            return false;
-
-        case TT_COMBAT:
-            if (lara_info->gun_status != LGS_READY) {
-                return false;
-            }
-            break;
-
-        case TT_MONKEY:
-            if (!Lara_HasState(m_MonkeyStates)) {
-                return false;
-            }
-            break;
-
-        case TT_CROUCH:
-            if (!Lara_HasState(m_CrouchStates)) {
-                return false;
-            }
-            break;
-
-        case TT_CLIMB:
-            if (!Lara_HasState(m_ClimbStates)) {
-                return false;
-            }
-            break;
-
-        default:
-            break;
-        }
-    }
-
-    for (const TRIGGER_CMD *cmd = trigger->command; cmd != nullptr;
-         cmd = cmd->next_cmd) {
-        if (m_Handlers[cmd->type] != nullptr) {
-            m_Handlers[cmd->type](trigger, cmd, &status);
-        }
-    }
-
-    if (status.camera_item != nullptr
-        && (g_Camera.type == CAM_FIXED || g_Camera.type == CAM_HEAVY)) {
-        g_Camera.item = status.camera_item;
-    }
-
-    if (status.flip_map) {
-        Room_FlipMap();
-    }
-
-    if (status.new_effect != -1
-        && (status.flip_map || !status.flip_available)) {
-        Room_SetFlipEffect(status.new_effect);
-        Room_SetFlipTimer(0);
-    }
-
-    return true;
+    return M_TestSectorTrigger(item, sector, M_IsHeavy(item));
 }
 
 bool Room_IsAntiTrigger(const TRIGGER_TYPE type)

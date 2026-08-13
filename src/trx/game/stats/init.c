@@ -6,6 +6,7 @@
 #include <trx/core/json.h>
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/virtual_file.h>
 #include <trx/debug.h>
 #include <trx/game/creature.h>
@@ -21,6 +22,7 @@
 #include <trx/game/objects.h>
 #include <trx/game/objects/property.h>
 #include <trx/game/rooms.h>
+#include <trx/game/rules.h>
 #include <trx/game/stats.h>
 
 #include <string.h>
@@ -95,18 +97,18 @@ static JSON_OBJECT *M_SerializeLevelMaxStats(const LEVEL_MAX_STATS *const stats)
         out, "max_pickup_secret_count",
         (int64_t)stats->max_pickup_secret_count);
     JSON_ObjectAppendInt64(
-        out, "max_kill_count", (int64_t)stats->max_kill_count);
+        out, "max_kill_count", (int64_t)stats->maxes[STATS_CAT_KILLS]);
     JSON_ObjectAppendInt64(
         out, "max_kill_ally_count", (int64_t)stats->max_kill_ally_count);
     JSON_ObjectAppendInt64(
         out, "max_kill_non_ally_count",
         (int64_t)stats->max_kill_non_ally_count);
     JSON_ObjectAppendInt64(
-        out, "max_crystal_count", (int64_t)stats->max_crystal_count);
+        out, "max_crystal_count", (int64_t)stats->maxes[STATS_CAT_CRYSTALS]);
     JSON_ObjectAppendInt64(
-        out, "max_pickup_count", (int64_t)stats->max_pickup_count);
+        out, "max_pickup_count", (int64_t)stats->maxes[STATS_CAT_PICKUPS]);
     JSON_ObjectAppendInt64(
-        out, "max_secret_count", (int64_t)stats->max_secret_count);
+        out, "max_secret_count", (int64_t)stats->maxes[STATS_CAT_SECRETS]);
     JSON_ObjectAppendInt64(out, "all_secrets_mask", stats->all_secrets_mask);
 
     JSON_ARRAY *const secret_item_masks = JSON_ArrayNew();
@@ -144,20 +146,20 @@ static bool M_DeserializeLevelMaxStats(
         return false;
     }
 
-    out->max_pickup_secret_count = (size_t)JSON_ObjectGetInt64(
+    out->max_pickup_secret_count = (uint32_t)JSON_ObjectGetInt64(
         obj, "max_pickup_secret_count", (int64_t)out->max_pickup_secret_count);
-    out->max_kill_count = (size_t)JSON_ObjectGetInt64(
-        obj, "max_kill_count", (int64_t)out->max_kill_count);
-    out->max_kill_ally_count = (size_t)JSON_ObjectGetInt64(
+    out->maxes[STATS_CAT_KILLS] = (uint32_t)JSON_ObjectGetInt64(
+        obj, "max_kill_count", (int64_t)out->maxes[STATS_CAT_KILLS]);
+    out->max_kill_ally_count = (uint32_t)JSON_ObjectGetInt64(
         obj, "max_kill_ally_count", (int64_t)out->max_kill_ally_count);
-    out->max_kill_non_ally_count = (size_t)JSON_ObjectGetInt64(
+    out->max_kill_non_ally_count = (uint32_t)JSON_ObjectGetInt64(
         obj, "max_kill_non_ally_count", (int64_t)out->max_kill_non_ally_count);
-    out->max_crystal_count = (size_t)JSON_ObjectGetInt64(
-        obj, "max_crystal_count", (int64_t)out->max_crystal_count);
-    out->max_pickup_count = (size_t)JSON_ObjectGetInt64(
-        obj, "max_pickup_count", (int64_t)out->max_pickup_count);
-    out->max_secret_count = (size_t)JSON_ObjectGetInt64(
-        obj, "max_secret_count", (int64_t)out->max_secret_count);
+    out->maxes[STATS_CAT_CRYSTALS] = (uint32_t)JSON_ObjectGetInt64(
+        obj, "max_crystal_count", (int64_t)out->maxes[STATS_CAT_CRYSTALS]);
+    out->maxes[STATS_CAT_PICKUPS] = (uint32_t)JSON_ObjectGetInt64(
+        obj, "max_pickup_count", (int64_t)out->maxes[STATS_CAT_PICKUPS]);
+    out->maxes[STATS_CAT_SECRETS] = (uint32_t)JSON_ObjectGetInt64(
+        obj, "max_secret_count", (int64_t)out->maxes[STATS_CAT_SECRETS]);
     out->all_secrets_mask = (uint32_t)JSON_ObjectGetInt64(
         obj, "all_secrets_mask", out->all_secrets_mask);
 
@@ -283,7 +285,7 @@ static void M_WriteCache(
     JSON_ValueFree(root_value);
 }
 
-__attribute__((destructor)) static void M_Shutdown(void)
+static void M_Shutdown(void)
 {
     if (m_Stats != nullptr) {
         Memory_Free(m_Stats);
@@ -292,11 +294,16 @@ __attribute__((destructor)) static void M_Shutdown(void)
     m_StatsCapacity = 0;
 }
 
+bool Stats_HasLevelMaxStats(const GF_LEVEL *const level)
+{
+    return m_Stats != nullptr && level != nullptr
+        && GF_GetLevelTableType(level->type) == GFLT_MAIN && level->num >= 0
+        && level->num < m_StatsCapacity;
+}
+
 LEVEL_MAX_STATS *Stats_GetLevelMaxStats(const GF_LEVEL *const level)
 {
-    ASSERT(m_Stats != nullptr);
-    ASSERT(level != nullptr);
-    ASSERT(level->num >= 0 && level->num < m_StatsCapacity);
+    ASSERT(Stats_HasLevelMaxStats(level));
     return &m_Stats[level->num];
 }
 
@@ -318,6 +325,9 @@ void Stats_CalculateMaxStats(void)
         goto finish;
     }
 
+    // Every level's script runs here to count what the level holds. None of
+    // them is a level being played, so nothing hears the unload between them.
+    LUA_SetLevelScriptProbing(true);
     for (int32_t i = 0; i < level_table->count; i++) {
         const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, i);
         if (level->type != GFL_NORMAL && level->type != GFL_BONUS) {
@@ -334,18 +344,9 @@ void Stats_CalculateMaxStats(void)
         if (loader != nullptr) {
             Level_Unload();
             Creature_Reset();
+            Rules_Reset();
 
-            Lua_ClearLevelListeners();
-            Lua_SetScriptContext(LUA_CONTEXT_LEVEL);
-            if (level->script_path != nullptr) {
-                LUA_RESULT res = Lua_EvalFile(level->script_path);
-                if (res.code != LUA_OK) {
-                    LOG_ERROR("Lua level script error: %s", res.message);
-                }
-                Lua_FreeResult(&res);
-            }
-            Lua_SetScriptContext(LUA_CONTEXT_GLOBAL);
-            Lua_FireEventInt32(LUA_EVENT_BEFORE_LEVEL_FILE, level->num);
+            LUA_RunLevelScript(level);
 
             Inject_InitLevel(level, INJECTION_MODE_STATS);
             if (loader->probe(loader, file, LEVEL_FORMAT_PROBE_STATS)) {
@@ -357,7 +358,7 @@ void Stats_CalculateMaxStats(void)
                     ObjectProperty_ResetItem(Item_Get(item_num));
                 }
 
-                Lua_FireEventInt32(LUA_EVENT_BEFORE_ITEM_SETUP, level->num);
+                Inject_ApplyProperties();
 
                 const int32_t item_count = Item_GetLevelCount();
                 for (int32_t item_num = 0; item_num < item_count; item_num++) {
@@ -370,8 +371,6 @@ void Stats_CalculateMaxStats(void)
                         room->item_num = item_num;
                     }
                 }
-
-                Lua_FireEventInt32(LUA_EVENT_AFTER_ITEM_SETUP, level->num);
 
                 Carrier_InitialiseLevel(level);
                 Stats_ScanLevel(level);
@@ -387,14 +386,15 @@ void Stats_CalculateMaxStats(void)
         LOG_INFO(
             "Level %d (%s)", GF_GetLevelOrdinalNumber(GFLT_MAIN, level),
             level->title);
-        LOG_INFO("    pickups:   %d", max_stats->max_pickup_count);
-        LOG_INFO("    kills:     %d", max_stats->max_kill_count);
+        LOG_INFO("    pickups:   %d", max_stats->maxes[STATS_CAT_PICKUPS]);
+        LOG_INFO("    kills:     %d", max_stats->maxes[STATS_CAT_KILLS]);
         LOG_INFO("      allies:  %d", max_stats->max_kill_ally_count);
         LOG_INFO("      enemies: %d", max_stats->max_kill_non_ally_count);
-        LOG_INFO("    crystals:  %d", max_stats->max_crystal_count);
-        LOG_INFO("    secrets:   %d", max_stats->max_secret_count);
+        LOG_INFO("    crystals:  %d", max_stats->maxes[STATS_CAT_CRYSTALS]);
+        LOG_INFO("    secrets:   %d", max_stats->maxes[STATS_CAT_SECRETS]);
 #endif
     }
+    LUA_SetLevelScriptProbing(false);
 
     M_WriteCache(expected_checksum, level_table);
 
@@ -402,18 +402,21 @@ finish:
     for (int32_t i = 0; i < level_table->count; i++) {
         const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, i);
         const LEVEL_MAX_STATS *const max_stats = Stats_GetLevelMaxStats(level);
-        if (max_stats->max_crystal_count != 0) {
+        if (max_stats->maxes[STATS_CAT_CRYSTALS] != 0) {
             m_GameHasCrystals = true;
             break;
         }
     }
 
     const FINAL_STATS final_stats = Stats_ComputeFinalStats(true);
-    LOG_INFO("Max pickups: %d", final_stats.max_stats.max_pickup_count);
-    LOG_INFO("Max kills:   %d", final_stats.max_stats.max_kill_count);
+    LOG_INFO("Max pickups: %d", final_stats.max_stats.maxes[STATS_CAT_PICKUPS]);
+    LOG_INFO("Max kills:   %d", final_stats.max_stats.maxes[STATS_CAT_KILLS]);
     LOG_INFO("  allies:    %d", final_stats.max_stats.max_kill_ally_count);
     LOG_INFO("  enemies:   %d", final_stats.max_stats.max_kill_non_ally_count);
-    LOG_INFO("Max crystals: %d", final_stats.max_stats.max_crystal_count);
-    LOG_INFO("Max secrets: %d", final_stats.max_stats.max_secret_count);
+    LOG_INFO(
+        "Max crystals: %d", final_stats.max_stats.maxes[STATS_CAT_CRYSTALS]);
+    LOG_INFO("Max secrets: %d", final_stats.max_stats.maxes[STATS_CAT_SECRETS]);
     Benchmark_End(&benchmark, nullptr);
 }
+
+REGISTER_SUBSYSTEM(.shutdown = M_Shutdown)

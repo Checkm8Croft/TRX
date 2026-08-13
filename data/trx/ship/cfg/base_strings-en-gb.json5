@@ -34,7 +34,7 @@
             "title": "Randomise enemy start angle",
         },
         "gameplay.enable_swing_cancel": {
-            "description": "Allows Lara's ledge-swinging animation to be cancelled by letting go and quickly grabbing again.",
+            "description": "Allows Lara's ledge-swinging animation to be cancelled by letting go and quickly grabbing again (TR2+ style). The original TR1 does not allow it.",
         },
         "gameplay.projectile_area_damage": {
             "description": "Controls how the area-of-effect for Rocket Launcher and Grenade Launcher propagates.\n\n- Single-sweep: TR1 & TR2 behaviour.\n- Multi-sweep: TR3 behaviour.\n\nThe multi-sweep option often ends up doing double damage to individual enemies.",
@@ -42,11 +42,14 @@
         "gameplay.target_mode": {
             "description": "Changes the behaviour of how weapons lock onto targets.\n\n- Full lock: always keep target lock even if the enemy moves out of sight or dies (OG TR1-3).\n- Semi lock: keep target lock if the enemy moves out of sight but lose target lock if the enemy dies.\n- No lock: lose target lock if the enemy goes out of sight or dies (TR4+).",
         },
-        "gameplay.wall_glitch_mode": {
-            "description": "Allows using TR1 wall glitch behaviour in TR2 and vice-versa; equally allows fixing all types of wall glitch.",
-        },
         "input.quick_guns_mode": {
             "description": "Controls the behaviour of the quick gun equip keys.\n\n- Draw only: pressing a key will cause Lara to equip the assigned gun.\n- Draw or holster: same as above, plus Lara will undraw the assigned gun if she's currently carrying it.",
+        },
+        "rendering.enable_dithering": {
+            "description": "Reduces the picture to 8-bit colour with an ordered dither pattern, for the look of the software-rendered releases.",
+        },
+        "rendering.sprite_lock_mode": {
+            "description": "Controls which axes to lock when showing sprites on the screen.\n\n- None: show the sprites normally.\n- Roll: lock the roll axis – useful only in photo mode.\n- Roll & pitch: ensure the sprites stand upright and do not lie on the ground when looking at them from above.\n- Perspective: lock roll and pitch axes and additionally, rotate the sprites slightly towards the centre of the screen.",
         },
         "ui.airbar_color": {
             "title": "Airbar colour",
@@ -55,6 +58,9 @@
         "ui.airbar_color_ps1": {
             "title": "Airbar colour",
             "description": "Colour of the airbar.",
+        },
+        "ui.bar_look": {
+            "description": "Chooses the frame and colours the UI bars are drawn with, taken from one of the original releases. The choice also decides which set of bar colour settings below applies.",
         },
         "ui.enable_smooth_bars": {
             "description": "Makes the UI bars use smooth colour transitions.",
@@ -114,6 +120,9 @@
         "visuals.blood_effects": {
             "description": "Controls blood spark colours.\n\n- Disabled: no blood sparks are shown.\n- Pink: the default in German PC releases of TR3.\n- Red: the default in all other retail releases.",
         },
+        "visuals.camera_mode": {
+            "description": "Chooses which game's camera behaviour to use.\n\n- TR1: the chase camera follows the level's pathfinding boxes.\n- TR2: the same, with different chase and look limits, and different handling of fixed cameras.\n- TR3: the chase camera uses line of sight rather than the pathfinding boxes.\n- TR4: as TR3, and the camera also responds when an action moves Lara's view, such as picking up an item or shimmying around a corner.",
+        },
         "visuals.fog_color": {
             "title": "Fog colour",
             "description": "Colour of the fog.",
@@ -124,6 +133,10 @@
         "visuals.water_color": {
             "title": "Water colour",
             "description": "Colour of the water.",
+        },
+        "visuals.water_color_mode": {
+            "title": "Water colour preset",
+            "description": "Which release's underwater tint to use. While a preset is picked it holds the water colour below; Custom leaves that colour to you.",
         }
     }
 }

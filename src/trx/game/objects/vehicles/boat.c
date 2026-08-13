@@ -653,9 +653,8 @@ static void M_Collision(
     Item_UpdateRoom(lara->item_num, boat_item->room_num);
 
     Item_Animate(lara_item);
-    if (boat_item->status != IS_ACTIVE) {
-        Item_AddActive(item_num);
-        boat_item->status = IS_ACTIVE;
+    if (!Item_IsInPlay(boat_item)) {
+        Item_AddSimulated(item_num);
     }
 }
 
@@ -856,7 +855,7 @@ static void M_Setup(OBJECT *const obj)
 
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_BOOL(
+        OBJECT_PROPERTY_STORED(
             "is_heavy", true,
             "Whether or not this vehicle can activate heavy triggers."));
 }

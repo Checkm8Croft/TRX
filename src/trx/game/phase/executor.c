@@ -32,11 +32,6 @@ static PHASE *m_PhaseStack[M_MAX_PHASES] = {};
 static bool m_PendingFadeToBlack = false;
 static FADER_ARGS m_PendingFadeToBlackArgs;
 
-static bool M_ShouldSuspendForFocusLoss(void)
-{
-    return g_Config.gameplay.pause_on_focus_lost && !Shell_IsFocused();
-}
-
 static GF_COMMAND M_HandleOverride(void)
 {
     const GF_COMMAND gf_override_cmd = GF_GetOverrideCommand();
@@ -46,7 +41,7 @@ static GF_COMMAND M_HandleOverride(void)
 
         // A change in the game flow is not natural. Force features like death
         // counter to break from the currently active savegame file.
-        Savegame_UnbindSlot();
+        SG_Manager_UnbindSlot();
         // This flag needs to be cleared as well.
         Game_SetIsPlaying(false);
         // Usually, sequences permit music to flow through - for instance, the
@@ -156,11 +151,12 @@ static PHASE_CONTROL M_Control(PHASE *const phase)
         return (PHASE_CONTROL) { .action = PHASE_ACTION_CONTINUE };
     }
 
-    if (M_ShouldSuspendForFocusLoss()) {
+    if (Shell_ShouldPauseForFocusLoss()) {
         return (PHASE_CONTROL) { .action = PHASE_ACTION_CONTINUE };
     }
 
     if (phase != nullptr && phase->control != nullptr) {
+        Output_DropPendingLights();
         return phase->control(phase);
     }
     return (PHASE_CONTROL) {
@@ -289,7 +285,7 @@ GF_COMMAND PhaseExecutor_Run(PHASE *const phase)
             }
         }
 
-        if (!M_ShouldSuspendForFocusLoss() && Interpolation_IsActive()) {
+        if (!Shell_ShouldPauseForFocusLoss() && Interpolation_IsActive()) {
             Interpolation_SetRate(0.5);
             Output_SetTime(m_CurrentFrame - 0.5f);
             M_Draw(phase);

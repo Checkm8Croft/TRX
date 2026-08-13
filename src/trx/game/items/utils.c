@@ -2,14 +2,18 @@
 
 #include <trx/config.h>
 #include <trx/core/utils.h>
+#include <trx/game/const.h>
 #include <trx/game/creature.h>
 #include <trx/game/effects.h>
+#include <trx/game/items/manager.h>
 #include <trx/game/lara.h>
+#include <trx/game/lua/events.h>
 #include <trx/game/matrix.h>
 #include <trx/game/objects.h>
 #include <trx/game/objects/vars.h>
 #include <trx/game/output.h>
 #include <trx/game/random.h>
+#include <trx/game/sparks/spawners.h>
 #include <trx/game/stats.h>
 #include <trx/version.h>
 
@@ -31,8 +35,52 @@ static bool M_IsFloating(const ITEM *const item)
         && Object_Get(item->object_id)->intelligent && item->hit_points <= 0;
 }
 
+static bool M_ShouldCountKill(
+    const ITEM *const item, const ITEM_DAMAGE_FLAGS flags,
+    const ITEM *const sender)
+{
+    if (!item->include_in_kill_stats || (flags & IDF_NO_KILL_STATS) != 0) {
+        return false;
+    }
+
+    if (item == Lara_GetItem()) {
+        return false;
+    }
+    if (sender == Lara_GetItem()) {
+        return true;
+    }
+    if (sender != nullptr && Creature_IsAlly(sender)) {
+        return g_Config.gameplay.enable_ally_kill_count;
+    }
+    if (sender != nullptr && Creature_IsHostile(sender)) {
+        return false;
+    }
+    return g_Config.gameplay.enable_environment_kill_count;
+}
+
+// Running, in the world, and not spent: simulated, visible, unfinished. Named
+// apart from Item_IsAlive, which is the looser has-HP-or-simulated damage
+// check.
+bool Item_IsInPlay(const ITEM *const item)
+{
+    return item->is_simulated && item->is_visible && !item->is_finished;
+}
+
+// Present and at rest - neither running, hidden, nor spent. The re-armable
+// state a trigger looks for.
+bool Item_IsInactive(const ITEM *const item)
+{
+    return item->is_visible && !item->is_finished && !item->is_simulated;
+}
+
 bool Item_IsAlive(const ITEM *const item)
 {
+    // A removed item is gone regardless of its hit points. An object's own test
+    // reads those, and a destroyed item keeps the ones it had.
+    if (item->is_destroyed) {
+        return false;
+    }
+
     const OBJECT *const obj = Object_Get(item->object_id);
     if (obj->is_alive_func != nullptr) {
         return obj->is_alive_func(item);
@@ -41,7 +89,7 @@ bool Item_IsAlive(const ITEM *const item)
     if (obj->intelligent && Object_IsType(item->object_id, g_WaterObjects)) {
         return item->hit_points > 0;
     }
-    return (item->hit_points > 0) || (item->active);
+    return (item->hit_points > 0) || (item->is_simulated);
 }
 
 bool Item_IsTargetable(const ITEM *const item)
@@ -55,7 +103,7 @@ bool Item_IsTargetable(const ITEM *const item)
         return obj->is_targetable_func(item);
     }
 
-    return item->hit_points > 0 && item->status == IS_ACTIVE
+    return item->hit_points > 0 && Item_IsInPlay(item)
         && (g_Config.gameplay.enable_ally_targeting
             || Creature_IsHostile(item));
 }
@@ -90,35 +138,12 @@ bool Item_CanBeProjectileTarget(const ITEM *const item)
         return true;
     }
 
-    if (!item->collidable || item->status == IS_INVISIBLE
+    if (!item->is_collidable || !item->is_visible
         || obj->collision_func == nullptr) {
         return false;
     }
 
     return Item_IsTargetable(item);
-}
-
-static bool M_ShouldCountKill(
-    const ITEM *const item, const ITEM_DAMAGE_FLAGS flags,
-    const ITEM *const sender)
-{
-    if (!item->include_in_kill_stats) {
-        return false;
-    }
-
-    if (item == Lara_GetItem()) {
-        return false;
-    }
-    if (sender == Lara_GetItem()) {
-        return true;
-    }
-    if (sender != nullptr && Creature_IsAlly(sender)) {
-        return g_Config.gameplay.enable_ally_kill_count;
-    }
-    if (sender != nullptr && Creature_IsHostile(sender)) {
-        return false;
-    }
-    return g_Config.gameplay.enable_environment_kill_count;
 }
 
 void Item_TakeDamage(
@@ -137,10 +162,30 @@ void Item_TakeDamage(
         item->hit_status = true;
     }
 
-    if (was_alive && item->hit_points <= 0
-        && M_ShouldCountKill(item, flags, sender)) {
+    const bool died = was_alive && item->hit_points <= 0;
+    if (died && M_ShouldCountKill(item, flags, sender)) {
         Stats_AddKill();
     }
+
+    // A kill deals an item the hit points it has left, which is nothing once it
+    // is already down, and Lara's death paths leave her below zero. Neither is
+    // a hit worth reporting.
+    if (damage > 0) {
+        const LUA_EVENT_ARG args[] = {
+            { .type = LUA_EVENT_ARG_INT32,
+              .value = { .i32 = Item_GetIndex(item) } },
+            { .type = LUA_EVENT_ARG_INT32, .value = { .i32 = damage } },
+        };
+        LUA_FireEventEx(LUA_EVENT_HIT, args, 2);
+    }
+    if (died) {
+        LUA_FireEventInt32(LUA_EVENT_KILL, Item_GetIndex(item));
+    }
+}
+
+void Item_TakeFatalDamage(ITEM *const item, const ITEM *const sender)
+{
+    Item_TakeDamage(item, item->hit_points, IDF_NO_HIT_STATUS, sender);
 }
 
 bool Item_IsMeshVisible(const ITEM *const item, const int32_t mesh_num)
@@ -179,7 +224,7 @@ void Item_ResetMeshBits(ITEM *const item)
     item->mesh_bits = UINT32_MAX;
 }
 
-int32_t Item_Explode(
+int32_t Item_Shatter(
     const int16_t item_num, const int32_t mesh_bits, const int16_t damage)
 {
     ITEM *const item = Item_Get(item_num);
@@ -191,6 +236,23 @@ int32_t Item_Explode(
     Output_CalculateLight(item->pos, item->room_num);
 
     const ANIM_FRAME *const best_frame = Item_GetBestFrame(item);
+
+    // TR4 has no explosion sprite, so an exploding death needs a spark
+    // fireball. OG raises it at the call site rather than inside
+    // ExplodingDeath2; here the damage tells the explosive shatters apart from
+    // the likes of falling blocks, which come apart in silence.
+    if (g_TRVersion == 4 && damage != 0) {
+        const BOUNDS_16 bounds = best_frame->bounds;
+        const XYZ_32 pos = {
+            .x = item->pos.x,
+            .y = item->pos.y + ((bounds.min.y + bounds.max.y) / 2),
+            .z = item->pos.z,
+        };
+        Sparks_TriggerExplosionSparks(pos, 3, -2, 0, item->room_num);
+        for (int32_t i = 0; i < 2; i++) {
+            Sparks_TriggerExplosionSparks(pos, 3, -1, 0, item->room_num);
+        }
+    }
 
     Matrix_PushUnit();
     Matrix_Rot16(item->rot);
@@ -279,6 +341,18 @@ bool Item_ShouldSpawnBlood(const ITEM *const item)
     return true;
 }
 
+ITEM *Item_Find(const OBJECT_ID obj_id)
+{
+    for (int32_t item_num = 0; item_num < Item_GetTotalCount(); item_num++) {
+        ITEM *const item = Item_Get(item_num);
+        if (item->object_id == obj_id) {
+            return item;
+        }
+    }
+
+    return nullptr;
+}
+
 int16_t Item_FindTypeInRoom(const int16_t room_num, const OBJECT_ID obj_id)
 {
     int16_t linked_item_num = Room_Get(room_num)->item_num;
@@ -309,8 +383,8 @@ int16_t Item_FindTypeAtPos(
 
 bool Item_IsTriggerActiveRO(const ITEM *const item)
 {
-    const bool ok = (item->flags & IF_REVERSE) == 0;
-    if ((item->flags & IF_CODE_BITS) != IF_CODE_BITS) {
+    const bool ok = !item->trigger.reversed;
+    if (item->trigger.mask != TRIGGER_MASK_ALL) {
         return !ok;
     }
     if (item->timer == 0) {
@@ -332,4 +406,14 @@ bool Item_IsTriggerActive(ITEM *const item)
         }
     }
     return result;
+}
+
+int32_t Item_GetTriggerMask(const ITEM *const item)
+{
+    return item->trigger.mask;
+}
+
+void Item_SetTriggerMask(ITEM *const item, const int32_t mask)
+{
+    item->trigger.mask = mask & TRIGGER_MASK_ALL;
 }

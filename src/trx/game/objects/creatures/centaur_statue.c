@@ -2,7 +2,6 @@
 #include <trx/debug.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects/common.h>
-#include <trx/game/pathing.h>
 #include <trx/game/sound.h>
 
 #define STATUE_EXPLODE_DIST (WALL_L * 7 / 2) // = 3584
@@ -33,7 +32,7 @@ static void M_Initialise(const int16_t item_num)
     centaur->pos.x = item->pos.x;
     centaur->pos.y = item->pos.y;
     centaur->pos.z = item->pos.z;
-    centaur->flags = IF_INVISIBLE;
+    centaur->init_flags = IF_INVISIBLE;
     centaur->shade.value_1 = -1;
 
     Item_Initialise(centaur_item_num);
@@ -49,7 +48,7 @@ static void M_Initialise(const int16_t item_num)
 static void M_Control(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
-    if (item->flags & IF_KILLED) {
+    if (item->is_destroyed) {
         return;
     }
 
@@ -60,17 +59,14 @@ static void M_Control(const int16_t item_num)
 
     if (y > -WALL_L && y < WALL_L
         && SQUARE(x) + SQUARE(z) < SQUARE(STATUE_EXPLODE_DIST)) {
-        Item_Explode(item_num, -1, 0);
-        Item_Kill(item_num);
-        item->status = IS_DEACTIVATED;
+        Item_Shatter(item_num, -1, 0);
+        Item_Destroy(item_num);
+        Item_SetFinished(item, true);
 
         const M_PRIV *const p = item->priv;
         if (p->centaur_item_num != NO_ITEM) {
             ITEM *const centaur = Item_Get(p->centaur_item_num);
-            centaur->touch_bits = 0;
-            Item_AddActive(p->centaur_item_num);
-            LOT_EnableBaddieAI(p->centaur_item_num, true);
-            centaur->status = IS_ACTIVE;
+            Item_Activate(p->centaur_item_num, true);
             Sound_Effect(SFX_EXPLOSION_1, &centaur->pos, SPM_NORMAL);
         } else {
             Sound_Effect(SFX_EXPLOSION_1, &item->pos, SPM_NORMAL);

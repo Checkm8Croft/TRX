@@ -26,22 +26,6 @@
 
 static JSON_VALUE *M_ReadRaw(MYFILE *fp, int32_t *version_out);
 
-const char *SG_File_GetSaveFilePattern(void)
-{
-    return g_GameFlow.savegame_file_fmt;
-}
-
-const char *SG_File_GetQuickSaveFilePattern(void)
-{
-    const char *const pattern = SG_File_GetSaveFilePattern();
-    const char *const placeholder = strchr(pattern, '%');
-    if (placeholder == nullptr) {
-        return String_FormatStatic("%s_q", pattern);
-    }
-    const int32_t prefix_size = placeholder - pattern;
-    return String_FormatStatic("%.*sq%s", prefix_size, pattern, placeholder);
-}
-
 static JSON_VALUE *M_ParseFromBuffer(
     const char *const buffer, int32_t *const version_out)
 {
@@ -113,8 +97,8 @@ static void M_SaveRaw(
     };
     const SAVEGAME_BSON_EXTENDED_HEADER extra_header = {
         .flags = Game_GetBonusFlag() | (is_quick ? SAVEGAME_EXT_FLAG_QUICK : 0),
-        .counter =
-            JSON_ObjectGetInt(root_obj, "save_counter", Savegame_GetCounter()),
+        .counter = JSON_ObjectGetInt(
+            root_obj, "save_counter", SG_Manager_GetCounter()),
         .level_num = level->num,
         .title_size = level->title != nullptr ? strlen(level->title) : 0,
     };
@@ -127,6 +111,22 @@ static void M_SaveRaw(
 
     Memory_FreePointer(&uncompressed);
     Memory_FreePointer(&compressed);
+}
+
+const char *SG_File_GetSaveFilePattern(void)
+{
+    return g_GameFlow.savegame_file_fmt;
+}
+
+const char *SG_File_GetQuickSaveFilePattern(void)
+{
+    const char *const pattern = SG_File_GetSaveFilePattern();
+    const char *const placeholder = strchr(pattern, '%');
+    if (placeholder == nullptr) {
+        return String_FormatStatic("%s_q", pattern);
+    }
+    const int32_t prefix_size = placeholder - pattern;
+    return String_FormatStatic("%.*sq%s", prefix_size, pattern, placeholder);
 }
 
 bool SG_File_LoadFromFile(MYFILE *const fp)
@@ -148,6 +148,7 @@ bool SG_File_LoadFromFile(MYFILE *const fp)
     M_MUST(SG_File_LoadFlares(io));
     M_MUST(SG_File_LoadMusic(io));
     M_MUST(SG_File_LoadLara(io));
+    M_MUST(SG_File_LoadRules(io));
 
     result = true;
 
@@ -172,6 +173,7 @@ void SG_File_SaveToFile(MYFILE *const fp, SAVEGAME_INFO *const info)
     SG_File_DumpLara(io);
     SG_File_DumpMusic(io);
     SG_File_DumpFlares(io);
+    SG_File_DumpRules(io);
     SG_File_DumpMisc(io);
 
     M_SaveRaw(

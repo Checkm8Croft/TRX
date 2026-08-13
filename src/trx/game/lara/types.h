@@ -25,10 +25,6 @@ typedef struct {
 } LARA_ARM;
 
 typedef struct {
-    int32_t ammo;
-} AMMO_INFO;
-
-typedef struct {
     int16_t item_num;
     LARA_GUN_STATE gun_status;
     LARA_GUN_TYPE gun_type;
@@ -72,12 +68,6 @@ typedef struct {
 
     LARA_ARM left_arm;
     LARA_ARM right_arm;
-    AMMO_INFO pistol_ammo;
-    AMMO_INFO magnum_ammo;
-    AMMO_INFO autos_ammo;
-    AMMO_INFO desert_eagle_ammo;
-    AMMO_INFO uzi_ammo;
-    AMMO_INFO shotgun_ammo;
 
     struct {
         struct {
@@ -93,7 +83,6 @@ typedef struct {
     XZ_32 corner_pos;
     bool is_crouched;
     bool keep_crouched;
-    bool killed_loyal_item;
 
     struct {
         int32_t item_num;
@@ -125,13 +114,6 @@ typedef struct {
     LARA_GUN_TYPE holsters_gun_type;
     LARA_GUN_TYPE back_gun_type;
     int16_t gun_item_num;
-    AMMO_INFO harpoon_ammo;
-    AMMO_INFO grenade_ammo;
-    AMMO_INFO rocket_ammo;
-    AMMO_INFO m16_ammo;
-    AMMO_INFO mp5_ammo;
-    AMMO_INFO crossbow_ammo;
-    AMMO_INFO revolver_ammo;
     struct {
         bool control;
         int16_t age;
@@ -140,6 +122,10 @@ typedef struct {
 
     MATRIX mesh_pos_matrices[LM_NUMBER_OF];
     bool mesh_pos_matrices_valid;
+
+    // TR4: per-mesh wetness, maintained by fx/droplets.c. Carried across
+    // levels, as in the original.
+    uint8_t wet[LM_NUMBER_OF];
 
     // TR3: persistent gun smoke spawned from muzzle after firing.
     int32_t tr3_smoke_count_l;

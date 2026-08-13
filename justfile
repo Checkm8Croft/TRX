@@ -1,7 +1,7 @@
 CWD := `pwd`
 HOST_USER_UID := `id -u`
 HOST_USER_GID := `id -g`
-DOCKER_IMAGE_VERSION := "20260501.dev1"
+DOCKER_IMAGE_VERSION := "20260809.dev1"
 
 default: (trx-build-win "debug")
 
@@ -75,15 +75,8 @@ clean:
     -find . -mindepth 1 -empty -type d -delete
 
 [group('lint')]
-lint-imports:
-    tools/sort_imports
-
-[group('lint')]
-lint-format:
+lint:
     prek -a
-
-[group('lint')]
-lint: (lint-imports) (lint-format)
 
 trx-build-linux target='debug': (image-linux "0") (_docker_run "rrdash/trx-linux" "build" "--target" target)
 trx-build-win target='debug': (image-win "0") (_docker_run "rrdash/trx-win" "build" "--target" target)
@@ -97,8 +90,27 @@ trx-build-win-installer target='release' *args: \
 trx-package-linux target='debug' *args: (trx-build-linux target) (_docker_run "rrdash/trx-linux" "package" args)
 trx-package-win target='debug' *args: (trx-build-win target) (_docker_run "rrdash/trx-win" "package" args)
 trx-package-win-te artifact_path output *args:
-    python3 tools/update_te_symlinks
+    python3 tools/lint/gen/te_symlinks
     python3 tools/package_te_bundle.py --artifact {{artifact_path}} --output {{output}} {{args}}
 trx-package-win-installer target='release' *args: \
     (trx-build-win-installer target args) \
     (_docker_run "rrdash/trx-win" "package" "--platform" "win-installer" args)
+
+# Run the unit tests. The tests are a separate meson project.
+[group('test')]
+test *args='--suite unit':
+    #!/usr/bin/env sh
+    meson setup build/tests src/tests >/dev/null 2>&1 || meson setup --reconfigure build/tests src/tests >/dev/null
+    meson test -C build/tests --print-errorlogs {{args}}
+
+# Regenerate the Lua API reference from a built binary.
+[group('lint')]
+lua-api-dump binary='build/trx/linux/TRX':
+    tools/lint/gen/lua_docs --dump-from {{binary}}
+
+# CI guard: fail if the committed Lua API docs or api.json are stale.
+[group('lint')]
+lua-api-check binary='build/trx/linux/TRX': (lua-api-dump binary)
+    @git diff --exit-code -- docs/trx/lua/ || ( \
+        echo 'Lua API docs are stale. Run `just lua-api-dump` and commit the result.'; \
+        exit 1 )

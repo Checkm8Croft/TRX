@@ -56,7 +56,6 @@
         // Level 0: Lara's Home
         {
             "path": "gym.phd",
-            "script": "gym.lua",
             "type": "gym",
             "music_track": 0,
             "inherit_injections": false,
@@ -266,6 +265,7 @@
                 "tihocan_fd.bin",
                 "tihocan_itemrots.bin",
                 "tihocan_textures.bin",
+                "scion_alignment.bin",
             ],
             "item_drops": [
                 {"enemy_num": 82, "object_ids": [86, 144, 129]},
@@ -333,6 +333,7 @@
                 "sanctuary_itemrots.bin",
                 "sanctuary_scion.bin",
                 "sanctuary_textures.bin",
+                "sanctuary_meshfixes.bin",
             ],
         },
 
@@ -360,6 +361,7 @@
                 "mines_pushblocks.bin",
                 "mines_textures.bin",
                 "skate_kid_sfx.bin",
+                "wall_switch_sfx.bin",
             ],
             "item_drops": [
                 {"enemy_num": 17, "object_ids": [86]},
@@ -377,7 +379,6 @@
                 {"type": "play_fmv", "fmv_id": 8},
                 {"type": "loading_screen", "path": "atlantis.webp", "fade_in_time": 1.0, "fade_out_time": 1.0},
                 {"type": "give_item", "object_id": "pistols", "quantity": 1},
-                {"type": "setup_bacon_lara", "anchor_room": 10},
                 {"type": "loop_game"},
                 {"type": "play_fmv", "fmv_id": 9},
                 {"type": "play_cutscene", "cutscene_id": 3},
@@ -389,6 +390,7 @@
                 "atlantis_fd.bin",
                 "atlantis_itemrots.bin",
                 "atlantis_textures.bin",
+                "uw_switch_sfx.bin",
             ],
             "unobtainable_pickups": 3,
         },
@@ -607,5 +609,6 @@
         "enable_cinematic_skips",
         "enable_body_bags",
         "fix_animated_spikes",
+        "fix_lift_collision",
     ],
 }

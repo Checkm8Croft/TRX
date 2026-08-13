@@ -82,6 +82,7 @@ static XYZ_32 M_GetItemMaxDelta(const ITEM *const item)
     case O_QUAD_BIKE:
     case O_KAYAK:
     case O_UPV:
+    case O_TRAIN:
         max_xz = 300;
         break;
 
@@ -272,15 +273,19 @@ static void M_CommitBraidSegment(HAIR_SEGMENT *const segment)
 
 static void M_RememberBraid(void)
 {
-    for (int32_t i = 0; i < Lara_Hair_GetSegmentCount(); i++) {
-        M_RememberBraidSegment(Lara_Hair_GetSegment(i));
+    for (int32_t i = 0; i < Lara_Hair_GetBraidCount(); i++) {
+        for (int32_t j = 0; j < Lara_Hair_GetSegmentCount(); j++) {
+            M_RememberBraidSegment(Lara_Hair_GetSegment(i, j));
+        }
     }
 }
 
 static void M_CommitBraid(void)
 {
-    for (int32_t i = 0; i < Lara_Hair_GetSegmentCount(); i++) {
-        M_CommitBraidSegment(Lara_Hair_GetSegment(i));
+    for (int32_t i = 0; i < Lara_Hair_GetBraidCount(); i++) {
+        for (int32_t j = 0; j < Lara_Hair_GetSegmentCount(); j++) {
+            M_CommitBraidSegment(Lara_Hair_GetSegment(i, j));
+        }
     }
 }
 
@@ -288,21 +293,12 @@ static void M_InterpolateBraid(const double ratio, ITEM *const lara_item)
 {
     ASSERT(lara_item != nullptr);
     const XYZ_32 max_delta = M_GetItemMaxDelta(lara_item);
-    for (int32_t i = 0; i < Lara_Hair_GetSegmentCount(); i++) {
-        M_InterpolateBraidSegment(Lara_Hair_GetSegment(i), ratio, max_delta);
+    for (int32_t i = 0; i < Lara_Hair_GetBraidCount(); i++) {
+        for (int32_t j = 0; j < Lara_Hair_GetSegmentCount(); j++) {
+            M_InterpolateBraidSegment(
+                Lara_Hair_GetSegment(i, j), ratio, max_delta);
+        }
     }
-}
-
-static void M_RememberItem(ITEM *const item)
-{
-    REMEMBER(item, floor);
-    REMEMBER(item, pos.x);
-    REMEMBER(item, pos.y);
-    REMEMBER(item, pos.z);
-    REMEMBER(item, rot.x);
-    REMEMBER(item, rot.y);
-    REMEMBER(item, rot.z);
-    item->prev_frame_num = item->frame_num;
 }
 
 static void M_CommitItem(ITEM *const item)
@@ -331,12 +327,12 @@ static void M_InterpolateItem(ITEM *const item, const double ratio)
 static void M_RememberItems(void)
 {
     for (int32_t i = 0; i < Item_GetTotalCount(); i++) {
-        M_RememberItem(Item_Get(i));
+        Interpolation_RememberItem(Item_Get(i));
     }
 
     ITEM *const lara_item = Lara_GetItem();
     if (lara_item != nullptr) {
-        M_RememberItem(lara_item);
+        Interpolation_RememberItem(lara_item);
     }
 }
 
@@ -345,7 +341,7 @@ static void M_InterpolateItems(const double ratio)
     const int16_t lara_vehicle_num = Lara_Vehicle_GetIndex();
     for (int32_t i = 0; i < Item_GetTotalCount(); i++) {
         ITEM *const item = Item_Get(i);
-        if (((item->flags & IF_KILLED) || item->status == IS_INACTIVE)
+        if ((item->is_destroyed || Item_IsInactive(item))
             && i != lara_vehicle_num
             && XYZ_32_AreEquivalent(item->pos, item->interp.prev.pos)) {
             M_CommitItem(item);
@@ -369,11 +365,22 @@ static void M_RememberEffect(EFFECT *const effect)
     REMEMBER(effect, rot.x);
     REMEMBER(effect, rot.y);
     REMEMBER(effect, rot.z);
+    effect->interp.is_new = false;
 }
 
 static void M_InterpolateEffect(const double ratio, EFFECT *const effect)
 {
     ASSERT(effect != nullptr);
+    if (effect->interp.is_new) {
+        COMMIT(effect, pos.x);
+        COMMIT(effect, pos.y);
+        COMMIT(effect, pos.z);
+        COMMIT(effect, rot.x);
+        COMMIT(effect, rot.y);
+        COMMIT(effect, rot.z);
+        return;
+    }
+
     const XYZ_32 max_delta = M_GetEffectMaxDelta(effect);
     INTERPOLATE(effect, pos.x, ratio, max_delta.x);
     INTERPOLATE(effect, pos.y, ratio, max_delta.y);
@@ -469,6 +476,18 @@ void Interpolation_Remember(void)
     }
     M_RememberItems();
     M_RememberEffects();
+}
+
+void Interpolation_RememberItem(ITEM *const item)
+{
+    REMEMBER(item, floor);
+    REMEMBER(item, pos.x);
+    REMEMBER(item, pos.y);
+    REMEMBER(item, pos.z);
+    REMEMBER(item, rot.x);
+    REMEMBER(item, rot.y);
+    REMEMBER(item, rot.z);
+    item->prev_frame_num = item->frame_num;
 }
 
 void Interpolation_Interpolate(void)

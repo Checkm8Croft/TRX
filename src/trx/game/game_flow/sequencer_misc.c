@@ -1,6 +1,8 @@
 #include <trx/config.h>
+#include <trx/core/enum_map.h>
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
+#include <trx/debug.h>
 #include <trx/game/demo.h>
 #include <trx/game/fmv.h>
 #include <trx/game/game.h>
@@ -32,7 +34,7 @@ static void M_PlayIntroFMVs(void)
 
 GF_COMMAND GF_RunTitle(void)
 {
-    Savegame_UnbindSlot();
+    SG_Manager_UnbindSlot();
     GameStringTable_Apply(nullptr);
     const GF_LEVEL *const title_level = GF_GetTitleLevel();
     if (!Level_Initialise(title_level, GFSC_NORMAL)) {
@@ -75,7 +77,7 @@ bool GF_ShowInventoryKeys(const OBJECT_ID receptacle_type_id)
             receptacle_type_id, g_KeyItemToReceptacleMap);
         InvRing_SetRequestedObjectID(obj_id);
     } else {
-        Inv_ClearSelection();
+        InvRing_ClearSelection();
     }
     const GF_COMMAND gf_cmd = GF_ShowInventory(INV_KEYS_MODE);
     if (gf_cmd.action != GF_NOOP) {
@@ -129,8 +131,8 @@ GF_COMMAND GF_DoFrontendSequence(void)
         if (args->startup.save_to_load >= 0) {
             return (GF_COMMAND) {
                 .action = GF_START_SAVED_GAME,
-                .param = Savegame_SlotToParam(
-                    Savegame_NormalSlot(args->startup.save_to_load)),
+                .param = SG_Manager_SlotToParam(
+                    SG_Manager_NormalSlot(args->startup.save_to_load)),
             };
         }
 
@@ -235,9 +237,9 @@ GF_COMMAND GF_DoCutsceneSequence(
 
 GF_COMMAND GF_PlayAvailableStory(const SAVEGAME_SLOT_REF slot)
 {
-    const int32_t savegame_level = Savegame_GetLevelNumber(slot);
+    const int32_t savegame_level = SG_Manager_GetLevelNumber(slot);
     const bool prev_enable_legal = g_Config.gameplay.enable_legal;
-    g_Config.gameplay.enable_legal = false;
+    CONFIG_SET(g_Config.gameplay.enable_legal, false);
 
     // Play intro FMVs and cutscenes
     GF_DoFrontendSequence();
@@ -256,16 +258,16 @@ GF_COMMAND GF_PlayAvailableStory(const SAVEGAME_SLOT_REF slot)
         }
     }
 
-    g_Config.gameplay.enable_legal = prev_enable_legal;
+    CONFIG_SET(g_Config.gameplay.enable_legal, prev_enable_legal);
     return (GF_COMMAND) { .action = GF_EXIT_TO_TITLE };
 }
 
 bool GF_HasAvailableStory(const SAVEGAME_SLOT_REF slot)
 {
-    if (Savegame_IsSlotFree(slot)) {
+    if (SG_Manager_IsSlotFree(slot)) {
         return false;
     }
-    const int32_t savegame_level = Savegame_GetLevelNumber(slot);
+    const int32_t savegame_level = SG_Manager_GetLevelNumber(slot);
 
     // Check intro FMVs and cutscenes in frontend sequence (skip legal FMVs)
     const GF_LEVEL *const title_level = GF_GetTitleLevel();
@@ -320,4 +322,97 @@ bool GF_HasAvailableStory(const SAVEGAME_SLOT_REF slot)
         }
     }
     return false;
+}
+
+void GF_RunUntilExit(GF_COMMAND gf_cmd)
+{
+    bool loop_continue = !Shell_IsExiting();
+    while (loop_continue) {
+        LOG_INFO(
+            "action=%s param=%d", ENUM_MAP_TO_STRING(GF_ACTION, gf_cmd.action),
+            gf_cmd.param);
+
+        switch (gf_cmd.action) {
+        case GF_START_GAME:
+        case GF_SELECT_GAME: {
+            const int32_t level_num = gf_cmd.param;
+            const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, level_num);
+            const GF_SEQUENCE_CONTEXT seq_ctx =
+                gf_cmd.action == GF_SELECT_GAME ? GFSC_SELECT : GFSC_NORMAL;
+            if (level != nullptr) {
+                gf_cmd = GF_DoLevelSequence(level, seq_ctx);
+            }
+            break;
+        }
+
+        case GF_GLOBE_SELECT:
+            gf_cmd = GF_RunGlobeSelect(nullptr);
+            break;
+
+        case GF_START_SAVED_GAME: {
+            const SAVEGAME_SLOT_REF slot =
+                SG_Manager_SlotFromParam(gf_cmd.param);
+            const int32_t level_num = SG_Manager_GetLevelNumber(slot);
+            if (level_num < 0) {
+                LOG_ERROR("Corrupt save file!");
+                gf_cmd = (GF_COMMAND) { .action = GF_EXIT_TO_TITLE };
+            } else {
+                SG_Manager_BindSlot(slot);
+                const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, level_num);
+                gf_cmd = GF_DoLevelSequence(level, GFSC_SAVED);
+            }
+            break;
+        }
+
+        case GF_RESTART_GAME: {
+            const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, gf_cmd.param);
+            gf_cmd = GF_InterpretSequence(level, GFSC_RESTART, nullptr);
+            break;
+        }
+
+        case GF_STORY_SO_FAR:
+            gf_cmd =
+                GF_PlayAvailableStory(SG_Manager_SlotFromParam(gf_cmd.param));
+            break;
+
+        case GF_START_CINE:
+            gf_cmd = GF_DoCutsceneSequence(gf_cmd.param, false);
+            break;
+
+        case GF_START_DEMO:
+            gf_cmd = GF_DoDemoSequence(gf_cmd.param);
+            break;
+
+        case GF_NOOP:
+        case GF_LEVEL_COMPLETE:
+            gf_cmd = (GF_COMMAND) { .action = GF_EXIT_TO_TITLE };
+            break;
+
+        case GF_EXIT_TO_TITLE:
+            if (Shell_GetArgs()->startup.level_request.path != nullptr) {
+                gf_cmd = (GF_COMMAND) { .action = GF_EXIT_GAME };
+            } else if (g_GameFlow.title_level == nullptr) {
+                Shell_ExitSystem("Missing title level");
+            } else {
+                gf_cmd = GF_RunTitle();
+            }
+            break;
+
+        case GF_EXIT_GAME:
+        case GF_SWITCH_MOD:
+            loop_continue = false;
+            break;
+
+        default:
+            ASSERT_FAIL_FMT(
+                "invalid action (action=%s, param=%d)",
+                ENUM_MAP_TO_STRING(GF_ACTION, gf_cmd.action), gf_cmd.param);
+        }
+    }
+
+    if (GF_GetCurrentLevel() != nullptr) {
+        Level_Unload();
+    }
+    Game_SetCurrentLevel(nullptr);
+    GF_SetCurrentLevel(nullptr);
 }

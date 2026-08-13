@@ -1,54 +1,222 @@
 #include <trx/game/lua/utils.h>
 
-OBJECT_PROPERTY_VALUE LUA_CheckPropertyValue(lua_State *const L, const int idx)
+#include <trx/game/objects/ids.h>
+
+#include <stdint.h>
+#include <string.h>
+
+bool LUA_GetCallerInfo(lua_State *const L, lua_Debug *const ar)
 {
-    switch (lua_type(L, idx)) {
-    case LUA_TBOOLEAN:
-        return (OBJECT_PROPERTY_VALUE) {
-            .type = OBJECT_PROPERTY_TYPE_BOOL,
-            .as_bool = lua_toboolean(L, idx),
-        };
-
-    case LUA_TNUMBER:
-        if (lua_isinteger(L, idx)) {
-            return (OBJECT_PROPERTY_VALUE) {
-                .type = OBJECT_PROPERTY_TYPE_INT,
-                .as_int = lua_tointeger(L, idx),
-            };
+    // Level 0 is the bridge. Above it sit the module's binding, a group's
+    // __call, and strict mode's wrapper - all of them engine chunks.
+    for (int32_t level = 1; lua_getstack(L, level, ar) != 0; level++) {
+        if (lua_getinfo(L, "nSl", ar) == 0) {
+            return false;
         }
-        return (OBJECT_PROPERTY_VALUE) {
-            .type = OBJECT_PROPERTY_TYPE_DOUBLE,
-            .as_double = lua_tonumber(L, idx),
-        };
+        if (strncmp(
+                ar->source, LUA_API_CHUNK_PREFIX,
+                sizeof(LUA_API_CHUNK_PREFIX) - 1)
+            != 0) {
+            return true;
+        }
+    }
+    return false;
+}
 
-    case LUA_TTABLE:
-        XYZ_32 vec = {};
-        XYZ_32 check = {};
+int32_t LUA_CheckRange(
+    lua_State *const L, const int arg, const int32_t count,
+    const char *const what)
+{
+    const lua_Integer value = luaL_checkinteger(L, arg);
+    luaL_argcheck(L, value >= 0 && value < count, arg, what);
+    return (int32_t)value;
+}
 
-        lua_getfield(L, idx, "x");
-        vec.x = lua_tointegerx(L, -1, &check.x);
+OBJECT_ID LUA_CheckObjectID(lua_State *const L, const int arg)
+{
+    return (OBJECT_ID)LUA_CheckRange(L, arg, O_NUMBER_OF, "unknown object id");
+}
+
+bool LUA_CheckBoundedInt(
+    lua_State *const L, const int arg, const lua_Integer lo,
+    const lua_Integer hi, int32_t *const out)
+{
+    const lua_Integer value = luaL_checkinteger(L, arg);
+    if (value < lo || value > hi) {
+        return false;
+    }
+    *out = (int32_t)value;
+    return true;
+}
+
+void LUA_CheckLogCall(lua_State *const L, LUA_LOG_CALL *const out)
+{
+    *out = (LUA_LOG_CALL) {
+        .level = LUA_CheckRange(L, 1, LOG_LEVEL_ERROR + 1, "unknown log level"),
+        .msg = luaL_checkstring(L, 2),
+        .src = "?",
+        .func = "?",
+        .line = 0,
+    };
+    if (LUA_GetCallerInfo(L, &out->ar)) {
+        out->src = out->ar.short_src;
+        out->func = out->ar.name != nullptr ? out->ar.name : "?";
+        out->line = out->ar.currentline;
+    }
+}
+
+void LUA_RegisterModule(
+    lua_State *const L, const char *const name, const luaL_Reg *const fns)
+{
+    lua_getglobal(L, "trxc");
+    lua_newtable(L);
+    luaL_setfuncs(L, fns, 0);
+    lua_setfield(L, -2, name);
+    lua_pop(L, 1);
+}
+
+void LUA_GetModule(lua_State *const L, const char *const name)
+{
+    lua_getglobal(L, "trxc");
+    lua_getfield(L, -1, name);
+    lua_remove(L, -2);
+}
+
+XYZ_32 LUA_CheckXYZAt(lua_State *const L, const int idx, const int arg)
+{
+    const int abs_idx = lua_absindex(L, idx);
+    luaL_checktype(L, abs_idx, LUA_TTABLE);
+
+    XYZ_32 result = {};
+    int32_t *const members[] = { &result.x, &result.y, &result.z };
+    static const char *const names[] = { "x", "y", "z" };
+    for (int32_t i = 0; i < 3; i++) {
+        lua_getfield(L, abs_idx, names[i]);
+        int is_integer = 0;
+        const lua_Integer value = lua_tointegerx(L, -1, &is_integer);
+        if (is_integer == 0 || value < INT32_MIN || value > INT32_MAX) {
+            luaL_argerror(
+                L, arg, lua_pushfstring(L, "%s must be an integer", names[i]));
+        }
+        *members[i] = (int32_t)value;
         lua_pop(L, 1);
+    }
+    return result;
+}
 
-        lua_getfield(L, idx, "y");
-        vec.y = lua_tointegerx(L, -1, &check.y);
-        lua_pop(L, 1);
+XYZ_32 LUA_CheckXYZ(lua_State *const L, const int arg)
+{
+    return LUA_CheckXYZAt(L, arg, arg);
+}
 
-        lua_getfield(L, idx, "z");
-        vec.z = lua_tointegerx(L, -1, &check.z);
-        lua_pop(L, 1);
+void LUA_PushValue(lua_State *const L, const TRX_VALUE *const value)
+{
+    switch (value->type) {
+    case TVT_BOOL:
+        lua_pushboolean(L, value->as_bool);
+        break;
 
-        if (check.x != 0 && check.y != 0 && check.z != 0) {
-            return (OBJECT_PROPERTY_VALUE) {
-                .type = OBJECT_PROPERTY_TYPE_XYZ,
-                .as_xyz = vec,
-            };
+    case TVT_S8:
+    case TVT_U8:
+    case TVT_S16:
+    case TVT_U16:
+    case TVT_S32:
+    case TVT_U32:
+    case TVT_ENUM:
+        lua_pushinteger(L, value->as_int);
+        break;
+
+    case TVT_FLOAT:
+    case TVT_DOUBLE:
+        lua_pushnumber(L, value->as_num);
+        break;
+
+    case TVT_XYZ_16:
+    case TVT_XYZ_32:
+        LUA_PushXYZ(L, value->as_xyz);
+        break;
+
+    case TVT_RGB_888:
+        lua_pushstring(L, Value_Format(TVT_RGB_888, nullptr, value, false));
+        break;
+
+    case TVT_STRING:
+    case TVT_DYNAMIC_ENUM:
+        if (value->as_str == nullptr) {
+            lua_pushnil(L);
+        } else {
+            lua_pushstring(L, value->as_str);
+        }
+        break;
+    }
+}
+
+TRX_VALUE LUA_CheckValue(
+    lua_State *const L, const int idx, const TRX_VALUE_TYPE type)
+{
+    TRX_VALUE value = { .type = type };
+    switch (type) {
+    case TVT_BOOL:
+        luaL_checktype(L, idx, LUA_TBOOLEAN);
+        value.as_bool = lua_toboolean(L, idx);
+        break;
+
+    case TVT_S8:
+    case TVT_U8:
+    case TVT_S16:
+    case TVT_U16:
+    case TVT_S32:
+    case TVT_U32:
+    case TVT_ENUM:
+        value.as_int = luaL_checkinteger(L, idx);
+        break;
+
+    case TVT_FLOAT:
+    case TVT_DOUBLE:
+        value.as_num = luaL_checknumber(L, idx);
+        break;
+
+    case TVT_XYZ_16:
+    case TVT_XYZ_32:
+        value.as_xyz = LUA_CheckXYZ(L, idx);
+        break;
+
+    case TVT_RGB_888:
+        if (!Value_Parse(
+                TVT_RGB_888, nullptr, luaL_checkstring(L, idx), &value)) {
+            luaL_error(L, "argument %d is not a colour", idx);
         }
         break;
 
-    default:
+    case TVT_STRING:
+    case TVT_DYNAMIC_ENUM:
+        // nil clears a string field; its setter decides whether that is
+        // allowed (e.g. item.name = nil removes the name).
+        value.as_str =
+            lua_isnoneornil(L, idx) ? nullptr : luaL_checkstring(L, idx);
         break;
     }
 
-    luaL_error(L, "property value must be a number, boolean or table");
-    return (OBJECT_PROPERTY_VALUE) {};
+    return value;
+}
+
+void LUA_PushXYZ(lua_State *const L, const XYZ_32 value)
+{
+    lua_createtable(L, 0, 3);
+    lua_pushinteger(L, value.x);
+    lua_setfield(L, -2, "x");
+    lua_pushinteger(L, value.y);
+    lua_setfield(L, -2, "y");
+    lua_pushinteger(L, value.z);
+    lua_setfield(L, -2, "z");
+}
+
+void LUA_PushOptIndex(
+    lua_State *const L, const int32_t value, const int32_t sentinel)
+{
+    if (value == sentinel) {
+        lua_pushnil(L);
+    } else {
+        lua_pushinteger(L, value);
+    }
 }

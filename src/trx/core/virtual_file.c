@@ -7,6 +7,12 @@
 
 #include <string.h>
 
+#define DEFINE_TRY_READ(name, type)                                            \
+    bool name(VFILE *const file, type *const dst)                              \
+    {                                                                          \
+        return VFile_TryRead(file, dst, sizeof(type));                         \
+    }
+
 VFILE *VFile_CreateFromPath(const char *const path)
 {
     MYFILE *fp = File_Open(path, FILE_OPEN_READ);
@@ -139,11 +145,19 @@ uint32_t VFile_ReadU32(VFILE *file)
     return result;
 }
 
-#define DEFINE_TRY_READ(name, type)                                            \
-    bool name(VFILE *const file, type *const dst)                              \
-    {                                                                          \
-        return VFile_TryRead(file, dst, sizeof(type));                         \
-    }
+float VFile_ReadFloat(VFILE *const file)
+{
+    float result;
+    VFile_Read(file, &result, sizeof(result));
+    return result;
+}
+
+double VFile_ReadDouble(VFILE *const file)
+{
+    double result;
+    VFile_Read(file, &result, sizeof(result));
+    return result;
+}
 
 DEFINE_TRY_READ(VFile_TryReadS8, int8_t)
 DEFINE_TRY_READ(VFile_TryReadS16, int16_t)

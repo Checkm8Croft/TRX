@@ -1,0 +1,112 @@
+#!/usr/bin/env python3
+import re
+import sys
+from pathlib import Path
+from typing import Any
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from harness import LintWarning, repo_check
+from shared.json_utils import load_json5
+from shared.paths import CommonPaths
+
+# Match the first argument of X_CFG_* macros:
+# - bare key form: X_CFG_BOOL(audio.master_volume, ...)
+# - explicit string key form: X_CFG_ENUM_EX("ui.airbar_location", ...)
+CONFIG_KEY_RE = re.compile(
+    r"""^X_CFG_[A-Z0-9_]+(?:_EX)?\(\s*(?:"([^"]+)"|([a-zA-Z0-9_.]+))\s*,"""
+)
+
+# A setting a shipped script declares, as trx.config.declare reads it. The key
+# is written either as a string or as a constant the same file spells out:
+#   trx.config.declare({ key = "visuals.water_color_mode", ... })
+#   local MODE_OPTION = "visuals.water_color_mode"
+# A key a script builds from pieces is not one a preset can name either, so
+# nothing is lost by passing over it.
+DECLARED_KEY_RE = re.compile(r"""\bkey\s*=\s*(?:["']([a-zA-Z0-9_.]+)["']|(\w+))""")
+LUA_CONSTANT_RE = re.compile(
+    r"""^\s*local\s+(\w+)\s*=\s*["']([a-zA-Z0-9_.]+)["']\s*$""", re.MULTILINE
+)
+
+
+def _known_config_keys(config_map_paths: list[Path]) -> set[str]:
+    known_keys: set[str] = set()
+    for config_map_path in config_map_paths:
+        if not config_map_path.exists():
+            continue
+        for line in config_map_path.read_text(encoding="utf-8").splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            match = CONFIG_KEY_RE.match(stripped)
+            if not match:
+                continue
+            key = match.group(1) or match.group(2)
+            if key:
+                known_keys.add(key)
+    return known_keys
+
+
+def _declared_config_keys(lua_paths: list[Path]) -> set[str]:
+    declared_keys: set[str] = set()
+    for lua_path in lua_paths:
+        text = lua_path.read_text(encoding="utf-8")
+        if "trx.config.declare" not in text:
+            continue
+        constants = dict(LUA_CONSTANT_RE.findall(text))
+        for literal, name in DECLARED_KEY_RE.findall(text):
+            key = literal or constants.get(name)
+            if key is not None:
+                declared_keys.add(key)
+    return declared_keys
+
+
+def _preset_config_entries(preset_path: Path) -> dict[str, Any]:
+    try:
+        preset_data = load_json5(preset_path)
+    except Exception as ex:
+        raise ValueError(f"failed to parse JSON5: {ex!s}") from ex
+
+    if not isinstance(preset_data, dict):
+        raise ValueError("root must be an object")
+
+    config_data = preset_data.get("config")
+    if config_data is None:
+        raise ValueError("missing 'config' object")
+    if not isinstance(config_data, dict):
+        raise ValueError("'config' must be an object")
+    return config_data
+
+
+def check():
+    config_dir = CommonPaths.src_dir / "config"
+    known_keys = _known_config_keys(sorted(config_dir.glob("map*.def")))
+    if not known_keys:
+        yield LintWarning(config_dir / "map.def", "unable to parse config keys")
+        return
+
+    # A game adds settings of its own as its script runs, so a preset may name
+    # one that no map*.def knows.
+    known_keys |= _declared_config_keys(
+        sorted(CommonPaths.shipped_data_dir.rglob("*.lua"))
+    )
+
+    presets_dir = CommonPaths.shipped_data_dir / "cfg/presets"
+    if not presets_dir.exists():
+        return
+
+    for preset_path in sorted(presets_dir.glob("*.json5")):
+        try:
+            config_data = _preset_config_entries(preset_path)
+        except ValueError as ex:
+            yield LintWarning(preset_path, str(ex))
+            continue
+
+        for key in config_data:
+            if key not in known_keys:
+                yield LintWarning(
+                    preset_path, f"unknown preset setting key: '{key}'"
+                )
+
+
+repo_check(check)

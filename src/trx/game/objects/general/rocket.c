@@ -84,7 +84,7 @@ static void M_Explode(const int16_t rocket_item_num, const XYZ_32 pos)
         g_TRVersion >= 3 ? (0x1800000 | SPM_PITCH) : SPM_NORMAL;
     Sound_Effect(SFX_EXPLOSION_1, sfx_pos, flags);
     Sound_Effect(SFX_EXPLOSION_2, sfx_pos, SPM_NORMAL);
-    Item_Kill(rocket_item_num);
+    Item_Destroy(rocket_item_num);
 
     Creature_AlertNearbyGuards(rocket_item);
 }
@@ -116,12 +116,11 @@ static bool M_TryExplodeItem(
     if (target_item == Lara_GetItem()) {
         return false;
     }
-    if (!target_item->collidable) {
+    if (!target_item->is_collidable) {
         return false;
     }
 
-    if (target_item->status == IS_INVISIBLE
-        || target_obj->collision_func == nullptr) {
+    if (!target_item->is_visible || target_obj->collision_func == nullptr) {
         return false;
     }
 

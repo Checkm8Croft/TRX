@@ -9,7 +9,6 @@
 #include <trx/game/lara/vehicle.h>
 #include <trx/game/objects/common.h>
 #include <trx/game/objects/vars.h>
-#include <trx/game/pathing.h>
 
 #define M_CUTSCENE_DELAY (5 * LOGIC_FPS) // = 150
 #define M_BOSS_TYPE O_CULT_3
@@ -54,7 +53,7 @@ static int16_t M_FindNearestBoss(void)
             continue;
         }
 
-        if (item->status == IS_ACTIVE || item->status == IS_DEACTIVATED) {
+        if (Item_IsInPlay(item) || item->is_finished) {
             best_item = i;
             break;
         }
@@ -95,12 +94,9 @@ static void M_ActivateNearestBoss(void)
         return;
     }
     ITEM *const item = Item_Get(item_num);
-    if (item->status != IS_ACTIVE && item->status != IS_DEACTIVATED) {
-        item->touch_bits = 0;
-        item->status = IS_ACTIVE;
+    if (!Item_IsInPlay(item) && !item->is_finished) {
         item->mesh_bits = 0xFFFF1FFF;
-        Item_AddActive(item_num);
-        LOT_EnableBaddieAI(item_num, true);
+        Item_Activate(item_num, true);
     }
 }
 
@@ -140,6 +136,15 @@ static void M_Control(const int16_t item_num)
     }
 }
 
+static void M_Setup(OBJECT *const obj)
+{
+    obj->control_func = M_Control;
+    obj->draw_func = nullptr;
+    obj->save_flags = true;
+
+    m_BossTimer = 0;
+}
+
 OBJECT_ID CombatEnd_GetBossType(void)
 {
     return M_BOSS_TYPE;
@@ -158,15 +163,6 @@ bool CombatEnd_IsWaitingForBoss(void)
 bool CombatEnd_IsComplete(void)
 {
     return m_BossTimer >= M_CUTSCENE_DELAY;
-}
-
-static void M_Setup(OBJECT *const obj)
-{
-    obj->control_func = M_Control;
-    obj->draw_func = nullptr;
-    obj->save_flags = true;
-
-    m_BossTimer = 0;
 }
 
 REGISTER_OBJECT(O_COMBAT_END, M_Setup)

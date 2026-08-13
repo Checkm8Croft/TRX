@@ -2,11 +2,13 @@
 
 #include <trx/config.h>
 #include <trx/core/utils.h>
+#include <trx/game/fx/common.h>
 #include <trx/game/interpolation.h>
 #include <trx/game/items.h>
 #include <trx/game/lara/common.h>
 #include <trx/game/objects.h>
 #include <trx/game/output/sources/poly_fx.h>
+#include <trx/game/output/state.h>
 #include <trx/game/random.h>
 #include <trx/game/rooms.h>
 #include <trx/game/sound.h>
@@ -29,14 +31,12 @@ static const uint8_t m_SplashQuadLinks[32] = {
 static FX_WATER_SPLASH m_Splashes[4];
 static FX_WATER_RIPPLE m_Ripples[16];
 static int32_t m_SplashCount = 0;
-static int32_t m_Wibble = 0;
 
-void FX_Water_Reset(void)
+static void M_Reset(void)
 {
     memset(m_Splashes, 0, sizeof(m_Splashes));
     memset(m_Ripples, 0, sizeof(m_Ripples));
     m_SplashCount = 0;
-    m_Wibble = 0;
 }
 
 static bool M_IsRoomUnderwater(const int16_t room_num)
@@ -78,6 +78,231 @@ static bool M_GetUnderwaterBloodColor(
         break;
     }
     return false;
+}
+
+static RGBA_8888 M_Gray(int32_t c)
+{
+    CLAMP(c, 0, 255);
+    return (RGBA_8888) { c, c, c, 255 };
+}
+
+static void M_DrawSplash(const FX_WATER_SPLASH *s)
+{
+    const int32_t big_splash_idx = Sparks_GetSpriteIndex(SPARK_TYPE_BIG_SPLASH);
+    const int32_t small_splash_idx =
+        Sparks_GetSpriteIndex(SPARK_TYPE_SMALL_SPLASH);
+    if (big_splash_idx == NO_ITEM || small_splash_idx == NO_ITEM) {
+        return;
+    }
+
+    const double ratio = Interpolation_GetWorldRate();
+    const bool do_interp =
+        Interpolation_IsActive() && ratio > 0.0 && ratio < 1.0;
+    const int32_t time4 = Output_GetTimeInGame() * 4;
+
+    XYZ_32 points[48];
+    for (int32_t i = 0; i < 48; i++) {
+        const FX_WATER_SPLASH_VERT *const v = &s->v[i];
+        points[i] = (XYZ_32) {
+            .x = s->x
+                + ((do_interp ? (int16_t)LERP(v->prev_wx, v->wx, ratio) : v->wx)
+                   >> 4),
+            .y = s->y
+                + (do_interp ? (int16_t)LERP(v->prev_wy, v->wy, ratio) : v->wy),
+            .z = s->z
+                + ((do_interp ? (int16_t)LERP(v->prev_wz, v->wz, ratio) : v->wz)
+                   >> 4),
+        };
+    }
+
+    for (int32_t ring = 0; ring < 3; ring++) {
+        int32_t sprite_idx = big_splash_idx;
+        if (ring == 2 || (ring == 0 && (s->flags & 4U) != 0U)
+            || (ring == 1 && (s->flags & 8U) != 0U)) {
+            sprite_idx = small_splash_idx + ((time4 >> 4) & 3);
+        }
+
+        const int32_t life = do_interp
+            ? (int32_t)LERP(s->prev_life, s->life, ratio)
+            : (int32_t)s->life;
+
+        int32_t c = life << 1;
+        CLAMPG(c, 255);
+        const RGBA_8888 c1 = M_Gray(c);
+
+        c = (life - (life >> 2)) << 1;
+        CLAMPG(c, 255);
+        const RGBA_8888 c2 = M_Gray(c);
+
+        const int32_t base = ring * 16;
+        for (int32_t quad = 0; quad < 8; quad++) {
+            const int32_t i0 = m_SplashQuadLinks[quad * 4 + 0] + base;
+            const int32_t i1 = m_SplashQuadLinks[quad * 4 + 1] + base;
+            const int32_t i2 = m_SplashQuadLinks[quad * 4 + 2] + base;
+            const int32_t i3 = m_SplashQuadLinks[quad * 4 + 3] + base;
+
+            const XYZ_32 quad_pos[4] = {
+                points[i0],
+                points[i1],
+                points[i3],
+                points[i2],
+            };
+            const RGBA_8888 quad_color[4] = { c1, c1, c2, c2 };
+            OutputSource_PolyFX_StageSpriteQuadWorldDepth(
+                sprite_idx, quad_pos, quad_color, M_SPLASH_Z_DEPTH_ADJUST,
+                DRAW_BLEND_ADD);
+        }
+    }
+}
+
+static void M_DrawRipple(const FX_WATER_RIPPLE *r)
+{
+    const double ratio = Interpolation_GetWorldRate();
+    const bool do_interp =
+        Interpolation_IsActive() && ratio > 0.0 && ratio < 1.0;
+    const int32_t size = do_interp ? (int32_t)LERP(r->prev_size, r->size, ratio)
+                                   : (int32_t)r->size;
+    const int32_t init = do_interp ? (int32_t)LERP(r->prev_init, r->init, ratio)
+                                   : (int32_t)r->init;
+    const int32_t life = do_interp ? (int32_t)LERP(r->prev_life, r->life, ratio)
+                                   : (int32_t)r->life;
+    const int32_t n = size << 2;
+    int32_t sprite_idx = Sparks_GetSpriteIndex(SPARK_TYPE_RIPPLE);
+    RGBA_8888 color;
+
+    if ((r->flags & 0x10U) != 0U) {
+        if ((r->flags & 0x20U) != 0U) {
+            sprite_idx = Sparks_GetSpriteIndex(SPARK_TYPE_EXPLOSION);
+            if (!M_GetUnderwaterBloodColor(&color, life)) {
+                return;
+            }
+        } else {
+            int32_t c1 = init != 0 ? (init >> 2) : (life >> 2);
+            c1 <<= 3;
+            CLAMPG(c1, 255);
+            color = M_Gray(c1);
+        }
+    } else {
+        int32_t c1 = init != 0 ? (init >> 1) : (life >> 1);
+        c1 <<= 3;
+        CLAMPG(c1, 255);
+        color = M_Gray(c1);
+    }
+
+    if (sprite_idx == NO_ITEM) {
+        return;
+    }
+
+    const XYZ_32 quad_pos[4] = {
+        { r->x - n, r->y, r->z - n },
+        { r->x + n, r->y, r->z - n },
+        { r->x + n, r->y, r->z + n },
+        { r->x - n, r->y, r->z + n },
+    };
+    const RGBA_8888 quad_color[4] = { color, color, color, color };
+    OutputSource_PolyFX_StageSpriteQuadWorldDepth(
+        sprite_idx, quad_pos, quad_color, M_RIPPLE_Z_DEPTH_ADJUST,
+        DRAW_BLEND_ADD);
+}
+
+static void M_Draw(void)
+{
+    for (int32_t i = 0; i < (int32_t)ARRAY_SIZE(m_Splashes); i++) {
+        const FX_WATER_SPLASH *const splash = &m_Splashes[i];
+        if ((splash->flags & 1U) == 0U) {
+            continue;
+        }
+        M_DrawSplash(splash);
+    }
+
+    for (int32_t i = 0; i < (int32_t)ARRAY_SIZE(m_Ripples); i++) {
+        const FX_WATER_RIPPLE *const ripple = &m_Ripples[i];
+        if ((ripple->flags & 1U) == 0U) {
+            continue;
+        }
+        M_DrawRipple(ripple);
+    }
+}
+
+static void M_Control(void)
+{
+    if (m_SplashCount > 0) {
+        m_SplashCount--;
+    }
+
+    for (int32_t i = 0; i < (int32_t)ARRAY_SIZE(m_Splashes); i++) {
+        FX_WATER_SPLASH *const splash = &m_Splashes[i];
+        if ((splash->flags & 1U) == 0U) {
+            continue;
+        }
+
+        M_RememberSplash(splash);
+
+        bool set = false;
+        for (int32_t j = 0; j < 48; j++) {
+            FX_WATER_SPLASH_VERT *const v = &splash->v[j];
+            v->wx += v->xv >> 2;
+            v->wy += (int16_t)(v->yv >> 6);
+            v->wz += v->zv >> 2;
+            v->xv -= v->xv >> v->friction;
+            v->zv -= v->zv >> v->friction;
+
+            if ((v->oxv < 0 && v->xv > v->oxv)
+                || (v->oxv > 0 && v->xv < v->oxv)) {
+                v->xv = v->oxv;
+            } else if (
+                (v->ozv < 0 && v->zv > v->ozv)
+                || (v->ozv > 0 && v->zv < v->ozv)) {
+                v->zv = v->ozv;
+            }
+
+            v->yv += (int32_t)v->gravity << 3;
+            CLAMPG(v->yv, 0x10000);
+
+            if (v->wy > 0) {
+                if (j < 16) {
+                    splash->flags |= 4U;
+                } else if (j < 32) {
+                    splash->flags |= 8U;
+                }
+
+                v->wy = 0;
+                set = true;
+            }
+        }
+
+        if (set) {
+            splash->life--;
+            if (splash->life == 0U) {
+                splash->flags = 0U;
+            }
+        }
+    }
+
+    for (int32_t i = 0; i < (int32_t)ARRAY_SIZE(m_Ripples); i++) {
+        FX_WATER_RIPPLE *const ripple = &m_Ripples[i];
+        if ((ripple->flags & 1U) == 0U) {
+            continue;
+        }
+
+        M_RememberRipple(ripple);
+
+        if (ripple->size < 254U) {
+            ripple->size += 2U;
+        }
+
+        if (ripple->init == 0U) {
+            ripple->life -= 2U;
+            if (ripple->life > 250U) {
+                ripple->flags = 0U;
+            }
+        } else if (ripple->init < ripple->life) {
+            ripple->init += 4U;
+            if (ripple->init >= ripple->life) {
+                ripple->init = 0U;
+            }
+        }
+    }
 }
 
 FX_WATER_RIPPLE *FX_Water_SetupRipple(
@@ -302,12 +527,23 @@ void FX_Water_Splash(const ITEM *const item)
     FX_Water_SetupSplash(&setup);
 }
 
-void FX_Water_WadeSplash(
-    const ITEM *const item, const int32_t water_height, const int32_t depth)
+void FX_Water_WadeSplash(const ITEM *const item, const int32_t depth)
 {
     int16_t room_num = item->room_num;
     Room_GetSector(item->pos, &room_num);
     if (!M_IsRoomUnderwater(room_num)) {
+        return;
+    }
+
+    // Lara swimming below a submerged ceiling has no surface to break, so she
+    // leaves nothing behind on it.
+    const int32_t water_height = Room_GetWaterHeightEx(
+        item->pos, item->room_num,
+        (ROOM_WATER_HEIGHT_ARGS) {
+            .fix_tilts = true,
+            .require_air_above = true,
+        });
+    if (water_height == NO_HEIGHT) {
         return;
     }
 
@@ -318,6 +554,7 @@ void FX_Water_WadeSplash(
         return;
     }
 
+    const int32_t time4 = Output_GetTimeInGame() * 4;
     if (item->fall_speed > 0 && depth < 474 && m_SplashCount == 0) {
         const FX_WATER_SPLASH_SETUP setup = {
             .x = item->pos.x,
@@ -345,7 +582,7 @@ void FX_Water_WadeSplash(
         FX_Water_SetupSplash(&setup);
         m_SplashCount = 16;
     } else if (
-        (m_Wibble & 0xF) == 0
+        (time4 & 0xF) == 0
         && (((Random_GetControl() & 0xF) == 0)
             || item->current_anim_state != LS(LS_STOP))) {
         FX_Water_SetupRipple(
@@ -403,228 +640,10 @@ void FX_Water_TriggerUnderwaterBloodD(const XYZ_32 pos, const int32_t size)
     M_RememberRipple(ripple);
 }
 
-static RGBA_8888 M_Gray(int32_t c)
-{
-    CLAMP(c, 0, 255);
-    return (RGBA_8888) { c, c, c, 255 };
-}
+static const FX_MODULE m_Module = {
+    .control_func = M_Control,
+    .draw_func = M_Draw,
+    .reset_func = M_Reset,
+};
 
-static void M_DrawSplash(const FX_WATER_SPLASH *s)
-{
-    const int32_t big_splash_idx = Sparks_GetSpriteIndex(SPARK_TYPE_BIG_SPLASH);
-    const int32_t small_splash_idx =
-        Sparks_GetSpriteIndex(SPARK_TYPE_SMALL_SPLASH);
-    if (big_splash_idx == NO_ITEM || small_splash_idx == NO_ITEM) {
-        return;
-    }
-
-    const double ratio = Interpolation_GetWorldRate();
-    const bool do_interp =
-        Interpolation_IsActive() && ratio > 0.0 && ratio < 1.0;
-
-    XYZ_32 points[48];
-    for (int32_t i = 0; i < 48; i++) {
-        const FX_WATER_SPLASH_VERT *const v = &s->v[i];
-        points[i] = (XYZ_32) {
-            .x = s->x
-                + ((do_interp ? (int16_t)LERP(v->prev_wx, v->wx, ratio) : v->wx)
-                   >> 4),
-            .y = s->y
-                + (do_interp ? (int16_t)LERP(v->prev_wy, v->wy, ratio) : v->wy),
-            .z = s->z
-                + ((do_interp ? (int16_t)LERP(v->prev_wz, v->wz, ratio) : v->wz)
-                   >> 4),
-        };
-    }
-
-    for (int32_t ring = 0; ring < 3; ring++) {
-        int32_t sprite_idx = big_splash_idx;
-        if (ring == 2 || (ring == 0 && (s->flags & 4U) != 0U)
-            || (ring == 1 && (s->flags & 8U) != 0U)) {
-            sprite_idx = small_splash_idx + ((m_Wibble >> 4) & 3);
-        }
-
-        const int32_t life = do_interp
-            ? (int32_t)LERP(s->prev_life, s->life, ratio)
-            : (int32_t)s->life;
-
-        int32_t c = life << 1;
-        CLAMPG(c, 255);
-        const RGBA_8888 c1 = M_Gray(c);
-
-        c = (life - (life >> 2)) << 1;
-        CLAMPG(c, 255);
-        const RGBA_8888 c2 = M_Gray(c);
-
-        const int32_t base = ring * 16;
-        for (int32_t quad = 0; quad < 8; quad++) {
-            const int32_t i0 = m_SplashQuadLinks[quad * 4 + 0] + base;
-            const int32_t i1 = m_SplashQuadLinks[quad * 4 + 1] + base;
-            const int32_t i2 = m_SplashQuadLinks[quad * 4 + 2] + base;
-            const int32_t i3 = m_SplashQuadLinks[quad * 4 + 3] + base;
-
-            const XYZ_32 quad_pos[4] = {
-                points[i0],
-                points[i1],
-                points[i3],
-                points[i2],
-            };
-            const RGBA_8888 quad_color[4] = { c1, c1, c2, c2 };
-            OutputSource_PolyFX_StageSpriteQuadWorldDepth(
-                sprite_idx, quad_pos, quad_color, M_SPLASH_Z_DEPTH_ADJUST,
-                DRAW_BLEND_ADD);
-        }
-    }
-}
-
-static void M_DrawRipple(const FX_WATER_RIPPLE *r)
-{
-    const double ratio = Interpolation_GetWorldRate();
-    const bool do_interp =
-        Interpolation_IsActive() && ratio > 0.0 && ratio < 1.0;
-    const int32_t size = do_interp ? (int32_t)LERP(r->prev_size, r->size, ratio)
-                                   : (int32_t)r->size;
-    const int32_t init = do_interp ? (int32_t)LERP(r->prev_init, r->init, ratio)
-                                   : (int32_t)r->init;
-    const int32_t life = do_interp ? (int32_t)LERP(r->prev_life, r->life, ratio)
-                                   : (int32_t)r->life;
-    const int32_t n = size << 2;
-    int32_t sprite_idx = Sparks_GetSpriteIndex(SPARK_TYPE_RIPPLE);
-    RGBA_8888 color;
-
-    if ((r->flags & 0x10U) != 0U) {
-        if ((r->flags & 0x20U) != 0U) {
-            sprite_idx = Sparks_GetSpriteIndex(SPARK_TYPE_EXPLOSION);
-            if (!M_GetUnderwaterBloodColor(&color, life)) {
-                return;
-            }
-        } else {
-            int32_t c1 = init != 0 ? (init >> 2) : (life >> 2);
-            c1 <<= 3;
-            CLAMPG(c1, 255);
-            color = M_Gray(c1);
-        }
-    } else {
-        int32_t c1 = init != 0 ? (init >> 1) : (life >> 1);
-        c1 <<= 3;
-        CLAMPG(c1, 255);
-        color = M_Gray(c1);
-    }
-
-    if (sprite_idx == NO_ITEM) {
-        return;
-    }
-
-    const XYZ_32 quad_pos[4] = {
-        { r->x - n, r->y, r->z - n },
-        { r->x + n, r->y, r->z - n },
-        { r->x + n, r->y, r->z + n },
-        { r->x - n, r->y, r->z + n },
-    };
-    const RGBA_8888 quad_color[4] = { color, color, color, color };
-    OutputSource_PolyFX_StageSpriteQuadWorldDepth(
-        sprite_idx, quad_pos, quad_color, M_RIPPLE_Z_DEPTH_ADJUST,
-        DRAW_BLEND_ADD);
-}
-
-void FX_Water_Draw(void)
-{
-    for (int32_t i = 0; i < (int32_t)ARRAY_SIZE(m_Splashes); i++) {
-        const FX_WATER_SPLASH *const splash = &m_Splashes[i];
-        if ((splash->flags & 1U) == 0U) {
-            continue;
-        }
-        M_DrawSplash(splash);
-    }
-
-    for (int32_t i = 0; i < (int32_t)ARRAY_SIZE(m_Ripples); i++) {
-        const FX_WATER_RIPPLE *const ripple = &m_Ripples[i];
-        if ((ripple->flags & 1U) == 0U) {
-            continue;
-        }
-        M_DrawRipple(ripple);
-    }
-}
-
-void FX_Water_Control(void)
-{
-    if (m_SplashCount > 0) {
-        m_SplashCount--;
-    }
-
-    for (int32_t i = 0; i < (int32_t)ARRAY_SIZE(m_Splashes); i++) {
-        FX_WATER_SPLASH *const splash = &m_Splashes[i];
-        if ((splash->flags & 1U) == 0U) {
-            continue;
-        }
-
-        M_RememberSplash(splash);
-
-        bool set = false;
-        for (int32_t j = 0; j < 48; j++) {
-            FX_WATER_SPLASH_VERT *const v = &splash->v[j];
-            v->wx += v->xv >> 2;
-            v->wy += (int16_t)(v->yv >> 6);
-            v->wz += v->zv >> 2;
-            v->xv -= v->xv >> v->friction;
-            v->zv -= v->zv >> v->friction;
-
-            if ((v->oxv < 0 && v->xv > v->oxv)
-                || (v->oxv > 0 && v->xv < v->oxv)) {
-                v->xv = v->oxv;
-            } else if (
-                (v->ozv < 0 && v->zv > v->ozv)
-                || (v->ozv > 0 && v->zv < v->ozv)) {
-                v->zv = v->ozv;
-            }
-
-            v->yv += (int32_t)v->gravity << 3;
-            CLAMPG(v->yv, 0x10000);
-
-            if (v->wy > 0) {
-                if (j < 16) {
-                    splash->flags |= 4U;
-                } else if (j < 32) {
-                    splash->flags |= 8U;
-                }
-
-                v->wy = 0;
-                set = true;
-            }
-        }
-
-        if (set) {
-            splash->life--;
-            if (splash->life == 0U) {
-                splash->flags = 0U;
-            }
-        }
-    }
-
-    for (int32_t i = 0; i < (int32_t)ARRAY_SIZE(m_Ripples); i++) {
-        FX_WATER_RIPPLE *const ripple = &m_Ripples[i];
-        if ((ripple->flags & 1U) == 0U) {
-            continue;
-        }
-
-        M_RememberRipple(ripple);
-
-        if (ripple->size < 254U) {
-            ripple->size += 2U;
-        }
-
-        if (ripple->init == 0U) {
-            ripple->life -= 2U;
-            if (ripple->life > 250U) {
-                ripple->flags = 0U;
-            }
-        } else if (ripple->init < ripple->life) {
-            ripple->init += 4U;
-            if (ripple->init >= ripple->life) {
-                ripple->init = 0U;
-            }
-        }
-    }
-
-    m_Wibble = (m_Wibble + 4) & 0xFC;
-}
+REGISTER_FX(m_Module)

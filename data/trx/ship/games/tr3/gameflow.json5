@@ -43,6 +43,7 @@
         "sparks_gfx.bin",
         "inv_background.bin",
         "binoculars.bin",
+        "crystal.bin",
     ],
 
     "globe_select_entries": [
@@ -59,7 +60,6 @@
         {
             "type": "gym",
             "path": "house.tr2",
-            "script": "house.lua",
             "music_track": -1,
             "lara_outfit": "tr3_gym",
             "sequence": [
@@ -91,7 +91,6 @@
         // 1. Jungle
         {
             "path": "jungle.tr2",
-            "script": "jungle.lua",
             "music_track": 34,
             "lara_outfit": "tr3_classic",
             "weather_type": "rain",
@@ -113,13 +112,13 @@
                 "lara_guns.bin",
                 "common_pickup_meshes.bin",
                 "fish_sprites.bin",
+                "jungle_fd.bin",
             ],
         },
 
         // 2. Temple Ruins
         {
             "path": "temple.tr2",
-            "script": "temple.lua",
             "music_track": 34,
             "lara_outfit": "tr3_classic",
             "sequence": [
@@ -141,7 +140,6 @@
         // 3. The River Ganges
         {
             "path": "quadchas.tr2",
-            "script": "ganges.lua",
             "music_track": 34,
             "lara_outfit": "tr3_classic",
             "weather_type": "rain",
@@ -165,7 +163,6 @@
         // 4. Caves of Kaliya
         {
             "path": "tonyboss.tr2",
-            "script": "tonyboss.lua",
             "music_track": 30,
             "lara_outfit": "tr3_classic",
             "sequence": [
@@ -186,7 +183,6 @@
         // 5. Coastal Village
         {
             "path": "shore.tr2",
-            "script": "shore.lua",
             "music_track": 32,
             "lara_outfit": "tr3_south_pacific",
             "sequence": [
@@ -199,6 +195,7 @@
             ],
             "injections": [
                 "coastal_airlock.bin",
+                "coastal_wheel_frames.bin",
                 "coastal_sky.bin",
                 "coastal_animating_bounds.bin",
                 "lara_guns.bin",
@@ -215,7 +212,6 @@
         // 6. Crash Site
         {
             "path": "crash.tr2",
-            "script": "crash.lua",
             "music_track": 33,
             "lara_outfit": "tr3_south_pacific",
             "sequence": [
@@ -239,7 +235,6 @@
         // 7. Madubu Gorge
         {
             "path": "rapids.tr2",
-            "script": "rapids.lua",
             "music_track": 36,
             "death_tile": "rapids",
             "water_particles": true,
@@ -265,7 +260,6 @@
         // 8. Temple of Puna
         {
             "path": "triboss.tr2",
-            "script": "triboss.lua",
             "music_track": 30,
             "lara_outfit": "tr3_south_pacific",
             "sequence": [
@@ -288,7 +282,6 @@
         // 9. Thames Wharf
         {
             "path": "roofs.tr2",
-            "script": "thames.lua",
             "music_track": 73,
             "lara_outfit": "tr3_catsuit",
             "weather_type": "rain",
@@ -314,7 +307,6 @@
         // 10. Aldwych
         {
             "path": "sewer.tr2",
-            "script": "aldwych.lua",
             "music_track": 74,
             "water_particles": true,
             "lara_outfit": "tr3_catsuit",
@@ -340,7 +332,6 @@
         // 11. Lud's Gate
         {
             "path": "tower.tr2",
-            "script": "tower.lua",
             "music_track": 31,
             "water_particles": true,
             "lara_outfit": "tr3_catsuit",
@@ -367,7 +358,6 @@
         // 12. City
         {
             "path": "office.tr2",
-            "script": "office.lua",
             "music_track": 78,
             "lara_outfit": "tr3_catsuit",
             "weather_type": "rain",
@@ -392,7 +382,6 @@
         // 13. Nevada Desert
         {
             "path": "nevada.tr2",
-            "script": "nevada.lua",
             "music_track": 33,
             "death_tile": "electric",
             "lara_outfit": "tr3_nevada",
@@ -417,7 +406,6 @@
         // 14. High Security Compound
         {
             "path": "compound.tr2",
-            "script": "compound.lua",
             "music_track": 27,
             "lara_outfit": "tr3_nevada",
             "sequence": [
@@ -450,7 +438,6 @@
         // 15. Area 51
         {
             "path": "area51.tr2",
-            "script": "area51.lua",
             "music_track": 27,
             "death_tile": "electric",
             "lara_outfit": "tr3_nevada",
@@ -476,7 +463,6 @@
         // 16. Antarctica
         {
             "path": "antarc.tr2",
-            "script": "antarc.lua",
             "music_track": 28,
             "lara_outfit": "tr3_antarctica",
             "weather_type": "snow",
@@ -491,6 +477,7 @@
             ],
             "injections": [
                 "antarc_airlock.bin",
+                "antarc_wheel_frames.bin",
                 "antarc_sky.bin",
                 "lara_guns.bin",
                 "antarc_door134_frames.bin",
@@ -503,7 +490,6 @@
         // 17. RX-Tech Mines
         {
             "path": "mines.tr2",
-            "script": "mines.lua",
             "music_track": 30,
             "lara_outfit": "tr3_antarctica",
             "sequence": [
@@ -528,7 +514,6 @@
         // 18. Lost City of Tinnos
         {
             "path": "city.tr2",
-            "script": "tinnos.lua",
             "music_track": 26,
             "lara_outfit": "tr3_antarctica",
             "sequence": [
@@ -546,6 +531,7 @@
                 "tinnos_fd.bin",
                 "tinnos_textures.bin",
                 "common_pickup_meshes.bin",
+                "flamethrower_sfx.bin",
             ],
             "unobtainable_pickups": 1,
         },
@@ -770,7 +756,6 @@
         // Cutscene 9
         {
             "path": "cut8.tr2",
-            "script": "cut8.lua",
             "music_track": 70,
             "lara_outfit": "tr3_nevada",
             "sequence": [
@@ -840,8 +825,7 @@
         "enable_item_examining",
         "disable_trex_collision",
         "fix_bear_ai",
-        "enable_save_crystals",
-        "enable_ps1_crystals",
+        "enable_ps1_crystals", // TR3 crystals have no tint variants
         "fix_chainblock_secret_sound",
         "enable_compass_stats",
         "enable_crawling",
@@ -851,5 +835,6 @@
         "fix_speeches_killing_music",
         "fix_animated_sprites",
         "enable_cinematic_skips",
+        "fix_lift_collision",
     ],
 }

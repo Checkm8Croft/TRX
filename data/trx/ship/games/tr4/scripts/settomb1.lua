@@ -1,5 +1,8 @@
-trx.events.before_item_setup(function(level)
-  trx.items[4].properties.pickup_mode = trx.pickup.Mode.PLINTH_LOW
-  trx.items[5].properties.pickup_mode = trx.pickup.Mode.PLINTH_LOW
-  trx.items[88].properties.pickup_mode = trx.pickup.Mode.PLINTH_LOW
+trx.events.on_game_start(function()
+  trx.items[3].properties.pickup_mode = trx.items.PickupMode.PLINTH_LOW
+  trx.items[4].properties.pickup_mode = trx.items.PickupMode.PLINTH_LOW
+  trx.items[87].properties.pickup_mode = trx.items.PickupMode.PLINTH_LOW
+  trx.items[61].properties.switch_mode = trx.items.SwitchMode.HIDDEN_REACH
+  trx.items[100].properties.switch_mode = trx.items.SwitchMode.HIDDEN_PICKUP
+  trx.items[101].properties.pickup_mode = trx.items.PickupMode.HIDDEN
 end)

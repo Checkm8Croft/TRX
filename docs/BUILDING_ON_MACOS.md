@@ -5,18 +5,23 @@ This guide describes the native macOS build workflow using Meson.
 ## Installing dependencies
 
 Install either Homebrew or MacPorts, then install the required dependencies.
+(If you have both installed, use MacPorts.)
 
 Homebrew:
 
 ```bash
-brew install sdl2 glew ffmpeg@6 uthash pkgconfig meson python@3.14
+brew install sdl2 glew ffmpeg@6 uthash pkgconfig lua meson python@3.14
 ```
 
 MacPorts:
 
 ```bash
-sudo port install sdl2 ffmpeg uthash pkgconfig glew meson python@3.14
+sudo port install libsdl2 ffmpeg uthash pkgconfig glew lua54 meson python@3.14
 ```
+
+TRX needs Lua 5.4. MacPorts' plain `lua` port is still on 5.3, so install `lua54`
+instead and add `-Dlua_dep=lua5.4` to the `meson setup` commands below — that is
+the pkg-config name the port installs under.
 
 ## Building TRX
 
@@ -56,11 +61,16 @@ official build workflow.
 
 ## Running the game
 
+For running the game for just debugging, you can directly run the compiled
+executable and place in its directory the game files, otherwise if you want to
+create a bundled `.app`, follow the steps below.
+
 To prepare the game directory:
 
 1. Use the installed app bundle from your Meson prefix.
 2. Copy the original game files from your game installations into
    `Contents/Resources/games/<game-id>/`.
+3. Copy all the files from `data/trx/mac` into `TRX.app/Contents/Resources`
 
 Once the files are in place, run:
 

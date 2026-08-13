@@ -15,10 +15,13 @@
 #include <trx/game/matrix.h>
 #include <trx/game/objects.h>
 #include <trx/game/objects/general/door.h>
+#include <trx/game/objects/general/pickup.h>
+#include <trx/game/objects/general/switch.h>
 #include <trx/game/output.h>
 #include <trx/game/pathing.h>
 #include <trx/game/rooms.h>
 #include <trx/game/rope.h>
+#include <trx/game/rules.h>
 #include <trx/game/savegame.h>
 #include <trx/game/sound.h>
 #include <trx/game/stats.h>
@@ -39,6 +42,22 @@ static const LARA_TRX_ANIMATION m_InvalidInterpAnims[] = {
     // clang-format on
 };
 
+static const LARA_TRX_ANIMATION m_InteractionAnims[4] = {
+    // clang-format off
+    LA_SIDE_STEP_LEFT,
+    LA_WALK_FORWARD,
+    LA_SIDE_STEP_RIGHT,
+    LA_WALK_BACK,
+    // clang-format on
+};
+
+static int16_t (*const m_CrowbarReceptacleFuncs[])(void) = {
+    Door_FindNearbyCrowbarDoor,
+    Switch_FindNearbyCrowbarSwitch,
+    Pickup_FindNearbyCrowbarPryPickup,
+    nullptr, // sentinel
+};
+
 static LARA_INFO m_Lara = {};
 static ITEM *m_LaraItem = nullptr;
 static bool m_Controllable = false;
@@ -53,6 +72,34 @@ static bool M_IsInvalidInterpAnim(const LARA_TRX_ANIMATION anim_idx)
         }
     }
     return false;
+}
+
+static int16_t M_FindCrowbarReceptacle(void)
+{
+    for (int32_t i = 0;; i++) {
+        int16_t (*const find_func)(void) = m_CrowbarReceptacleFuncs[i];
+        if (find_func == nullptr) {
+            break;
+        }
+
+        const int16_t item_num = find_func();
+        if (item_num != NO_ITEM) {
+            return item_num;
+        }
+    }
+    return NO_ITEM;
+}
+
+static int32_t M_GetStartingHitPoints(void)
+{
+    if (g_Config.gameplay.disable_healing_between_levels) {
+        const GF_LEVEL *const current_level = Game_GetCurrentLevel();
+        RESUME_INFO *const resume = SG_Resume_GetEntry(current_level);
+        if (resume != nullptr) {
+            return resume->lara_hitpoints;
+        }
+    }
+    return g_Config.gameplay.start_lara_hitpoints;
 }
 
 LARA_INFO *Lara_GetLaraInfo(void)
@@ -75,23 +122,11 @@ void Lara_InitialiseLoad(int16_t item_num)
     }
 }
 
-static int32_t M_GetStartingHitPoints(void)
-{
-    if (g_Config.gameplay.disable_healing_between_levels) {
-        const GF_LEVEL *const current_level = Game_GetCurrentLevel();
-        RESUME_INFO *const resume = Savegame_GetCurrentInfo(current_level);
-        if (resume != nullptr) {
-            return resume->lara_hitpoints;
-        }
-    }
-    return g_Config.gameplay.start_lara_hitpoints;
-}
-
 void Lara_Initialise(const GF_LEVEL *const level)
 {
     ITEM *const lara_item = Lara_GetItem();
     LARA_INFO *const lara_info = Lara_GetLaraInfo();
-    lara_item->collidable = false;
+    lara_item->is_collidable = false;
 
     m_Controllable = true;
     m_DeathCameraTarget = NO_ITEM;
@@ -110,7 +145,7 @@ void Lara_Initialise(const GF_LEVEL *const level)
     lara_info->hit_frame = 0;
     lara_info->air = LARA_MAX_AIR;
     lara_info->sprint_timer = LARA_MAX_SPRINT;
-    lara_info->exposure_timer = LARA_MAX_EXPOSURE;
+    lara_info->exposure_timer = g_Rules.exposure.max;
     lara_info->water_surface_dist = 100;
     lara_info->death_timer = 0;
     lara_info->dive_timer = 0;
@@ -121,7 +156,6 @@ void Lara_Initialise(const GF_LEVEL *const level)
     lara_info->electric = 0;
     lara_info->climb_status = false;
     lara_info->sprinting = false;
-    lara_info->killed_loyal_item = false;
     lara_info->mesh_effects = 0;
     lara_info->torso_rot.x = 0;
     lara_info->torso_rot.y = 0;
@@ -147,6 +181,12 @@ void Lara_Initialise(const GF_LEVEL *const level)
     lara_info->tr3_smoke_count_r = 0;
     lara_info->mesh_pos_matrices_valid = false;
 
+    // Wetness carries from level to level within a playthrough, but the gym
+    // and the demos start one of their own.
+    if (level->type == GFL_GYM || level->type == GFL_DEMO) {
+        Lara_Dry();
+    }
+
     LOT_InitialiseLOT(&lara_info->lot);
     lara_info->lot.setup.step = WALL_L * 20;
     lara_info->lot.setup.drop = -WALL_L * 20;
@@ -168,151 +208,30 @@ void Lara_InitialiseInventory(const GF_LEVEL *const level)
     Inv_RemoveAllItems();
 
     LARA_INFO *const lara_info = Lara_GetLaraInfo();
-    RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
+    RESUME_INFO *const resume = SG_Resume_GetEntry(level);
 
     if (resume != nullptr) {
-        if (resume->flags.has_binoculars) {
-            Inv_AddItem(O_BINOCULARS_ITEM);
+        Inv_SetState(&resume->inv);
+        if (Gun_HasInfiniteAmmo(LGT_PISTOLS)) {
+            // The pistols never run out, regardless of what the level she is
+            // arriving from left in the resume info, and what she has none of
+            // she carries no rounds for.
+            Inv_SetAmmo(
+                LGT_PISTOLS,
+                Inv_HasItem(O_PISTOL_ITEM) ? Gun_GetInitialRounds(LGT_PISTOLS)
+                                           : 0);
         }
 
-        if (resume->flags.has_pistols) {
-            Inv_AddItem(O_PISTOL_ITEM);
+        // A weapon she already carries turns the ones lying in the level into
+        // boxes of ammunition for it. The pistols are left alone: a level that
+        // is not meant to hold them says so through the game flow.
+        for (LARA_GUN_TYPE gun_type = LGT_PISTOLS + 1; gun_type < NUM_WEAPONS;
+             gun_type++) {
+            const OBJECT_ID gun_object = Gun_GetGunObject(gun_type);
+            if (gun_object != NO_OBJECT && Inv_HasItem(gun_object)) {
+                Item_GlobalReplace(gun_object, Gun_GetAmmoObject(gun_type));
+            }
         }
-        lara_info->pistol_ammo.ammo = 1000;
-
-        if (resume->flags.has_magnums) {
-            Inv_AddItem(O_MAGNUM_ITEM);
-            Item_GlobalReplace(O_MAGNUM_ITEM, O_MAGNUM_AMMO_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_MAGNUM_AMMO_ITEM,
-                resume->magnum_ammo / Gun_GetAmmoPickupQuantity(LGT_MAGNUMS));
-        }
-        lara_info->magnum_ammo.ammo = resume->magnum_ammo;
-
-        if (resume->flags.has_autos) {
-            Inv_AddItem(O_AUTOS_ITEM);
-            Item_GlobalReplace(O_AUTOS_ITEM, O_AUTOS_AMMO_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_AUTOS_AMMO_ITEM,
-                resume->autos_ammo / Gun_GetAmmoPickupQuantity(LGT_AUTOS));
-        }
-        lara_info->autos_ammo.ammo = resume->autos_ammo;
-
-        if (resume->flags.has_desert_eagle) {
-            Inv_AddItem(O_DESERT_EAGLE_ITEM);
-            Item_GlobalReplace(O_DESERT_EAGLE_ITEM, O_DESERT_EAGLE_AMMO_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_DESERT_EAGLE_AMMO_ITEM,
-                resume->desert_eagle_ammo
-                    / Gun_GetAmmoPickupQuantity(LGT_DESERT_EAGLE));
-        }
-        lara_info->desert_eagle_ammo.ammo = resume->desert_eagle_ammo;
-
-        if (resume->flags.has_uzis) {
-            Inv_AddItem(O_UZI_ITEM);
-            Item_GlobalReplace(O_UZI_ITEM, O_UZI_AMMO_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_UZI_AMMO_ITEM,
-                resume->uzi_ammo / Gun_GetAmmoPickupQuantity(LGT_UZIS));
-        }
-        lara_info->uzi_ammo.ammo = resume->uzi_ammo;
-
-        if (resume->flags.has_shotgun) {
-            Inv_AddItem(O_SHOTGUN_ITEM);
-            Item_GlobalReplace(O_SHOTGUN_ITEM, O_SHOTGUN_AMMO_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_SHOTGUN_AMMO_ITEM,
-                resume->shotgun_ammo / Gun_GetAmmoPickupQuantity(LGT_SHOTGUN));
-        }
-        lara_info->shotgun_ammo.ammo = resume->shotgun_ammo;
-
-        if (resume->flags.has_m16) {
-            Inv_AddItem(O_M16_ITEM);
-            Item_GlobalReplace(O_M16_ITEM, O_M16_AMMO_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_M16_AMMO_ITEM,
-                resume->m16_ammo / Gun_GetAmmoPickupQuantity(LGT_M16));
-        }
-        lara_info->m16_ammo.ammo = resume->m16_ammo;
-
-        if (resume->flags.has_mp5) {
-            Inv_AddItem(O_MP5_ITEM);
-            Item_GlobalReplace(O_MP5_ITEM, O_MP5_AMMO_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_MP5_AMMO_ITEM,
-                resume->mp5_ammo / Gun_GetAmmoPickupQuantity(LGT_MP5));
-        }
-        lara_info->mp5_ammo.ammo = resume->mp5_ammo;
-
-        if (resume->flags.has_grenade) {
-            Inv_AddItem(O_GRENADE_GUN_ITEM);
-            Item_GlobalReplace(O_GRENADE_GUN_ITEM, O_GRENADE_AMMO_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_GRENADE_AMMO_ITEM,
-                resume->grenade_ammo / Gun_GetAmmoPickupQuantity(LGT_GRENADE));
-        }
-        lara_info->grenade_ammo.ammo = resume->grenade_ammo;
-
-        if (resume->flags.has_rocket) {
-            Inv_AddItem(O_ROCKET_GUN_ITEM);
-            Item_GlobalReplace(O_ROCKET_GUN_ITEM, O_ROCKET_AMMO_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_ROCKET_AMMO_ITEM,
-                resume->rocket_ammo / Gun_GetAmmoPickupQuantity(LGT_ROCKET));
-        }
-        lara_info->rocket_ammo.ammo = resume->rocket_ammo;
-
-        if (resume->flags.has_harpoon) {
-            Inv_AddItem(O_HARPOON_ITEM);
-            Item_GlobalReplace(O_HARPOON_ITEM, O_HARPOON_AMMO_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_HARPOON_AMMO_ITEM,
-                resume->harpoon_ammo / Gun_GetAmmoPickupQuantity(LGT_HARPOON));
-        }
-        lara_info->harpoon_ammo.ammo = resume->harpoon_ammo;
-
-        if (resume->flags.has_crossbow) {
-            Inv_AddItem(O_CROSSBOW_ITEM);
-            Item_GlobalReplace(O_CROSSBOW_ITEM, O_CROSSBOW_AMMO_1_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_CROSSBOW_AMMO_1_ITEM,
-                resume->crossbow_ammo
-                    / Gun_GetAmmoPickupQuantity(LGT_CROSSBOW));
-        }
-        lara_info->crossbow_ammo.ammo = resume->crossbow_ammo;
-
-        if (resume->flags.has_revolver) {
-            Inv_AddItem(O_REVOLVER_ITEM);
-            Item_GlobalReplace(O_REVOLVER_ITEM, O_REVOLVER_AMMO_ITEM);
-        } else {
-            Inv_AddItemNTimes(
-                O_REVOLVER_AMMO_ITEM,
-                resume->revolver_ammo
-                    / Gun_GetAmmoPickupQuantity(LGT_REVOLVER));
-        }
-        lara_info->revolver_ammo.ammo = resume->revolver_ammo;
-
-        Inv_AddItemNTimes(O_SMALL_MEDIPACK_ITEM, resume->small_medipacks);
-        Inv_AddItemNTimes(O_LARGE_MEDIPACK_ITEM, resume->large_medipacks);
-        Inv_AddItemNTimes(O_FLARE_ITEM, resume->flares);
-        Inv_AddItemNTimes(O_SCION_ITEM_1, resume->num_scions);
-        Inv_AddItemNTimes(O_QUEST_ITEM_1, resume->num_quest_item_1);
-        Inv_AddItemNTimes(O_QUEST_ITEM_2, resume->num_quest_item_2);
-        Inv_AddItemNTimes(O_QUEST_ITEM_3, resume->num_quest_item_3);
-        Inv_AddItemNTimes(O_QUEST_ITEM_4, resume->num_quest_item_4);
-        Inv_AddItemNTimes(O_QUEST_ITEM_5, resume->num_quest_item_5);
-        Inv_AddItemNTimes(O_QUEST_ITEM_6, resume->num_quest_item_6);
 
         if (g_Config.gameplay.remember_gun_status) {
             lara_info->gun_status = resume->gun_status;
@@ -336,8 +255,7 @@ void Lara_InitialiseInventory(const GF_LEVEL *const level)
 
 void Lara_RevertToPistolsIfNeeded(void)
 {
-    if (g_Config.gameplay.remember_gun_status
-        || !Inv_RequestItem(O_PISTOL_ITEM)) {
+    if (g_Config.gameplay.remember_gun_status || !Inv_HasItem(O_PISTOL_ITEM)) {
         return;
     }
 
@@ -350,7 +268,7 @@ void Lara_RevertToPistolsIfNeeded(void)
         lara_info->request_gun_type = LGT_PISTOLS;
         lara_info->gun_type = LGT_PISTOLS;
     }
-    if (Inv_RequestItem(O_SHOTGUN_ITEM)) {
+    if (Inv_HasItem(O_SHOTGUN_ITEM)) {
         lara_info->back_gun_type = LGT_SHOTGUN;
     } else {
         lara_info->back_gun_type = LGT_UNARMED;
@@ -472,13 +390,14 @@ void Lara_UseItem(const OBJECT_ID obj_id)
 
     case O_CROWBAR_ITEM:
     case O_CROWBAR_OPTION: {
-        const int16_t door_item_num = Door_FindNearbyCrowbarDoor();
-        if (door_item_num == NO_ITEM || lara_info->interact_target.is_moving) {
+        const int16_t receptacle_item_num = M_FindCrowbarReceptacle();
+        if (receptacle_item_num == NO_ITEM
+            || lara_info->interact_target.is_moving) {
             Sound_Effect(SFX_LARA_NO, nullptr, SPM_NORMAL);
             return;
         }
 
-        lara_info->interact_target.item_num = door_item_num;
+        lara_info->interact_target.item_num = receptacle_item_num;
         lara_info->interact_target.is_moving = true;
         lara_info->interact_target.move_count = 0;
         break;
@@ -708,8 +627,10 @@ void Lara_Animate(ITEM *const item)
         Rope_AlignLara(item);
     }
 
-    item->pos.x += (item->speed * Math_Sin(lara->move_angle)) >> W2V_SHIFT;
-    item->pos.z += (item->speed * Math_Cos(lara->move_angle)) >> W2V_SHIFT;
+    if (!lara->interact_target.is_moving) {
+        item->pos.x += (item->speed * Math_Sin(lara->move_angle)) >> W2V_SHIFT;
+        item->pos.z += (item->speed * Math_Cos(lara->move_angle)) >> W2V_SHIFT;
+    }
 }
 
 void Lara_AnimateUntil(ITEM *lara_item, int32_t goal)
@@ -759,6 +680,18 @@ void Lara_TakeDamage(const int16_t damage, const bool hit_status)
     Item_TakeDamage(
         Lara_GetItem(), damage, hit_status ? IDF_NONE : IDF_NO_HIT_STATUS,
         nullptr);
+}
+
+// Unlike Lara_TakeDamage, this ignores debug invulnerability: the callers that
+// honor it need to substitute their own outcome for the death, lest Lara be
+// left in a death animation while alive.
+void Lara_Kill(void)
+{
+    ITEM *const lara_item = Lara_GetItem();
+    Item_TakeFatalDamage(lara_item, nullptr);
+    // Item_TakeDamage clamps at zero, while the death paths test for a
+    // negative value.
+    lara_item->hit_points = -1;
 }
 
 // TODO: This does the same thing in principle as Lara_GetJointAbsPosition().
@@ -861,14 +794,16 @@ void Lara_AlignPosition(const ITEM *const item, const XYZ_32 *const vec)
         .z = item->pos.z + shift.z,
     };
 
-    if (g_Config.gameplay.fix_lara_pickup_embed) {
+    if (g_Config.gameplay.fix_lara_pickup_embed && !lara->gravity) {
         int16_t room_num = lara->room_num;
         const SECTOR *const sector = Room_GetSector(new_pos, &room_num);
         const int32_t height = Room_GetHeight(sector, new_pos);
         const int32_t ceiling = Room_GetCeiling(sector, new_pos);
 
+        const int32_t lara_height =
+            Lara_GetLaraInfo()->is_crouched ? LARA_HEIGHT_CROUCH : LARA_HEIGHT;
         if (ABS(height - lara->pos.y) > STEP_L
-            || ABS(ceiling - lara->pos.y) < LARA_HEIGHT) {
+            || ABS(ceiling - height) < lara_height) {
             return;
         }
     }
@@ -898,9 +833,15 @@ bool Lara_IsNearItem(const XYZ_32 *const pos, const int32_t distance)
 
 bool Lara_MovePosition(const ITEM *const ref_item, const XYZ_32 *const vec)
 {
+    return Lara_MovePositionEx(ref_item, vec, 0);
+}
+
+bool Lara_MovePositionEx(
+    const ITEM *const ref_item, const XYZ_32 *const vec,
+    const int16_t extra_y_rot)
+{
     LARA_INFO *const lara_info = Lara_GetLaraInfo();
-    const bool walk_to_items = g_Config.gameplay.enable_walk_to_items
-        && ref_item->object_id != O_FLARE_ITEM;
+    const bool walk_to_items = g_Config.gameplay.enable_walk_to_items;
     const bool lara_on_land = lara_info->water_status != LWS_UNDERWATER
         && lara_info->water_status != LWS_CHEAT;
     const int32_t velocity =
@@ -913,9 +854,9 @@ bool Lara_MovePosition(const ITEM *const ref_item, const XYZ_32 *const vec)
     Matrix_Rot16(new_rot);
     const MATRIX *const m = g_MatrixPtr;
     const XYZ_32 shift = {
-        .x = (vec->y * m->_01 + vec->z * m->_02 + vec->x * m->_00) >> W2V_SHIFT,
-        .y = (vec->x * m->_10 + vec->z * m->_12 + vec->y * m->_11) >> W2V_SHIFT,
-        .z = (vec->y * m->_21 + vec->x * m->_20 + vec->z * m->_22) >> W2V_SHIFT,
+        .x = (vec->x * m->_00 + vec->y * m->_01 + vec->z * m->_02) >> W2V_SHIFT,
+        .y = (vec->x * m->_10 + vec->y * m->_11 + vec->z * m->_12) >> W2V_SHIFT,
+        .z = (vec->x * m->_20 + vec->y * m->_21 + vec->z * m->_22) >> W2V_SHIFT,
     };
     Matrix_Pop();
 
@@ -930,9 +871,14 @@ bool Lara_MovePosition(const ITEM *const ref_item, const XYZ_32 *const vec)
         const SECTOR *const sector = Room_GetSector(new_pos, &room_num);
         const int32_t height = Room_GetHeight(sector, new_pos);
         if (ABS(height - lara_item->pos.y) > STEP_L * 2) {
+            if (lara_info->interact_target.is_moving) {
+                lara_info->interact_target.is_moving = false;
+                lara_info->gun_status = LGS_ARMLESS;
+            }
             return false;
         }
-        if (XYZ_32_GetDistance(new_pos, lara_item->pos) < STEP_L) {
+        const int32_t max_dist = STEP_L / (walk_to_items ? 2 : 1);
+        if (XYZ_32_GetDistance(new_pos, lara_item->pos) < max_dist) {
             return true;
         }
     }
@@ -953,31 +899,18 @@ bool Lara_MovePosition(const ITEM *const ref_item, const XYZ_32 *const vec)
 
     if (walk_to_items && !lara_info->interact_target.is_moving) {
         if (lara_on_land) {
-            const int16_t step_to_anim_num[4] = {
-                LA(LA_SIDE_STEP_LEFT),
-                LA(LA_WALK_FORWARD),
-                LA(LA_SIDE_STEP_RIGHT),
-                LA(LA_WALK_BACK),
-            };
-            const int16_t step_to_anim_state[4] = {
-                LS(LS_STEP_LEFT),
-                LS(LS_WALK),
-                LS(LS_STEP_RIGHT),
-                LS(LS_WALK_BACK),
-            };
-
             const int32_t dx = lara_item->pos.x - new_pos.x;
             const int32_t dz = lara_item->pos.z - new_pos.z;
             const int32_t angle = (DEG_360 - Math_Atan(dx, dz)) % DEG_360;
             const uint32_t src_quadrant = (uint32_t)(angle + DEG_45) / DEG_90;
             const uint32_t dst_quadrant =
-                (uint32_t)(new_rot.y + DEG_45) / DEG_90;
+                (uint32_t)(new_rot.y + DEG_45 + extra_y_rot) / DEG_90;
             const DIRECTION quadrant = (src_quadrant - dst_quadrant) % 4;
 
-            Item_SwitchToAnim(lara_item, step_to_anim_num[quadrant], 0);
-            lara_item->goal_anim_state = step_to_anim_state[quadrant];
-            lara_item->current_anim_state = step_to_anim_state[quadrant];
-
+            Item_SwitchToAnim(lara_item, LA(m_InteractionAnims[quadrant]), 0);
+            const ANIM *const anim = Item_GetAnim(lara_item);
+            lara_item->current_anim_state = anim->current_anim_state;
+            lara_item->goal_anim_state = anim->current_anim_state;
             lara_info->gun_status = LGS_HANDS_BUSY;
         }
 

@@ -37,14 +37,6 @@ static const M_OPTION m_Options[] = {
         .choice = UI_NEW_GAME_CHOICE_NGPLUS,
     },
     {
-        .label_id = GS_ID("general/passport/mode_new_game_jp"),
-        .choice = UI_NEW_GAME_CHOICE_JP_NG,
-    },
-    {
-        .label_id = GS_ID("general/passport/mode_new_game_jp_plus"),
-        .choice = UI_NEW_GAME_CHOICE_JP_NGPLUS,
-    },
-    {
         .label_id = GS_ID("general/passport/play_previous_levels"),
         .choice = UI_NEW_GAME_CHOICE_PLAY_PREV_LEVELS,
     },
@@ -82,15 +74,15 @@ static M_FEATURES M_CheckFeatures(const bool check_save_features)
     }
     for (SAVEGAME_SLOT_POOL pool = 0; pool < SAVEGAME_SLOT_POOL_NUMBER_OF;
          pool++) {
-        for (int32_t slot_num = 0; slot_num < Savegame_GetSlotCount(pool);
+        for (int32_t slot_num = 0; slot_num < SG_Manager_GetSlotCount(pool);
              slot_num++) {
             const SAVEGAME_SLOT_REF slot = { .pool = pool, .index = slot_num };
-            if (Savegame_IsSlotFree(slot)) {
+            if (SG_Manager_IsSlotFree(slot)) {
                 continue;
             }
             if (!features.play_prev_levels) {
                 const SAVEGAME_INFO *const info =
-                    Savegame_GetSavegameInfo(slot);
+                    SG_Manager_GetSavegameInfo(slot);
                 if (info->features.select_level) {
                     features.play_prev_levels = true;
                 }
@@ -101,11 +93,6 @@ static M_FEATURES M_CheckFeatures(const bool check_save_features)
         }
     }
     return features;
-}
-
-bool UI_NewGame_HasModChoices(void)
-{
-    return M_HasSwitchModChoice();
 }
 
 static bool M_OptionVisible(
@@ -122,6 +109,11 @@ static bool M_OptionVisible(
     }
     return Option_Passport_AreGameModesAvailable()
         || option->choice == UI_NEW_GAME_CHOICE_NG;
+}
+
+bool UI_NewGame_HasModChoices(void)
+{
+    return M_HasSwitchModChoice();
 }
 
 UI_NEW_GAME_STATE *UI_NewGame_Init(const bool show_play_prev_levels)

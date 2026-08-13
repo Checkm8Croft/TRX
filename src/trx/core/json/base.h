@@ -13,6 +13,10 @@ JSON_VALUE *JSON_ValueFromArray(JSON_ARRAY *arr);
 JSON_VALUE *JSON_ValueFromObject(JSON_OBJECT *obj);
 void JSON_ValueFree(JSON_VALUE *value);
 
+// A deep copy, owning everything it points at, so freeing either one leaves
+// the other whole.
+JSON_VALUE *JSON_ValueCopy(const JSON_VALUE *value);
+
 bool JSON_ValueIsNull(const JSON_VALUE *value);
 bool JSON_ValueIsTrue(const JSON_VALUE *value);
 bool JSON_ValueIsFalse(const JSON_VALUE *value);
@@ -61,7 +65,7 @@ JSON_ARRAY *JSON_ArrayGetArray_Impl(const JSON_ARRAY *arr, size_t idx);
 JSON_OBJECT *JSON_ArrayGetObject_Impl(const JSON_ARRAY *arr, size_t idx);
 #define JSON_ArrayGetObject(value, ...)                                        \
     JSON_CONST_DISPATCH(                                                       \
-        value, const JSON_ARRAY *,                                             \
+        value, const JSON_OBJECT *,                                            \
         JSON_ArrayGetObject_Impl(value, __VA_ARGS__))
 
 // objects

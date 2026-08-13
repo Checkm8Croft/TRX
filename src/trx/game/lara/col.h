@@ -33,6 +33,7 @@ bool Lara_Col_TestVault(ITEM *item, COLL_INFO *coll);
 bool Lara_Col_TestSlide(ITEM *item, COLL_INFO *coll);
 bool Lara_Col_TestLadderHang(ITEM *item, const COLL_INFO *coll);
 bool Lara_Col_TestClimbStance(ITEM *item, const COLL_INFO *coll);
+int16_t Lara_Col_GetShimmyState(LARA_TRX_STATE state);
 bool Lara_Col_TestCeiling(ITEM *item, const COLL_INFO *coll);
 SWING_CATCH Lara_Col_TestHangSwingIn(const ITEM *item, int16_t angle);
 EDGE_CATCH Lara_Col_TestEdgeCatch(
@@ -43,6 +44,8 @@ LANDED_STATE Lara_Col_LandedBad(ITEM *item);
 void Lara_Col_MonkeySwingSnap(ITEM *item);
 bool Lara_Col_HangTest(ITEM *item, COLL_INFO *coll);
 bool Lara_Col_IsCornerShimmyActive(void);
+void Lara_Col_Push(
+    const COLL_ITEM *item, COLL_INFO *coll, bool hit_on, bool big_push);
 void Lara_Col_ItemPush(
     const ITEM *item, COLL_INFO *coll, bool hit_on, bool big_push);
 void Lara_Col_Static3DPush(const STATIC_MESH *mesh, COLL_INFO *coll);

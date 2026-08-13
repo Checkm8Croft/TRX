@@ -3,9 +3,9 @@
 #include <trx/core/json/util/read_io.h>
 #include <trx/core/json/util/write_io.h>
 #include <trx/game/camera.h>
-#include <trx/game/game.h>
 #include <trx/game/gun.h>
 #include <trx/game/input.h>
+#include <trx/game/inventory.h>
 #include <trx/game/lara.h>
 #include <trx/game/los.h>
 #include <trx/game/objects/vehicles/common.h>
@@ -29,16 +29,6 @@
 #define M_MAX_UPDOWN       0x16C0000
 #define M_CAM_ELEVATION    (DEG_1 * -60) // = -10920
 // clang-format on
-
-static const BITE m_UPVBites[6] = {
-    { .pos = { .x = 0, .y = 0, .z = 0 }, .mesh_num = 3 },
-    { .pos = { .x = 0, .y = 96, .z = 256 }, .mesh_num = 0 },
-    { .pos = { .x = -128, .y = 0, .z = -64 }, .mesh_num = 1 },
-    { .pos = { .x = 0, .y = 0, .z = -64 }, .mesh_num = 1 },
-    { .pos = { .x = 128, .y = 0, .z = -64 }, .mesh_num = 2 },
-    { .pos = { .x = 0, .y = 0, .z = -64 }, .mesh_num = 2 },
-};
-
 typedef struct {
     int32_t vel;
     int32_t rot;
@@ -76,6 +66,15 @@ typedef enum {
     M_ANIM_GET_ON           = 13,
     // clang-format on
 } M_ANIM;
+
+static const BITE m_UPVBites[6] = {
+    { .pos = { .x = 0, .y = 0, .z = 0 }, .mesh_num = 3 },
+    { .pos = { .x = 0, .y = 96, .z = 256 }, .mesh_num = 0 },
+    { .pos = { .x = -128, .y = 0, .z = -64 }, .mesh_num = 1 },
+    { .pos = { .x = 0, .y = 0, .z = -64 }, .mesh_num = 1 },
+    { .pos = { .x = 128, .y = 0, .z = -64 }, .mesh_num = 2 },
+    { .pos = { .x = 0, .y = 0, .z = -64 }, .mesh_num = 2 },
+};
 
 static void M_LoadPriv(ITEM *const item, JSON_READ_IO *const io)
 {
@@ -215,9 +214,8 @@ static void M_GetOn(ITEM *const item)
     lara_item->current_anim_state = M_STATE_GET_ON;
     Item_Animate(lara_item);
 
-    if (item->status != IS_ACTIVE) {
-        item->status = IS_ACTIVE;
-        Item_AddActive(Item_GetIndex(item));
+    if (!Item_IsInPlay(item)) {
+        Item_AddSimulated(Item_GetIndex(item));
     }
 }
 
@@ -629,8 +627,7 @@ static void M_DoCurrent(ITEM *const item)
 static void M_FireHarpoon(ITEM *const item)
 {
     M_PRIV *const p = item->priv;
-    AMMO_INFO *const ammo = Gun_GetAmmoInfo(LGT_HARPOON);
-    if (ammo->ammo <= 0) {
+    if (!Gun_HasRoundsLeft(LGT_HARPOON)) {
         return;
     }
 
@@ -658,13 +655,10 @@ static void M_FireHarpoon(ITEM *const item)
     bolt->speed = (256 * Math_Cos(bolt->rot.x)) >> W2V_SHIFT;
     bolt->hit_points = 256;
     // bolt->item_flags[0] = 1; // TODO: what
-    Item_AddActive(item_num);
+    Item_AddSimulated(item_num);
     Sound_Effect(SFX_UPV_HARPOON, &Lara_GetItem()->pos, SPM_ALWAYS);
 
-    if (!Game_IsBonusFlagSet(GBF_NGPLUS)) {
-        ammo->ammo--;
-    }
-
+    Gun_SpendRound(LGT_HARPOON);
     Stats_AddAmmoUsed();
     p->current_weapon ^= 1;
 }
@@ -865,6 +859,27 @@ static void M_Control(int16_t item_num)
     }
 }
 
+static void M_Setup(OBJECT *const obj)
+{
+    obj->priv_size = sizeof(M_PRIV);
+    obj->priv_load_func = M_LoadPriv;
+    obj->priv_save_func = M_SavePriv;
+    obj->initialise_func = M_Initialise;
+    obj->control_func = M_Control;
+    obj->collision_func = M_Collision;
+    obj->draw_func = M_Draw;
+
+    obj->save_position = true;
+    obj->save_flags = true;
+    obj->save_anim = true;
+
+    OBJECT_PROPERTIES(
+        obj,
+        OBJECT_PROPERTY_STORED(
+            "is_heavy", true,
+            "Whether or not this vehicle can activate heavy triggers."));
+}
+
 bool UPV_Control(void)
 {
     ITEM *const item = Lara_Vehicle_GetItem();
@@ -899,8 +914,8 @@ bool UPV_Control(void)
     item->floor = Room_GetHeight(sector, item->pos);
 
     if (p->flags.control && !p->flags.dead) {
-        const int32_t water_height =
-            Room_GetWaterHeightEx(item->pos, room_num, false);
+        const int32_t water_height = Room_GetWaterHeightEx(
+            item->pos, room_num, (ROOM_WATER_HEIGHT_ARGS) {});
 
         if (water_height != NO_HEIGHT
             && !Room_Get(item->room_num)->flags.underwater) {
@@ -995,27 +1010,6 @@ bool UPV_Control(void)
     item->speed = 0;
     Item_Animate(item);
     return true;
-}
-
-static void M_Setup(OBJECT *const obj)
-{
-    obj->priv_size = sizeof(M_PRIV);
-    obj->priv_load_func = M_LoadPriv;
-    obj->priv_save_func = M_SavePriv;
-    obj->initialise_func = M_Initialise;
-    obj->control_func = M_Control;
-    obj->collision_func = M_Collision;
-    obj->draw_func = M_Draw;
-
-    obj->save_position = true;
-    obj->save_flags = true;
-    obj->save_anim = true;
-
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_BOOL(
-            "is_heavy", true,
-            "Whether or not this vehicle can activate heavy triggers."));
 }
 
 REGISTER_OBJECT(O_UPV, M_Setup)

@@ -14,25 +14,16 @@ static OBJECT_MESH *m_Meshes[LM_NUMBER_OF] = {};
 static LARA_GUN_TYPE M_DetermineHolsterGun(void)
 {
     const LARA_INFO *const lara_info = Lara_GetLaraInfo();
-    if (lara_info->holsters_gun_type == LGT_UNARMED) {
-        if (lara_info->gun_type != LGT_UNARMED
-            && !Gun_IsRifleType(lara_info->gun_type)) {
-            return lara_info->gun_type;
-        } else if (Inv_RequestItem(O_PISTOL_ITEM)) {
-            return LGT_PISTOLS;
-        } else if (Inv_RequestItem(O_MAGNUM_ITEM)) {
-            return LGT_MAGNUMS;
-        } else if (Inv_RequestItem(O_AUTOS_ITEM)) {
-            return LGT_AUTOS;
-        } else if (Inv_RequestItem(O_DESERT_EAGLE_ITEM)) {
-            return LGT_DESERT_EAGLE;
-        } else if (Inv_RequestItem(O_UZI_ITEM)) {
-            return LGT_UZIS;
-        } else if (Inv_RequestItem(O_REVOLVER_ITEM)) {
-            return LGT_REVOLVER;
-        }
+    if (lara_info->holsters_gun_type != LGT_UNARMED) {
+        return lara_info->holsters_gun_type;
     }
-    return lara_info->holsters_gun_type;
+    // What she is holding goes back into her holsters ahead of anything else,
+    // so long as it is small enough to fit in them.
+    if (lara_info->gun_type != LGT_UNARMED
+        && !Gun_IsRifleType(lara_info->gun_type)) {
+        return lara_info->gun_type;
+    }
+    return Gun_GetHolsterChoice(Inv_GetState());
 }
 
 static LARA_GUN_TYPE M_DetermineBackGun(void)
@@ -41,23 +32,7 @@ static LARA_GUN_TYPE M_DetermineBackGun(void)
     if (lara_info->back_gun_type != LGT_UNARMED) {
         return lara_info->back_gun_type;
     }
-
-    if (Inv_RequestItem(O_SHOTGUN_ITEM)) {
-        return LGT_SHOTGUN;
-    } else if (Inv_RequestItem(O_M16_ITEM)) {
-        return LGT_M16;
-    } else if (Inv_RequestItem(O_MP5_ITEM)) {
-        return LGT_MP5;
-    } else if (Inv_RequestItem(O_GRENADE_GUN_ITEM)) {
-        return LGT_GRENADE;
-    } else if (Inv_RequestItem(O_ROCKET_GUN_ITEM)) {
-        return LGT_ROCKET;
-    } else if (Inv_RequestItem(O_HARPOON_ITEM)) {
-        return LGT_HARPOON;
-    } else if (Inv_RequestItem(O_CROSSBOW_ITEM)) {
-        return LGT_CROSSBOW;
-    }
-    return LGT_UNARMED;
+    return Gun_GetBackChoice(Inv_GetState());
 }
 
 static void M_EnsureDefaultDualPistolMesh(const LARA_GUN_TYPE holster_gun)
@@ -68,7 +43,7 @@ static void M_EnsureDefaultDualPistolMesh(const LARA_GUN_TYPE holster_gun)
 
     for (LARA_GUN_TYPE gun = 0; gun < NUM_WEAPONS; gun++) {
         if (g_Weapons[gun].type == WEAPON_TYPE_DUAL_PISTOLS
-            && Inv_RequestItem(Gun_GetGunObject(gun)) > 0) {
+            && Inv_HasItem(Gun_GetGunObject(gun))) {
             Lara_Skin_SetGunEquipment(LM_THIGH_L, gun);
             break;
         }
@@ -83,7 +58,7 @@ static void M_InitialiseCutsceneLevel(void)
 
 static void M_InitialiseNormalLevel(const GF_LEVEL *const level)
 {
-    const RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
+    const RESUME_INFO *const resume = SG_Resume_GetEntry(level);
 
     const LARA_GUN_TYPE holster_gun = M_DetermineHolsterGun();
     if (holster_gun != LGT_UNARMED && holster_gun != LGT_FLARE) {
@@ -110,10 +85,16 @@ void Lara_Mesh_Initialise(const GF_LEVEL *const level)
         lara_obj->mesh_idx = skin_obj->mesh_idx;
     }
 
-    if (level->type == GFL_CUTSCENE) {
+    switch (level->type) {
+    // A title has no save to read a holster gun out of, and the scenes it
+    // plays behind the menu want her armed as any other cutscene does.
+    case GFL_CUTSCENE:
+    case GFL_TITLE:
         M_InitialiseCutsceneLevel();
-    } else {
+        break;
+    default:
         M_InitialiseNormalLevel(level);
+        break;
     }
 }
 
@@ -144,7 +125,7 @@ OBJECT_MESH *Lara_Mesh_Get(const LARA_MESH mesh)
     return m_Meshes[mesh];
 }
 
-RGB_F Lara_GetMeshTint(const GAME_VECTOR pos)
+RGBA_F Lara_GetMeshTint(const GAME_VECTOR pos)
 {
     if (!g_Config.visuals.enable_responsive_mesh_tint || g_Camera.underwater) {
         return Output_GetTint();
@@ -155,13 +136,13 @@ RGB_F Lara_GetMeshTint(const GAME_VECTOR pos)
     const int32_t water_height = Room_GetWaterHeight(pos.pos, room_num);
 
     if (!Room_Get(room_num)->flags.underwater) {
-        return COLOR_RGB_F_WHITE;
+        return COLOR_RGBA_F_WHITE;
     } else if (water_height == NO_HEIGHT) {
-        return Output_GetWaterColor();
+        return Color_RGBToRGBA(Output_GetWaterColor());
     } else if (pos.y > water_height) {
-        return Output_GetWaterColor();
+        return Color_RGBToRGBA(Output_GetWaterColor());
     } else {
-        return COLOR_RGB_F_WHITE;
+        return COLOR_RGBA_F_WHITE;
     }
 }
 

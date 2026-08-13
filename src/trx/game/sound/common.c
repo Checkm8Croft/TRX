@@ -5,6 +5,7 @@
 #include <trx/core/log.h>
 #include <trx/core/math/geom.h>
 #include <trx/core/memory.h>
+#include <trx/core/subsystem.h>
 #include <trx/game/camera.h>
 #include <trx/game/game_buf.h>
 #include <trx/game/lara.h>
@@ -17,11 +18,6 @@
 #include <math.h>
 #include <uthash.h>
 
-typedef enum {
-    SF_FLIP = 0x40,
-    SF_UNFLIP = 0x80,
-} SOUND_SOURCE_FLAG;
-
 #define M_DECIBEL_LUT_SIZE 512
 #define M_SOUND_CLOSE_RANGE (1 * WALL_L)
 
@@ -30,6 +26,11 @@ typedef enum {
 #define M_SOUND_MAX_VOLUME 0x8000
 #define M_SOUND_MAX_PITCH_CHANGE 6000
 #define M_SOUND_MAX_VOLUME_CHANGE (g_TRVersion >= 3 ? 0x1000 : 0x2000)
+
+typedef enum {
+    SF_FLIP = 0x40,
+    SF_UNFLIP = 0x80,
+} SOUND_SOURCE_FLAG;
 
 typedef struct {
     SAMPLE_ID sample_id;
@@ -56,6 +57,11 @@ typedef struct M_SAMPLE_ENTRY {
 } M_SAMPLE_ENTRY;
 
 static M_ACTIVE_SOUND m_ActiveSounds[M_MAX_ACTIVE_SOUNDS] = {};
+// One generation per slot, bumped when a slot is handed to a new voice, so a
+// script handle to a finished voice does not address the voice that replaced
+// it.
+static uint32_t m_SlotGens[M_MAX_ACTIVE_SOUNDS];
+static HANDLE_REGISTRY m_SlotHandles;
 static bool m_Initialised = false;
 static float m_MasterVolume = 0.0f;
 static M_SAMPLE_DATA_ENTRY *m_SampleDataMap = nullptr;
@@ -283,6 +289,33 @@ static void M_UpdateActiveSoundParams(M_ACTIVE_SOUND *const sound)
     sound->pan = M_GetPan(sound->sample, sound->pos_ptr);
 }
 
+// A slot holds a voice while its handle is set; a paused voice counts, so this
+// tests the handle rather than whether it is audibly playing.
+static M_ACTIVE_SOUND *M_GetActiveSlot(const int32_t slot)
+{
+    if (slot < 0 || slot >= M_MAX_ACTIVE_SOUNDS
+        || m_ActiveSounds[slot].handle == AUDIO_NO_SOUND) {
+        return nullptr;
+    }
+    return &m_ActiveSounds[slot];
+}
+
+static void M_Shutdown(void)
+{
+    m_Initialised = false;
+    Audio_Shutdown();
+    M_ClearSampleMaps();
+}
+
+static void M_ApplyConfig(void)
+{
+    if (Shell_GetArgs()->headless) {
+        return;
+    }
+    Sound_Init();
+    Sound_SetMasterVolume(g_Config.audio.sound_volume);
+}
+
 bool Sound_Init(void)
 {
     m_MasterVolume = g_Config.audio.sound_volume;
@@ -309,15 +342,11 @@ bool Sound_Init(void)
     }
 
     m_Initialised = true;
+    if (m_SlotHandles.gens == nullptr) {
+        Handle_RegistryInit(&m_SlotHandles, m_SlotGens, M_MAX_ACTIVE_SOUNDS);
+    }
     M_ClearAllActiveSounds();
     return true;
-}
-
-void Sound_Shutdown(void)
-{
-    m_Initialised = false;
-    Audio_Shutdown();
-    M_ClearSampleMaps();
 }
 
 bool Sound_IsInitialised(void)
@@ -482,11 +511,14 @@ void Sound_ResetSources(void)
     }
 }
 
-bool Sound_Effect_Direct(
+// Returns the active-sound slot the sample plays in, or -1 when it does not
+// play. The slot is the one Sound_GetActiveSlot and the Lua Stream handle
+// address.
+int32_t Sound_Effect_Direct(
     const SAMPLE_ID sample_id, const XYZ_32 *const pos, const uint32_t flags)
 {
     if (!Sound_IsInitialised()) {
-        return false;
+        return -1;
     }
 
     if ((flags & SPM_ALWAYS) == 0) {
@@ -494,13 +526,13 @@ bool Sound_Effect_Direct(
         const ROOM *const room = Room_Get(g_Camera.pos.room_num);
         const bool room_submerged = room != nullptr && room->flags.underwater;
         if (play_underwater != room_submerged) {
-            return false;
+            return -1;
         }
     }
 
     const SAMPLE_INFO *const sample = Sound_GetSample(sample_id);
     if (sample == nullptr || sample->number < 0) {
-        return false;
+        return -1;
     }
 
     if (sample->randomness) {
@@ -509,19 +541,19 @@ bool Sound_Effect_Direct(
             r &= 0xFF;
         }
         if (r > sample->randomness) {
-            return false;
+            return -1;
         }
     }
 
     const int32_t distance = M_GetDistance(sample, pos);
     if (distance == INT32_MAX) {
-        return false;
+        return -1;
     }
 
     const int32_t pan = M_GetPan(sample, pos);
     const int32_t volume = M_GetVolume(sample, distance, true);
     if (volume <= 0) {
-        return false;
+        return -1;
     }
 
     const int32_t pitch = M_GetPitch(sample, flags);
@@ -540,7 +572,7 @@ bool Sound_Effect_Direct(
         sound = g_TRVersion == 1 ? M_SelectUsedSoundWithPos(sample_id, pos)
                                  : M_SelectUsedSound(sample_id);
         if (sound != nullptr && Audio_Sample_IsPlaying(sound->handle)) {
-            return true;
+            return (int32_t)(sound - m_ActiveSounds);
         }
         if (sound == nullptr) {
             sound = M_SelectUnusedSound();
@@ -562,14 +594,14 @@ bool Sound_Effect_Direct(
                 sound->pan = pan;
                 sound->pitch = pitch;
             }
-            return true;
+            return (int32_t)(sound - m_ActiveSounds);
         }
         sound = M_SelectUnusedSound();
         break;
     }
 
     if (sound == nullptr) {
-        return false;
+        return -1;
     }
 
     M_CloseActiveSound(sound);
@@ -577,7 +609,7 @@ bool Sound_Effect_Direct(
         track_id, M_ConvertVolumeToDecibel(volume), M_ConvertPitch(pitch),
         M_ConvertPanToDecibel(pan), sample->mode == SAMPLE_MODE_LOOPED);
     if (handle == AUDIO_NO_SOUND) {
-        return false;
+        return -1;
     }
     sound->sample = sample;
     sound->sample_id = sample_id;
@@ -596,10 +628,15 @@ bool Sound_Effect_Direct(
         sound->pos_ptr = nullptr;
     }
     M_ClearActiveSoundHandles(sound);
-    return true;
+    // The slot now holds a new voice, so a handle to the one here before
+    // must stop resolving. The WAIT and LOOPED early returns above keep an
+    // existing voice, and its handle, alive.
+    const int32_t slot = (int32_t)(sound - m_ActiveSounds);
+    Handle_RegistryBump(&m_SlotHandles, slot);
+    return slot;
 }
 
-bool Sound_Effect(
+int32_t Sound_Effect(
     const SAMPLE_TRX_ID sample_id, const XYZ_32 *const pos,
     const uint32_t flags)
 {
@@ -681,3 +718,60 @@ void Sound_StopAll(void)
     Audio_Sample_CloseAll();
     M_ClearAllActiveSounds();
 }
+
+int32_t Sound_GetActiveSlotCount(void)
+{
+    return M_MAX_ACTIVE_SOUNDS;
+}
+
+bool Sound_GetActiveSlot(const int32_t slot, SAMPLE_ID *const out_sample_id)
+{
+    const M_ACTIVE_SOUND *const sound = M_GetActiveSlot(slot);
+    if (sound == nullptr) {
+        return false;
+    }
+    if (out_sample_id != nullptr) {
+        *out_sample_id = sound->sample_id;
+    }
+    return true;
+}
+
+TRX_HANDLE Sound_GetActiveSlotHandle(const int32_t slot)
+{
+    return Handle_RegistryMint(&m_SlotHandles, slot);
+}
+
+bool Sound_ResolveActiveSlot(
+    const TRX_HANDLE handle, SAMPLE_ID *const out_sample_id)
+{
+    if (!Handle_RegistryIsLive(&m_SlotHandles, handle)) {
+        return false;
+    }
+    return Sound_GetActiveSlot(handle.id, out_sample_id);
+}
+
+void Sound_StopActiveSlot(const int32_t slot)
+{
+    M_ACTIVE_SOUND *const sound = M_GetActiveSlot(slot);
+    if (sound != nullptr) {
+        M_CloseActiveSound(sound);
+    }
+}
+
+void Sound_PauseActiveSlot(const int32_t slot)
+{
+    const M_ACTIVE_SOUND *const sound = M_GetActiveSlot(slot);
+    if (sound != nullptr) {
+        Audio_Sample_Pause(sound->handle);
+    }
+}
+
+void Sound_UnpauseActiveSlot(const int32_t slot)
+{
+    const M_ACTIVE_SOUND *const sound = M_GetActiveSlot(slot);
+    if (sound != nullptr) {
+        Audio_Sample_Unpause(sound->handle);
+    }
+}
+
+REGISTER_SUBSYSTEM(.apply_config = M_ApplyConfig, .shutdown = M_Shutdown)

@@ -3,9 +3,13 @@
 #include <trx/core/enum_map.h>
 #include <trx/core/json/util/file.h>
 #include <trx/core/log.h>
+#include <trx/core/subsystem.h>
 #include <trx/game/catalog/manager.h>
 #include <trx/game/const.h>
-#include <trx/game/shell.h>
+#include <trx/game/shell/common.h>
+#include <trx/game/shell/paths.h>
+
+#include <string.h>
 
 WEAPON_INFO g_Weapons[NUM_WEAPONS] = {};
 
@@ -57,6 +61,18 @@ static void M_ReadXYZ32(JSON_VALUE *const value, XYZ_32 *const target)
     }
 }
 
+// The ammunition keys were renamed to say what they count. The names they had
+// are still read, so a weapons.json5 written for an earlier version goes on
+// working.
+// TODO: remove after 1.14
+static int32_t M_ReadAmmoValue(
+    JSON_OBJECT *const ammo_obj, const char *const key,
+    const char *const legacy_key, const int32_t fallback)
+{
+    return JSON_ObjectGetInt(
+        ammo_obj, key, JSON_ObjectGetInt(ammo_obj, legacy_key, fallback));
+}
+
 static void M_ReadAmmoInfo(JSON_OBJECT *const obj, const int32_t type)
 {
     JSON_OBJECT *const ammo_obj = JSON_ObjectGetObject(obj, "ammo");
@@ -64,18 +80,20 @@ static void M_ReadAmmoInfo(JSON_OBJECT *const obj, const int32_t type)
         return;
     }
 
-    g_Weapons[type].ammo.initial_qty = JSON_ObjectGetInt(
-        ammo_obj, "initial_qty", g_Weapons[type].ammo.initial_qty);
-    g_Weapons[type].ammo.pickup_qty = JSON_ObjectGetInt(
-        ammo_obj, "pickup_qty", g_Weapons[type].ammo.pickup_qty);
-    g_Weapons[type].ammo.pickup_qty_alt = JSON_ObjectGetInt(
-        ammo_obj, "pickup_qty_alt", g_Weapons[type].ammo.pickup_qty_alt);
-    g_Weapons[type].ammo.inventory_qty = JSON_ObjectGetInt(
-        ammo_obj, "inventory_qty", g_Weapons[type].ammo.inventory_qty);
+    WEAPON_AMMO_INFO *const ammo = &g_Weapons[type].ammo;
+    ammo->initial_shots = M_ReadAmmoValue(
+        ammo_obj, "initial_shots", "initial_qty", ammo->initial_shots);
+    ammo->box_shots =
+        M_ReadAmmoValue(ammo_obj, "box_shots", "pickup_qty", ammo->box_shots);
+    ammo->box_label_qty = M_ReadAmmoValue(
+        ammo_obj, "box_label_qty", "inventory_qty", ammo->box_label_qty);
+    ammo->infinite = JSON_ObjectGetBool(ammo_obj, "infinite", ammo->infinite);
 }
 
-void Gun_LoadVars(const char *const path)
+static void M_Load(void)
 {
+    const char *const path =
+        TRXPath_Resolve(TRX_DYNAMIC_PATH_COMMON_CONFIG, "weapons.json5");
 #define L_READ_ANGLE(name, target)                                             \
     target = JSON_ObjectGetInt(obj, name, target) * DEG_1;
 #define L_READ_DIST(name, target)                                              \
@@ -88,6 +106,9 @@ void Gun_LoadVars(const char *const path)
         Shell_ExitSystemFmt("invalid weapons vars file: %s", path);
     }
 
+    // Every weapon starts from nothing, so that what the file leaves out is
+    // absent rather than left over from the mod played before this one.
+    memset(g_Weapons, 0, sizeof(g_Weapons));
     for (int32_t i = 0; i < NUM_WEAPONS; i++) {
         g_Weapons[i].glow_scale = 1.0f;
     }
@@ -194,3 +215,5 @@ void Gun_LoadVars(const char *const path)
 #undef L_READ_DIST
 #undef L_READ_INT
 }
+
+REGISTER_SUBSYSTEM(.load = M_Load)

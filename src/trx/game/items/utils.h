@@ -16,6 +16,24 @@
 bool Item_IsTriggerActiveRO(const ITEM *item);
 bool Item_IsTriggerActive(ITEM *item);
 
+// The item's code bits, counted the way a level editor counts them: five bits,
+// 1 to 31. An item runs its trigger only once every bit is set, so several
+// triggers can be made to agree before anything happens.
+int32_t Item_GetTriggerMask(const ITEM *item);
+void Item_SetTriggerMask(ITEM *item, int32_t mask);
+
+// Fire a trigger at the item, exactly as a floordata trigger does. The kind
+// selects the flag operation: a forward trigger ORs in the mask and, once every
+// code bit is set, starts the item running; a switch XORs it; an antitrigger
+// (ITEM_TRIGGER_ANTI) clears the code bits and leaves the item on the active
+// list to stand itself down, which is how a door animates shut rather than
+// freezing half open. Room_Handle builds one of these from a floordata trigger;
+// the console and scripts build them directly. Use Item_Deactivate to stop an
+// item outright.
+void Item_Trigger(int16_t item_num, const ITEM_TRIGGER *trigger);
+
+bool Item_IsInPlay(const ITEM *item);
+bool Item_IsInactive(const ITEM *item);
 bool Item_IsAlive(const ITEM *item);
 bool Item_IsTargetable(const ITEM *item);
 bool Item_CanTakeDamage(const ITEM *item);
@@ -23,6 +41,10 @@ bool Item_CanBeProjectileTarget(const ITEM *item);
 
 void Item_TakeDamage(
     ITEM *item, int16_t damage, ITEM_DAMAGE_FLAGS flags, const ITEM *sender);
+
+// Deal an item everything it has left, for the deaths that a script or a touch
+// decides rather than a weapon. Does nothing to an item already at zero.
+void Item_TakeFatalDamage(ITEM *item, const ITEM *sender);
 
 bool Item_IsMeshVisible(const ITEM *item, int32_t mesh_num);
 void Item_SetMeshVisible(ITEM *item, int32_t mesh_num, bool visible);
@@ -34,9 +56,13 @@ void Item_ResetMeshBits(ITEM *item);
 // * Positive values - deal damage, enable body part explosions.
 // * Negative values - deal damage, disable body part explosions.
 // * Zero - don't deal any damage, disable body part explosions.
-int32_t Item_Explode(int16_t item_num, int32_t mesh_bits, int16_t damage);
+int32_t Item_Shatter(int16_t item_num, int32_t mesh_bits, int16_t damage);
 
 bool Item_ShouldSpawnBlood(const ITEM *item);
+
+// The first item of the given object type, or nullptr. Item_FindTypeInRoom
+// narrows the search to a single room.
+ITEM *Item_Find(OBJECT_ID obj_id);
 
 int16_t Item_FindTypeInRoom(int16_t room_num, OBJECT_ID obj_id);
 int16_t Item_FindTypeAtPos(int16_t room_num, XYZ_32 pos, OBJECT_ID obj_id);

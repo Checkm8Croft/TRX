@@ -1,8 +1,9 @@
 #include <trx/game/objects/general/shoal.h>
 
+#include <trx/core/json/util/read_io.h>
+#include <trx/core/json/util/write_io.h>
 #include <trx/core/math.h>
 #include <trx/core/utils.h>
-#include <trx/game/game_buf.h>
 #include <trx/game/interpolation.h>
 #include <trx/game/items.h>
 #include <trx/game/lara.h>
@@ -46,12 +47,87 @@ typedef struct {
 typedef struct {
     M_FISH fish[M_FISH_PER_SHOAL + 1];
     M_LEADER leader;
+    XYZ_32 range;
     bool use_room_lighting;
     int32_t piranha_hit_wait;
     int16_t carcass_item_num;
     int32_t sprite_offset;
     GAME_VECTOR anchor;
 } M_PRIV;
+
+static void M_ResetFishInterp(M_FISH *const fish)
+{
+    fish->interp.prev.pos = fish->pos;
+    fish->interp.prev.angle = fish->angle;
+    fish->interp.prev.swim = fish->swim;
+    fish->interp.result.pos = fish->pos;
+    fish->interp.result.angle = fish->angle;
+    fish->interp.result.swim = fish->swim;
+}
+
+static void M_LoadPriv(ITEM *const item, JSON_READ_IO *const io)
+{
+    M_PRIV *const p = item->priv;
+    JSON_OPTIONAL(JSON_READ(io, "piranha_hit_wait", &p->piranha_hit_wait));
+
+    if (JSON_SHOULD(JSON_PUSH(io, "leader"))) {
+        M_LEADER *const leader = &p->leader;
+        JSON_SHOULD(JSON_READ(io, "on", &leader->on));
+        JSON_SHOULD(JSON_READ(io, "angle", &leader->angle));
+        JSON_SHOULD(JSON_READ(io, "speed", &leader->speed));
+        JSON_SHOULD(JSON_READ(io, "angle_time", &leader->angle_time));
+        JSON_SHOULD(JSON_READ(io, "speed_time", &leader->speed_time));
+        JSON_POP(io);
+    }
+
+    if (JSON_SHOULD(JSON_PUSH(io, "fish"))) {
+        const int32_t count = MIN(JSON_ARRAY_LEN(io), M_FISH_PER_SHOAL + 1);
+        for (int32_t i = 0; i < count; i++) {
+            if (!JSON_SHOULD(JSON_PUSH_INDEX(io, i))) {
+                break;
+            }
+            M_FISH *const fish = &p->fish[i];
+            JSON_SHOULD(JSON_READ(io, "pos", &fish->pos));
+            JSON_SHOULD(JSON_READ(io, "angle", &fish->angle));
+            JSON_SHOULD(JSON_READ(io, "dest_y", &fish->dest_y));
+            JSON_SHOULD(JSON_READ(io, "ang_add", &fish->ang_add));
+            JSON_SHOULD(JSON_READ(io, "speed", &fish->speed));
+            JSON_SHOULD(JSON_READ(io, "swim", &fish->swim));
+            M_ResetFishInterp(fish);
+            JSON_POP(io);
+        }
+        JSON_POP(io);
+    }
+}
+
+static void M_SavePriv(const ITEM *const item, JSON_WRITE_IO *const io)
+{
+    const M_PRIV *const p = item->priv;
+    JSONW_WRITE(io, "piranha_hit_wait", p->piranha_hit_wait);
+
+    const M_LEADER *const leader = &p->leader;
+    JSONW_PUSH_OBJECT(io);
+    JSONW_WRITE(io, "on", leader->on);
+    JSONW_WRITE(io, "angle", leader->angle);
+    JSONW_WRITE(io, "speed", leader->speed);
+    JSONW_WRITE(io, "angle_time", leader->angle_time);
+    JSONW_WRITE(io, "speed_time", leader->speed_time);
+    JSONW_POP_AND_SET(io, "leader");
+
+    JSONW_PUSH_ARRAY(io);
+    for (int32_t i = 0; i < M_FISH_PER_SHOAL + 1; i++) {
+        const M_FISH *const fish = &p->fish[i];
+        JSONW_PUSH_OBJECT(io);
+        JSONW_WRITE(io, "pos", fish->pos);
+        JSONW_WRITE(io, "angle", fish->angle);
+        JSONW_WRITE(io, "dest_y", fish->dest_y);
+        JSONW_WRITE(io, "ang_add", fish->ang_add);
+        JSONW_WRITE(io, "speed", fish->speed);
+        JSONW_WRITE(io, "swim", fish->swim);
+        JSONW_POP_AND_APPEND(io);
+    }
+    JSONW_POP_AND_SET(io, "fish");
+}
 
 static uint16_t M_GetFishAngle12(
     const int32_t x1, const int32_t z1, const int32_t x2, const int32_t z2)
@@ -112,12 +188,7 @@ static void M_SetupFish(M_PRIV *const p, const ITEM *const item)
     fish->angle = 0;
     fish->speed = ((Random_GetControl() & 0x3F) + 8);
     fish->swim = (Random_GetControl() & 0x3F);
-    fish->interp.prev.pos = fish->pos;
-    fish->interp.prev.angle = fish->angle;
-    fish->interp.prev.swim = fish->swim;
-    fish->interp.result.pos = fish->pos;
-    fish->interp.result.angle = fish->angle;
-    fish->interp.result.swim = fish->swim;
+    M_ResetFishInterp(fish);
 
     for (int32_t i = 0; i < M_FISH_PER_SHOAL; i++) {
         fish = &p->fish[i + 1];
@@ -128,12 +199,7 @@ static void M_SetupFish(M_PRIV *const p, const ITEM *const item)
         fish->angle = Random_GetControl() & 0xFFF;
         fish->speed = (Random_GetControl() & 0x1F) + 32;
         fish->swim = Random_GetControl() & 0x3F;
-        fish->interp.prev.pos = fish->pos;
-        fish->interp.prev.angle = fish->angle;
-        fish->interp.prev.swim = fish->swim;
-        fish->interp.result.pos = fish->pos;
-        fish->interp.result.angle = fish->angle;
-        fish->interp.result.swim = fish->swim;
+        M_ResetFishInterp(fish);
     }
 
     leader->on = true;
@@ -155,15 +221,11 @@ static bool M_IsTargetable(const ITEM *const item)
     return false;
 }
 
-static bool M_Trigger(ITEM *const item, const TRIGGER *const trigger)
+static bool M_Trigger(ITEM *const item, const ITEM_TRIGGER *const trigger)
 {
-    if (trigger == nullptr) {
-        return false;
-    }
-
     item->timer = 0;
 
-    if (Room_IsAntiTrigger(trigger->type)) {
+    if (trigger->kind == ITEM_TRIGGER_ANTI) {
         Shoal_TriggerDeactivate(item);
     }
 
@@ -453,7 +515,7 @@ static void M_Control(const int16_t item_num)
 
 static bool M_Draw(const ITEM *const item)
 {
-    if (!item->active) {
+    if (!item->is_simulated) {
         return false;
     }
 
@@ -603,15 +665,28 @@ static bool M_Draw(const ITEM *const item)
     return true;
 }
 
+static const char *M_CheckRange(const TRX_VALUE *const in)
+{
+    return in->as_xyz.x < 1 || in->as_xyz.y < 1 || in->as_xyz.z < 1
+        ? "range is below one quarter tile on an axis"
+        : nullptr;
+}
+
+// The range is stated in quarter tiles and swum in world units.
+static void M_SetRange(ITEM *const item, const TRX_VALUE *const in)
+{
+    M_PRIV *const p = item->priv;
+    p->range = in->as_xyz;
+    p->leader.range.x = p->range.x * STEP_L;
+    p->leader.range.y = p->range.y * STEP_L;
+    p->leader.range.z = p->range.z * STEP_L;
+}
+
 static void M_Initialise(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
     item->enable_shadow = false;
-    item->collidable = false;
-
-    if (item->priv == nullptr) {
-        item->priv = GameBuf_Alloc(sizeof(M_PRIV), GBUF_ITEM_DATA);
-    }
+    item->is_collidable = false;
 
     M_PRIV *const p = item->priv;
     p->leader.on = false;
@@ -619,28 +694,6 @@ static void M_Initialise(const int16_t item_num)
     p->carcass_item_num = NO_ITEM;
     p->anchor.pos = item->pos;
     p->anchor.room_num = item->room_num;
-
-    OBJECT_PROPERTY_VALUE range_val = {};
-    if (ObjectProperty_GetItemValue(item, "range", &range_val)) {
-        p->leader.range = range_val.as_xyz;
-    } else {
-        p->leader.range = M_DEFAULT_RANGE;
-    }
-
-    p->leader.range.x = MAX(1, p->leader.range.x) * STEP_L;
-    p->leader.range.y = MAX(1, p->leader.range.y) * STEP_L;
-    p->leader.range.z = MAX(1, p->leader.range.z) * STEP_L;
-
-    OBJECT_PROPERTY_VALUE sprite_val = {};
-    if (ObjectProperty_GetItemValue(item, "sprite_offset", &sprite_val)) {
-        p->sprite_offset = sprite_val.as_int;
-    }
-
-    OBJECT_PROPERTY_VALUE use_room_lighting_val = {};
-    if (ObjectProperty_GetItemValue(
-            item, "use_room_lighting", &use_room_lighting_val)) {
-        p->use_room_lighting = use_room_lighting_val.as_bool;
-    }
 }
 
 static void M_SetupCommon(OBJECT *const obj)
@@ -651,16 +704,22 @@ static void M_SetupCommon(OBJECT *const obj)
     obj->is_targetable_func = M_IsTargetable;
     obj->draw_func = M_Draw;
 
+    obj->priv_size = sizeof(M_PRIV);
+    obj->priv_load_func = M_LoadPriv;
+    obj->priv_save_func = M_SavePriv;
+
     obj->save_position = true;
     obj->save_hitpoints = true;
     obj->save_flags = true;
 
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_XYZ(
-            "range", M_DEFAULT_RANGE, "Swim range, in quarter tiles."),
-        OBJECT_PROPERTY_BOOL(
-            "use_room_lighting", (g_TRVersion < 3),
+        OBJECT_PROPERTY_SETTER(
+            M_PRIV, range, (M_DEFAULT_RANGE), M_CheckRange, M_SetRange,
+            "Swim range, in quarter tiles. Value range: minimum 1 on each "
+            "axis."),
+        OBJECT_PROPERTY(
+            M_PRIV, use_room_lighting, (bool)(g_TRVersion < 3),
             "Whether the shoal uses the surrounding room lighting."));
 }
 
@@ -669,8 +728,9 @@ static void M_SetupTropicalFish(OBJECT *const obj)
     M_SetupCommon(obj);
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_INT(
-            "sprite_offset", 0, "Texture offset in `O_TROPICAL_FISH_GFX`."));
+        OBJECT_PROPERTY(
+            M_PRIV, sprite_offset, 0,
+            "Texture offset in `O_TROPICAL_FISH_GFX`."));
 }
 
 static void M_SetupPiranhas(OBJECT *const obj)

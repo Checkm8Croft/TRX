@@ -30,6 +30,10 @@ typedef enum {
     M_STATE_EAT,
 } M_STATE;
 
+typedef struct {
+    int32_t damage;
+} M_PRIV;
+
 static const BITE m_BirdBite = {
     .pos = { .x = 15, .y = 46, .z = 21 },
     .mesh_num = 6,
@@ -38,16 +42,6 @@ static const BITE m_CrowBite = {
     .pos = { .x = 2, .y = 10, .z = 60 },
     .mesh_num = 14,
 };
-
-static int32_t M_GetDamage(const ITEM *const item)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, "damage", &damage)) {
-        return damage.as_int;
-    }
-
-    return M_DAMAGE;
-}
 
 static void M_Initialise(const int16_t item_num)
 {
@@ -71,6 +65,7 @@ static void M_Control(const int16_t item_num)
     }
 
     ITEM *const item = Item_Get(item_num);
+    const M_PRIV *const p = item->priv;
     CREATURE *const bird = item->creature_data;
 
     if (item->hit_points <= 0) {
@@ -142,7 +137,7 @@ static void M_Control(const int16_t item_num)
 
     case M_STATE_ATTACK:
         if (bird->flags == 0 && item->touch_bits != 0) {
-            Lara_TakeDamage(M_GetDamage(item), true);
+            Lara_TakeDamage(p->damage, true);
             if (item->object_id == O_CROW) {
                 Creature_Effect(item, &m_CrowBite, Spawn_Blood);
             } else {
@@ -166,6 +161,7 @@ static bool M_SetupCommon(OBJECT *const obj)
     obj->control_func = M_Control;
     obj->collision_func = Creature_Collision;
 
+    obj->priv_size = sizeof(M_PRIV);
     obj->radius = M_RADIUS;
     obj->shadow_size = UNIT_SHADOW / 2;
     obj->pivot_length = 0;
@@ -178,8 +174,8 @@ static bool M_SetupCommon(OBJECT *const obj)
     obj->save_anim = true;
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_INT(
-            "damage", M_DAMAGE, "Damage dealt by the bird attack."));
+        OBJECT_PROPERTY(
+            M_PRIV, damage, M_DAMAGE, "Damage dealt by the bird attack."));
 
     return true;
 }
@@ -189,10 +185,7 @@ static void M_SetupEagle(OBJECT *const obj)
     if (!M_SetupCommon(obj)) {
         return;
     }
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_EAGLE_HITPOINTS, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_EAGLE_HITPOINTS));
 }
 
 static void M_SetupCrow(OBJECT *const obj)
@@ -200,10 +193,7 @@ static void M_SetupCrow(OBJECT *const obj)
     if (!M_SetupCommon(obj)) {
         return;
     }
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_CROW_HITPOINTS, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_CROW_HITPOINTS));
 }
 
 static void M_SetupVulture(OBJECT *const obj)
@@ -211,10 +201,7 @@ static void M_SetupVulture(OBJECT *const obj)
     if (!M_SetupCommon(obj)) {
         return;
     }
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_VULTURE_HITPOINTS, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_VULTURE_HITPOINTS));
 }
 
 REGISTER_OBJECT(O_EAGLE, M_SetupEagle)

@@ -1,240 +1,102 @@
 #include <trx/config/common.h>
 
-#include <trx/config/dynamic_enum.h>
 #include <trx/config/file.h>
 #include <trx/config/priv.h>
-#include <trx/config/vars.h>
+#include <trx/config/registry.h>
+#include <trx/config/section.h>
+#include <trx/core/log.h>
 #include <trx/core/memory.h>
-#include <trx/core/strings.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/vector.h>
 #include <trx/debug.h>
-#include <trx/game/game_flow/vars.h>
-#include <trx/game/game_strings/entries.h>
-#include <trx/game/shell.h>
 
-#include <stdio.h>
 #include <string.h>
-
-#define CONFIG_OVERRIDE_MAX_DEPTH 3
-
-// In-memory list of pointers to config options hidden by the game flow.
-static VECTOR *m_HiddenOptions = nullptr;
-// In-memory list of runtime config overrides.
-static VECTOR *m_OverrideOptions = nullptr;
 
 static EVENT_MANAGER *m_EventManager = nullptr;
 
-typedef union {
-    bool bool_value;
-    int32_t int32_value;
-    float float_value;
-    double double_value;
-    RGB_888 rgb888_value;
-    char *string_value;
-} M_CONFIG_VALUE;
+// What has moved since the last report was taken, and whether any of it is the
+// player's own doing.
+static VECTOR *m_Pending = nullptr;
+static bool m_PendingPersist = false;
 
-typedef struct {
-    const CONFIG_OPTION *option;
-    M_CONFIG_VALUE base_value;
-    M_CONFIG_VALUE override_values[CONFIG_OVERRIDE_MAX_DEPTH];
-    int32_t depth;
-} M_CONFIG_OVERRIDE;
+// Where Config_Read() was pointed, so Config_Write() knows where to put it
+// back. The config module's own business, not a setting the player has.
+static char *m_DefaultPath = nullptr;
+static char *m_EnforcedPath = nullptr;
+static bool m_Loaded = false;
+static bool m_FileFound = false;
 
-static void M_CopyOptionValue(
-    const CONFIG_OPTION *const option, M_CONFIG_VALUE *const dst,
-    const void *const src)
-{
-    ASSERT(option != nullptr);
-    ASSERT(dst != nullptr);
-    ASSERT(src != nullptr);
-
-    switch (option->type) {
-    case COT_BOOL:
-        dst->bool_value = *(const bool *)src;
-        break;
-    case COT_INT32:
-        dst->int32_value = *(const int32_t *)src;
-        break;
-    case COT_ENUM:
-        dst->int32_value = *(const int *)src;
-        break;
-    case COT_FLOAT:
-    case COT_FLOAT_PERCENT:
-        dst->float_value = *(const float *)src;
-        break;
-    case COT_DOUBLE:
-        dst->double_value = *(const double *)src;
-        break;
-    case COT_RGB888:
-        dst->rgb888_value = *(const RGB_888 *)src;
-        break;
-    case COT_STRING:
-    case COT_DYNAMIC_ENUM: {
-        const char *const src_value = *(const char *const *)src;
-        dst->string_value =
-            src_value != nullptr ? Memory_DupStr(src_value) : nullptr;
-        break;
-    }
-    }
-}
-
-static void M_FreeOptionValue(
-    const CONFIG_OPTION *const option, M_CONFIG_VALUE *const value)
-{
-    ASSERT(option != nullptr);
-    ASSERT(value != nullptr);
-
-    if (option->type == COT_STRING || option->type == COT_DYNAMIC_ENUM) {
-        Memory_FreePointer(&value->string_value);
-    }
-}
-
-static const void *M_GetOptionValuePtr(
-    const CONFIG_OPTION *const option, const M_CONFIG_VALUE *const value)
-{
-    ASSERT(option != nullptr);
-    ASSERT(value != nullptr);
-
-    switch (option->type) {
-    case COT_BOOL:
-        return &value->bool_value;
-    case COT_INT32:
-    case COT_ENUM:
-        return &value->int32_value;
-    case COT_FLOAT:
-    case COT_FLOAT_PERCENT:
-        return &value->float_value;
-    case COT_DOUBLE:
-        return &value->double_value;
-    case COT_RGB888:
-        return &value->rgb888_value;
-    case COT_STRING:
-    case COT_DYNAMIC_ENUM:
-        return &value->string_value;
-    }
-    return nullptr;
-}
-
-static void M_ApplyOptionValue(
-    const CONFIG_OPTION *const option, const M_CONFIG_VALUE *const value)
-{
-    ASSERT(option != nullptr);
-    ASSERT(value != nullptr);
-
-    switch (option->type) {
-    case COT_BOOL:
-        *(bool *)option->target = value->bool_value;
-        break;
-    case COT_INT32:
-        *(int32_t *)option->target = value->int32_value;
-        break;
-    case COT_ENUM:
-        *(int *)option->target = value->int32_value;
-        break;
-    case COT_FLOAT:
-    case COT_FLOAT_PERCENT:
-        *(float *)option->target = value->float_value;
-        break;
-    case COT_DOUBLE:
-        *(double *)option->target = value->double_value;
-        break;
-    case COT_RGB888:
-        *(RGB_888 *)option->target = value->rgb888_value;
-        break;
-    case COT_STRING:
-    case COT_DYNAMIC_ENUM: {
-        char **const p = (char **)option->target;
-        char *const old = *p;
-        *p = value->string_value != nullptr ? Memory_DupStr(value->string_value)
-                                            : nullptr;
-        Memory_Free(old);
-        break;
-    }
-    }
-}
-
-static int32_t M_GetOverrideIndex(const void *const target)
-{
-    if (m_OverrideOptions == nullptr) {
-        return -1;
-    }
-
-    for (int32_t i = 0; i < m_OverrideOptions->count; i++) {
-        const M_CONFIG_OVERRIDE *const override =
-            Vector_Get(m_OverrideOptions, i);
-        if (override->option->target == target) {
-            return i;
-        }
-    }
-    return -1;
-}
-
-static void M_FreeOverride(M_CONFIG_OVERRIDE *const override)
-{
-    ASSERT(override != nullptr);
-
-    M_FreeOptionValue(override->option, &override->base_value);
-    for (int32_t i = 0; i < override->depth; i++) {
-        M_FreeOptionValue(override->option, &override->override_values[i]);
-    }
-}
-
-static void M_ClearOverrides(void)
-{
-    if (m_OverrideOptions == nullptr) {
-        return;
-    }
-
-    for (int32_t i = 0; i < m_OverrideOptions->count; i++) {
-        M_CONFIG_OVERRIDE *const override = Vector_Get(m_OverrideOptions, i);
-        M_FreeOverride(override);
-    }
-    Vector_Clear(m_OverrideOptions);
-}
-
-static void M_FreeStringOptionValues(void)
-{
-    const CONFIG_OPTION *option = Config_GetOptionMap();
-    while (option != nullptr && option->target != nullptr) {
-        if (option->type == COT_STRING || option->type == COT_DYNAMIC_ENUM) {
-            Memory_Free(*(char **)option->target);
-        }
-        option++;
-    }
-}
-
-__attribute__((constructor)) static void M_Init(void)
+static void M_Init(void)
 {
     m_EventManager = EventManager_Create();
 }
 
-__attribute__((destructor)) static void M_Shutdown(void)
+static void M_Shutdown(void)
 {
     EventManager_Free(m_EventManager);
     m_EventManager = nullptr;
-
-    M_FreeStringOptionValues();
-    Memory_FreePointer(&g_Config.default_path);
-    Memory_FreePointer(&g_Config.enforced_path);
-
-    if (m_HiddenOptions != nullptr) {
-        Vector_Free(m_HiddenOptions);
-        m_HiddenOptions = nullptr;
+    if (m_Pending != nullptr) {
+        Vector_Free(m_Pending);
+        m_Pending = nullptr;
     }
-    if (m_OverrideOptions != nullptr) {
-        M_ClearOverrides();
-        Vector_Free(m_OverrideOptions);
-        m_OverrideOptions = nullptr;
+    Memory_FreePointer(&m_DefaultPath);
+    Memory_FreePointer(&m_EnforcedPath);
+    m_Loaded = false;
+    m_FileFound = false;
+    m_PendingPersist = false;
+}
+
+// What a type converts as. An enum is int32 storage that happens to spell its
+// values, and a dynamic enum is string storage that does; both convert as the
+// storage they are.
+static TRX_VALUE_TYPE M_StorageType(const TRX_VALUE_TYPE type)
+{
+    switch (type) {
+    case TVT_ENUM:
+        return TVT_S32;
+    case TVT_DYNAMIC_ENUM:
+        return TVT_STRING;
+    default:
+        return type;
     }
 }
 
-void Config_ApplyDefaultSettings(void)
+// The value as the option's own type. A caller states a value in the shape its
+// own C expression had - an enumeration constant is an integer, a whole number
+// written for a float setting is an integer, an outfit name is a string - and
+// the option says what it was meant as.
+static bool M_AdaptValue(
+    const CONFIG_OPTION *const option, TRX_VALUE *const value)
 {
-    const CONFIG_OPTION *option = Config_GetOptionMap();
-    while (option->target != nullptr) {
-        Config_RestoreOptionDefault(option->target);
-        option++;
+    const TRX_VALUE_TYPE type = option->value.type;
+    if (value->type == type) {
+        return true;
     }
+    // Carried over whole rather than through as_int: the carrier is a union,
+    // and which member a value rides in is the type's business.
+    TRX_VALUE from = *value;
+    from.type = M_StorageType(value->type);
+    TRX_VALUE out;
+    if (!Value_Coerce(M_StorageType(type), &from, &out)) {
+        return false;
+    }
+    out.type = type;
+    *value = out;
+    return true;
+}
+
+void Config_ReportChange(const CONFIG_OPTION *const option, const bool persist)
+{
+    m_PendingPersist |= persist;
+    if (m_Pending == nullptr) {
+        m_Pending = Vector_Create(sizeof(const CONFIG_OPTION *));
+    }
+    for (int32_t i = 0; i < m_Pending->count; i++) {
+        if (*(const CONFIG_OPTION **)Vector_Get(m_Pending, i) == option) {
+            return;
+        }
+    }
+    Vector_Add(m_Pending, &option);
 }
 
 bool Config_Read(
@@ -242,149 +104,91 @@ bool Config_Read(
 {
     // Always initialize the config, even if the file is missing, so that
     // the game can interact with these properties.
-    Memory_FreePointer(&g_Config.default_path);
-    Memory_FreePointer(&g_Config.enforced_path);
-    g_Config.default_path = Memory_DupStr(default_path);
-    g_Config.enforced_path = Memory_DupStr(enforced_path);
-    g_Config.loaded = true;
-    M_ClearOverrides();
+    Memory_FreePointer(&m_DefaultPath);
+    Memory_FreePointer(&m_EnforcedPath);
+    m_DefaultPath = Memory_DupStr(default_path);
+    m_EnforcedPath = Memory_DupStr(enforced_path);
+    m_Loaded = true;
+    Config_ClearHolds();
 
     LOG_DEBUG("Reading config");
-    LOG_DEBUG("  default_path=%s", g_Config.default_path);
-    LOG_DEBUG("  enforced_path=%s", g_Config.enforced_path);
-    if (m_HiddenOptions == nullptr) {
-        m_HiddenOptions = Vector_Create(sizeof(void *));
-    } else {
-        Vector_ClearRealloc(m_HiddenOptions);
-    }
-    const CONFIG_IO_ARGS args = {
-        .default_path = g_Config.default_path,
-        .enforced_path = g_Config.enforced_path,
-        .action = &Config_LoadFromJSON,
-        .hidden_targets = m_HiddenOptions,
-    };
-    const bool result = ConfigFile_Read(&args);
+    LOG_DEBUG("  default_path=%s", m_DefaultPath);
+    LOG_DEBUG("  enforced_path=%s", m_EnforcedPath);
+
+    const bool result = ConfigFile_Read(m_DefaultPath, m_EnforcedPath);
+    m_FileFound = ConfigFile_WasFound();
     if (result) {
         LOG_DEBUG("Config loaded");
     } else {
         LOG_WARNING("Errors while loading config");
     }
+
+    Config_LoadFromJSON(ConfigFile_GetRoot());
     Config_Sanitize();
-    g_SavedConfig = g_Config;
+    // What the file held was never a change: it is where the settings start.
+    Config_DiscardPendingChanges();
     return result;
 }
 
 bool Config_Update(void)
 {
     Config_Sanitize();
-    if (memcmp(&g_Config, &g_SavedConfig, sizeof(CONFIG)) == 0) {
+    // A section's data is its own module's, so nothing here can see that it
+    // moved; the module that moved it says so, and that report is spent here.
+    const bool section_changed = Config_Section_TakeChanged();
+    if ((m_Pending == nullptr || m_Pending->count == 0) && !section_changed) {
         return false;
     }
+
+    // The report is taken before it is spent, not after: a listener that moves
+    // a setting of its own comes back through here, and what it moved is a
+    // report of its own rather than this one told again.
+    VECTOR *const taken = m_Pending;
+    const CONFIG_CHANGE change = {
+        // A rebound key is the player's doing as much as a setting is.
+        .persist = m_PendingPersist || section_changed,
+        .options = taken != nullptr ? Vector_GetData(taken) : nullptr,
+        .count = taken != nullptr ? taken->count : 0,
+    };
+    m_Pending = nullptr;
+    m_PendingPersist = false;
 
     if (m_EventManager != nullptr) {
         const EVENT event = {
             .name = "change",
             .sender = nullptr,
-            .data = nullptr,
+            .data = (void *)&change,
         };
         EventManager_Fire(m_EventManager, &event);
     }
-    g_Config.dirty = false;
-    g_SavedConfig = g_Config;
+    if (taken != nullptr) {
+        Vector_Free(taken);
+    }
     return true;
+}
+
+void Config_DiscardPendingChanges(void)
+{
+    if (m_Pending != nullptr) {
+        Vector_Clear(m_Pending);
+    }
+    m_PendingPersist = false;
+}
+
+bool Config_IsLoaded(void)
+{
+    return m_Loaded;
+}
+
+bool Config_IsFirstRun(void)
+{
+    return m_Loaded && !m_FileFound;
 }
 
 bool Config_Write(void)
 {
-    ASSERT(g_Config.default_path != nullptr);
-    const CONFIG_IO_ARGS args = {
-        .default_path = g_Config.default_path,
-        .enforced_path = g_Config.enforced_path,
-        .action = &Config_DumpToJSON,
-    };
-    return ConfigFile_Write(&args);
-}
-
-static bool M_PushOptionOverride(
-    const CONFIG_OPTION *const option, const void *const value)
-{
-    ASSERT(option != nullptr);
-    ASSERT(value != nullptr);
-
-    if (m_OverrideOptions == nullptr) {
-        m_OverrideOptions = Vector_Create(sizeof(M_CONFIG_OVERRIDE));
-    }
-
-    int32_t override_idx = M_GetOverrideIndex(option->target);
-    if (override_idx == -1) {
-        M_CONFIG_OVERRIDE override = {
-            .option = option,
-            .depth = 0,
-        };
-        M_CopyOptionValue(option, &override.base_value, option->target);
-        Vector_Add(m_OverrideOptions, &override);
-        override_idx = m_OverrideOptions->count - 1;
-    }
-
-    M_CONFIG_OVERRIDE *const override =
-        Vector_Get(m_OverrideOptions, override_idx);
-    if (override->depth >= CONFIG_OVERRIDE_MAX_DEPTH) {
-        return false;
-    }
-
-    M_CONFIG_VALUE *const override_value =
-        &override->override_values[override->depth];
-    M_CopyOptionValue(option, override_value, value);
-    override->depth++;
-    M_ApplyOptionValue(option, override_value);
-    return true;
-}
-
-bool Config_PushOptionOverride(
-    const void *const target, const void *const value)
-{
-    ASSERT(target != nullptr);
-
-    const CONFIG_OPTION *const option = Config_GetOption(target);
-    if (option == nullptr) {
-        return false;
-    }
-    return M_PushOptionOverride(option, value);
-}
-
-bool Config_PopOptionOverride(const void *const target)
-{
-    ASSERT(target != nullptr);
-
-    const int32_t override_idx = M_GetOverrideIndex(target);
-    if (override_idx == -1) {
-        return false;
-    }
-
-    M_CONFIG_OVERRIDE *const override =
-        Vector_Get(m_OverrideOptions, override_idx);
-    ASSERT(override->depth > 0);
-
-    override->depth--;
-    M_FreeOptionValue(
-        override->option, &override->override_values[override->depth]);
-
-    if (override->depth == 0) {
-        M_ApplyOptionValue(override->option, &override->base_value);
-        M_FreeOverride(override);
-        Vector_RemoveAt(m_OverrideOptions, override_idx);
-    } else {
-        M_ApplyOptionValue(
-            override->option, &override->override_values[override->depth - 1]);
-    }
-
-    return true;
-}
-
-bool Config_IsOptionOverridden(const void *const target)
-{
-    ASSERT(target != nullptr);
-    return M_GetOverrideIndex(target) != -1;
+    ASSERT(m_DefaultPath != nullptr);
+    return ConfigFile_Write(m_DefaultPath, &Config_DumpToJSON);
 }
 
 int32_t Config_SubscribeChanges(
@@ -401,471 +205,53 @@ void Config_UnsubscribeChanges(const int32_t listener_id)
     EventManager_Unsubscribe(m_EventManager, listener_id);
 }
 
-const CONFIG_OPTION *Config_GetOption(const void *const target)
+bool Config_Change_HasMirror(
+    const CONFIG_CHANGE *const change, const void *const mirror)
 {
-    const CONFIG_OPTION *option = Config_GetOptionMap();
-    if (option == nullptr) {
-        return nullptr;
+    if (change == nullptr) {
+        return false;
     }
-    while (option->target != nullptr) {
-        if (option->target == target) {
-            return option;
-        }
-        option++;
-    }
-    return nullptr;
-}
-
-const void *Config_GetOptionValueForSave(const CONFIG_OPTION *const option)
-{
-    ASSERT(option != nullptr);
-
-    const int32_t override_idx = M_GetOverrideIndex(option->target);
-    if (override_idx == -1) {
-        return option->target;
-    }
-
-    const M_CONFIG_OVERRIDE *const override =
-        Vector_Get(m_OverrideOptions, override_idx);
-    return M_GetOptionValuePtr(option, &override->base_value);
-}
-
-bool Config_IsOptionEnforced(const void *const target)
-{
-    return Config_IsOptionOverridden(target);
-}
-
-bool Config_IsOptionHidden(const void *const target)
-{
-    return m_HiddenOptions != nullptr
-        && Vector_Contains(m_HiddenOptions, &target);
-}
-
-bool Config_IsOptionAtDefault(const void *const target)
-{
-    const CONFIG_OPTION *option = Config_GetOption(target);
-    if (target == nullptr) {
-        return true;
-    }
-    switch (option->type) {
-    case COT_BOOL:
-        return *(bool *)option->target == *(bool *)option->default_value;
-    case COT_INT32:
-        return *(int32_t *)option->target == *(int32_t *)option->default_value;
-    case COT_FLOAT:
-    case COT_FLOAT_PERCENT:
-        return *(float *)option->target == *(float *)option->default_value;
-    case COT_DOUBLE:
-        return *(double *)option->target == *(double *)option->default_value;
-    case COT_RGB888: {
-        const RGB_888 cur = *(RGB_888 *)option->target;
-        const RGB_888 def = *(RGB_888 *)option->default_value;
-        return cur.r == def.r && cur.g == def.g && cur.b == def.b;
-    }
-    case COT_ENUM:
-        return *(int32_t *)option->target == *(int32_t *)option->default_value;
-        break;
-    case COT_STRING:
-    case COT_DYNAMIC_ENUM: {
-        const char *const cur = *(char **)option->target;
-        const char *const def = (const char *)option->default_value;
-        if (cur == nullptr && def == nullptr) {
+    for (int32_t i = 0; i < change->count; i++) {
+        if (change->options[i]->mirror == mirror) {
             return true;
         }
-        if (cur == nullptr || def == nullptr) {
-            return false;
-        }
-        return strcmp(cur, def) == 0;
     }
+    return false;
+}
+
+const char *Config_ResolveOptionName(const char *const option_name)
+{
+    const char *const dot = strrchr(option_name, '.');
+    if (dot != nullptr) {
+        return dot + 1;
     }
+    return option_name;
+}
+
+bool Config_SetValue(const void *const mirror, TRX_VALUE value)
+{
+    CONFIG_OPTION *const option = Config_FindOptionByMirror(mirror);
+    if (option == nullptr || !M_AdaptValue(option, &value)) {
+        return false;
+    }
+    Config_Option_Write(option, &value);
     return true;
 }
 
-static bool M_RestoreOptionDefault(const void *const target, const bool force)
+bool Config_PushHold(
+    const void *const mirror, TRX_VALUE value, const CONFIG_HOLD_SOURCE source)
 {
-    if (target == nullptr) {
+    CONFIG_OPTION *const option = Config_FindOptionByMirror(mirror);
+    if (option == nullptr || !M_AdaptValue(option, &value)) {
         return false;
     }
-    const CONFIG_OPTION *option = Config_GetOption(target);
-    if (option == nullptr) {
-        return false;
-    }
-    if (!force && Config_IsOptionEnforced(target)) {
-        return false;
-    }
-    switch (option->type) {
-    case COT_BOOL:
-        *(bool *)option->target = *(bool *)option->default_value;
-        return true;
-    case COT_INT32:
-        *(int32_t *)option->target = *(int32_t *)option->default_value;
-        return true;
-    case COT_FLOAT:
-    case COT_FLOAT_PERCENT:
-        *(float *)option->target = *(float *)option->default_value;
-        return true;
-    case COT_DOUBLE:
-        *(double *)option->target = *(double *)option->default_value;
-        return true;
-    case COT_RGB888:
-        *(RGB_888 *)option->target = *(RGB_888 *)option->default_value;
-        return true;
-    case COT_ENUM:
-        *(int32_t *)option->target = *(int32_t *)option->default_value;
-        return true;
-    case COT_STRING:
-    case COT_DYNAMIC_ENUM: {
-        char **const p = (char **)option->target;
-        const char *const def = (const char *)option->default_value;
-        char *const old = *p;
-        *p = def != nullptr ? Memory_DupStr(def) : nullptr;
-        // VERY IMPORTANT: free the memory AFTER we allocate, so that we force
-        // the pointer to get a different macro, so that change subscribers
-        // can see the string has changed by comparing just the pointers.
-        Memory_Free(old);
-        return true;
-    }
-    }
-    return false;
+    return Config_Option_PushHold(option, &value, source);
 }
 
-bool Config_RestoreOptionDefault(const void *const target)
+bool Config_PopHold(const void *const mirror)
 {
-    return M_RestoreOptionDefault(target, false);
+    CONFIG_OPTION *const option = Config_FindOptionByMirror(mirror);
+    return option != nullptr && Config_Option_PopHold(option);
 }
 
-bool Config_RestoreOptionDefaultForce(const void *const target)
-{
-    return M_RestoreOptionDefault(target, true);
-}
-
-static bool M_ParseBool(const char *const value, bool *const result)
-{
-    if (String_Match(value, "^(on|true|1)$")) {
-        *result = true;
-        return true;
-    }
-    if (String_Match(value, "^(off|false|0)$")) {
-        *result = false;
-        return true;
-    }
-    return false;
-}
-
-static bool M_ParseInt32(const char *const value, int32_t *const result)
-{
-    return sscanf(value, "%d", result) == 1;
-}
-
-static bool M_ParseFloat(const char *const value, float *const result)
-{
-    return sscanf(value, "%f", result) == 1;
-}
-
-static bool M_ParseDouble(const char *const value, double *const result)
-{
-    return sscanf(value, "%lf", result) == 1;
-}
-
-static bool M_ParseEnum(
-    const CONFIG_OPTION *const option, const char *const value,
-    const bool allow_numeric, int32_t *const result)
-{
-    const int32_t mapped = EnumMap_Get(option->param, value, -1);
-    if (mapped != -1) {
-        *result = mapped;
-        return true;
-    }
-    if (allow_numeric) {
-        return M_ParseInt32(value, result);
-    }
-    return false;
-}
-
-static bool M_ParseRGB888(const char *const value, RGB_888 *const result)
-{
-    return String_ParseRGB888(value, result);
-}
-
-static const char *M_FormatBool(const bool value)
-{
-    return String_FormatStatic("%d", value);
-}
-
-static const char *M_FormatBoolHuman(const bool value)
-{
-    return value ? GS("general/misc/on") : GS("general/misc/off");
-}
-
-static const char *M_FormatInt32(const int32_t value)
-{
-    return String_FormatStatic("%d", value);
-}
-
-static const char *M_FormatFloat(const float value)
-{
-    return String_FormatStatic("%.2f", value);
-}
-
-static const char *M_FormatFloatPercent(const float value)
-{
-    return String_FormatStatic("%.0f%%", value);
-}
-
-static const char *M_FormatDouble(const double value)
-{
-    return String_FormatStatic("%.2f", value);
-}
-
-static const char *M_FormatEnumMachine(
-    const CONFIG_OPTION *const option, const int32_t value)
-{
-    return String_FormatStatic("%s", EnumMap_ToString(option->param, value));
-}
-
-static const char *M_FormatEnumHuman(
-    const CONFIG_OPTION *const option, const int32_t value)
-{
-    const char *const localized = EnumMap_GetLabel(option->param, value);
-    ASSERT(localized != nullptr);
-    return localized;
-}
-
-static const char *M_FormatRGB888(const RGB_888 *const value)
-{
-    return String_FormatStatic(
-        "%02hhx%02hhx%02hhx", value->r, value->g, value->b);
-}
-
-static const char *M_FormatString(const char *const value)
-{
-    return String_FormatStatic("%s", value != nullptr ? value : "");
-}
-
-const char *Config_GetOptionValueAsString(
-    const CONFIG_OPTION *const option, const bool human_readable)
-{
-    if (option == nullptr) {
-        return nullptr;
-    }
-    switch (option->type) {
-    case COT_BOOL:
-        return human_readable ? M_FormatBoolHuman(*(bool *)option->target)
-                              : M_FormatBool(*(bool *)option->target);
-    case COT_INT32:
-        return M_FormatInt32(*(int32_t *)option->target);
-    case COT_FLOAT:
-        return M_FormatFloat(*(float *)option->target);
-    case COT_FLOAT_PERCENT:
-        return M_FormatFloatPercent((*(float *)option->target) * 100.0f);
-    case COT_DOUBLE:
-        return M_FormatDouble(*(double *)option->target);
-    case COT_ENUM:
-        return human_readable
-            ? M_FormatEnumHuman(option, *(int32_t *)option->target)
-            : M_FormatEnumMachine(option, *(int32_t *)option->target);
-    case COT_RGB888:
-        return M_FormatRGB888(option->target);
-    case COT_STRING:
-        return M_FormatString(*(char **)option->target);
-    case COT_DYNAMIC_ENUM: {
-        if (human_readable) {
-            const char *const value = *(char **)option->target;
-            const char *const label =
-                Config_DynamicEnum_GetLabelForValue(option, value);
-            if (label != nullptr) {
-                return label;
-            }
-        }
-        return M_FormatString(*(char **)option->target);
-    }
-    default:
-        return nullptr;
-    }
-}
-
-const char *Config_GetOptionTitle(const CONFIG_OPTION *const opt)
-{
-    if (opt == nullptr || opt->name == nullptr) {
-        return nullptr;
-    }
-    return GameString_Get(String_FormatStatic("settings/%s/title", opt->name));
-}
-
-const char *Config_GetOptionDescription(const CONFIG_OPTION *const opt)
-{
-    if (opt == nullptr || opt->name == nullptr) {
-        return nullptr;
-    }
-    return GameString_Get(
-        String_FormatStatic("settings/%s/description", opt->name));
-}
-
-char *Config_NormalizeOptionValueString(
-    const CONFIG_OPTION *const option, const char *const value,
-    const bool human_readable)
-{
-    if (option == nullptr) {
-        return Memory_DupStr(value != nullptr ? value : "");
-    }
-
-    const char *const input = value != nullptr ? value : "";
-
-#define L_NORMALIZE_TYPED(type_, parse_expr_, format_expr_)                    \
-    do {                                                                       \
-        type_ parsed;                                                          \
-        if (!(parse_expr_)) {                                                  \
-            return Memory_DupStr(input);                                       \
-        }                                                                      \
-        return Memory_DupStr(format_expr_);                                    \
-    } while (false)
-
-    switch (option->type) {
-    case COT_BOOL:
-        L_NORMALIZE_TYPED(
-            bool, M_ParseBool(input, &parsed),
-            human_readable ? M_FormatBoolHuman(parsed) : M_FormatBool(parsed));
-    case COT_INT32:
-        L_NORMALIZE_TYPED(
-            int32_t, M_ParseInt32(input, &parsed), M_FormatInt32(parsed));
-    case COT_FLOAT:
-        L_NORMALIZE_TYPED(
-            float, M_ParseFloat(input, &parsed), M_FormatFloat(parsed));
-    case COT_FLOAT_PERCENT:
-        L_NORMALIZE_TYPED(
-            float, M_ParseFloat(input, &parsed), M_FormatFloatPercent(parsed));
-    case COT_DOUBLE:
-        L_NORMALIZE_TYPED(
-            double, M_ParseDouble(input, &parsed), M_FormatDouble(parsed));
-    case COT_ENUM:
-        L_NORMALIZE_TYPED(
-            int32_t, M_ParseEnum(option, input, true, &parsed),
-            human_readable ? M_FormatEnumHuman(option, parsed)
-                           : M_FormatEnumMachine(option, parsed));
-    case COT_RGB888:
-        L_NORMALIZE_TYPED(
-            RGB_888, M_ParseRGB888(input, &parsed), M_FormatRGB888(&parsed));
-    case COT_STRING:
-        return Memory_DupStr(M_FormatString(input));
-    case COT_DYNAMIC_ENUM:
-        if (!Config_DynamicEnum_IsValidValue(option, input)) {
-            return Memory_DupStr(input);
-        }
-        if (human_readable) {
-            const char *const label =
-                Config_DynamicEnum_GetLabelForValue(option, input);
-            if (label != nullptr) {
-                return Memory_DupStr(label);
-            }
-        }
-        return Memory_DupStr(M_FormatString(input));
-    }
-#undef L_NORMALIZE_TYPED
-
-    return Memory_DupStr(input);
-}
-
-static bool M_SetOptionValueFromString(
-    const CONFIG_OPTION *const option, const char *const new_value,
-    const bool force)
-{
-    ASSERT(option != nullptr);
-    ASSERT(option->target != nullptr);
-    if (!force && Config_IsOptionEnforced(option->target)) {
-        return false;
-    }
-    switch (option->type) {
-    case COT_BOOL: {
-        bool parsed;
-        if (M_ParseBool(new_value, &parsed)) {
-            *(bool *)option->target = parsed;
-            return true;
-        }
-        break;
-    }
-
-    case COT_INT32: {
-        int32_t parsed;
-        if (M_ParseInt32(new_value, &parsed)) {
-            *(int32_t *)option->target = parsed;
-            return true;
-        }
-        break;
-    }
-
-    case COT_FLOAT: {
-        float parsed;
-        if (M_ParseFloat(new_value, &parsed)) {
-            *(float *)option->target = parsed;
-            return true;
-        }
-        break;
-    }
-
-    case COT_FLOAT_PERCENT: {
-        float parsed;
-        if (M_ParseFloat(new_value, &parsed)) {
-            *(float *)option->target = parsed / 100.0f;
-            return true;
-        }
-        break;
-    }
-
-    case COT_DOUBLE: {
-        double parsed;
-        if (M_ParseDouble(new_value, &parsed)) {
-            *(double *)option->target = parsed;
-            return true;
-        }
-        break;
-    }
-
-    case COT_ENUM: {
-        int32_t parsed;
-        if (M_ParseEnum(option, new_value, false, &parsed)) {
-            *(int32_t *)option->target = parsed;
-            return true;
-        }
-        break;
-    }
-
-    case COT_RGB888: {
-        RGB_888 parsed;
-        if (M_ParseRGB888(new_value, &parsed)) {
-            *(RGB_888 *)option->target = parsed;
-            return true;
-        }
-        break;
-    }
-
-    case COT_STRING:
-    case COT_DYNAMIC_ENUM: {
-        if (option->type == COT_DYNAMIC_ENUM
-            && !Config_DynamicEnum_IsValidValue(option, new_value)) {
-            return false;
-        }
-        char **const p = (char **)option->target;
-        char *const old = *p;
-        *p = new_value != nullptr ? Memory_DupStr(new_value) : nullptr;
-        // VERY IMPORTANT: free the memory AFTER we allocate, so that we force
-        // the pointer to get a different macro, so that change subscribers
-        // can see the string has changed by comparing just the pointers.
-        Memory_Free(old);
-        return true;
-    }
-    }
-
-    return false;
-}
-
-bool Config_SetOptionValueFromString(
-    const CONFIG_OPTION *const option, const char *const new_value)
-{
-    return M_SetOptionValueFromString(option, new_value, false);
-}
-
-bool Config_SetOptionValueFromStringForce(
-    const CONFIG_OPTION *const option, const char *const new_value)
-{
-    return M_SetOptionValueFromString(option, new_value, true);
-}
+REGISTER_BASE_SUBSYSTEM(.init = M_Init, .shutdown = M_Shutdown)

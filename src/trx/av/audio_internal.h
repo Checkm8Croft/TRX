@@ -15,6 +15,12 @@ extern SDL_AudioDeviceID g_AudioDeviceID;
 void Audio_LockDevice(void);
 void Audio_UnlockDevice(void);
 
+// Guards every decoder-side structure: libav contexts, resamplers, and the
+// buffers the mixer reads from. The audio callback must never take it, as it
+// is held across decoding.
+void Audio_WorkerLock(void);
+void Audio_WorkerUnlock(void);
+
 int32_t Audio_GetAVChannelLayout(int32_t sample_fmt);
 int32_t Audio_GetAVAudioFormat(int32_t sample_fmt);
 int32_t Audio_GetSDLAudioFormat(enum AVSampleFormat sample_fmt);
@@ -23,9 +29,15 @@ void Audio_Sample_Init(void);
 void Audio_Sample_Shutdown(void);
 void Audio_Sample_Mix(float *dst_buffer, size_t len);
 
+// Decode samples that have started playing. Runs on the worker thread.
+void Audio_Sample_Pump(void);
+
 void Audio_Stream_Init(void);
 void Audio_Stream_Shutdown(void);
 void Audio_Stream_Mix(float *dst_buffer, size_t len);
+
+// Decode ahead of the mixer. Runs on the worker thread.
+void Audio_Stream_Pump(void);
 
 void Audio_Reverb_Init(int32_t sample_rate, int32_t channels);
 void Audio_Reverb_Shutdown(void);

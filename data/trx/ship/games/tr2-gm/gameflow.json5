@@ -53,7 +53,6 @@
         // 1. The Cold War
         {
             "path": "level1.tr2",
-            "script": "level1.lua",
             "music_track": 29,
             "lara_outfit": "tr2_bomber_jacket",
             "sequence": [
@@ -77,6 +76,7 @@
                 "common_pickup_meshes_gm.bin",
                 "lara_guns.bin",
                 "shark_sfx.bin",
+                "wall_switch_sfx.bin",
                 "winston_model.bin",
                 "coldwar_crystals.bin",
             ],
@@ -110,7 +110,6 @@
         // 3. Furnace of the Gods
         {
             "path": "level3.tr2",
-            "script": "level3.lua",
             "music_track": 55,
             "lara_outfit": "tr2_bomber_jacket",
             "sequence": [
@@ -136,7 +135,6 @@
         // 4. Kingdom
         {
             "path": "level4.tr2",
-            "script": "level4.lua",
             "music_track": 27,
             "lara_outfit": "tr2_bomber_jacket",
             "sequence": [

@@ -44,6 +44,8 @@ typedef enum {
 } M_ANIM;
 
 typedef struct {
+    int32_t pincer_damage;
+    int32_t chopper_damage;
     int32_t effect_mesh;
 } M_PRIV;
 
@@ -55,17 +57,6 @@ static BITE m_LeftBlade = {
     .pos = { 0, 0, 920 },
     .mesh_num = 13,
 };
-
-static int32_t M_GetDamage(
-    const ITEM *const item, const char *const key, const int32_t default_value)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, key, &damage)) {
-        return damage.as_int;
-    }
-
-    return default_value;
-}
 
 static bool M_ShouldSpawnBlood(const ITEM *const item)
 {
@@ -225,7 +216,9 @@ static void M_Initialise(const int16_t item_num)
         item->goal_anim_state = M_STATE_START;
     }
 
-    item->status = IS_INACTIVE;
+    // A visible, at-rest statue until triggered; override the hidden default
+    // Item_Initialise gives an intelligent item.
+    item->is_visible = true;
     item->mesh_bits = 0;
     p->effect_mesh = 0;
 }
@@ -423,9 +416,7 @@ static void M_Control(const int16_t item_num)
                 head_y = info.angle;
             }
             creature->maximum_turn = M_WALK_TURN;
-            M_Damage(
-                item, creature,
-                M_GetDamage(item, "pincer_damage", M_PINCER_DAMAGE));
+            M_Damage(item, creature, p->pincer_damage);
             break;
 
         case M_STATE_KILL: {
@@ -448,9 +439,7 @@ static void M_Control(const int16_t item_num)
                 torso_x = info.x_angle;
             }
             creature->maximum_turn = M_WALK_TURN;
-            M_Damage(
-                item, creature,
-                M_GetDamage(item, "chopper_damage", M_CHOPPER_DAMAGE));
+            M_Damage(item, creature, p->chopper_damage);
             break;
 
         case M_STATE_WALK_BACK:
@@ -484,12 +473,11 @@ static void M_Control(const int16_t item_num)
     Creature_Animate(item_num, angle, 0);
 }
 
-bool M_Draw(const ITEM *const item)
+static bool M_Draw(const ITEM *const item)
 {
     M_PRIV *const p = item->priv;
 
-    if (item->hit_points <= 0 && item->status != IS_ACTIVE
-        && item->mesh_bits != 0) {
+    if (item->hit_points <= 0 && !Item_IsInPlay(item) && item->mesh_bits != 0) {
         ITEM *const mutable_item = (ITEM *)item;
         mutable_item->mesh_bits >>= 1;
         XYZ_32 smoke_pos = { 0, 0, 256 };
@@ -535,14 +523,12 @@ static void M_Setup(OBJECT *const obj)
     Object_GetBone(obj, 25)->rot.x = true;
     Object_GetBone(obj, 25)->rot.y = true;
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."),
-        OBJECT_PROPERTY_INT(
-            "pincer_damage", M_PINCER_DAMAGE,
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS),
+        OBJECT_PROPERTY(
+            M_PRIV, pincer_damage, M_PINCER_DAMAGE,
             "Damage dealt by the pincer attack."),
-        OBJECT_PROPERTY_INT(
-            "chopper_damage", M_CHOPPER_DAMAGE,
+        OBJECT_PROPERTY(
+            M_PRIV, chopper_damage, M_CHOPPER_DAMAGE,
             "Damage dealt by the chopper attack."));
 }
 

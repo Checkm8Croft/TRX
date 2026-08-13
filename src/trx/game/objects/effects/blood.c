@@ -15,14 +15,14 @@ static void M_Control(const int16_t effect_num)
         effect->frame_num--;
         effect->counter = 0;
         if (effect->frame_num <= obj->mesh_count) {
-            Effect_Kill(effect_num);
+            Effect_Destroy(effect_num);
         }
     }
 }
 
 static void M_Setup(OBJECT *const obj)
 {
-    obj->control_func = M_Control;
+    obj->effect_control_func = M_Control;
     obj->semi_transparent = g_TRVersion >= 2;
 }
 

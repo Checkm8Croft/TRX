@@ -5,7 +5,6 @@
     "engine": 4,
     "name": "Tomb Raider IV",
 
-    "main_menu_picture": "title_eu.webp",
     "savegame_file_fmt": "save_tr4_%02d.dat",
 
     "enable_tr2_item_drops": true,
@@ -25,6 +24,7 @@
     "title": {
         "path": "title.tr4",
         "music_track": 104,
+        "lara_outfit": "tr4_classic",
         "sequence": [
             {"type": "play_fmv", "fmv_id": 0},
             {"type": "exit_to_title"},
@@ -35,15 +35,17 @@
         // 1. Angkor Wat
         {
             "path": "angkor1.tr4",
-            "script": "angkor1.lua",
             "music_track": 110,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_young",
             "sequence":[
                 {"type": "play_fmv", "fmv_id": 12},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_1", "offset_y": 1, "scale": 384, "rot_x": 0, "rot_y": 36864, "rot_z": 0, "flags": 2},
                 {"type": "setup_horizon", "layer": 0, "color": "#A0A0C0", "speed": 7}, // second layer also supported, seemingly unused?
                 {"type": "setup_uv_rotate", "speed": 4},
                 // {"type": "loading_camera", "source_x": 7835, "source_y": -569, "source_Z": 88960, "target_x": 5000, "target_y": -323, "target_z": 88346, "room": 20},
+                {"type": "remove_weapons"},
+                {"type": "give_item", "object_id": "small_medipack", "quantity": 3},
+                {"type": "give_item", "object_id": "large_medipack"},
                 {"type": "play_cutscene", "cutscene_id": 6}, // cutseq.pak, not level files
                 {"type": "loop_game"},
                 {"type": "level_complete"},
@@ -53,9 +55,8 @@
         // 2. Race for the Iris
         {
             "path": "ang_race.tr4",
-            "script": "ang_race.lua",
             "music_track": 110,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_young",
             // "timer": true,
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#A0A0C0", "speed": 7},
@@ -71,9 +72,8 @@
         // 3. The Tomb of Seth
         {
             "path": "settomb1.tr4",
-            "script": "settomb1.lua",
             "music_track": 107,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 // {"type": "setup_inv_item", "obj_id": "puzzle_1", "offset_y": 23, "scale": 1280, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_2", "offset_y": 24, "scale": 768, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -81,6 +81,8 @@
                 // {"type": "setup_inv_item", "obj_id": "puzzle_1_combo_2", "offset_y": 23, "scale": 1280, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
                 // {"type": "loading_camera", "source_x": 87075, "source_y": -14188, "source_Z": 26581, "target_x": 89090, "target_y": -15443, "target_z": 25670, "room": 29},
                 // {"type": "reset_hub", "level_idx": 4},
+                {"type": "give_item", "object_id": "pistols"},
+                {"type": "give_item", "object_id": "flare", "quantity": 3},
                 {"type": "give_item", "object_id": "binoculars"},
                 {"type": "loop_game"},
                 {"type": "level_complete"},
@@ -90,9 +92,8 @@
         // 4. Burial Chambers
         {
             "path": "settomb2.tr4",
-            "script": "settomb2.lua",
             "music_track": 107,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 // {"type": "setup_inv_item", "obj_id": "puzzle_1", "offset_y": 0, "scale": 1024, "rot_x": 49152, "rot_y": 32768, "rot_z": 0, "flags": 2},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_2", "offset_y": 0, "scale": 1024, "rot_x": 49152, "rot_y": 32768, "rot_z": 0, "flags": 2},
@@ -113,7 +114,7 @@
         {
             "path": "jeepchas.tr4",
             "music_track": 110,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             // OG hardcodes desert fog for this level: FogTableColor[19],
             // starting at 12 tiles and fully saturated at 16.
             "fog_start": 12.0,
@@ -132,7 +133,7 @@
         {
             "path": "jeepchs2.tr4",
             "music_track": 98,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             // OG hardcodes desert fog for this level: FogTableColor[19],
             // starting at 12 tiles and fully saturated at 16.
             "fog_start": 12.0,
@@ -153,9 +154,8 @@
         // 7. Temple of Karnak
         {
             "path": "karnak1.tr4",
-            "script": "karnak1.lua",
             "music_track": 110,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#806040", "speed": 7},
                 // {"type": "setup_inv_item", "obj_id": "key_2", "offset_y": 0, "scale": 1024, "rot_x": 49152, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -175,7 +175,7 @@
         {
             "path": "hall.tr4",
             "music_track": 110,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#806040", "speed": 7},
                 // {"type": "setup_inv_item", "obj_id": "key_2", "offset_y": 0, "scale": 1024, "rot_x": 49152, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -194,9 +194,8 @@
         // 9. Sacred Lake
         {
             "path": "lake.tr4",
-            "script": "lake.lua",
             "music_track": 110,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#806040", "speed": 7},
                 // {"type": "setup_mirror", "z_plane": 28672, "room": 11},
@@ -219,7 +218,7 @@
         // 10. Lake 2
         {
             "path": "lake.tr4",
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "level_complete"},
             ],
@@ -228,9 +227,8 @@
         // 11. Tomb of Semerkhet
         {
             "path": "semer.tr4",
-            "script": "semer.lua",
             "music_track": 107,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 // {"type": "setup_inv_item", "obj_id": "puzzle_4", "offset_y": 0, "scale": 1024, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_5", "offset_y": 0, "scale": 1024, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -249,9 +247,8 @@
         // 12. Guardian of Semerkhet
         {
             "path": "semer2.tr4",
-            "script": "semer2.lua",
             "music_track": 107,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 // {"type": "setup_inv_item", "obj_id": "puzzle_6", "offset_y": 3, "scale": 768, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_7", "offset_y": 9, "scale": 768, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -266,9 +263,8 @@
         // 13. Desert Railroad
         {
             "path": "train.tr4",
-            "script": "train.lua",
             "music_track": 106,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             // "train": true,
             "fog_start": 12.0,
             "fog_end": 24.0,
@@ -288,9 +284,8 @@
         // 14. Alexandria
         {
             "path": "alexhub.tr4",
-            "script": "alexhub.lua",
             "music_track": 110,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#808080", "speed": -16, "color_add": true},
                 {"type": "setup_lens_flare", "x": 976, "y":-125, "z": 429, "color": "#806000"},
@@ -327,9 +322,8 @@
         // 15. Coastal Ruins
         {
             "path": "alexhub2.tr4",
-            "script": "alexhub2.lua",
             "music_track": 105,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#808080", "speed": -8, "color_add": true},
                 {"type": "setup_lens_flare", "x": 976, "y":-125, "z": 429, "color": "#806000"},
@@ -360,9 +354,8 @@
         // 16. Pharos, Temple of Isis
         {
             "path": "palaces.tr4",
-            "script": "palaces.lua",
             "music_track": 107,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 // {"type": "setup_inv_item", "obj_id": "key_1", "offset_y": 19, "scale": 512, "rot_x": 0, "rot_y": 16384, "rot_z": 0, "flags": 2},
                 // {"type": "setup_inv_item", "obj_id": "key_10", "offset_y": 8, "scale": 768, "rot_x": 57344, "rot_y": 32768, "rot_z": 0, "flags": 2},
@@ -389,9 +382,8 @@
         // 17. Cleopatra's Palaces
         {
             "path": "palaces2.tr4",
-            "script": "palaces2.lua",
             "music_track": 107,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 // {"type": "setup_inv_item", "obj_id": "puzzle_5", "offset_y": 8, "scale": 1536, "rot_x": 61440, "rot_y": 32768, "rot_z": 0, "flags": 2},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_10", "offset_y": 17, "scale": 1024, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -411,9 +403,8 @@
         // 18. Catacombs
         {
             "path": "csplit1.tr4",
-            "script": "csplit1.lua",
             "music_track": 108,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 // {"type": "setup_inv_item", "obj_id": "key_1", "offset_y": 19, "scale": 512, "rot_x": 0, "rot_y": 16384, "rot_z": 0, "flags": 2},
                 // {"type": "setup_inv_item", "obj_id": "key_10", "offset_y": 8, "scale": 768, "rot_x": 57344, "rot_y": 32768, "rot_z": 0, "flags": 2},
@@ -439,7 +430,7 @@
         {
             "path": "csplit2.tr4",
             "music_track": 108,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_uv_rotate", "speed": -2},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_1", "offset_y": 20, "scale": 1024, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -463,9 +454,8 @@
         // 20. The Lost Library
         {
             "path": "library.tr4",
-            "script": "library.lua",
             "music_track": 108,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 // {"type": "setup_inv_item", "obj_id": "puzzle_2", "offset_y": 6, "scale": 1024, "rot_x": 49152, "rot_y": 0, "rot_z": 0, "flags": 2},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_3", "offset_y": 0, "scale": 1280, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 10},
@@ -489,9 +479,8 @@
         // 21. Hall of Demetrius
         {
             "path": "libend.tr4",
-            "script": "libend.lua",
             "music_track": 109,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 // {"type": "setup_inv_item", "obj_id": "puzzle_5", "offset_y": 8, "scale": 1536, "rot_x": 61440, "rot_y": 32768, "rot_z": 0, "flags": 2},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_10", "offset_y": 17, "scale": 1024, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -510,9 +499,8 @@
         // 22. City of the Dead
         {
             "path": "bikebit.tr4",
-            "script": "bikebit.lua",
             "music_track": 102,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#384808", "speed": 16},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_1", "offset_y": 4, "scale": 768, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -535,9 +523,8 @@
         // 23. Trenches
         {
             "path": "nutrench.tr4",
-            "script": "nutrench.lua",
             "music_track": 102,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#384808", "speed": 16},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_1", "offset_y": 4, "scale": 768, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -560,9 +547,8 @@
         // 24. Chambers of Tulun
         {
             "path": "cortyard.tr4",
-            "script": "cortyard.lua",
             "music_track": 102,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#384808", "speed": 16},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_1", "offset_y": 4, "scale": 768, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -585,9 +571,8 @@
         // 25. Street Bazaar
         {
             "path": "lowstrt.tr4",
-            "script": "lowstrt.lua",
             "music_track": 102,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#384808", "speed": 16},
                 {"type": "enable_lightning"},
@@ -611,9 +596,8 @@
         // 26. Citadel Gate
         {
             "path": "highstrt.tr4",
-            "script": "highstrt.lua",
             "music_track": 102,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#384808", "speed": 16},
                 // {"type": "setup_inv_item", "obj_id": "puzzle_1", "offset_y": 4, "scale": 768, "rot_x": 0, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -638,7 +622,7 @@
         {
             "path": "citnew.tr4",
             "music_track": 102,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#384808", "speed": 16},
                 // {"type": "loading_camera", "source_x": 61661, "source_y": -1738, "source_Z": 27605, "target_x": 63773, "target_y": -2536, "target_z": 28079, "room": 144},
@@ -652,7 +636,7 @@
         {
             "path": "joby1a.tr4",
             "music_track": 111,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#401008", "speed": 16},
                 {"type": "enable_lightning"},
@@ -674,7 +658,7 @@
         // 29. The Valley Temple
         {
             "path": "joby1b.tr4",
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "level_complete"},
             ],
@@ -683,9 +667,8 @@
         // 30. Underneath the Sphinx
         {
             "path": "joby2.tr4",
-            "script": "joby2.lua",
             "music_track": 107,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 // {"type": "setup_inv_item", "obj_id": "key_11", "offset_y": 5, "scale": 1200, "rot_x": 49152, "rot_y": 0, "rot_z": 0, "flags": 2},
                 // {"type": "setup_inv_item", "obj_id": "key_12", "offset_y": 4, "scale": 768, "rot_x": 49152, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -706,7 +689,7 @@
         {
             "path": "joby3a.tr4",
             "music_track": 111,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#401008", "speed": 16},
                 {"type": "enable_lightning"},
@@ -724,7 +707,7 @@
         {
             "path": "joby3b.tr4",
             "music_track": 107,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#401008", "speed": 16},
                 {"type": "enable_lightning"},
@@ -741,9 +724,8 @@
         // 33. The Mastabas
         {
             "path": "joby4a.tr4",
-            "script": "joby4a.lua",
             "music_track": 111,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#401008", "speed": 16},
                 {"type": "enable_lightning"},
@@ -764,9 +746,8 @@
         // 34. The Great Pyramid
         {
             "path": "joby4b.tr4",
-            "script": "joby4b.lua",
             "music_track": 107,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#401008", "speed": 16},
                 {"type": "enable_lightning"},
@@ -785,9 +766,8 @@
         // 35. Khufu's Queens Pyramids
         {
             "path": "joby4c.tr4",
-            "script": "joby4c.lua",
             "music_track": 111,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_horizon", "layer": 0, "color": "#401008", "speed": 16},
                 {"type": "enable_lightning"},
@@ -807,9 +787,8 @@
         // 36. Inside the Great Pyramid
         {
             "path": "joby5a.tr4",
-            "script": "joby5a.lua",
             "music_track": 107,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             // "pulse": true,
             "sequence":[
                 {"type": "setup_uv_rotate", "speed": 5},
@@ -831,9 +810,8 @@
         // 37. Temple of Horus
         {
             "path": "joby5b.tr4",
-            "script": "joby5b.lua",
             "music_track": 97,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_uv_rotate", "speed": 5},
                 // {"type": "setup_inv_item", "obj_id": "key_11", "offset_y": 5, "scale": 1200, "rot_x": 49152, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -850,7 +828,7 @@
         {
             "path": "joby5c.tr4",
             "music_track": 108,
-            "lara_outfit": "tr3_classic",
+            "lara_outfit": "tr4_classic",
             "sequence":[
                 {"type": "setup_uv_rotate", "speed": 5},
                 // {"type": "setup_inv_item", "obj_id": "key_11", "offset_y": 5, "scale": 1200, "rot_x": 49152, "rot_y": 0, "rot_z": 0, "flags": 2},
@@ -881,5 +859,35 @@
         {"path": "fmv12.avi"},
     ],
 
-    "hidden_config": [],
+    "hidden_config": [
+        "change_pierre_spawn",
+        "disable_trex_collision",
+        "enable_3d_pickups",
+        "enable_body_bags",
+        "enable_cinematics",
+        "enable_compass_stats",
+        "enable_crawling",
+        "enable_demo",
+        "enable_item_examining",
+        "enable_ps1_crystals",
+        "enable_ps1_sfx",
+        "enable_wading",
+        "enable_weather",
+        "exposurebar_color",
+        "exposurebar_color_ps1",
+        "exposurebar_location",
+        "exposurebar_show_mode",
+        "fix_animated_spikes",
+        "fix_animated_sprites",
+        "fix_bear_ai",
+        "fix_chainblock_secret_sound",
+        "fix_lift_collision",
+        "fix_monkey_pickup_priority",
+        "fix_pipeman_aim",
+        "fix_speeches_killing_music",
+        "intro_fmv_mode",
+        "loading_screens",
+        "restore_ps1_enemies",
+        "save_crystal_mode",
+    ],
 }

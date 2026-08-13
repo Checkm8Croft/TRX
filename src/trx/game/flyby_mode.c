@@ -22,16 +22,24 @@ static void M_RestoreLaraInfo(void)
     Lara_GetLaraInfo()->air = m_Priv.lara_air;
 }
 
-void FlybyMode_Activate(const int32_t sequence_idx, const bool one_shot)
+bool FlybyMode_Activate(const int32_t sequence_idx, const bool one_shot)
 {
-    if (Camera_FlybyMode_Activate(sequence_idx, one_shot)) {
-        M_CacheLaraInfo();
+    if (!Camera_FlybyMode_Activate(sequence_idx, one_shot)) {
+        return false;
     }
+    M_CacheLaraInfo();
+    return true;
 }
 
 void FlybyMode_Deactivate(void)
 {
     Camera_FlybyMode_Deactivate();
+}
+
+void FlybyMode_Stop(void)
+{
+    Camera_FlybyMode_Reset();
+    Lara_SetControllable(true);
 }
 
 bool FlybyMode_IsActive(void)
@@ -58,6 +66,7 @@ void FlybyMode_PreControl(void)
     if (g_InputDB.option && g_Config.gameplay.enable_cinematic_skips) {
         if (FlybyMode_Cancel()) {
             g_InputDB.option = false;
+            Input_HoldOffSkip();
         }
         return;
     }

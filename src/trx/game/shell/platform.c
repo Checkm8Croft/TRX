@@ -8,32 +8,14 @@
 
 #endif
 
+#include <trx/core/memory.h>
+#include <trx/core/strings.h>
+
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_locale.h>
+#include <ctype.h>
 #include <libavcodec/version.h>
 #include <libavutil/log.h>
-
-void Shell_SetupHiDPI(void)
-{
-#ifdef _WIN32
-    SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
-    SDL_SetHint(SDL_HINT_WINDOWS_DPI_SCALING, "0");
-#endif
-}
-
-void Shell_SetupLibAV(void)
-{
-#ifdef _WIN32
-    // necessary for SDL_OpenAudioDevice to work with WASAPI
-    // https://www.mail-archive.com/ffmpeg-trac@avcodec.org/msg43300.html
-    CoInitializeEx(nullptr, COINIT_MULTITHREADED);
-#endif
-
-#if LIBAVCODEC_VERSION_MAJOR <= 57
-    av_register_all();
-#endif
-
-    av_log_set_level(AV_LOG_ERROR);
-}
 
 #ifdef _WIN32
 // NOTE – taken from SDL3:
@@ -94,7 +76,52 @@ M_DarkModeWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
     }
     return CallWindowProc(m_OldWndProc, hwnd, msg, wParam, lParam);
 }
+#endif
 
+void Shell_SetupHiDPI(void)
+{
+#ifdef _WIN32
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_SCALING, "0");
+#endif
+}
+
+VECTOR *Shell_GetPreferredLanguages(void)
+{
+    VECTOR *const out = Vector_Create(sizeof(char *));
+    SDL_Locale *const locales = SDL_GetPreferredLocales();
+    if (locales == nullptr) {
+        return out;
+    }
+    for (const SDL_Locale *loc = locales; loc->language != nullptr; loc++) {
+        char *const code = loc->country != nullptr
+            ? String_Format("%s-%s", loc->language, loc->country)
+            : Memory_DupStr(loc->language);
+        for (char *c = code; *c != '\0'; c++) {
+            *c = tolower((unsigned char)*c);
+        }
+        Vector_Add(out, &code);
+    }
+    SDL_free(locales);
+    return out;
+}
+
+void Shell_SetupLibAV(void)
+{
+#ifdef _WIN32
+    // necessary for SDL_OpenAudioDevice to work with WASAPI
+    // https://www.mail-archive.com/ffmpeg-trac@avcodec.org/msg43300.html
+    CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+#endif
+
+#if LIBAVCODEC_VERSION_MAJOR <= 57
+    av_register_all();
+#endif
+
+    av_log_set_level(AV_LOG_ERROR);
+}
+
+#ifdef _WIN32
 void Shell_EnableThemeSupport(SDL_Window *const window)
 {
     SDL_SysWMinfo info;

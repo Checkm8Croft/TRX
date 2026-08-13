@@ -1,7 +1,9 @@
 #include <trx/game/camera/flyby_mode.h>
 
 #include <trx/game/camera.h>
+#include <trx/game/game_flow.h>
 #include <trx/game/lara.h>
+#include <trx/game/lua/events.h>
 #include <trx/game/rooms.h>
 #include <trx/game/viewport.h>
 
@@ -217,10 +219,23 @@ static void M_TestTriggers(void)
         return;
     }
 
-    // TODO: if current level == 0 (title?), test non-heavy too
     m_TriggerItem.pos = g_Camera.pos.pos;
     m_TriggerItem.room_num = g_Camera.pos.room_num;
-    Room_TestTriggers(&m_TriggerItem);
+
+    // The camera stands in for a heavy object while it tests, so the triggers
+    // it runs do not also reach for a fixed camera.
+    const CAMERA_TYPE camera_type = g_Camera.type;
+    g_Camera.type = CAM_HEAVY;
+
+    // There is no player on the title level to walk onto a pad or a plain
+    // trigger, so the flyby answers for both kinds there.
+    const GF_LEVEL *const level = GF_GetCurrentLevel();
+    if (level != nullptr && level->type == GFL_TITLE) {
+        Room_TestTriggersEx(&m_TriggerItem, false);
+    }
+    Room_TestTriggersEx(&m_TriggerItem, true);
+
+    g_Camera.type = camera_type;
     m_State.flags.test_triggers = false;
 }
 
@@ -303,9 +318,17 @@ bool Camera_Flybymode_Cancel(void)
     return true;
 }
 
-void Camera_FlybyMode_Deactivate(void)
+void Camera_FlybyMode_Reset(void)
 {
     m_CurrentSequence = M_NO_SEQUENCE;
+    // Left standing, this would send the next update down the hand-back path
+    // and put the camera on Lara, even though no sequence is running.
+    m_State.flags.pending_trigger_check = false;
+}
+
+void Camera_FlybyMode_Deactivate(void)
+{
+    Camera_FlybyMode_Reset();
     Lara_SetControllable(true);
 
     g_Camera.type = CAM_CHASE;
@@ -317,6 +340,7 @@ void Camera_FlybyMode_Deactivate(void)
         g_Camera.target = m_State.initial.camera_target;
         g_Camera.interp.prev.pos = g_Camera.pos.pos;
         g_Camera.interp.prev.target = g_Camera.target.pos;
+        Camera_Update();
     }
     // TODO: undo fade clip
 }
@@ -338,6 +362,10 @@ void Camera_FlybyMode_Update(void)
 
     const FLYBY_SEQUENCE *const sequence =
         Camera_GetSequence(m_CurrentSequence);
+    if (sequence == nullptr) {
+        return;
+    }
+
     const FLYBY_CAMERA *const first_camera =
         Camera_GetFlybyCamera(sequence->camera_idx);
     const FLYBY_CAMERA *const current_camera =
@@ -410,6 +438,7 @@ void Camera_FlybyMode_Update(void)
     g_Camera.shift = 0;
     g_Camera.roll = roll;
     Viewport_AlterFOV(fov, FOV_MODE_GAME);
+    Camera_UpdateMicPosition();
 
     M_TestTriggers();
 
@@ -491,13 +520,15 @@ void Camera_FlybyMode_Update(void)
         m_State.current.camera_idx++;
 
         if (m_State.current.camera_idx > M_GetLastCamera(sequence)) {
-            if (current_camera->flags.loop) {
+            if (first_camera->flags.loop) {
                 m_State.current.camera_idx = sequence->camera_idx;
             } else if (
                 first_camera->flags.snap_to_game
                 || m_State.flags.spline_to_game) {
                 M_TestTriggers();
+                const int32_t finished = m_CurrentSequence;
                 Camera_FlybyMode_Deactivate();
+                LUA_FireEventInt32(LUA_EVENT_FLYBY_END, finished);
             } else {
                 M_PrepareSplineToGame();
             }

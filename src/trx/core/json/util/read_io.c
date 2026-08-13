@@ -219,6 +219,22 @@ L_DEFINE_M_READ_NUM_CURRENT(uint16_t, U16, 0, UINT16_MAX)
 L_DEFINE_M_READ_NUM_CURRENT(uint32_t, U32, 0, UINT32_MAX)
 #undef L_DEFINE_M_READ_NUM_CURRENT
 
+#define L_DEFINE_M_READ_NUM64_CURRENT(type_, name)                             \
+    static bool M_ReadNumCurrent_##name(                                       \
+        JSON_READ_IO *const io, void *const target)                            \
+    {                                                                          \
+        if (io->current->type != JSON_TYPE_NUMBER) {                           \
+            M_SetError(io, "not a number");                                    \
+            return false;                                                      \
+        }                                                                      \
+        const type_ parsed = (type_)JSON_ValueGetInt64(io->current, 0);        \
+        memcpy(target, &parsed, sizeof(parsed));                               \
+        return true;                                                           \
+    }
+L_DEFINE_M_READ_NUM64_CURRENT(int64_t, S64)
+L_DEFINE_M_READ_NUM64_CURRENT(uint64_t, U64)
+#undef L_DEFINE_M_READ_NUM64_CURRENT
+
 static bool M_ReadNumCurrent_Double(
     JSON_READ_IO *const io, double *const target)
 {
@@ -252,45 +268,6 @@ static bool M_ReadStringCurrent(
     }
     *target = JSON_ValueGetString(io->current, nullptr);
     return *target != nullptr;
-}
-
-bool JSON_ReadIO_ReadXYZ32Current(
-    JSON_READ_IO *const io, void *const target_void)
-{
-    XYZ_32 *const target = target_void;
-    JSON_ARRAY *const tuple = JSON_ValueAsArray(io->current);
-    if (tuple != nullptr) {
-        const int32_t tuple_len = tuple->length;
-        if (tuple_len != 3) {
-            M_SetError(io, "XYZ tuple must have exactly 3 values");
-            JSON_FAIL();
-        }
-        JSON_MUST(JSON_READ_A(io, 0, &target->x));
-        JSON_MUST(JSON_READ_A(io, 1, &target->y));
-        JSON_MUST(JSON_READ_A(io, 2, &target->z));
-    } else {
-        JSON_MUST(JSON_READ(io, "x", &target->x));
-        JSON_MUST(JSON_READ(io, "y", &target->y));
-        JSON_MUST(JSON_READ(io, "z", &target->z));
-    }
-    JSON_FINISH();
-}
-
-bool JSON_ReadIO_ReadXYZ16Current(
-    JSON_READ_IO *const io, void *const target_void)
-{
-    XYZ_32 tmp;
-    JSON_MUST(JSON_ReadIO_ReadXYZ32Current(io, &tmp));
-    if (tmp.x < INT16_MIN || tmp.x > INT16_MAX || tmp.y < INT16_MIN
-        || tmp.y > INT16_MAX || tmp.z < INT16_MIN || tmp.z > INT16_MAX) {
-        M_SetError(io, "XYZ16 value out of range");
-        JSON_FAIL();
-    }
-    XYZ_16 *const target = target_void;
-    target->x = tmp.x;
-    target->y = tmp.y;
-    target->z = tmp.z;
-    JSON_FINISH();
 }
 
 static bool M_ReadRGB888Current(JSON_READ_IO *const io, RGB_888 *const target)
@@ -342,6 +319,45 @@ static bool M_ReadRGBA8888Current(
     JSON_FINISH();
 }
 
+bool JSON_ReadIO_ReadXYZ32Current(
+    JSON_READ_IO *const io, void *const target_void)
+{
+    XYZ_32 *const target = target_void;
+    JSON_ARRAY *const tuple = JSON_ValueAsArray(io->current);
+    if (tuple != nullptr) {
+        const int32_t tuple_len = tuple->length;
+        if (tuple_len != 3) {
+            M_SetError(io, "XYZ tuple must have exactly 3 values");
+            JSON_FAIL();
+        }
+        JSON_MUST(JSON_READ_A(io, 0, &target->x));
+        JSON_MUST(JSON_READ_A(io, 1, &target->y));
+        JSON_MUST(JSON_READ_A(io, 2, &target->z));
+    } else {
+        JSON_MUST(JSON_READ(io, "x", &target->x));
+        JSON_MUST(JSON_READ(io, "y", &target->y));
+        JSON_MUST(JSON_READ(io, "z", &target->z));
+    }
+    JSON_FINISH();
+}
+
+bool JSON_ReadIO_ReadXYZ16Current(
+    JSON_READ_IO *const io, void *const target_void)
+{
+    XYZ_32 tmp;
+    JSON_MUST(JSON_ReadIO_ReadXYZ32Current(io, &tmp));
+    if (tmp.x < INT16_MIN || tmp.x > INT16_MAX || tmp.y < INT16_MIN
+        || tmp.y > INT16_MAX || tmp.z < INT16_MIN || tmp.z > INT16_MAX) {
+        M_SetError(io, "XYZ16 value out of range");
+        JSON_FAIL();
+    }
+    XYZ_16 *const target = target_void;
+    target->x = tmp.x;
+    target->y = tmp.y;
+    target->z = tmp.z;
+    JSON_FINISH();
+}
+
 #define L_DEFINE_JSON_READ_IO_TYPE(name, ctype, impl_func)                     \
     bool JSON_ReadIO_Read##name##Current(                                      \
         JSON_READ_IO *const io, void *const target)                            \
@@ -355,6 +371,8 @@ L_DEFINE_JSON_READ_IO_TYPE(S16, int16_t, M_ReadNumCurrent_S16)
 L_DEFINE_JSON_READ_IO_TYPE(U16, uint16_t, M_ReadNumCurrent_U16)
 L_DEFINE_JSON_READ_IO_TYPE(S32, int32_t, M_ReadNumCurrent_S32)
 L_DEFINE_JSON_READ_IO_TYPE(U32, uint32_t, M_ReadNumCurrent_U32)
+L_DEFINE_JSON_READ_IO_TYPE(S64, int64_t, M_ReadNumCurrent_S64)
+L_DEFINE_JSON_READ_IO_TYPE(U64, uint64_t, M_ReadNumCurrent_U64)
 L_DEFINE_JSON_READ_IO_TYPE(Float, float, M_ReadNumCurrent_Float)
 L_DEFINE_JSON_READ_IO_TYPE(Double, double, M_ReadNumCurrent_Double)
 L_DEFINE_JSON_READ_IO_TYPE(String, const char *, M_ReadStringCurrent)

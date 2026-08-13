@@ -11,6 +11,31 @@ bool Lara_Interact_HasActiveTarget(const int16_t item_num)
         && lara->interact_target.item_num == item_num;
 }
 
+bool Lara_Interact_HasActiveType(const LARA_INTERACT_MODE mode)
+{
+    const LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (lara->interact_target.item_num == NO_ITEM
+        || !lara->interact_target.is_moving) {
+        return false;
+    }
+
+    const ITEM *const item = Item_Get(lara->interact_target.item_num);
+    switch (mode) {
+    case LARA_INTERACT_PICKUP:
+        return item->object_id == O_FLARE_ITEM
+            || Object_IsType(item->object_id, g_PickupObjects);
+    case LARA_INTERACT_RECEPTACLE:
+        return Object_IsType(item->object_id, g_ReceptacleObjects);
+    case LARA_INTERACT_SWITCH:
+    case LARA_INTERACT_FLOOR_SWITCH:
+        return Object_IsType(item->object_id, g_SwitchObjects);
+    case LARA_INTERACT_DOOR:
+        return Object_IsType(item->object_id, g_DoorObjects);
+    default:
+        return false;
+    }
+}
+
 bool Lara_Interact_CanBegin(const LARA_INTERACT_MODE mode)
 {
     const ITEM *const lara_item = Lara_GetItem();
@@ -69,9 +94,9 @@ bool Lara_Interact_CanControl(
     case LARA_INTERACT_PICKUP:
         return !lara->interact_target.is_moving;
     case LARA_INTERACT_SWITCH:
-        return Item_Get(item_num)->status == IS_INACTIVE;
+        return Item_IsInactive(Item_Get(item_num));
     case LARA_INTERACT_DOOR:
-        return Item_Get(item_num)->status != IS_ACTIVE;
+        return !Item_IsInPlay(Item_Get(item_num));
     default:
         return true;
     }
@@ -87,7 +112,7 @@ void Lara_Interact_FinishControl(const LARA_INTERACT_MODE mode)
     lara->gun_status = LGS_HANDS_BUSY;
 
     lara->interact_target.is_moving = false;
-    if (mode == LARA_INTERACT_SWITCH) {
+    if (mode == LARA_INTERACT_SWITCH || mode == LARA_INTERACT_FLOOR_SWITCH) {
         lara->interact_target.item_num = NO_ITEM;
     }
 }

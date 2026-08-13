@@ -1,10 +1,9 @@
+#include <trx/config.h>
 #include <trx/game/camera.h>
-#include <trx/game/game_flow.h>
 #include <trx/game/input.h>
 #include <trx/game/inventory.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects/common.h>
-#include <trx/game/objects/general/pickup.h>
 #include <trx/game/output.h>
 #include <trx/game/sound.h>
 
@@ -43,8 +42,7 @@ static void M_Use(ITEM *const lara_item, ITEM *const receptacle_item)
         M_ConsumeKeyItem(receptacle_item);
     }
 
-    receptacle_item->status = IS_ACTIVE;
-    Item_AddActive(Item_GetIndex(receptacle_item));
+    Item_AddSimulated(Item_GetIndex(receptacle_item));
 
     LARA_INFO *const lara = Lara_GetLaraInfo();
     lara->interact_target.is_moving = false;
@@ -70,8 +68,55 @@ static void M_Control(const int16_t item_num)
         Sound_Effect(SFX_EXPLOSION_1, nullptr, SPM_ALWAYS);
     }
 
-    if (item->status == IS_DEACTIVATED) {
-        Item_RemoveActive(item_num);
+    if (item->is_finished) {
+        Item_RemoveSimulated(item_num);
+    }
+}
+
+static bool M_ShowInventory(const ITEM *const item)
+{
+    if (!GF_ShowInventoryKeys(item->object_id)) {
+        Lara_RefuseInteraction();
+        return false;
+    }
+
+    return true;
+}
+
+static void M_CollisionControlled(
+    const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
+{
+    if (!Lara_Interact_CanControl(LARA_INTERACT_RECEPTACLE, item_num)) {
+        Object_Collision(item_num, lara_item, coll);
+        return;
+    }
+
+    ITEM *const item = Item_Get(item_num);
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    const OBJECT *const obj = Object_Get(item->object_id);
+
+    if (Lara_TestPosition(item, obj->bounds_func())) {
+        if (!lara->interact_target.is_moving
+            && (!M_ShowInventory(item)
+                || !Lara_Interact_HasActiveTarget(Item_GetIndex(item)))) {
+            return;
+        }
+
+        if (lara_item->current_anim_state == LS(LS_STOP)) {
+            lara->interact_target.is_moving = false;
+        }
+
+        if (Lara_MovePosition(item, &m_Position)) {
+            Lara_Interact_FinishControl(LARA_INTERACT_RECEPTACLE);
+            M_Use(lara_item, item);
+        } else {
+            lara->interact_target.item_num = item_num;
+        }
+    } else if (
+        lara->interact_target.is_moving
+        && lara->interact_target.item_num == item_num) {
+        lara->interact_target.is_moving = false;
+        lara->gun_status = LGS_ARMLESS;
     }
 }
 
@@ -84,15 +129,21 @@ static void M_Collision(
     }
 
     ITEM *const item = Item_Get(item_num);
-    const OBJECT *const obj = Object_Get(item->object_id);
+    if (!Item_IsInactive(item)) {
+        goto normal_collision;
+    }
+
+    if (g_Config.gameplay.enable_walk_to_items) {
+        M_CollisionControlled(item_num, lara_item, coll);
+        return;
+    }
 
     if (Lara_Interact_HasActiveTarget(item_num)) {
         M_Use(lara_item, item);
         return;
     }
 
-    if (item->status != IS_INACTIVE || !g_Input.action
-        || lara->gun_status != LGS_ARMLESS || lara_item->gravity
+    if (!g_Input.action || lara->gun_status != LGS_ARMLESS || lara_item->gravity
         || !Lara_Interact_CanBegin(LARA_INTERACT_RECEPTACLE)) {
         goto normal_collision;
     }
@@ -102,6 +153,7 @@ static void M_Collision(
     item->rot.y = lara_item->rot.y;
     item->rot.z = 0;
 
+    const OBJECT *const obj = Object_Get(item->object_id);
     if (!Lara_TestPosition(item, obj->bounds_func())) {
         item->rot = old_rot;
         goto normal_collision;
@@ -109,14 +161,16 @@ static void M_Collision(
 
     item->rot = old_rot;
 
-    if (!GF_ShowInventoryKeys(item->object_id)) {
-        Lara_RefuseInteraction();
-    }
-
+    M_ShowInventory(item);
     return;
 
 normal_collision:
     Object_Collision(item_num, lara_item, coll);
+}
+
+static bool M_IsUsable(const int16_t item_num)
+{
+    return Item_IsInactive(Item_Get(item_num));
 }
 
 static void M_Setup(OBJECT *const obj)
@@ -124,6 +178,8 @@ static void M_Setup(OBJECT *const obj)
     obj->collision_func = M_Collision;
     obj->control_func = M_Control;
     obj->bounds_func = M_Bounds;
+    obj->is_usable_func = M_IsUsable;
+    obj->save_position = true;
     obj->save_flags = true;
     obj->save_anim = true;
 }

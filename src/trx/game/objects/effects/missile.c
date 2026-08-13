@@ -55,7 +55,7 @@ static void M_ConvertToBlood(
     Spawn_Blood(
         effect->pos.x, effect->pos.y, effect->pos.z, lara_item->speed,
         lara_item->rot.y, lara_item->room_num);
-    Effect_Kill(Effect_GetIndex(effect));
+    Effect_Destroy(Effect_GetIndex(effect));
     Sound_Effect(sample_id, &effect->pos, SPM_NORMAL);
 }
 
@@ -137,7 +137,7 @@ static void M_ControlPoison(const int16_t effect_num)
 
     M_Move(effect);
     if (M_HitFloorOrCeiling(effect)) {
-        Effect_Kill(effect_num);
+        Effect_Destroy(effect_num);
         return;
     }
 
@@ -147,7 +147,7 @@ static void M_ControlPoison(const int16_t effect_num)
     }
 
     if (effect->counter == 0) {
-        Effect_Kill(effect_num);
+        Effect_Destroy(effect_num);
     }
     effect->counter--;
 }
@@ -165,7 +165,7 @@ static void M_ControlFlame(const int16_t effect_num)
         } else {
             Output_AddDynamicLight(effect->pos, 14, 11);
         }
-        Effect_Kill(effect_num);
+        Effect_Destroy(effect_num);
         return;
     }
 
@@ -173,7 +173,7 @@ static void M_ControlFlame(const int16_t effect_num)
         if (Random_GetControl() & 1) {
             Sparks_TriggerFlamethrowerSmoke(effect->pos, true);
         }
-        Effect_Kill(effect_num);
+        Effect_Destroy(effect_num);
         return;
     }
 
@@ -188,7 +188,7 @@ static void M_ControlFlame(const int16_t effect_num)
             Output_AddDynamicLight(effect->pos, 14, 11);
             Sound_Effect(SFX_DRAGON_FIRE, &effect->pos, SPM_NORMAL);
         }
-        Effect_Kill(effect_num);
+        Effect_Destroy(effect_num);
     }
     effect->counter--;
 }
@@ -245,37 +245,37 @@ static void M_ControlKnife(const int16_t effect_num)
 
 static void M_SetupAtlanteanBomb(OBJECT *const obj)
 {
-    obj->control_func = M_ControlAtlanteanBomb;
+    obj->effect_control_func = M_ControlAtlanteanBomb;
     obj->save_position = true;
 }
 
 static void M_SetupAtlanteanShard(OBJECT *const obj)
 {
-    obj->control_func = M_ControlAtlanteanShard;
+    obj->effect_control_func = M_ControlAtlanteanShard;
     obj->save_position = true;
 }
 
 static void M_SetupFlame(OBJECT *const obj)
 {
-    obj->control_func = M_ControlFlame;
+    obj->effect_control_func = M_ControlFlame;
     obj->save_position = true;
 }
 
 static void M_SetupPoison(OBJECT *const obj)
 {
-    obj->control_func = M_ControlPoison;
+    obj->effect_control_func = M_ControlPoison;
     obj->save_position = true;
 }
 
 static void M_SetupHarpoon(OBJECT *const obj)
 {
-    obj->control_func = M_ControlHarpoon;
+    obj->effect_control_func = M_ControlHarpoon;
     obj->save_position = true;
 }
 
 static void M_SetupKnife(OBJECT *const obj)
 {
-    obj->control_func = M_ControlKnife;
+    obj->effect_control_func = M_ControlKnife;
     obj->save_position = true;
 }
 

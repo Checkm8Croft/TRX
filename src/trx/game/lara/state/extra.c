@@ -1,13 +1,14 @@
 #include <trx/config.h>
 #include <trx/game/camera.h>
+#include <trx/game/clock.h>
 #include <trx/game/collision.h>
 #include <trx/game/game.h>
+#include <trx/game/interpolation.h>
 #include <trx/game/inventory.h>
 #include <trx/game/lara.h>
 #include <trx/game/lara/util.h>
 #include <trx/game/music.h>
 #include <trx/game/objects/effects/twinkle.h>
-#include <trx/game/output/state.h>
 #include <trx/game/overlay.h>
 #include <trx/game/random.h>
 #include <trx/game/rooms.h>
@@ -82,8 +83,8 @@ static void M_ScionPedestal(ITEM *const item, COLL_INFO *const coll)
     }
 
     Inv_AddItem(scion->object_id);
-    scion->status = IS_INVISIBLE;
-    Item_RemoveDrawn(lara->interact_target.item_num);
+    Item_SetVisible(scion, false);
+    Item_DetachFromRoom(lara->interact_target.item_num);
     Stats_AddPickup();
     lara->interact_target.item_num = NO_ITEM;
 }
@@ -227,12 +228,9 @@ static void M_RapidsDrown(ITEM *const item, COLL_INFO *const coll)
 
     item->rot.y += 1024;
 
-    const int32_t time4 = (int32_t)Output_GetTimeInGame() * 4;
-    if ((time4 & 3) == 0) {
-        Sparks_TriggerWaterfallMist(
-            item->pos.x, item->pos.y, item->pos.z,
-            Random_GetControl() & 0x0FFF);
-    }
+    Sparks_TriggerWaterfallMist(
+        item->pos.x, item->pos.y, item->pos.z,
+        (Random_GetControl() & 0x0FFF) << 4);
 }
 
 static void M_PullDagger(ITEM *const item, COLL_INFO *const coll)
@@ -284,6 +282,7 @@ static void M_EndHouse(ITEM *const item, COLL_INFO *const coll)
     if (Music_GetCurrentPlayingTrack() == Music_ToGameID(MX_CUTSCENE_BATH)) {
         const int32_t frame_num = Item_GetRelativeFrame(item);
         const double ts = (frame_num - M_LF_SHOWER_START) / (double)LOGIC_FPS;
+        Music_SetSpeed(Clock_GetSpeedMultiplier());
         Music_SyncTimestamp(ts);
     }
 }
@@ -297,7 +296,7 @@ static void M_TrainKill(ITEM *const item, COLL_INFO *const coll)
     LARA_INFO *const lara = Lara_GetLaraInfo();
     lara->hit_direction = DIR_UNKNOWN;
     item->gravity = false;
-    item->hit_points = -1;
+    Lara_Kill();
 
     int16_t room_num = item->room_num;
     const SECTOR *const sector = Room_GetSector(item->pos, &room_num);
@@ -323,8 +322,7 @@ static void M_JailWakeUp(ITEM *const item, COLL_INFO *const coll)
     Lara_GetMeshPos(LM_HIPS, &pos);
     item->pos.x = pos.x;
     item->pos.z = pos.z;
-    item->interp.prev.pos = item->pos;
-    item->interp.prev.rot = item->rot;
+    Interpolation_RememberItem(item);
 }
 
 // clang-format off

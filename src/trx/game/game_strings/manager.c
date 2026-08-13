@@ -1,14 +1,20 @@
 #include <trx/game/game_strings/manager.h>
 
+#include <trx/config.h>
 #include <trx/core/filesystem.h>
 #include <trx/core/json.h>
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/utils.h>
 #include <trx/core/vector.h>
 #include <trx/debug.h>
 #include <trx/game/game_flow/common.h>
+#include <trx/game/game_strings/lang_match.h>
 #include <trx/game/game_strings/table.h>
+#include <trx/game/replay/test_replay.h>
+#include <trx/game/shell.h>
+#include <trx/game/shell/platform.h>
 
 #include <string.h>
 
@@ -174,14 +180,44 @@ static void M_ReorderLanguages(void)
     }
 }
 
-void GameStringManager_Init(void)
+// Recursive load of language chain (handles 'extends' fallback between
+// dialects)
+static bool M_ReloadLangRec(const char *const lang, VECTOR *const visited)
+{
+    for (int32_t i = 0; i < visited->count; i++) {
+        const char *const prev = *(char **)Vector_Get(visited, i);
+        if (String_Equivalent(prev, lang)) {
+            LOG_WARNING("cyclic language extends detected: %s", lang);
+            return false;
+        }
+    }
+    Vector_Add(visited, &lang);
+    M_LANG_ENTRY *const entry = M_FindLangEntry(lang);
+    if (entry == nullptr) {
+        return false;
+    }
+    if (entry->extends) {
+        if (!M_ReloadLangRec(entry->extends, visited)) {
+            return false;
+        }
+    }
+    for (int32_t i = 0; i < entry->files->count; i++) {
+        const M_FILE_ENTRY *const fe = Vector_Get(entry->files, i);
+        if (!GameStringTable_Load(fe->path, fe->load_levels)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void M_Init(void)
 {
     m_EventManager = EventManager_Create();
     M_ClearManager();
     m_SourceFiles = Vector_Create(sizeof(M_FILE_ENTRY));
 }
 
-void GameStringManager_Shutdown(void)
+static void M_Shutdown(void)
 {
     if (m_EventManager != nullptr) {
         EventManager_Free(m_EventManager);
@@ -192,8 +228,7 @@ void GameStringManager_Shutdown(void)
 }
 
 // Clear all previously set source strings files.
-// Must be called before GameStringManager_AddSourceFile.
-void GameStringManager_ClearSourceFiles(void)
+static void M_ClearSourceFiles(void)
 {
     M_ClearManager();
     m_SourceFiles = Vector_Create(sizeof(M_FILE_ENTRY));
@@ -202,8 +237,7 @@ void GameStringManager_ClearSourceFiles(void)
 // Add a source strings file for language discovery and loading.
 // base_path: path to a base strings JSON5 file.
 // load_levels: true to load level entries from this source; false otherwise.
-void GameStringManager_AddSourceFile(
-    const char *const base_path, const bool load_levels)
+static void M_AddSourceFile(const char *const base_path, const bool load_levels)
 {
     ASSERT(m_SourceFiles != nullptr);
     if (base_path == nullptr) {
@@ -216,7 +250,7 @@ void GameStringManager_AddSourceFile(
     Vector_Add(m_SourceFiles, &fe);
 }
 
-void GameStringManager_DiscoverLanguages(void)
+static void M_DiscoverLanguages(void)
 {
     if (m_SourceFiles == nullptr) {
         return;
@@ -227,9 +261,7 @@ void GameStringManager_DiscoverLanguages(void)
     for (int32_t i = 0; i < m_SourceFiles->count; ++i) {
         const M_FILE_ENTRY *src = Vector_Get(m_SourceFiles, i);
         char *dir = File_GetParentDirectory(src->path);
-        const char *base =
-            MAX(strrchr(src->path, '\\'), strrchr(src->path, '/'));
-        base = (base != nullptr) ? base + 1 : src->path;
+        const char *const base = File_GetBaseName(src->path);
         const char *ext = strrchr(base, '.');
         if (dir == nullptr || ext == nullptr) {
             Memory_Free(dir);
@@ -276,6 +308,70 @@ void GameStringManager_DiscoverLanguages(void)
     M_ReorderLanguages();
 }
 
+static void M_FreeCodes(VECTOR *const codes)
+{
+    for (int32_t i = 0; i < codes->count; i++) {
+        Memory_Free(*(char **)Vector_Get(codes, i));
+    }
+    Vector_Free(codes);
+}
+
+// A player who has never launched the game has never said what language they
+// want, so the one their system is set to stands in for the answer. A replay
+// is left out of it: what it plays back has to read the same on every machine.
+static void M_ApplySystemLanguage(void)
+{
+    if (!Config_IsFirstRun() || TestReplay_IsOpened()) {
+        return;
+    }
+    VECTOR *const available = GameStringManager_GetAvailableLanguages();
+    if (available == nullptr) {
+        return;
+    }
+    VECTOR *const preferred = Shell_GetPreferredLanguages();
+    const char *const match =
+        GameStringLang_MatchPreferred(available, preferred);
+    if (match != nullptr) {
+        LOG_INFO("selecting language '%s' from system preferences", match);
+        CONFIG_SET(g_Config.language, match);
+    }
+    M_FreeCodes(preferred);
+    M_FreeCodes(available);
+}
+
+void GameStringManager_LoadForMod(const SHELL_MOD *const mod)
+{
+    M_ClearSourceFiles();
+
+    const char *const common_strings_path = Shell_GetCommonStringsPath();
+    if (common_strings_path == nullptr) {
+        Shell_ExitSystem("Missing common strings file");
+    }
+    M_AddSourceFile(common_strings_path, false);
+
+    if (mod->base_mod != nullptr) {
+        char *base_strings_path = Shell_GetBaseGameStringsPath(mod);
+        if (base_strings_path == nullptr) {
+            Shell_ExitSystemFmt(
+                "Missing base mod strings file for '%s'", mod->name);
+        }
+        M_AddSourceFile(base_strings_path, false);
+        Memory_FreePointer(&base_strings_path);
+    }
+
+    char *mod_strings_path = Shell_GetGameStringsPath(mod);
+    if (mod_strings_path == nullptr) {
+        Shell_ExitSystemFmt(
+            "Missing strings file for selected mod '%s'", mod->name);
+    }
+    M_AddSourceFile(mod_strings_path, true);
+    Memory_FreePointer(&mod_strings_path);
+
+    M_DiscoverLanguages();
+    M_ApplySystemLanguage();
+    GameStringManager_ReloadLanguage(g_Config.language);
+}
+
 VECTOR *GameStringManager_GetAvailableLanguages(void)
 {
     if (m_LangEntries == nullptr) {
@@ -288,36 +384,6 @@ VECTOR *GameStringManager_GetAvailableLanguages(void)
         Vector_Add(out, &c);
     }
     return out;
-}
-
-// Recursive load of language chain (handles 'extends' fallback between
-// dialects)
-static bool M_ReloadLangRec(const char *const lang, VECTOR *const visited)
-{
-    for (int32_t i = 0; i < visited->count; i++) {
-        const char *const prev = *(char **)Vector_Get(visited, i);
-        if (String_Equivalent(prev, lang)) {
-            LOG_WARNING("cyclic language extends detected: %s", lang);
-            return false;
-        }
-    }
-    Vector_Add(visited, &lang);
-    M_LANG_ENTRY *const entry = M_FindLangEntry(lang);
-    if (entry == nullptr) {
-        return false;
-    }
-    if (entry->extends) {
-        if (!M_ReloadLangRec(entry->extends, visited)) {
-            return false;
-        }
-    }
-    for (int32_t i = 0; i < entry->files->count; i++) {
-        const M_FILE_ENTRY *const fe = Vector_Get(entry->files, i);
-        if (!GameStringTable_Load(fe->path, fe->load_levels)) {
-            return false;
-        }
-    }
-    return true;
 }
 
 bool GameStringManager_ReloadLanguage(const char *lang)
@@ -370,3 +436,5 @@ void GameStringManager_UnsubscribeReload(const int32_t listener_id)
         EventManager_Unsubscribe(m_EventManager, listener_id);
     }
 }
+
+REGISTER_BASE_SUBSYSTEM(.init = M_Init, .shutdown = M_Shutdown)

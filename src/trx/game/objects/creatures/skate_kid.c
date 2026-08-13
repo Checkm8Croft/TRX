@@ -1,4 +1,6 @@
 #include <trx/config.h>
+#include <trx/core/json/util/read_io.h>
+#include <trx/core/json/util/write_io.h>
 #include <trx/core/log.h>
 #include <trx/core/utils.h>
 #include <trx/game/creature.h>
@@ -21,7 +23,6 @@
 #define M_SKATE_CHANCE      0x400
 #define M_SMARTNESS         0x7FFF
 #define M_SPEECH_HITPOINTS  120
-#define M_SPEECH_STARTED    1
 // clang-format on
 
 typedef enum {
@@ -38,7 +39,10 @@ typedef enum {
 } M_ANIM;
 
 typedef struct {
+    int32_t stop_shot_damage;
+    int32_t skate_shot_damage;
     int16_t skateboard_item_num;
+    bool speech_started;
 } M_PRIV;
 
 static const CREATURE_GUN m_KidGun1 = {
@@ -48,15 +52,16 @@ static const CREATURE_GUN m_KidGun2 = {
     .muzzle = { .pos = { 0, 150, 37 }, .mesh_num = 4 },
 };
 
-static int32_t M_GetDamage(
-    const ITEM *const item, const char *const key, const int32_t default_value)
+static void M_LoadPriv(ITEM *const item, JSON_READ_IO *const io)
 {
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, key, &damage)) {
-        return damage.as_int;
-    }
+    M_PRIV *const p = item->priv;
+    JSON_SHOULD(JSON_READ(io, "speech_started", &p->speech_started));
+}
 
-    return default_value;
+static void M_SavePriv(const ITEM *const item, JSON_WRITE_IO *const io)
+{
+    const M_PRIV *const p = item->priv;
+    JSONW_WRITE(io, "speech_started", p->speech_started);
 }
 
 static void M_Initialise(const int16_t item_num)
@@ -83,8 +88,9 @@ static void M_Initialise(const int16_t item_num)
     skateboard_item->pos = item->pos;
     skateboard_item->rot = item->rot;
     skateboard_item->room_num = item->room_num;
-    skateboard_item->status = item->status;
-    skateboard_item->collidable = false;
+    Item_SetVisible(skateboard_item, item->is_visible);
+    Item_SetFinished(skateboard_item, item->is_finished);
+    skateboard_item->is_collidable = false;
     skateboard_item->shade.value_1 = -1;
     Item_Initialise(skateboard_item_num);
 
@@ -120,13 +126,12 @@ static void M_Control(const int16_t item_num)
 
         angle = Creature_Turn(item, M_SKATE_TURN);
 
-        if (item->hit_points < M_SPEECH_HITPOINTS
-            && !(item->flags & M_SPEECH_STARTED)) {
+        if (item->hit_points < M_SPEECH_HITPOINTS && !p->speech_started) {
             const MUSIC_PLAY_MODE mode =
                 g_Config.audio.fix_speeches_killing_music ? MPM_OVERLAY
                                                           : MPM_NO_REPEAT;
             Music_Play(MX_SKATEKID_SPEECH, mode);
-            item->flags |= M_SPEECH_STARTED;
+            p->speech_started = true;
         }
 
         switch (item->current_anim_state) {
@@ -167,9 +172,8 @@ static void M_Control(const int16_t item_num)
             if (!kid->flags && Creature_CanTargetEnemy(item, &info)) {
                 const int32_t damage =
                     item->current_anim_state == M_STATE_SHOOT_1
-                    ? M_GetDamage(item, "stop_shot_damage", M_STOP_SHOT_DAMAGE)
-                    : M_GetDamage(
-                          item, "skate_shot_damage", M_SKATE_SHOT_DAMAGE);
+                    ? p->stop_shot_damage
+                    : p->skate_shot_damage;
                 Creature_Shoot(item, &info, &m_KidGun1, head, damage);
 
                 Creature_Shoot(item, &info, &m_KidGun2, head, damage);
@@ -190,7 +194,8 @@ static void M_Control(const int16_t item_num)
         ITEM *const skateboard_item = Item_Get(p->skateboard_item_num);
         skateboard_item->pos = item->pos;
         skateboard_item->rot = item->rot;
-        skateboard_item->status = item->status;
+        Item_SetVisible(skateboard_item, item->is_visible);
+        Item_SetFinished(skateboard_item, item->is_finished);
         Item_UpdateRoom(p->skateboard_item_num, item->room_num);
 
         const int16_t relative_anim = Item_GetRelativeAnim(item);
@@ -218,6 +223,8 @@ static void M_Setup(OBJECT *const obj)
     obj->save_hitpoints = true;
     obj->save_anim = true;
     obj->save_flags = true;
+    obj->priv_load_func = M_LoadPriv;
+    obj->priv_save_func = M_SavePriv;
 
     Object_GetBone(obj, 0)->rot.y = true;
 
@@ -227,14 +234,12 @@ static void M_Setup(OBJECT *const obj)
             O_SKATEBOARD);
     }
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."),
-        OBJECT_PROPERTY_INT(
-            "stop_shot_damage", M_STOP_SHOT_DAMAGE,
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS),
+        OBJECT_PROPERTY(
+            M_PRIV, stop_shot_damage, M_STOP_SHOT_DAMAGE,
             "Damage dealt by shots while stopped."),
-        OBJECT_PROPERTY_INT(
-            "skate_shot_damage", M_SKATE_SHOT_DAMAGE,
+        OBJECT_PROPERTY(
+            M_PRIV, skate_shot_damage, M_SKATE_SHOT_DAMAGE,
             "Damage dealt by shots while skating."));
 }
 

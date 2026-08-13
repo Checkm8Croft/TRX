@@ -1,13 +1,21 @@
 #pragma once
 
+#include <trx/core/handle.h>
 #include <trx/core/math/types.h>
 #include <trx/game/rooms/types.h>
 
 void Room_InitialiseRooms(int32_t num_rooms);
-void Room_Shutdown(void);
 int32_t Room_GetCount(void);
 ROOM *Room_Get(int32_t room_num);
-int32_t Room_GetNumber(const ROOM *room);
+
+// A handle to the given room, and the room a handle still names or nullptr. A
+// room is never recycled within a level, but the table is replaced whole at the
+// next one; Room_InitialiseRooms starts a new epoch, so a handle kept across
+// the change goes stale rather than naming a different room.
+TRX_HANDLE Room_GetHandle(int32_t room_num);
+ROOM *Room_FromHandle(TRX_HANDLE handle);
+// The room's index, or NO_ROOM for one the level does not hold.
+int32_t Room_GetIndex(const ROOM *room);
 
 void Room_InitialiseFlipStatus(void);
 void Room_FlipMap(void);
@@ -17,8 +25,9 @@ void Room_SetFlipEffect(int32_t flip_effect);
 int32_t Room_GetFlipTimer(void);
 void Room_SetFlipTimer(int32_t flip_timer);
 void Room_IncrementFlipTimer(int32_t num_frames);
-int32_t Room_GetFlipSlotFlags(int32_t slot_idx);
-void Room_SetFlipSlotFlags(int32_t slot_idx, int32_t flags);
+FLIP_SLOT *Room_GetFlipSlot(int32_t slot_idx);
+// Applies a trigger to the slot; returns whether the slot's mask is complete.
+bool Room_TriggerFlipSlot(int32_t slot_idx, const FLIP_TRIGGER *trigger);
 
 int32_t Room_GetAdjoiningRooms(
     int16_t init_room_num, int16_t out_room_nums[], int32_t max_room_num_count);

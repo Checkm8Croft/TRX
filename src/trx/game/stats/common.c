@@ -7,95 +7,181 @@
 #include <trx/game/savegame.h>
 #include <trx/game/stats.h>
 
-bool Stats_IsSecretValid(const int16_t secret_idx)
+// The bit a secret number stands for in the level's mask, or 0 when the level
+// holds no such secret.
+static uint32_t M_GetSecretMask(
+    const GF_LEVEL *const level, const int16_t secret_idx)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    const LEVEL_MAX_STATS *const max_stats = Stats_GetLevelMaxStats(level);
-    if (secret_idx < 0 || secret_idx >= STATS_MAX_SECRETS) {
-        return false;
+    if (secret_idx < 0 || secret_idx >= STATS_MAX_SECRETS
+        || !Stats_HasLevelMaxStats(level)) {
+        return 0;
     }
     const uint32_t secret_mask = 1 << secret_idx;
-    return (secret_mask & max_stats->all_secrets_mask) != 0;
+    return (secret_mask & Stats_GetLevelMaxStats(level)->all_secrets_mask) != 0
+        ? secret_mask
+        : 0;
 }
 
-bool Stats_HasSecret(const int16_t secret_idx)
+static void M_SumStats(STATS_COMMON *const dst, const STATS_COMMON *const src)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    const LEVEL_MAX_STATS *const max_stats = Stats_GetLevelMaxStats(level);
-    RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-    if (secret_idx < 0 || secret_idx >= STATS_MAX_SECRETS) {
-        return false;
+    for (int32_t i = 0; i < STATS_CAT_NUMBER_OF; i++) {
+        dst->counts[i] += src->counts[i];
     }
-    const uint32_t secret_mask = 1 << secret_idx;
-    if ((secret_mask & max_stats->all_secrets_mask) == 0) {
-        return false;
-    }
-    return (resume->stats.secret_flags & secret_mask) != 0;
+    dst->timer += src->timer;
+    dst->ammo_hits += src->ammo_hits;
+    dst->ammo_used += src->ammo_used;
+    dst->medipacks_used += src->medipacks_used;
+    dst->distance_travelled += src->distance_travelled;
+    dst->death_count += src->death_count;
 }
 
-bool Stats_RemoveSecret(const int16_t secret_idx)
+static void M_SumMaxStats(
+    LEVEL_MAX_STATS *const dst, const LEVEL_MAX_STATS *const src)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    const LEVEL_MAX_STATS *const max_stats = Stats_GetLevelMaxStats(level);
-    RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-    if (secret_idx < 0 || secret_idx >= STATS_MAX_SECRETS) {
+    for (int32_t i = 0; i < STATS_CAT_NUMBER_OF; i++) {
+        dst->maxes[i] += src->maxes[i];
+    }
+    dst->max_kill_ally_count += src->max_kill_ally_count;
+    dst->max_kill_non_ally_count += src->max_kill_non_ally_count;
+    dst->max_pickup_secret_count += src->max_pickup_secret_count;
+}
+
+// What the game flow declares out of reach. Crystals have no such declaration.
+static uint32_t M_GetCategoryUnobtainable(
+    const GF_LEVEL *const level, const STATS_CATEGORY_ID id)
+{
+    switch (id) {
+    case STATS_CAT_PICKUPS:
+        return level->unobtainable.pickups;
+    case STATS_CAT_KILLS:
+        return level->unobtainable.kills + level->unobtainable.ally_kills;
+    case STATS_CAT_SECRETS:
+        return level->unobtainable.secrets;
+    case STATS_CAT_CRYSTALS:
+    case STATS_CAT_NUMBER_OF:
+        break;
+    }
+    return 0;
+}
+
+LEVEL_STATS *Stats_GetLevelStats(const GF_LEVEL *const level)
+{
+    RESUME_INFO *const resume = SG_Resume_GetEntry(level);
+    return resume == nullptr ? nullptr : &resume->stats;
+}
+
+void Stats_ResetLevel(const GF_LEVEL *const level)
+{
+    LEVEL_STATS *const stats = Stats_GetLevelStats(level);
+    if (stats == nullptr) {
+        return;
+    }
+    const int32_t death_count = stats->death_count;
+    *stats = (LEVEL_STATS) {};
+    stats->death_count = death_count;
+}
+
+bool Stats_GetCategory(
+    const GF_LEVEL *const level, const STATS_CATEGORY_ID id,
+    STATS_CATEGORY *const out)
+{
+    const LEVEL_STATS *const stats = Stats_GetLevelStats(level);
+    if (stats == nullptr || !Stats_HasLevelMaxStats(level)
+        || id >= STATS_CAT_NUMBER_OF) {
         return false;
     }
-    const uint32_t secret_mask = 1 << secret_idx;
-    if ((secret_mask & max_stats->all_secrets_mask) == 0) {
-        return false;
-    }
-    if (!(resume->stats.secret_flags & secret_mask)) {
-        return false;
-    }
-    LOG_INFO("Removing secret %d", secret_idx);
-    resume->stats.secret_flags &= ~secret_mask;
-    resume->stats.secret_count--;
+
+    const uint32_t unobtainable = M_GetCategoryUnobtainable(level, id);
+    const uint32_t max = Stats_GetLevelMaxStats(level)->maxes[id];
+    *out = (STATS_CATEGORY) {
+        .level = level,
+        .id = id,
+        .count = stats->counts[id],
+        .max = max,
+        .raw = max + unobtainable,
+        .unobtainable = unobtainable,
+    };
     return true;
 }
 
-bool Stats_AddSecret(const int16_t secret_idx)
+bool Stats_SetCategoryCount(
+    const GF_LEVEL *const level, const STATS_CATEGORY_ID id,
+    const uint32_t count)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    const LEVEL_MAX_STATS *const max_stats = Stats_GetLevelMaxStats(level);
-    RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-    if (secret_idx < 0 || secret_idx >= STATS_MAX_SECRETS) {
+    LEVEL_STATS *const stats = Stats_GetLevelStats(level);
+    if (stats == nullptr || id >= STATS_CAT_NUMBER_OF
+        || id == STATS_CAT_SECRETS) {
         return false;
     }
-    const uint32_t secret_mask = 1 << secret_idx;
-    if ((secret_mask & max_stats->all_secrets_mask) == 0) {
+    stats->counts[id] = count;
+    return true;
+}
+
+bool Stats_IsSecretValid(const GF_LEVEL *const level, const int16_t secret_idx)
+{
+    return M_GetSecretMask(level, secret_idx) != 0;
+}
+
+bool Stats_HasSecret(const GF_LEVEL *const level, const int16_t secret_idx)
+{
+    const uint32_t secret_mask = M_GetSecretMask(level, secret_idx);
+    const LEVEL_STATS *const stats = Stats_GetLevelStats(level);
+    if (secret_mask == 0 || stats == nullptr) {
         return false;
     }
-    if (resume->stats.secret_flags & secret_mask) {
+    return (stats->secret_flags & secret_mask) != 0;
+}
+
+bool Stats_RemoveSecret(const GF_LEVEL *const level, const int16_t secret_idx)
+{
+    const uint32_t secret_mask = M_GetSecretMask(level, secret_idx);
+    LEVEL_STATS *const stats = Stats_GetLevelStats(level);
+    if (secret_mask == 0 || stats == nullptr
+        || (stats->secret_flags & secret_mask) == 0) {
+        return false;
+    }
+    LOG_INFO("Removing secret %d", secret_idx);
+    stats->secret_flags &= ~secret_mask;
+    stats->counts[STATS_CAT_SECRETS]--;
+    return true;
+}
+
+bool Stats_AddSecret(const GF_LEVEL *const level, const int16_t secret_idx)
+{
+    const uint32_t secret_mask = M_GetSecretMask(level, secret_idx);
+    LEVEL_STATS *const stats = Stats_GetLevelStats(level);
+    if (secret_mask == 0 || stats == nullptr
+        || (stats->secret_flags & secret_mask) != 0) {
         return false;
     }
     LOG_INFO("Adding secret %d", secret_idx);
-    resume->stats.secret_flags |= secret_mask;
-    resume->stats.secret_count++;
+    stats->secret_flags |= secret_mask;
+    stats->counts[STATS_CAT_SECRETS]++;
     return true;
 }
 
 void Stats_UpdateSecrets(LEVEL_STATS *const stats)
 {
-    stats->secret_count = 0;
+    stats->counts[STATS_CAT_SECRETS] = 0;
     for (int32_t i = 0; i < STATS_MAX_SECRETS; i++) {
-        stats->secret_count += (stats->secret_flags & (1 << i)) ? 1 : 0;
+        stats->counts[STATS_CAT_SECRETS] +=
+            (stats->secret_flags & (1 << i)) ? 1 : 0;
     }
 }
 
 void Stats_MarkSecretCollected(const ITEM *const item)
 {
-    RESUME_INFO *const resume = Savegame_GetCurrentInfo(Game_GetCurrentLevel());
-    resume->stats.secret_flags |= Pickup_GetSecretMask(item);
-    Stats_UpdateSecrets(&resume->stats);
+    LEVEL_STATS *const stats = Stats_GetLevelStats(Game_GetCurrentLevel());
+    stats->secret_flags |= Pickup_GetSecretMask(item);
+    Stats_UpdateSecrets(stats);
 }
 
 bool Stats_CheckAllLevelSecretsPickedUp(void)
 {
     const GF_LEVEL *const level = Game_GetCurrentLevel();
     const LEVEL_MAX_STATS *const max_stats = Stats_GetLevelMaxStats(level);
-    const RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-    int32_t flags = resume->stats.secret_flags;
+    const LEVEL_STATS *const stats = Stats_GetLevelStats(level);
+    int32_t flags = stats->secret_flags;
     size_t count = 0;
     while (flags != 0) {
         count += flags & 1;
@@ -107,87 +193,84 @@ bool Stats_CheckAllLevelSecretsPickedUp(void)
 bool Stats_CheckAllSecretsCollected(void)
 {
     const FINAL_STATS final_stats = Stats_ComputeFinalStats(false);
-    return final_stats.stats.secret_count
-        >= final_stats.max_stats.max_secret_count;
+    return final_stats.stats.counts[STATS_CAT_SECRETS]
+        >= final_stats.max_stats.maxes[STATS_CAT_SECRETS];
 }
 
 void Stats_AddMedipacksUsed(const double medipack_value)
 {
-    RESUME_INFO *const resume = Savegame_GetCurrentInfo(Game_GetCurrentLevel());
-    resume->stats.medipacks_used += medipack_value;
+    LEVEL_STATS *const stats = Stats_GetLevelStats(Game_GetCurrentLevel());
+    if (stats != nullptr) {
+        stats->medipacks_used += medipack_value;
+    }
 }
 
 void Stats_AddDeath(void)
 {
-    const GF_LEVEL *const current_level = Game_GetCurrentLevel();
-    RESUME_INFO *const resume = Savegame_GetCurrentInfo(current_level);
-    resume->stats.death_count++;
-    const SAVEGAME_SLOT_REF save_slot = Savegame_GetBoundSlot();
-    if (Savegame_IsValidSlotRef(save_slot)) {
-        Savegame_UpdateDeathCounters(save_slot, resume->stats.death_count);
+    LEVEL_STATS *const stats = Stats_GetLevelStats(Game_GetCurrentLevel());
+    if (stats == nullptr) {
+        return;
+    }
+    stats->death_count++;
+    const SAVEGAME_SLOT_REF save_slot = SG_Manager_GetBoundSlot();
+    if (SG_Manager_IsValidSlotRef(save_slot)) {
+        Savegame_UpdateDeathCounters(save_slot, stats->death_count);
     }
 }
 
 void Stats_UpdateTimer(void)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    if (level != nullptr) {
-        RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-        resume->stats.timer++;
+    LEVEL_STATS *const stats = Stats_GetLevelStats(Game_GetCurrentLevel());
+    if (stats != nullptr) {
+        stats->timer++;
     }
 }
 
 void Stats_AddKill(void)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    if (level != nullptr) {
-        RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-        resume->stats.kill_count++;
+    LEVEL_STATS *const stats = Stats_GetLevelStats(Game_GetCurrentLevel());
+    if (stats != nullptr) {
+        stats->counts[STATS_CAT_KILLS]++;
     }
 }
 
 void Stats_AddCrystal(void)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    if (level != nullptr) {
-        RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-        resume->stats.crystal_count++;
+    LEVEL_STATS *const stats = Stats_GetLevelStats(Game_GetCurrentLevel());
+    if (stats != nullptr) {
+        stats->counts[STATS_CAT_CRYSTALS]++;
     }
 }
 
 void Stats_AddPickup(void)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    if (level != nullptr) {
-        RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-        resume->stats.pickup_count++;
+    LEVEL_STATS *const stats = Stats_GetLevelStats(Game_GetCurrentLevel());
+    if (stats != nullptr) {
+        stats->counts[STATS_CAT_PICKUPS]++;
     }
 }
 
 void Stats_AddAmmoHits(void)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    if (level != nullptr) {
-        RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-        resume->stats.ammo_hits++;
+    LEVEL_STATS *const stats = Stats_GetLevelStats(Game_GetCurrentLevel());
+    if (stats != nullptr) {
+        stats->ammo_hits++;
     }
 }
 
 void Stats_AddAmmoUsed(void)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    if (level != nullptr) {
-        RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-        resume->stats.ammo_used++;
+    LEVEL_STATS *const stats = Stats_GetLevelStats(Game_GetCurrentLevel());
+    if (stats != nullptr) {
+        stats->ammo_used++;
     }
 }
 
 void Stats_AddDistanceTravelled(const XYZ_32 pos, const XYZ_32 last_pos)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    if (level != nullptr) {
-        RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-        resume->stats.distance_travelled += XYZ_32_GetDistance(pos, last_pos);
+    LEVEL_STATS *const stats = Stats_GetLevelStats(Game_GetCurrentLevel());
+    if (stats != nullptr) {
+        stats->distance_travelled += XYZ_32_GetDistance(pos, last_pos);
     }
 }
 
@@ -202,63 +285,38 @@ FINAL_STATS Stats_ComputeFinalStats(const bool include_bonus_levels)
             continue;
         }
 
-        const RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-        if (resume != nullptr) {
-#define L_ADD(prop) result.stats.prop += resume->stats.prop;
-            L_ADD(kill_count);
-            L_ADD(crystal_count);
-            L_ADD(pickup_count);
-            L_ADD(secret_count);
-            L_ADD(timer);
-            L_ADD(ammo_hits);
-            L_ADD(ammo_used);
-            L_ADD(medipacks_used);
-            L_ADD(distance_travelled);
-            L_ADD(death_count);
-#undef L_ADD
+        const LEVEL_STATS *const stats = Stats_GetLevelStats(level);
+        if (stats != nullptr) {
+            M_SumStats(&result.stats, (const STATS_COMMON *)stats);
         }
-
-        const LEVEL_MAX_STATS *const max_stats = Stats_GetLevelMaxStats(level);
-        if (max_stats != nullptr) {
-#define L_ADD(prop) result.max_stats.prop += max_stats->prop;
-            L_ADD(max_kill_count);
-            L_ADD(max_kill_ally_count);
-            L_ADD(max_kill_non_ally_count);
-            L_ADD(max_crystal_count);
-            L_ADD(max_pickup_count);
-            L_ADD(max_secret_count);
-            L_ADD(max_pickup_secret_count);
-#undef L_ADD
+        if (Stats_HasLevelMaxStats(level)) {
+            M_SumMaxStats(&result.max_stats, Stats_GetLevelMaxStats(level));
         }
     }
 
     return result;
 }
 
-OBJECT_ID Stats_GetSecretObject(const int32_t secret_idx)
+OBJECT_ID Stats_GetSecretObject(
+    const GF_LEVEL *const level, const int32_t secret_idx)
 {
-    const GF_LEVEL *const level = Game_GetCurrentLevel();
-    if (level == nullptr) {
+    if (secret_idx < 0 || secret_idx >= STATS_MAX_SECRETS
+        || !Stats_HasLevelMaxStats(level)) {
         return NO_OBJECT;
     }
-    const LEVEL_MAX_STATS *const stats = Stats_GetLevelMaxStats(level);
-    ASSERT(stats != nullptr);
-    ASSERT(secret_idx >= 0 && secret_idx < STATS_MAX_SECRETS);
-    return stats->secret_objects[secret_idx].assigned_object_id;
+    return Stats_GetLevelMaxStats(level)
+        ->secret_objects[secret_idx]
+        .assigned_object_id;
 }
 
 uint32_t Stats_GetSecretMaskForItem(
     const GF_LEVEL *const level, const int16_t item_num)
 {
-    if (level == nullptr) {
+    if (!Stats_HasLevelMaxStats(level)) {
         return 0;
     }
 
     const LEVEL_MAX_STATS *const max_stats = Stats_GetLevelMaxStats(level);
-    if (max_stats == nullptr) {
-        return 0;
-    }
-
     for (int32_t i = 0; i < STATS_MAX_SECRETS; i++) {
         if (max_stats->secret_item_masks[i].item_num == item_num) {
             return max_stats->secret_item_masks[i].secret_mask;
@@ -271,6 +329,12 @@ uint32_t Stats_GetSecretMaskForItem(
 void Stats_MarkAlliesHostile(void)
 {
     const GF_LEVEL *const level = Game_GetCurrentLevel();
-    RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
+    RESUME_INFO *const resume = SG_Resume_GetEntry(level);
     resume->hurt_allies = true;
+}
+
+bool Stats_HaveAlliesBeenHurt(const GF_LEVEL *const level)
+{
+    const RESUME_INFO *const resume = SG_Resume_GetEntry(level);
+    return resume != nullptr && resume->hurt_allies;
 }

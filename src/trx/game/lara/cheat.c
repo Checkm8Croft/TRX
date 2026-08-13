@@ -3,6 +3,7 @@
 #include <trx/core/vector.h>
 #include <trx/game/camera.h>
 #include <trx/game/console.h>
+#include <trx/game/const.h>
 #include <trx/game/game.h>
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/gun.h>
@@ -13,19 +14,9 @@
 #include <trx/game/lara.h>
 #include <trx/game/objects.h>
 #include <trx/game/rooms.h>
-#include <trx/game/sound.h>
+#include <trx/game/rope.h>
 #include <trx/game/viewport.h>
 #include <trx/version.h>
-
-static void M_GiveAllKeysImpl(void)
-{
-    // Inv_AddItem ignores objects the current level does not have.
-#define X_PICKUP_NUMBERED(item, option) Inv_AddItem(item);
-#define X_PICKUP_MISC(item, option) Inv_AddItem(item);
-#include <trx/game/objects/pickups.def>
-#undef X_PICKUP_MISC
-#undef X_PICKUP_NUMBERED
-}
 
 static void M_GiveAllGunsImpl(const bool ignore_exclusions)
 {
@@ -33,40 +24,40 @@ static void M_GiveAllGunsImpl(const bool ignore_exclusions)
     const bool bonus_flag = Game_IsBonusFlagSet(GBF_NGPLUS);
     Inv_AddItem(O_PISTOL_ITEM);
     if (Lara_Cheat_GiveGun(LGT_SHOTGUN, ignore_exclusions)) {
-        lara_info->shotgun_ammo.ammo = bonus_flag ? 10001 : 300;
+        Inv_SetAmmo(LGT_SHOTGUN, bonus_flag ? 10001 : 300);
     }
     if (Lara_Cheat_GiveGun(LGT_MAGNUMS, ignore_exclusions)) {
-        lara_info->magnum_ammo.ammo = bonus_flag ? 10001 : 1000;
+        Inv_SetAmmo(LGT_MAGNUMS, bonus_flag ? 10001 : 1000);
     }
     if (Lara_Cheat_GiveGun(LGT_AUTOS, ignore_exclusions)) {
-        lara_info->autos_ammo.ammo = bonus_flag ? 10001 : 1000;
+        Inv_SetAmmo(LGT_AUTOS, bonus_flag ? 10001 : 1000);
     }
     if (Lara_Cheat_GiveGun(LGT_DESERT_EAGLE, ignore_exclusions)) {
-        lara_info->desert_eagle_ammo.ammo = bonus_flag ? 10001 : 1000;
+        Inv_SetAmmo(LGT_DESERT_EAGLE, bonus_flag ? 10001 : 1000);
     }
     if (Lara_Cheat_GiveGun(LGT_UZIS, ignore_exclusions)) {
-        lara_info->uzi_ammo.ammo = bonus_flag ? 10001 : 2000;
+        Inv_SetAmmo(LGT_UZIS, bonus_flag ? 10001 : 2000);
     }
     if (Lara_Cheat_GiveGun(LGT_HARPOON, ignore_exclusions)) {
-        lara_info->harpoon_ammo.ammo = bonus_flag ? 10001 : 300;
+        Inv_SetAmmo(LGT_HARPOON, bonus_flag ? 10001 : 300);
     }
     if (Lara_Cheat_GiveGun(LGT_M16, ignore_exclusions)) {
-        lara_info->m16_ammo.ammo = bonus_flag ? 10001 : 300;
+        Inv_SetAmmo(LGT_M16, bonus_flag ? 10001 : 300);
     }
     if (Lara_Cheat_GiveGun(LGT_MP5, ignore_exclusions)) {
-        lara_info->mp5_ammo.ammo = bonus_flag ? 10001 : 300;
+        Inv_SetAmmo(LGT_MP5, bonus_flag ? 10001 : 300);
     }
     if (Lara_Cheat_GiveGun(LGT_GRENADE, ignore_exclusions)) {
-        lara_info->grenade_ammo.ammo = bonus_flag ? 10001 : 300;
+        Inv_SetAmmo(LGT_GRENADE, bonus_flag ? 10001 : 300);
     }
     if (Lara_Cheat_GiveGun(LGT_ROCKET, ignore_exclusions)) {
-        lara_info->rocket_ammo.ammo = bonus_flag ? 10001 : 300;
+        Inv_SetAmmo(LGT_ROCKET, bonus_flag ? 10001 : 300);
     }
     if (Lara_Cheat_GiveGun(LGT_CROSSBOW, ignore_exclusions)) {
-        lara_info->crossbow_ammo.ammo = bonus_flag ? 10001 : 300;
+        Inv_SetAmmo(LGT_CROSSBOW, bonus_flag ? 10001 : 300);
     }
     if (Lara_Cheat_GiveGun(LGT_REVOLVER, ignore_exclusions)) {
-        lara_info->revolver_ammo.ammo = bonus_flag ? 10001 : 1000;
+        Inv_SetAmmo(LGT_REVOLVER, bonus_flag ? 10001 : 1000);
     }
 }
 
@@ -131,7 +122,7 @@ static bool M_CanEnterFlyMode(void)
         return false;
     }
 
-    if ((lara_item->flags & IF_ONE_SHOT) != 0) {
+    if (lara_item->trigger.spent) {
         // The explosion cheat has been used, so Lara's death is permanent.
         return false;
     }
@@ -149,32 +140,6 @@ static bool M_CanEnterFlyMode(void)
     }
 }
 
-bool Lara_Cheat_GiveAllKeys(void)
-{
-    if (Lara_GetItem() == nullptr) {
-        return false;
-    }
-
-    M_GiveAllKeysImpl();
-
-    Sound_Effect(SFX_LARA_KEY, nullptr, SPM_ALWAYS);
-    Console_Log(GS("general/osd/give_item_all_keys"));
-    return true;
-}
-
-bool Lara_Cheat_GiveAllGuns(const bool ignore_exclusions)
-{
-    if (Lara_GetItem() == nullptr) {
-        return false;
-    }
-
-    M_GiveAllGunsImpl(ignore_exclusions);
-
-    Sound_Effect(SFX_LARA_RELOAD, nullptr, SPM_ALWAYS);
-    Console_Log(GS("general/osd/give_item_all_guns"));
-    return true;
-}
-
 bool Lara_Cheat_GiveGun(
     const LARA_GUN_TYPE gun_type, const bool ignore_exclusions)
 {
@@ -190,21 +155,6 @@ bool Lara_Cheat_GiveGun(
     return Inv_AddItem(gun_object_id);
 }
 
-bool Lara_Cheat_GiveAllItems(void)
-{
-    if (Lara_GetItem() == nullptr) {
-        return false;
-    }
-
-    M_GiveAllGunsImpl(false);
-    M_GiveAllKeysImpl();
-    M_GiveAllMedpacksImpl();
-
-    Sound_Effect(SFX_LARA_HOLSTER, nullptr, SPM_NORMAL);
-    Console_Log(GS("general/osd/give_item_cheat"));
-    return true;
-}
-
 void Lara_Cheat_GetStuff(void)
 {
     M_GiveAllGunsImpl(false);
@@ -215,26 +165,6 @@ void Lara_Cheat_EndLevel(void)
 {
     Game_SetIsLevelComplete(true);
     Console_Log(GS("general/osd/complete_level"));
-}
-
-bool Lara_Cheat_KillEnemy(const int16_t item_num)
-{
-    ITEM *const item = Item_Get(item_num);
-    if ((item->flags & IF_KILLED) != 0) {
-        return false;
-    }
-    if (!Item_IsAlive(item) && item->status != IS_ACTIVE) {
-        return false;
-    }
-
-    if (Object_IsType(item->object_id, g_LoyalObjects)) {
-        LARA_INFO *const lara_info = Lara_GetLaraInfo();
-        lara_info->killed_loyal_item = true;
-    }
-
-    Sound_Effect(SFX_EXPLOSION_1, &item->pos, SPM_NORMAL);
-    Creature_Die(item_num, true);
-    return true;
 }
 
 bool Lara_Cheat_OpenNearestDoor(void)
@@ -264,15 +194,15 @@ bool Lara_Cheat_OpenNearestDoor(void)
             continue;
         }
 
-        if (!item->active) {
-            Item_AddActive(item_num);
-            item->flags |= IF_CODE_BITS;
+        if (!item->is_simulated) {
+            Item_AddSimulated(item_num);
+            item->trigger.mask = TRIGGER_MASK_ALL;
             opened++;
-        } else if ((item->flags & IF_CODE_BITS) != 0) {
-            item->flags &= ~IF_CODE_BITS;
+        } else if (item->trigger.mask != 0) {
+            item->trigger.mask = 0;
             closed++;
         } else {
-            item->flags |= IF_CODE_BITS;
+            item->trigger.mask = TRIGGER_MASK_ALL;
             opened++;
         }
         item->timer = 0;
@@ -351,6 +281,7 @@ bool Lara_Cheat_EnterFlyMode(void)
     lara_info->interact_target.item_num = NO_ITEM;
     lara_info->interact_target.is_moving = false;
     lara_info->interact_target.move_count = 0;
+    lara_info->rope.index = NO_ROPE;
 
     Lara_Extinguish();
     M_ReinitialiseGunMeshes();

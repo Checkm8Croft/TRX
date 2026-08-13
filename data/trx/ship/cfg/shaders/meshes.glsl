@@ -16,6 +16,7 @@ layout(location = 4) in vec2 inTrapezoidRatios;
 layout(location = 5) in uint inFlags;
 layout(location = 6) in vec4 inColor;
 layout(location = 7) in float inShade;
+layout(location = 8) in float inReflectivity;
 
 out vec4 gEyePos;
 out vec3 gNormal;
@@ -27,6 +28,7 @@ out vec2 gTrapezoidRatios;
 out float gShade;
 out vec4 gColor;
 out vec3 gAdd;
+flat out float gReflectivity;
 
 vec3 gammaCurve(vec3 rgb, float gamma_exp)
 {
@@ -52,6 +54,18 @@ vec3 waterWibble(vec4 worldPosition, vec4 screenPosition)
     return ndc * screenPosition.w;
 }
 
+// The PS1 GTE computed screen coordinates as integers, so vertices could only
+// land on whole pixels of its 320x240 output. Quantizing the clip position the
+// same way reproduces the wobble that geometry shows when the camera moves.
+#define VERTEX_SNAP_RES vec2(320.0, 240.0)
+
+vec4 vertexSnap(vec4 clipPos)
+{
+    vec3 ndc = clipPos.xyz / clipPos.w;
+    ndc.xy = floor(ndc.xy * VERTEX_SNAP_RES * 0.5) / (VERTEX_SNAP_RES * 0.5);
+    return vec4(ndc * clipPos.w, clipPos.w);
+}
+
 void main(void) {
     vec4 worldPos = uMatModel * vec4(inPosition.xyz, 1.0);
     vec4 lightWorldPos = worldPos;
@@ -68,13 +82,25 @@ void main(void) {
         gEyePos = uMatView * worldPos;
     }
 
-    gNormal = inNormal.xyz;
+    // Reflections are sphere-mapped, so the normal has to be in view space for
+    // the reflection to track the camera - an object space normal locks it to
+    // the object instead. This is what the OG does for TR4, transforming the
+    // mesh normals by the view matrix. Normalize because ours arrive as raw
+    // int16s rather than the unit vectors the mapping expects.
+    gNormal = normalize(mat3(uMatView * uMatModel) * inNormal.xyz);
     gl_Position = uMatProj * gEyePos;
     gl_Position.z += inPosition.w;
 
     // Apply water wibble effect only to non-sprite vertices
     if (uWibbleEffect && (inFlags & (VERT_NO_WIBBLE | VERT_BILLBOARD)) == 0u) {
         gl_Position.xyz = waterWibble(worldPos, gl_Position);
+    }
+
+    // Sprites and billboards keep sub-pixel positioning, so that UI elements
+    // and effects don't crawl.
+    if (uVertexSnapEnabled != 0
+        && (inFlags & (VERT_ABS_SPRITE | VERT_BILLBOARD)) == 0u) {
+        gl_Position = vertexSnap(gl_Position);
     }
 
     gFlags = inFlags;
@@ -85,6 +111,7 @@ void main(void) {
     if ((inFlags & VERT_UV_ROTATE) != 0u) {
         gTexUV.y += uUVRotateOffset;
     }
+    gReflectivity = inReflectivity;
     if (uTrapezoidFilterEnabled != 0) {
         gTexUV *= inTrapezoidRatios;
     }
@@ -196,8 +223,16 @@ void main(void) {
 
 uniform sampler2DArray uTexAtlas;
 uniform sampler2D uTexEnvMap;
-uniform vec3 uTint;
+uniform vec4 uTint;
 uniform bool uDiscardAlpha;
+
+#if TR_VERSION >= 4
+// TR4 reflections sample the env map out of the atlas, from the sprite the OG
+// uses for it. uEnvMapLayer is < 0 when the level has no such sprite.
+uniform vec2 uEnvMapUV0;
+uniform vec2 uEnvMapUV1;
+uniform int uEnvMapLayer;
+#endif
 
 in vec4 gEyePos;
 in vec3 gNormal;
@@ -209,6 +244,7 @@ in float gShade;
 in vec4 gColor;
 in vec3 gAdd;
 in vec2 gTrapezoidRatios;
+flat in float gReflectivity;
 out vec4 outColor;
 
 vec4 applyFog(vec4 color, float dist)
@@ -218,11 +254,11 @@ vec4 applyFog(vec4 color, float dist)
     return mix(color, uFogColor, fogFactor);
 }
 
-#if TR_VERSION >= 4
 // Volumetric fog bulbs (port of the OG OmniEffect/OmniFog,
 // polyinsert.cpp:530-688), evaluated per fragment in view space. Level
 // bulbs push the fragment toward the fog color; FX bulbs (e.g. underwater
-// flares) add colored light.
+// flares) add colored light. TR4 levels carry bulbs of their own; the other
+// games see the ones a script asks for.
 #define MAX_FOG_BULBS 10
 
 struct FogBulb {
@@ -289,7 +325,6 @@ vec4 applyFogBulbs(vec4 color)
     color.rgb = mix(color.rgb, fogColor * color.a, clamp(fogAmount, 0.0, 1.0));
     return color;
 }
-#endif
 
 void main(void) {
     vec4 texColor = gColor;
@@ -318,25 +353,44 @@ void main(void) {
 
     // Reflections
     if ((gFlags & VERT_REFLECTIVE) != 0u && uReflectionsEnabled != 0) {
-        vec2 env_uv = (normalize(gNormal) * 0.5 + 0.5).xy;
+#if TR_VERSION >= 4
+        // The normal maps across the env map window. No y-flip here: view
+        // space is Y-down (the GL/D3D flip lives in the projection) and the
+        // atlas is stored top row first, so this already matches the OG.
+        //
+        // The OG draws the reflection as a second, purely additive pass over
+        // the face (drawtype 2 = ONE/ONE), textured with the env map and
+        // modulated by the lit vertex color scaled by the face's reflectivity.
+        if (uEnvMapLayer >= 0) {
+            vec2 env_uv = mix(uEnvMapUV0, uEnvMapUV1, gNormal.xy * 0.5 + 0.5);
+            vec3 env_color = texture(uTexAtlas, vec3(env_uv, uEnvMapLayer)).rgb;
+            texColor.rgb += env_color * gColor.rgb * gReflectivity * texColor.a;
+        }
+#else
+        // The env map is a capture of the framebuffer, whose origin is at the
+        // bottom left, hence the flip.
+        vec2 env_uv = normalize(gNormal).xy * 0.5 + 0.5;
         env_uv.y = 1.0 - env_uv.y;
-        texColor *= texture(uTexEnvMap, env_uv) * 2.0;
+        texColor.rgb *= texture(uTexEnvMap, env_uv).rgb * 2.0;
+#endif
     }
 
     // Fog
     if ((gFlags & VERT_NO_LIGHTING) == 0u && uLightingEnabled != 0) {
         texColor = applyFog(texColor, length(gEyePos.xyz));
-#if TR_VERSION >= 4
         // The OG skips fog bulbs on additive polys (AddTriClippedSorted
         // excludes drawtypes 2 and 5 from OmniFog).
         if ((gFlags & VERT_ADDITIVE) == 0u) {
             texColor = applyFogBulbs(texColor);
         }
-#endif
     }
 
     texColor.rgb *= uBrightnessMultiplier;
-    texColor.rgb *= uTint;
+    // The framebuffer blend is premultiplied alpha, so the color carries the
+    // coverage: fading a fragment out scales both, and the color a second time
+    // by the alpha it is premultiplied against.
+    texColor *= uTint;
+    texColor.rgb *= uTint.a;
 
     outColor = texColor;
 }

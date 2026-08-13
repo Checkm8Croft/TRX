@@ -4,6 +4,7 @@
 #include <trx/gl/context.h>
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
+#include <trx/core/strings.h>
 #include <trx/game/shell.h>
 #include <trx/game/viewport.h>
 #include <trx/gl/renderer.h>
@@ -105,6 +106,11 @@ void TRX_GL_Context_SwitchToViewport(const VIEWPORT_SPACE space)
 #endif
     glViewport(rect.x, rect.y, rect.width, rect.height);
     TRX_GL_CheckError();
+}
+
+VIEWPORT_SPACE TRX_GL_Context_GetViewport(void)
+{
+    return m_Context.space;
 }
 
 bool TRX_GL_Context_Attach(void *window_handle)
@@ -211,6 +217,31 @@ bool TRX_GL_Context_Attach(void *window_handle)
     return true;
 }
 
+char *TRX_GL_Context_DescribeDriver(void *const window_handle)
+{
+    SDL_GL_ResetAttributes();
+    SDL_GLContext context = SDL_GL_CreateContext(window_handle);
+    if (context == nullptr) {
+        LOG_ERROR("Can't create fallback OpenGL context: %s", SDL_GetError());
+        return nullptr;
+    }
+
+    char *result = nullptr;
+    if (SDL_GL_MakeCurrent(window_handle, context) == 0) {
+        const char *const renderer = (const char *)glGetString(GL_RENDERER);
+        const char *const version = (const char *)glGetString(GL_VERSION);
+        if (renderer != nullptr && version != nullptr) {
+            result = String_Format("%s (OpenGL %s)", renderer, version);
+        } else if (version != nullptr) {
+            result = String_Format("OpenGL %s", version);
+        }
+        SDL_GL_MakeCurrent(window_handle, nullptr);
+    }
+
+    SDL_GL_DeleteContext(context);
+    return result;
+}
+
 void TRX_GL_Context_Detach(void)
 {
     if (!m_Context.window_handle) {
@@ -234,6 +265,16 @@ void TRX_GL_Context_Detach(void)
 void TRX_GL_Context_SetDisplayFilter(const TEXTURE_FILTER filter)
 {
     m_Context.config.display_filter = filter;
+}
+
+void TRX_GL_Context_SetMultisamplingFactor(const int32_t factor)
+{
+    m_Context.config.multisampling_factor = factor;
+}
+
+void TRX_GL_Context_SetDithering(const bool enable)
+{
+    m_Context.config.enable_dithering = enable;
 }
 
 bool TRX_GL_Context_GetWireframeMode(void)

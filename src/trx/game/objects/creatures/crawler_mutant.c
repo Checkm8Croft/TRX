@@ -299,7 +299,7 @@ static void M_ControlCrawler(const int16_t item_num)
 
     M_PRIV *const p = item->priv;
     if (p->burn_timer > M_MAX_BURN_TIME) {
-        item->hit_points = 0;
+        Item_TakeFatalDamage(item, creature->enemy);
     }
 
     if (item->hit_points <= 0) {
@@ -449,7 +449,7 @@ static void M_HandleEvent(
 static void M_ControlDying(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
-    if (item->status != IS_ACTIVE) {
+    if (!Item_IsInPlay(item)) {
         return;
     }
 
@@ -483,10 +483,7 @@ static void M_SetupCrawler(OBJECT *const obj)
     Object_GetBone(obj, 8)->rot.x = true;
     Object_GetBone(obj, 8)->rot.z = true;
     Object_GetBone(obj, 9)->rot.y = true;
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS));
 }
 
 static void M_SetupDying(OBJECT *const obj)

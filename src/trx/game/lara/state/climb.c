@@ -1,6 +1,7 @@
 #include <trx/config.h>
 #include <trx/game/camera.h>
 #include <trx/game/input.h>
+#include <trx/game/interpolation.h>
 #include <trx/game/lara.h>
 #include <trx/game/lara/util.h>
 #include <trx/version.h>
@@ -45,9 +46,9 @@ static void M_Hang(ITEM *const item, COLL_INFO *const coll)
         return;
     }
     if (g_Input.left || g_Input.step_left) {
-        item->goal_anim_state = LS(LS_SHIMMY_LEFT);
+        item->goal_anim_state = Lara_Col_GetShimmyState(LS_SHIMMY_LEFT);
     } else if (g_Input.right || g_Input.step_right) {
-        item->goal_anim_state = LS(LS_SHIMMY_RIGHT);
+        item->goal_anim_state = Lara_Col_GetShimmyState(LS_SHIMMY_RIGHT);
     }
 }
 
@@ -91,14 +92,25 @@ static void M_SetCornerAnim(
         item->current_anim_state = LS(LS_HANG);
     }
 
+    if (g_Camera.type == CAM_CHASE && on_ladder
+        && (ladder_end_anim == LA_LADDER_CORNER_RIGHT_OUTER_END
+            || ladder_end_anim == LA_LADDER_CORNER_LEFT_OUTER_END)) {
+        // Some camera strategies will be unable to LOS through the corner from
+        // Lara's old position to her new, so will become stuck. Force a
+        // transitional target update with Lara placed at the corner.
+        // TODO: investigate alternatives to this approach
+        item->pos = XYZ_32_OffsetYaw(item->pos, item->rot.y - rot, STEP_L);
+        g_Camera.speed = 1;
+        Camera_Update();
+    }
+
     const LARA_INFO *const lara = Lara_GetLaraInfo();
     coll->old_pos.x = lara->corner_pos.x;
     coll->old_pos.z = lara->corner_pos.z;
     item->pos.x = lara->corner_pos.x;
     item->pos.z = lara->corner_pos.z;
     item->rot.y += rot;
-    item->interp.prev.pos = item->pos;
-    item->interp.prev.rot = item->rot;
+    Interpolation_RememberItem(item);
 }
 
 static void M_ShimmyCornerOuterLeft(ITEM *const item, COLL_INFO *const coll)

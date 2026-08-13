@@ -1,16 +1,24 @@
 #include <trx/config/presets.h>
 
 #include <trx/config/common.h>
+#include <trx/config/registry.h>
 #include <trx/core/filesystem.h>
 #include <trx/core/json.h>
 #include <trx/core/json/util/file.h>
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/vector.h>
+#include <trx/game/game_strings/entries.h>
+#include <trx/game/game_strings/manager.h>
 #include <trx/game/shell/paths.h>
 
+#include <stdlib.h>
+#include <string.h>
+
 static VECTOR *m_Presets = nullptr; // CONFIG_PRESET
+static int32_t m_StringsListener = -1;
 
 static void M_FreePreset(CONFIG_PRESET *const preset)
 {
@@ -104,9 +112,9 @@ static bool M_LoadPreset(const char *const path)
          elem = elem->next, i++) {
         preset.keys[i] = Memory_DupStr(elem->name->string);
         char *const serialized = M_SerializeJSONValue(elem->value);
-        const CONFIG_OPTION *const opt = Config_GetOptionByPath(preset.keys[i]);
+        const CONFIG_OPTION *const opt = Config_FindOption(preset.keys[i]);
         preset.values[i] =
-            Config_NormalizeOptionValueString(opt, serialized, false);
+            Config_Option_NormalizeValueString(opt, serialized, false);
         Memory_Free(serialized);
     }
 
@@ -115,8 +123,34 @@ static bool M_LoadPreset(const char *const path)
     return true;
 }
 
-static void __attribute__((destructor)) M_Shutdown(void)
+static const char *M_GetTitle(const CONFIG_PRESET *const preset)
 {
+    const char *const title = GameString_Get(preset->name_gs);
+    return title != nullptr ? title : preset->name_gs;
+}
+
+static int M_CompareByTitle(const void *const a, const void *const b)
+{
+    return strcmp(M_GetTitle(a), M_GetTitle(b));
+}
+
+static void M_HandleLanguageReload(const EVENT *const event, void *const data)
+{
+    Config_Presets_Sort();
+}
+
+static void M_Init(void)
+{
+    m_StringsListener =
+        GameStringManager_SubscribeReload(M_HandleLanguageReload, nullptr);
+}
+
+static void M_Shutdown(void)
+{
+    if (m_StringsListener >= 0) {
+        GameStringManager_UnsubscribeReload(m_StringsListener);
+        m_StringsListener = -1;
+    }
     M_FreeAllPresets();
 }
 
@@ -157,8 +191,19 @@ void Config_Presets_ScanFiles(void)
     }
     File_CloseDirectory(dir);
     Memory_FreePointer(&presets_dir);
+    Config_Presets_Sort();
 
     LOG_INFO("Loaded %d config preset(s)", m_Presets->count);
+}
+
+void Config_Presets_Sort(void)
+{
+    if (m_Presets == nullptr || m_Presets->count < 2) {
+        return;
+    }
+    qsort(
+        Vector_GetData(m_Presets), m_Presets->count, m_Presets->item_size,
+        M_CompareByTitle);
 }
 
 int32_t Config_Presets_GetCount(void)
@@ -181,14 +226,17 @@ void Config_Presets_Apply(const int32_t idx)
         return;
     }
     for (int32_t i = 0; i < preset->setting_count; i++) {
-        const CONFIG_OPTION *const opt =
-            Config_GetOptionByPath(preset->keys[i]);
+        CONFIG_OPTION *const opt = Config_FindOption(preset->keys[i]);
         if (opt == nullptr) {
             LOG_WARNING("Preset: unknown config key '%s'", preset->keys[i]);
             continue;
         }
-        Config_SetOptionValueFromString(opt, preset->values[i]);
+        Config_Option_SetFromString(opt, preset->values[i], false);
     }
     Config_Update();
     Config_Write();
 }
+
+REGISTER_SUBSYSTEM(
+        .init = M_Init, .load = Config_Presets_ScanFiles,
+        .shutdown = M_Shutdown)

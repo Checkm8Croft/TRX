@@ -8,6 +8,7 @@
 #include <trx/game/input.h>
 #include <trx/game/inventory.h>
 #include <trx/game/inventory_ring.h>
+#include <trx/game/inventory_ring/vars.h>
 #include <trx/game/overlay.h>
 #include <trx/game/savegame.h>
 #include <trx/game/shell/common.h>
@@ -239,7 +240,7 @@ static void M_Close(INVENTORY_ITEM *const inv_item)
 
 static void M_SoftClose(INVENTORY_ITEM *const inv_item)
 {
-    if (g_Inv_Mode == INV_DEATH_MODE) {
+    if (g_InvRing_Mode == INV_DEATH_MODE) {
         if (!M_IMMEDIATE && m_Priv.mode != M_MODE_BROWSE) {
             m_Priv.mode = M_MODE_BROWSE;
         }
@@ -248,7 +249,8 @@ static void M_SoftClose(INVENTORY_ITEM *const inv_item)
         return;
     }
     if (m_Priv.mode == M_MODE_BROWSE || M_IMMEDIATE
-        || (g_Inv_Mode != INV_GAME_MODE && g_Inv_Mode != INV_TITLE_MODE)) {
+        || (g_InvRing_Mode != INV_GAME_MODE
+            && g_InvRing_Mode != INV_TITLE_MODE)) {
         M_Close(inv_item);
     } else {
         m_Priv.mode = M_MODE_BROWSE;
@@ -312,17 +314,18 @@ static void M_SetPage(
 
 static void M_DeterminePages(void)
 {
-    const bool can_restart = Savegame_RestartAvailable(Savegame_GetBoundSlot());
+    const bool can_restart =
+        Savegame_RestartAvailable(SG_Manager_GetBoundSlot());
     const bool saving_enabled =
-        Savegame_GetSlotCount(SAVEGAME_SLOT_POOL_NORMAL) > 0
+        SG_Manager_GetSlotCount(SAVEGAME_SLOT_POOL_NORMAL) > 0
         && !g_Config.flow.load_save_disabled;
-    const bool has_saves = Savegame_GetTotalCount() > 0 && saving_enabled;
+    const bool has_saves = SG_Manager_GetTotalCount() > 0 && saving_enabled;
 
     for (M_PAGE_NUMBER i = PAGE_1; i < PAGE_COUNT; i++) {
         m_Priv.pages[i].available = false;
     }
 
-    switch (g_Inv_Mode) {
+    switch (g_InvRing_Mode) {
     case INV_TITLE_MODE:
         m_Priv.mode = M_IMMEDIATE ? M_MODE_PICK_OPTION : M_MODE_BROWSE;
         M_SetPage(PAGE_1, M_ROLE_LOAD_GAME, has_saves);
@@ -383,8 +386,8 @@ static void M_DeterminePages(void)
         if (Game_IsInGym()) {
             m_Priv.pages[i].role = M_ROLE_NEW_GAME;
         } else if (
-            g_Config.gameplay.enable_save_crystals
-            && g_Inv_Mode != INV_SAVE_CRYSTAL_MODE) {
+            !Savegame_IsManualSaveAllowed()
+            && g_InvRing_Mode != INV_SAVE_CRYSTAL_MODE) {
             if (can_restart) {
                 m_Priv.pages[i].role = M_ROLE_RESTART_LEVEL;
             } else {
@@ -415,8 +418,8 @@ static void M_DeterminePages(void)
     if (m_Priv.active_page == PAGE_UNDETERMINED) {
         M_SetPage(
             PAGE_3,
-            g_Inv_Mode == INV_TITLE_MODE ? M_ROLE_EXIT_GAME
-                                         : M_ROLE_EXIT_TO_TITLE,
+            g_InvRing_Mode == INV_TITLE_MODE ? M_ROLE_EXIT_GAME
+                                             : M_ROLE_EXIT_TO_TITLE,
             true);
         m_Priv.active_page = PAGE_3;
     }
@@ -438,22 +441,22 @@ static bool M_ChooseSaveSlot(
     INVENTORY_ITEM *const inv_item, const UI_SAVE_SLOT_DIALOG_TYPE dialog_type,
     SAVEGAME_SLOT_REF *const selected_slot)
 {
-    *selected_slot = Savegame_InvalidSlot();
+    *selected_slot = SG_Manager_InvalidSlot();
     M_PAGE *const page = M_GetActivePage();
     M_NAV_FRAME *const frame = page->nav.current;
     if (frame->ui.save_slot == nullptr) {
         const int32_t selection = page->nav.stack[page->nav.depth].selection;
         SAVEGAME_SLOT_REF initial_slot = selection != -1
-            ? Savegame_SlotFromParam(selection)
-            : Savegame_InvalidSlot();
-        if (!Savegame_IsValidSlotRef(initial_slot)) {
-            initial_slot = Savegame_GetMostRecentlyUsedSlot();
+            ? SG_Manager_SlotFromParam(selection)
+            : SG_Manager_InvalidSlot();
+        if (!SG_Manager_IsValidSlotRef(initial_slot)) {
+            initial_slot = SG_Manager_GetMostRecentlyUsedSlot();
         }
-        if (!Savegame_IsValidSlotRef(initial_slot)) {
-            initial_slot = Savegame_GetMostRecentlyCreatedSlot();
+        if (!SG_Manager_IsValidSlotRef(initial_slot)) {
+            initial_slot = SG_Manager_GetMostRecentlyCreatedSlot();
         }
-        if (!Savegame_IsValidSlotRef(initial_slot)) {
-            initial_slot = Savegame_NormalSlot(0);
+        if (!SG_Manager_IsValidSlotRef(initial_slot)) {
+            initial_slot = SG_Manager_NormalSlot(0);
         }
         page->nav.current->ui.save_slot =
             UI_SaveSlotDialog_Init(dialog_type, initial_slot);
@@ -495,10 +498,10 @@ static bool M_CheckConfirm(const PASSPORT_ACTION action)
 
 static bool M_HandleLoadGame(INVENTORY_ITEM *const inv_item)
 {
-    SAVEGAME_SLOT_REF selected_slot = Savegame_InvalidSlot();
+    SAVEGAME_SLOT_REF selected_slot = SG_Manager_InvalidSlot();
     const bool result = M_ChooseSaveSlot(
         inv_item, UI_SAVE_SLOT_DIALOG_LOAD_GAME, &selected_slot);
-    if (Savegame_IsValidSlotRef(selected_slot)) {
+    if (SG_Manager_IsValidSlotRef(selected_slot)) {
         M_ConfirmSaveSlot(PASSPORT_ACTION_LOAD_GAME, selected_slot);
     }
     return result;
@@ -506,10 +509,10 @@ static bool M_HandleLoadGame(INVENTORY_ITEM *const inv_item)
 
 static bool M_HandleSaveGame(INVENTORY_ITEM *const inv_item)
 {
-    SAVEGAME_SLOT_REF selected_slot = Savegame_InvalidSlot();
+    SAVEGAME_SLOT_REF selected_slot = SG_Manager_InvalidSlot();
     const bool result = M_ChooseSaveSlot(
         inv_item, UI_SAVE_SLOT_DIALOG_SAVE_GAME, &selected_slot);
-    if (Savegame_IsValidSlotRef(selected_slot)) {
+    if (SG_Manager_IsValidSlotRef(selected_slot)) {
         M_ConfirmSaveSlot(PASSPORT_ACTION_SAVE_GAME, selected_slot);
     }
     return result;
@@ -526,7 +529,8 @@ static bool M_HandleNewGame(INVENTORY_ITEM *const inv_item)
         && !UI_NewGame_HasModChoices()) {
         // But only if in title mode
         if (g_InputDB.menu_confirm
-            || (!M_IMMEDIATE && g_Inv_Mode == INV_TITLE_MODE)) {
+            || (!M_IMMEDIATE && g_InvRing_Mode == INV_TITLE_MODE)) {
+            Game_SetBonusFlag(GBF_NONE);
             M_Confirm(PASSPORT_ACTION_NEW_GAME, GF_GetFirstLevel()->num);
             g_InputDB.menu_confirm = true;
             M_Close(inv_item);
@@ -551,26 +555,11 @@ static bool M_HandleNewGame(INVENTORY_ITEM *const inv_item)
             return true;
 
         case UI_NEW_GAME_CHOICE_NG:
-            // Handle the scenario where game_modes_policy is disabled, and
-            // enable_play_previous_levels is on. In this scenario the dialog
-            // adds a "New Game" row just to let the player start the game. It
-            // shouldn't touch the NG+ flag.
-            if (g_Config.gameplay.game_modes_policy
-                == GAME_MODES_POLICY_ALWAYS) {
-                Game_SetBonusFlag(GBF_NONE);
-            }
+            Game_SetBonusFlag(GBF_NONE);
             M_Confirm(PASSPORT_ACTION_NEW_GAME, GF_GetFirstLevel()->num);
             return true;
         case UI_NEW_GAME_CHOICE_NGPLUS:
             Game_SetBonusFlag(GBF_NGPLUS);
-            M_Confirm(PASSPORT_ACTION_NEW_GAME, GF_GetFirstLevel()->num);
-            return true;
-        case UI_NEW_GAME_CHOICE_JP_NG:
-            Game_SetBonusFlag(GBF_JAPANESE);
-            M_Confirm(PASSPORT_ACTION_NEW_GAME, GF_GetFirstLevel()->num);
-            return true;
-        case UI_NEW_GAME_CHOICE_JP_NGPLUS:
-            Game_SetBonusFlag(GBF_JAPANESE | GBF_NGPLUS);
             M_Confirm(PASSPORT_ACTION_NEW_GAME, GF_GetFirstLevel()->num);
             return true;
         case UI_NEW_GAME_CHOICE_SWITCH_MOD:
@@ -609,7 +598,8 @@ static bool M_HandlePlayAnyLevel(INVENTORY_ITEM *const inv_item)
         M_NavigateInto(M_ROLE_PLAY_ANY_LEVEL_SELECT_MODE, choice);
         return true;
     } else {
-        Savegame_UnbindSlot();
+        Game_SetBonusFlag(GBF_NONE);
+        SG_Manager_UnbindSlot();
         M_Confirm(PASSPORT_ACTION_SELECT_LEVEL, choice);
         return true;
     }
@@ -635,22 +625,12 @@ static bool M_HandlePlayAnyLevelSelectMode(INVENTORY_ITEM *const inv_item)
             return true;
         case UI_NEW_GAME_CHOICE_NG:
             Game_SetBonusFlag(GBF_NONE);
-            Savegame_UnbindSlot();
+            SG_Manager_UnbindSlot();
             M_Confirm(PASSPORT_ACTION_SELECT_LEVEL, level_num);
             return true;
         case UI_NEW_GAME_CHOICE_NGPLUS:
             Game_SetBonusFlag(GBF_NGPLUS);
-            Savegame_UnbindSlot();
-            M_Confirm(PASSPORT_ACTION_SELECT_LEVEL, level_num);
-            return true;
-        case UI_NEW_GAME_CHOICE_JP_NG:
-            Game_SetBonusFlag(GBF_JAPANESE);
-            Savegame_UnbindSlot();
-            M_Confirm(PASSPORT_ACTION_SELECT_LEVEL, level_num);
-            return true;
-        case UI_NEW_GAME_CHOICE_JP_NGPLUS:
-            Game_SetBonusFlag(GBF_JAPANESE | GBF_NGPLUS);
-            Savegame_UnbindSlot();
+            SG_Manager_UnbindSlot();
             M_Confirm(PASSPORT_ACTION_SELECT_LEVEL, level_num);
             return true;
         default:
@@ -688,13 +668,13 @@ static bool M_HandleSwitchMod(INVENTORY_ITEM *const inv_item)
 
 static bool M_HandlePlayPrevLevelSelectSlot(INVENTORY_ITEM *const inv_item)
 {
-    SAVEGAME_SLOT_REF selected_slot = Savegame_InvalidSlot();
+    SAVEGAME_SLOT_REF selected_slot = SG_Manager_InvalidSlot();
     const bool result =
         M_ChooseSaveSlot(inv_item, UI_SAVE_SLOT_DIALOG_GENERIC, &selected_slot);
-    if (Savegame_IsValidSlotRef(selected_slot)) {
+    if (SG_Manager_IsValidSlotRef(selected_slot)) {
         M_NavigateInto(
             M_ROLE_PLAY_PREV_LEVEL_SELECT_LEVEL,
-            Savegame_SlotToParam(selected_slot));
+            SG_Manager_SlotToParam(selected_slot));
     }
     return result;
 }
@@ -702,13 +682,13 @@ static bool M_HandlePlayPrevLevelSelectSlot(INVENTORY_ITEM *const inv_item)
 static bool M_HandlePlayPrevLevelSelectLevel(INVENTORY_ITEM *const inv_item)
 {
     M_PAGE *const page = M_GetActivePage();
-    const SAVEGAME_SLOT_REF slot =
-        Savegame_SlotFromParam(page->nav.stack[page->nav.depth - 1].selection);
-    if (!Savegame_IsValidSlotRef(slot)) {
+    const SAVEGAME_SLOT_REF slot = SG_Manager_SlotFromParam(
+        page->nav.stack[page->nav.depth - 1].selection);
+    if (!SG_Manager_IsValidSlotRef(slot)) {
         M_NavigateOut(inv_item);
         return true;
     }
-    const SAVEGAME_INFO *const info = Savegame_GetSavegameInfo(slot);
+    const SAVEGAME_INFO *const info = SG_Manager_GetSavegameInfo(slot);
     if (info == nullptr) {
         M_NavigateOut(inv_item);
         return true;
@@ -736,7 +716,7 @@ static bool M_HandlePlayPrevLevelSelectLevel(INVENTORY_ITEM *const inv_item)
         M_NavigateOut(inv_item);
         return true;
     } else {
-        Savegame_BindSlot(slot);
+        SG_Manager_BindSlot(slot);
         M_Confirm(PASSPORT_ACTION_SELECT_LEVEL, choice);
         return true;
     }
@@ -745,12 +725,12 @@ static bool M_HandlePlayPrevLevelSelectLevel(INVENTORY_ITEM *const inv_item)
 
 static bool M_HandleStorySoFar(INVENTORY_ITEM *const inv_item)
 {
-    SAVEGAME_SLOT_REF selected_slot = Savegame_InvalidSlot();
+    SAVEGAME_SLOT_REF selected_slot = SG_Manager_InvalidSlot();
     const bool result =
         M_ChooseSaveSlot(inv_item, UI_SAVE_SLOT_DIALOG_GENERIC, &selected_slot);
-    if (Savegame_IsValidSlotRef(selected_slot)) {
+    if (SG_Manager_IsValidSlotRef(selected_slot)) {
         M_NavigateInto(
-            M_ROLE_STORY_SO_FAR_CONFIRM, Savegame_SlotToParam(selected_slot));
+            M_ROLE_STORY_SO_FAR_CONFIRM, SG_Manager_SlotToParam(selected_slot));
     }
     return result;
 }
@@ -758,8 +738,8 @@ static bool M_HandleStorySoFar(INVENTORY_ITEM *const inv_item)
 static bool M_HandleStorySoFarConfirm(INVENTORY_ITEM *const inv_item)
 {
     M_PAGE *const page = M_GetActivePage();
-    const SAVEGAME_SLOT_REF slot =
-        Savegame_SlotFromParam(page->nav.stack[page->nav.depth - 1].selection);
+    const SAVEGAME_SLOT_REF slot = SG_Manager_SlotFromParam(
+        page->nav.stack[page->nav.depth - 1].selection);
     if (GF_HasAvailableStory(slot)) {
         M_ConfirmSaveSlot(PASSPORT_ACTION_STORY_SO_FAR, slot);
         g_InputDB.menu_confirm = true;
@@ -943,7 +923,7 @@ void Option_Passport_Control(INVENTORY_ITEM *const inv_item, const bool is_busy)
         if (g_InputDB.menu_confirm) {
             M_Close(inv_item);
         } else if (g_InputDB.menu_back) {
-            if (g_Inv_Mode == INV_DEATH_MODE) {
+            if (g_InvRing_Mode == INV_DEATH_MODE) {
                 g_Input = (INPUT_STATE) {};
                 g_InputDB = (INPUT_STATE) {};
             } else {

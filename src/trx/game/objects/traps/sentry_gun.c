@@ -22,39 +22,12 @@ typedef enum {
 } M_MUZZLE;
 
 typedef struct {
+    int32_t damage;
     int16_t active_muzzle;
     int16_t muzzle_flash_timer;
     bool is_alerted;
     bool has_fired;
 } M_PRIV;
-
-static int32_t M_GetDamage(const ITEM *const item)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, "damage", &damage)) {
-        return damage.as_int;
-    }
-
-    return M_DEFAULT_DAMAGE;
-}
-
-static void M_LoadPriv(ITEM *const item, JSON_READ_IO *const io)
-{
-    M_PRIV *const p = item->priv;
-    JSON_OPTIONAL(JSON_READ(io, "active_muzzle", &p->active_muzzle));
-    JSON_OPTIONAL(JSON_READ(io, "muzzle_flash_timer", &p->muzzle_flash_timer));
-    JSON_OPTIONAL(JSON_READ(io, "is_alerted", &p->is_alerted));
-    JSON_OPTIONAL(JSON_READ(io, "has_fired", &p->has_fired));
-}
-
-static void M_SavePriv(const ITEM *const item, JSON_WRITE_IO *const io)
-{
-    const M_PRIV *const p = item->priv;
-    JSONW_WRITE(io, "active_muzzle", p->active_muzzle);
-    JSONW_WRITE(io, "muzzle_flash_timer", p->muzzle_flash_timer);
-    JSONW_WRITE(io, "is_alerted", p->is_alerted);
-    JSONW_WRITE(io, "has_fired", p->has_fired);
-}
 
 static const CREATURE_GUN m_FireLeft = {
     .muzzle = {
@@ -85,6 +58,24 @@ static const CREATURE_GUN m_FireRight = {
     .tr3_flash_shade = 600,
     .tr3_flash_rot_x = -DEG_180,
 };
+
+static void M_LoadPriv(ITEM *const item, JSON_READ_IO *const io)
+{
+    M_PRIV *const p = item->priv;
+    JSON_OPTIONAL(JSON_READ(io, "active_muzzle", &p->active_muzzle));
+    JSON_OPTIONAL(JSON_READ(io, "muzzle_flash_timer", &p->muzzle_flash_timer));
+    JSON_OPTIONAL(JSON_READ(io, "is_alerted", &p->is_alerted));
+    JSON_OPTIONAL(JSON_READ(io, "has_fired", &p->has_fired));
+}
+
+static void M_SavePriv(const ITEM *const item, JSON_WRITE_IO *const io)
+{
+    const M_PRIV *const p = item->priv;
+    JSONW_WRITE(io, "active_muzzle", p->active_muzzle);
+    JSONW_WRITE(io, "muzzle_flash_timer", p->muzzle_flash_timer);
+    JSONW_WRITE(io, "is_alerted", p->is_alerted);
+    JSONW_WRITE(io, "has_fired", p->has_fired);
+}
 
 static void M_Initialise(const int16_t item_num)
 {
@@ -139,11 +130,11 @@ static void M_Control(const int16_t item_num)
     }
 
     if (item->hit_points <= 0) {
-        Item_Explode(item_num, -1, 0);
+        Item_Shatter(item_num, -1, 0);
         LOT_DisableBaddieAI(item_num);
-        Item_Kill(item_num);
-        item->flags |= IF_INVISIBLE;
-        item->status = IS_DEACTIVATED;
+        Item_Destroy(item_num);
+        item->trigger.spent = true;
+        Item_SetFinished(item, true);
     }
 
     if (!p->is_alerted) {
@@ -165,11 +156,11 @@ static void M_Control(const int16_t item_num)
             if (p->active_muzzle == M_MUZZLE_RIGHT) {
                 Creature_Shoot(
                     item, &info, &m_FireLeft, creature->joint_rotation[0],
-                    M_GetDamage(item));
+                    p->damage);
             } else {
                 Creature_Shoot(
                     item, &info, &m_FireRight, creature->joint_rotation[0],
-                    M_GetDamage(item));
+                    p->damage);
             }
 
             p->muzzle_flash_timer = 10;
@@ -222,6 +213,11 @@ static void M_HandleEvent(
     p->is_alerted = true;
 }
 
+static bool M_ShouldSpawnBlood(const ITEM *const item)
+{
+    return false;
+}
+
 static void M_Setup(OBJECT *const obj)
 {
     if (!obj->loaded) {
@@ -235,6 +231,7 @@ static void M_Setup(OBJECT *const obj)
     obj->control_func = M_Control;
     obj->collision_func = Creature_Collision;
     obj->event_func = M_HandleEvent;
+    obj->should_spawn_blood_func = M_ShouldSpawnBlood;
 
     obj->shadow_size = 0;
 
@@ -250,10 +247,10 @@ static void M_Setup(OBJECT *const obj)
     Object_GetBone(obj, 1)->rot.x = true;
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_INT(
-            "damage", M_DEFAULT_DAMAGE,
+        OBJECT_PROPERTY(
+            M_PRIV, damage, M_DEFAULT_DAMAGE,
             "Damage dealt when the sentry gun hits Lara."),
-        OBJECT_PROPERTY_INT("max_hit_points", 100, "Maximum hit points."));
+        ITEM_PROPERTY_MAX_HIT_POINTS(100));
 }
 
 REGISTER_OBJECT(O_SENTRY_GUN, M_Setup)

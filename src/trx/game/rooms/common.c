@@ -1,6 +1,7 @@
 #include <trx/game/rooms/common.h>
 
 #include <trx/core/memory.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/utils.h>
 #include <trx/core/vector.h>
 #include <trx/debug.h>
@@ -16,13 +17,6 @@
 
 #include <string.h>
 
-static int32_t m_RoomCount = 0;
-static ROOM *m_Rooms = nullptr;
-static bool m_FlipStatus = false;
-static int32_t m_FlipEffect = -1;
-static int32_t m_FlipTimer = 0;
-static int32_t m_FlipSlotFlags[MAX_FLIP_MAPS] = {};
-
 #define M_OUTSIDE_TABLE_STEP_SHIFT 2
 #define M_OUTSIDE_TABLE_STEP (1 << M_OUTSIDE_TABLE_STEP_SHIFT)
 #define M_OUTSIDE_TABLE_BLOCK_SHIFT (WALL_SHIFT + M_OUTSIDE_TABLE_STEP_SHIFT)
@@ -30,12 +24,37 @@ static int32_t m_FlipSlotFlags[MAX_FLIP_MAPS] = {};
 #define M_OUTSIDE_TABLE_SENTINEL NO_ROOM
 #define M_OUTSIDE_OFFSET_EMPTY 0xFFFF
 
+static int32_t m_RoomCount = 0;
+static ROOM *m_Rooms = nullptr;
+static HANDLE_EPOCH m_RoomEpoch;
+static bool m_FlipStatus = false;
+static int32_t m_FlipEffect = -1;
+static int32_t m_FlipTimer = 0;
+static FLIP_SLOT m_FlipSlots[MAX_FLIP_MAPS] = {};
+
 static int16_t *m_OutsideRoomTable = nullptr;
 static uint16_t *m_OutsideRoomOffsets = nullptr;
 static int32_t m_OutsideGridX = 0;
 static int32_t m_OutsideGridZ = 0;
 static int32_t m_OutsideOriginCellX = 0;
 static int32_t m_OutsideOriginCellZ = 0;
+
+static void M_Shutdown(void)
+{
+    m_RoomCount = 0;
+    m_Rooms = nullptr;
+    m_FlipStatus = false;
+    m_FlipEffect = -1;
+    m_FlipTimer = 0;
+    memset(m_FlipSlots, 0, sizeof(m_FlipSlots));
+
+    m_OutsideRoomTable = nullptr;
+    m_OutsideRoomOffsets = nullptr;
+    m_OutsideGridX = 0;
+    m_OutsideGridZ = 0;
+    m_OutsideOriginCellX = 0;
+    m_OutsideOriginCellZ = 0;
+}
 
 static void M_AddFlipItems(const ROOM *const room)
 {
@@ -65,13 +84,13 @@ static void M_RemoveFlipItems(const ROOM *const room)
 
         // TR2 does not have land/water objects like crocodile/alligator in TR1,
         // so avoid instances of floating water creatures in drained rooms.
-        if (g_TRVersion >= 2 && (item->flags & IF_ONE_SHOT) && obj->intelligent
+        const int16_t next_item_num = item->next_item;
+        if (g_TRVersion >= 2 && item->trigger.spent && obj->intelligent
             && item->hit_points <= 0) {
-            Item_RemoveDrawn(item_num);
-            item->flags |= IF_KILLED;
+            Item_Destroy(item_num);
         }
 
-        item_num = item->next_item;
+        item_num = next_item_num;
     }
 }
 
@@ -85,6 +104,7 @@ static void M_GetNewRoom(
 void Room_InitialiseRooms(const int32_t num_rooms)
 {
     m_RoomCount = num_rooms;
+    Handle_EpochBump(&m_RoomEpoch);
     m_Rooms = num_rooms == 0
         ? nullptr
         : GameBuf_Alloc(sizeof(ROOM) * num_rooms, GBUF_ROOMS);
@@ -97,26 +117,22 @@ void Room_InitialiseRooms(const int32_t num_rooms)
     m_OutsideOriginCellZ = 0;
 }
 
-void Room_Shutdown(void)
-{
-    m_RoomCount = 0;
-    m_Rooms = nullptr;
-    m_FlipStatus = false;
-    m_FlipEffect = -1;
-    m_FlipTimer = 0;
-    memset(m_FlipSlotFlags, 0, sizeof(m_FlipSlotFlags));
-
-    m_OutsideRoomTable = nullptr;
-    m_OutsideRoomOffsets = nullptr;
-    m_OutsideGridX = 0;
-    m_OutsideGridZ = 0;
-    m_OutsideOriginCellX = 0;
-    m_OutsideOriginCellZ = 0;
-}
-
 int32_t Room_GetCount(void)
 {
     return m_RoomCount;
+}
+
+TRX_HANDLE Room_GetHandle(const int32_t room_num)
+{
+    return Handle_EpochMint(&m_RoomEpoch, room_num);
+}
+
+ROOM *Room_FromHandle(const TRX_HANDLE handle)
+{
+    if (!Handle_EpochIsLive(&m_RoomEpoch, handle)) {
+        return nullptr;
+    }
+    return Room_Get(handle.id);
 }
 
 ROOM *Room_Get(const int32_t room_num)
@@ -398,9 +414,10 @@ int32_t Room_GetOutsideStatus(
     return -2;
 }
 
-int32_t Room_GetNumber(const ROOM *const room)
+int32_t Room_GetIndex(const ROOM *const room)
 {
-    if (room == nullptr) {
+    if (room == nullptr || m_Rooms == nullptr || room < m_Rooms
+        || room >= m_Rooms + m_RoomCount) {
         return NO_ROOM;
     }
     return room - m_Rooms;
@@ -428,7 +445,7 @@ void Room_InitialiseFlipStatus(void)
     m_FlipEffect = -1;
     m_FlipTimer = 0;
     for (int32_t i = 0; i < MAX_FLIP_MAPS; i++) {
-        m_FlipSlotFlags[i] = 0;
+        m_FlipSlots[i] = (FLIP_SLOT) {};
     }
 }
 
@@ -505,14 +522,26 @@ void Room_IncrementFlipTimer(const int32_t num_frames)
     m_FlipTimer += num_frames;
 }
 
-int32_t Room_GetFlipSlotFlags(const int32_t slot_idx)
+FLIP_SLOT *Room_GetFlipSlot(const int32_t slot_idx)
 {
-    return m_FlipSlotFlags[slot_idx];
+    return &m_FlipSlots[slot_idx];
 }
 
-void Room_SetFlipSlotFlags(const int32_t slot_idx, const int32_t flags)
+bool Room_TriggerFlipSlot(
+    const int32_t slot_idx, const FLIP_TRIGGER *const trigger)
 {
-    m_FlipSlotFlags[slot_idx] = flags;
+    FLIP_SLOT *const slot = &m_FlipSlots[slot_idx];
+    if (trigger->from_switch) {
+        slot->mask ^= trigger->mask;
+    } else {
+        slot->mask |= trigger->mask;
+    }
+
+    const bool complete = slot->mask == TRIGGER_MASK_ALL;
+    if (complete && trigger->one_shot) {
+        slot->is_one_shot = true;
+    }
+    return complete;
 }
 
 int32_t Room_GetAdjoiningRooms(
@@ -720,3 +749,5 @@ bool Room_FindValidPos(XYZ_32 *const out_pos, int16_t *const out_room_num)
 
     return true;
 }
+
+REGISTER_SUBSYSTEM(.shutdown = M_Shutdown)

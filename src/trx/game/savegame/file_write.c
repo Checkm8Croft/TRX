@@ -1,12 +1,14 @@
 #include <trx/config.h>
+#include <trx/core/json/util/value.h>
 #include <trx/core/json/util/write_io.h>
 #include <trx/debug.h>
 #include <trx/game/camera.h>
+#include <trx/game/cutseq.h>
 #include <trx/game/effects.h>
-#include <trx/game/fx/footprint.h>
-#include <trx/game/fx/ring.h>
+#include <trx/game/fx/common.h>
 #include <trx/game/fx/weather.h>
 #include <trx/game/game.h>
+#include <trx/game/gun.h>
 #include <trx/game/inventory.h>
 #include <trx/game/items.h>
 #include <trx/game/items/carrier.h>
@@ -18,6 +20,7 @@
 #include <trx/game/random.h>
 #include <trx/game/rooms.h>
 #include <trx/game/rope.h>
+#include <trx/game/rules.h>
 #include <trx/game/savegame.h>
 #include <trx/game/savegame/file.h>
 #include <trx/version.h>
@@ -125,6 +128,39 @@ static void M_WriteAnimNum(JSON_WRITE_IO *const io, const int16_t anim_num)
     }
 }
 
+// Pack the item lifecycle axes into the released save format's status value.
+// The priority order reproduces the old active/status divergences: an
+// ambushing item is simulated but hidden (packs to IS_INVISIBLE), a trap
+// playing out its finish is simulated but spent (IS_DEACTIVATED). is_simulated
+// itself round-trips through the separate "active" field, is_finished through
+// "finished" - the enum is mutually exclusive and a hidden finished item packs
+// to IS_INVISIBLE, which older readers take as the whole of its state.
+static ITEM_STATUS M_PackItemStatus(const ITEM *const item)
+{
+    if (!item->is_visible) {
+        return IS_INVISIBLE;
+    }
+    if (item->is_finished) {
+        return IS_DEACTIVATED;
+    }
+    if (item->is_simulated) {
+        return IS_ACTIVE;
+    }
+    return IS_INACTIVE;
+}
+
+// Encode the runtime trigger fields and the two synthesized axis bits back into
+// the released save format's flags word.
+static uint16_t M_PackItemFlags(const ITEM *const item)
+{
+    return ((uint16_t)item->trigger.mask << TRIGGER_MASK_SHIFT)
+        | (item->trigger.reversed ? IF_REVERSE : 0)
+        | (item->trigger.switch_spent ? IF_ONE_SHOT_SWITCH : 0)
+        | (item->trigger.anti_spent ? IF_ONE_SHOT_ANTITRIGGER : 0)
+        | (item->trigger.spent ? IF_ONE_SHOT : 0)
+        | (item->is_destroyed ? IF_DESTROYED : 0);
+}
+
 static void M_WriteItem(
     JSON_WRITE_IO *const io, const ITEM *const item,
     const M_FX_ORDER *const fx_order)
@@ -162,17 +198,21 @@ static void M_WriteItem(
     ObjectProperty_WriteItemOverrides(io, item, "properties");
 
     if (obj->save_flags) {
-        JSONW_WRITE(io, "flags", item->flags);
-        JSONW_WRITE(io, "status", item->status);
-        JSONW_WRITE(io, "active", item->active);
+        JSONW_WRITE(io, "flags", M_PackItemFlags(item));
+        JSONW_WRITE(io, "status", M_PackItemStatus(item));
+        JSONW_WRITE(io, "active", item->is_simulated);
+        // is_finished also reaches the status value above, but only where the
+        // mutually exclusive enum can hold it; this key carries the axis whole.
+        JSONW_WRITE(io, "finished", item->is_finished);
         JSONW_WRITE(io, "gravity", item->gravity);
-        JSONW_WRITE(io, "collidable", item->collidable);
+        JSONW_WRITE(io, "collidable", item->is_collidable);
         const bool intelligent =
             obj->intelligent && item->creature_data != nullptr;
         JSONW_WRITE(io, "intelligent", intelligent);
         JSONW_WRITE(io, "timer", item->timer);
         JSONW_WRITE_NZ(io, "ai_bits", item->ai_bits);
         JSONW_WRITE_NZ(io, "ai_tag", item->ai_tag);
+        JSONW_WRITE_NZ(io, "fade", item->fade);
         if (intelligent) {
             const CREATURE *const creature = item->creature_data;
             JSONW_WRITE(io, "head_rot", creature->head_rotation);
@@ -252,11 +292,10 @@ static void M_WriteArm(
 }
 
 static void M_WriteAmmo(
-    JSON_WRITE_IO *const io, const char *const key, const AMMO_INFO *const ammo)
+    JSON_WRITE_IO *const io, const char *const key, const int32_t ammo)
 {
-    ASSERT(ammo != nullptr);
     JSONW_PUSH_OBJECT(io);
-    JSONW_WRITE(io, "ammo", ammo->ammo);
+    JSONW_WRITE(io, "ammo", ammo);
     JSONW_POP_AND_SET(io, key);
 }
 
@@ -286,57 +325,36 @@ static void M_WriteResumeInfo(
     JSONW_WRITE(io, "prev_level", resume->prev_level);
 
     JSONW_WRITE(io, "hurt_allies", resume->hurt_allies);
+    JSONW_WRITE(io, "burning", resume->burning);
 
     JSONW_WRITE(io, "lara_hitpoints", resume->lara_hitpoints);
-    JSONW_WRITE(io, "pistol_ammo", resume->pistol_ammo);
-    JSONW_WRITE(io, "shotgun_ammo", resume->shotgun_ammo);
-    JSONW_WRITE(io, "magnum_ammo", resume->magnum_ammo);
-    JSONW_WRITE(io, "autos_ammo", resume->autos_ammo);
-    JSONW_WRITE(io, "desert_eagle_ammo", resume->desert_eagle_ammo);
-    JSONW_WRITE(io, "uzi_ammo", resume->uzi_ammo);
-    JSONW_WRITE(io, "m16_ammo", resume->m16_ammo);
-    JSONW_WRITE(io, "mp5_ammo", resume->mp5_ammo);
-    JSONW_WRITE(io, "grenade_ammo", resume->grenade_ammo);
-    JSONW_WRITE(io, "rocket_ammo", resume->rocket_ammo);
-    JSONW_WRITE(io, "harpoon_ammo", resume->harpoon_ammo);
-    JSONW_WRITE(io, "crossbow_ammo", resume->crossbow_ammo);
-    JSONW_WRITE(io, "revolver_ammo", resume->revolver_ammo);
-    JSONW_WRITE(io, "num_medis", resume->small_medipacks);
-    JSONW_WRITE(io, "num_big_medis", resume->large_medipacks);
-    JSONW_WRITE(io, "num_flares", resume->flares);
-    JSONW_WRITE(io, "num_scions", resume->num_scions);
-    JSONW_WRITE(io, "num_quest_item_1", resume->num_quest_item_1);
-    JSONW_WRITE(io, "num_quest_item_2", resume->num_quest_item_2);
-    JSONW_WRITE(io, "num_quest_item_3", resume->num_quest_item_3);
-    JSONW_WRITE(io, "num_quest_item_4", resume->num_quest_item_4);
-    JSONW_WRITE(io, "num_quest_item_5", resume->num_quest_item_5);
-    JSONW_WRITE(io, "num_quest_item_6", resume->num_quest_item_6);
     JSONW_WRITE(io, "gun_status", resume->gun_status);
     JSONW_WRITE(io, "gun_type", resume->equipped_gun_type);
     JSONW_WRITE(io, "holsters_gun_type", resume->holsters_gun_type);
     JSONW_WRITE(io, "back_gun_type", resume->back_gun_type);
 
-    JSONW_WRITE(io, "has_pistols", resume->flags.has_pistols);
-    JSONW_WRITE(io, "has_shotgun", resume->flags.has_shotgun);
-    JSONW_WRITE(io, "has_magnums", resume->flags.has_magnums);
-    JSONW_WRITE(io, "has_autos", resume->flags.has_autos);
-    JSONW_WRITE(io, "has_desert_eagle", resume->flags.has_desert_eagle);
-    JSONW_WRITE(io, "has_uzis", resume->flags.has_uzis);
-    JSONW_WRITE(io, "has_m16", resume->flags.has_m16);
-    JSONW_WRITE(io, "has_mp5", resume->flags.has_mp5);
-    JSONW_WRITE(io, "has_grenade", resume->flags.has_grenade);
-    JSONW_WRITE(io, "has_rocket", resume->flags.has_rocket);
-    JSONW_WRITE(io, "has_harpoon", resume->flags.has_harpoon);
-    JSONW_WRITE(io, "has_crossbow", resume->flags.has_crossbow);
-    JSONW_WRITE(io, "has_revolver", resume->flags.has_revolver);
-    JSONW_WRITE(io, "has_binoculars", resume->flags.has_binoculars);
+    for (const SAVEGAME_RESUME_WEAPON *entry = g_Savegame_ResumeWeapons;
+         entry->has_key != nullptr; entry++) {
+        JSONW_WRITE(
+            io, entry->has_key,
+            Inv_State_Has(&resume->inv, Gun_GetGunObject(entry->gun_type)));
+        JSONW_WRITE(io, entry->ammo_key, resume->inv.ammo[entry->gun_type]);
+    }
+    JSONW_WRITE(
+        io, "has_binoculars", Inv_State_Has(&resume->inv, O_BINOCULARS_ITEM));
+
+    for (const SAVEGAME_RESUME_ITEM *entry = g_Savegame_ResumeItems;
+         entry->key != nullptr; entry++) {
+        JSONW_WRITE(
+            io, entry->key, Inv_State_GetCount(&resume->inv, entry->object_id));
+    }
 
     JSONW_WRITE(io, "costume", resume->flags.costume);
     JSONW_WRITE(io, "timer", resume->stats.timer);
-    JSONW_WRITE(io, "kills", resume->stats.kill_count);
+    JSONW_WRITE(io, "kills", resume->stats.counts[STATS_CAT_KILLS]);
     JSONW_WRITE(io, "secrets", resume->stats.secret_flags);
-    JSONW_WRITE(io, "crystals", resume->stats.crystal_count);
-    JSONW_WRITE(io, "pickups", resume->stats.pickup_count);
+    JSONW_WRITE(io, "crystals", resume->stats.counts[STATS_CAT_CRYSTALS]);
+    JSONW_WRITE(io, "pickups", resume->stats.counts[STATS_CAT_PICKUPS]);
     JSONW_WRITE(io, "ammo_hits", resume->stats.ammo_hits);
     JSONW_WRITE(io, "ammo_used", resume->stats.ammo_used);
     JSONW_WRITE(io, "distance_travelled", resume->stats.distance_travelled);
@@ -344,70 +362,22 @@ static void M_WriteResumeInfo(
     JSONW_WRITE(io, "death_count", resume->stats.death_count);
 }
 
+static uint16_t M_PackMusicTrackFlags(const MUSIC_ID track_id)
+{
+    const MUSIC_TRACK_STATE *const track = Music_GetTrackState(track_id);
+    return (track->mask << TRIGGER_MASK_SHIFT)
+        | (track->is_one_shot ? MTF_ONE_SHOT : 0) | track->delay;
+}
+
 static int32_t M_GetMusicTrackFlagsCount(void)
 {
     int32_t last_index = -1;
     for (int32_t i = 0; i < MAX_MUSIC_TRACKS; i++) {
-        const uint16_t flags = Music_GetTrackFlags(i);
-        if (flags != 0) {
+        if (M_PackMusicTrackFlags(i) != 0) {
             last_index = i;
         }
     }
     return last_index + 1;
-}
-
-static void M_WriteFXRings(
-    JSON_WRITE_IO *const io, const FX_RING_TYPE type, const char *const key)
-{
-    if (!FX_Ring_IsRingActive(type)) {
-        return;
-    }
-    JSONW_PUSH_ARRAY(io);
-    for (int32_t i = 0;; i++) {
-        const FX_RING *const ring = FX_Ring_PeekRing(type, i);
-        if (ring == nullptr) {
-            break;
-        }
-
-        JSONW_PUSH_OBJECT(io);
-        JSONW_WRITE(io, "on", ring->on);
-        JSONW_WRITE(io, "life", ring->life);
-        JSONW_WRITE(io, "speed", ring->speed);
-        JSONW_WRITE(io, "radius", ring->radius);
-        JSONW_WRITE(io, "prev_radius", ring->prev_radius);
-        M_WriteXYZ16(io, "rot", (XYZ_16) { ring->rot.x, 0, ring->rot.z });
-        M_WriteXYZ16(
-            io, "prev_rot", (XYZ_16) { ring->prev_rot.x, 0, ring->prev_rot.z });
-        M_WriteXYZ32(io, "pos", ring->pos);
-        M_WriteXYZ32(io, "prev_pos", ring->prev_pos);
-        JSONW_POP_AND_APPEND(io);
-    }
-    JSONW_POP_AND_SET_NZ(io, key);
-}
-
-static void M_WriteFXFootprints(JSON_WRITE_IO *const io)
-{
-    if (!FX_Footprint_HasActivePrints()) {
-        return;
-    }
-
-    JSONW_PUSH_OBJECT(io);
-    JSONW_PUSH_ARRAY(io);
-    for (int32_t i = 0;; i++) {
-        const FX_FOOTPRINT *const print = FX_Footprint_GetPrint(i);
-        if (print == nullptr) {
-            break;
-        }
-
-        JSONW_PUSH_OBJECT(io);
-        M_WriteXYZ32(io, "pos", print->pos);
-        JSONW_WRITE(io, "room_num", print->room_num);
-        JSONW_WRITE(io, "y_rot", print->y_rot);
-        JSONW_WRITE(io, "life", print->life);
-        JSONW_POP_AND_APPEND(io);
-    }
-    JSONW_POP_AND_SET(io, "prints");
-    JSONW_POP_AND_SET_NZ(io, "footprints");
 }
 
 void SG_File_DumpFlares(JSON_WRITE_IO *const io)
@@ -415,7 +385,7 @@ void SG_File_DumpFlares(JSON_WRITE_IO *const io)
     JSONW_PUSH_ARRAY(io);
     for (int32_t i = 0; i < Item_GetTotalCount(); i++) {
         const ITEM *const item = Item_Get(i);
-        if (!item->active || item->object_id != O_FLARE_ITEM) {
+        if (!item->is_simulated || item->object_id != O_FLARE_ITEM) {
             continue;
         }
         JSONW_PUSH_OBJECT(io);
@@ -466,12 +436,7 @@ void SG_File_DumpEffects(JSON_WRITE_IO *const io)
 void SG_File_DumpFX(JSON_WRITE_IO *const io)
 {
     JSONW_PUSH_OBJECT(io);
-    JSONW_PUSH_OBJECT(io);
-    M_WriteFXRings(io, FX_RING_TYPE_BLAST, "blast");
-    M_WriteFXRings(io, FX_RING_TYPE_KNOCKBACK, "knockback");
-    M_WriteFXRings(io, FX_RING_TYPE_SUMMON, "summon");
-    JSONW_POP_AND_SET_NZ(io, "rings");
-    M_WriteFXFootprints(io);
+    FX_Save(io);
     JSONW_POP_AND_SET_NZ(io, "vfx");
 }
 
@@ -480,7 +445,7 @@ void SG_File_DumpInventory(JSON_WRITE_IO *const io)
     JSONW_PUSH_OBJECT(io);
     for (const SAVEGAME_INVENTORY_ENTRY *entry = g_Savegame_InventoryItems;
          entry->object_id != NO_OBJECT; entry++) {
-        JSONW_WRITE(io, entry->key, Inv_RequestItem(entry->object_id));
+        JSONW_WRITE(io, entry->key, Inv_GetItemCount(entry->object_id));
     }
     JSONW_POP_AND_SET(io, "inventory");
 }
@@ -493,7 +458,10 @@ void SG_File_DumpFlipmaps(JSON_WRITE_IO *const io)
     JSONW_WRITE(io, "timer", Room_GetFlipTimer());
     JSONW_PUSH_ARRAY(io);
     for (int32_t i = 0; i < MAX_FLIP_MAPS; i++) {
-        JSONW_PUSH_VALUE(io, Room_GetFlipSlotFlags(i) >> 8);
+        const FLIP_SLOT *const slot = Room_GetFlipSlot(i);
+        const uint16_t flags = (slot->mask << TRIGGER_MASK_SHIFT)
+            | (slot->is_one_shot ? FSF_ONE_SHOT : 0);
+        JSONW_PUSH_VALUE(io, flags >> 8);
         JSONW_POP_AND_APPEND(io);
     }
     JSONW_POP_AND_SET(io, "table");
@@ -525,7 +493,7 @@ void SG_File_DumpMusic(JSON_WRITE_IO *const io)
     JSONW_PUSH_OBJECT(io);
     JSONW_PUSH_ARRAY(io);
     for (int32_t i = 0; i < track_flag_count; i++) {
-        JSONW_PUSH_VALUE(io, Music_GetTrackFlags(i));
+        JSONW_PUSH_VALUE(io, M_PackMusicTrackFlags(i));
         JSONW_POP_AND_APPEND(io);
     }
     JSONW_POP_AND_SET(io, "flags");
@@ -624,6 +592,13 @@ void SG_File_DumpLara(JSON_WRITE_IO *const io)
 
     JSONW_WRITE(io, "mesh_effects", lara->mesh_effects);
 
+    JSONW_PUSH_ARRAY(io);
+    for (int32_t i = 0; i < LM_NUMBER_OF; i++) {
+        JSONW_PUSH_VALUE(io, (int32_t)lara->wet[i]);
+        JSONW_POP_AND_APPEND(io);
+    }
+    JSONW_POP_AND_SET(io, "wet");
+
     JSONW_PUSH_OBJECT(io);
     JSONW_WRITE(io, "skin_type", Lara_Skin_GetType());
     JSONW_WRITE(io, "skin_is_default", Lara_Skin_IsDefaultType());
@@ -648,19 +623,10 @@ void SG_File_DumpLara(JSON_WRITE_IO *const io)
     M_WriteXYZ32(io, "last_pos", lara->last_pos);
     M_WriteArm(io, "left_arm", &lara->left_arm);
     M_WriteArm(io, "right_arm", &lara->right_arm);
-    M_WriteAmmo(io, "pistols", &lara->pistol_ammo);
-    M_WriteAmmo(io, "shotgun", &lara->shotgun_ammo);
-    M_WriteAmmo(io, "magnums", &lara->magnum_ammo);
-    M_WriteAmmo(io, "autos", &lara->autos_ammo);
-    M_WriteAmmo(io, "desert_eagle", &lara->desert_eagle_ammo);
-    M_WriteAmmo(io, "uzis", &lara->uzi_ammo);
-    M_WriteAmmo(io, "harpoon", &lara->harpoon_ammo);
-    M_WriteAmmo(io, "grenade", &lara->grenade_ammo);
-    M_WriteAmmo(io, "rocket", &lara->rocket_ammo);
-    M_WriteAmmo(io, "m16", &lara->m16_ammo);
-    M_WriteAmmo(io, "mp5", &lara->mp5_ammo);
-    M_WriteAmmo(io, "crossbow", &lara->crossbow_ammo);
-    M_WriteAmmo(io, "revolver", &lara->revolver_ammo);
+    for (const SAVEGAME_AMMO_ENTRY *entry = g_Savegame_WeaponAmmo;
+         entry->key != nullptr; entry++) {
+        M_WriteAmmo(io, entry->key, Inv_GetAmmo(entry->gun_type));
+    }
 
     if (lara->gun_item_num != NO_ITEM) {
         JSONW_PUSH_OBJECT(io);
@@ -708,7 +674,7 @@ void SG_File_DumpResumeInfoList(JSON_WRITE_IO *const io)
     JSONW_PUSH_ARRAY(io);
     for (int32_t i = 0; i < count; i++) {
         const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, i);
-        const RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
+        const RESUME_INFO *const resume = SG_Resume_GetEntry(level);
         JSONW_PUSH_OBJECT(io);
         M_WriteResumeInfo(io, resume);
         JSONW_POP_AND_APPEND(io);
@@ -716,10 +682,25 @@ void SG_File_DumpResumeInfoList(JSON_WRITE_IO *const io)
     JSONW_POP_AND_SET(io, "resume_info");
 }
 
+void SG_File_DumpRules(JSON_WRITE_IO *const io)
+{
+    JSONW_PUSH_OBJECT(io);
+    JSON_OBJECT *const rules = JSON_WriteIO_GetCurrentObject(io);
+    for (const RULE *rule = Rules_GetMap(); rule->name != nullptr; rule++) {
+        if (Value_EqualPtr(rule->type, rule->target, rule->default_value)) {
+            continue;
+        }
+        TRX_VALUE value = {};
+        Value_ReadPtr(rule->type, rule->target, &value);
+        JSONValue_Write(rules, rule->name, rule->type, nullptr, &value);
+    }
+    JSONW_POP_AND_SET_NZ(io, "rules");
+}
+
 void SG_File_DumpMisc(JSON_WRITE_IO *const io)
 {
     const GF_LEVEL *const level = Game_GetCurrentLevel();
-    const RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
+    const RESUME_INFO *const resume = SG_Resume_GetEntry(level);
 
     JSONW_PUSH_OBJECT(io);
     JSONW_WRITE(io, "game_version", g_TRXVersion);
@@ -730,9 +711,10 @@ void SG_File_DumpMisc(JSON_WRITE_IO *const io)
     JSONW_WRITE(io, "rng_control_seed", Random_GetControlSeed());
     JSONW_WRITE(io, "rng_draw_seed", Random_GetDrawSeed());
     JSONW_WRITE(io, "weather_type", FX_Weather_GetWeather());
+    JSONW_WRITE(io, "cutscenes_played", CutSeq_GetPlayedMask());
     JSONW_POP_AND_SET(io, "misc");
 
     JSONW_WRITE(io, "level_title", level->title != nullptr ? level->title : "");
-    JSONW_WRITE(io, "save_counter", Savegame_GetCounter());
+    JSONW_WRITE(io, "save_counter", SG_Manager_GetCounter());
     JSONW_WRITE(io, "level_num", level->num);
 }

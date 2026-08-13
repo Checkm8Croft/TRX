@@ -12,6 +12,7 @@
 #include <trx/game/matrix.h>
 #include <trx/game/music.h>
 #include <trx/game/objects.h>
+#include <trx/game/objects/general/save_crystal.h>
 #include <trx/game/objects/names.h>
 #include <trx/game/output/state.h>
 #include <trx/game/overlay.h>
@@ -86,8 +87,7 @@ static void M_HandleRequestedObject(INV_RING *const ring)
 
     for (int32_t i = 0; i < ring->number_of_objects; i++) {
         const OBJECT_ID object_id = ring->list[i]->object_id;
-        if (object_id == m_RequestedObjectID
-            && Inv_RequestItem(object_id) > 0) {
+        if (object_id == m_RequestedObjectID && Inv_HasItem(object_id)) {
             ring->current_object = i;
             break;
         }
@@ -178,6 +178,16 @@ static void M_MotionItemDeselect(
     motion->item_y_trans_rate = -(inv_item->y_trans_sel / ring->status_frames);
     motion->item_z_trans_target = 0;
     motion->item_z_trans_rate = -(inv_item->z_trans_sel / ring->status_frames);
+}
+
+// The crystal's tint follows the save crystal mode, so it cannot be baked into
+// inv_ring.json5.
+static uint32_t M_GetIdleMeshes(const INVENTORY_ITEM *const inv_item)
+{
+    if (inv_item->object_id == O_SAVE_CRYSTAL_OPTION) {
+        return SaveCrystal_GetMeshBits(O_SAVE_CRYSTAL_OPTION, -1);
+    }
+    return inv_item->meshes_sel;
 }
 
 void InvRing_AdjustMusicVolume(const INV_RING *const ring)
@@ -279,7 +289,7 @@ void InvRing_InitRing(
 
 void InvRing_InitInvItem(INVENTORY_ITEM *const inv_item)
 {
-    inv_item->meshes_drawn = inv_item->meshes_sel;
+    inv_item->meshes_drawn = M_GetIdleMeshes(inv_item);
     inv_item->current_frame = 0;
     inv_item->goal_frame = 0;
     inv_item->manual_rot = g_IDMatrix;
@@ -576,6 +586,10 @@ void InvRing_SelectMeshes(INVENTORY_ITEM *const inv_item)
         }
         break;
 
+    case O_SAVE_CRYSTAL_OPTION:
+        inv_item->meshes_drawn = M_GetIdleMeshes(inv_item);
+        break;
+
     default:
         inv_item->meshes_drawn = -1;
         break;
@@ -588,9 +602,18 @@ void InvRing_ShowItemName(const INVENTORY_ITEM *const inv_item)
         || inv_item->object_id == O_GLOBE_SELECT_OPTION) {
         return;
     }
+
+    OBJECT_ID object_id = inv_item->object_id;
+    // In the save pickup mode the crystal in the inventory is the savegame
+    // crystal Lara picked up, rather than a plain collectible.
+    if (object_id == O_SAVE_CRYSTAL_OPTION
+        && g_Config.gameplay.save_crystal_mode == SAVE_CRYSTAL_SAVE_PICKUP) {
+        object_id = O_SAVE_CRYSTAL_ITEM;
+    }
+
     Overlay_SetBottomText((OVERLAY_TEXT) {
         .kind = UI_OVERLAY_TEXT_OBJECT_NAME,
-        .object_id = inv_item->object_id,
+        .object_id = object_id,
         .fmt_gs_key = GS_ID("general/inventory_ring/object_name_fmt"),
     });
 }

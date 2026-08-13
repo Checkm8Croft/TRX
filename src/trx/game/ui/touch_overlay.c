@@ -2,6 +2,7 @@
 
 #include <trx/config.h>
 #include <trx/core/colors.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/utils.h>
 #include <trx/game/game/state.h>
 #include <trx/game/input/backends/touch.h>
@@ -57,6 +58,12 @@
 #define M_SPRITE_PAUSE 791
 #define M_SPRITE_BULLET 792
 #define M_SPRITE_SWIM 793
+
+#define M_NUM_BUTTON_DEFS ((int32_t)ARRAY_SIZE(m_ButtonDefs))
+#define M_MAX_BUTTONS M_NUM_BUTTON_DEFS
+
+// D-pad expands its single def into four positions; all other defs map 1:1.
+#define M_NUM_POSITIONS (M_POS_BUTTON_BASE + M_NUM_BUTTON_DEFS - 1)
 
 typedef enum {
     M_ANCHOR_BOTTOM_LEFT,
@@ -124,12 +131,6 @@ static const M_TOUCH_BUTTON_DEF m_ButtonDefs[] = {
     { .role = INPUT_ROLE_PAUSE,       .anchor = M_ANCHOR_TOP_CENTER,   .offset_x = 0.05f, .offset_y = 0.04f, .radius = 0.03f },
 };
 // clang-format on
-
-#define M_NUM_BUTTON_DEFS ((int32_t)ARRAY_SIZE(m_ButtonDefs))
-#define M_MAX_BUTTONS M_NUM_BUTTON_DEFS
-
-// D-pad expands its single def into four positions; all other defs map 1:1.
-#define M_NUM_POSITIONS (M_POS_BUTTON_BASE + M_NUM_BUTTON_DEFS - 1)
 
 static bool m_Visible = false;
 static M_TOUCH_BUTTON m_Buttons[M_MAX_BUTTONS];
@@ -654,6 +655,14 @@ static void M_HandleFingerUp(const SDL_TouchFingerEvent *const ev)
     M_SyncButtonStates();
 }
 
+static void M_ApplyConfig(void)
+{
+    if (Config_IsFirstRun() && Touch_HasHardwareSupport()) {
+        CONFIG_SET(g_Config.input.enable_touch_controls, true);
+    }
+    TouchOverlay_SetVisible(g_Config.input.enable_touch_controls);
+}
+
 bool TouchOverlay_HasAnyFingerDown(void)
 {
     if (m_SelectionMode) {
@@ -803,3 +812,5 @@ int32_t TouchOverlay_GetSelectedPosition(void)
     m_SelectedPosition = -1;
     return pos;
 }
+
+REGISTER_SUBSYSTEM(.apply_config = M_ApplyConfig)

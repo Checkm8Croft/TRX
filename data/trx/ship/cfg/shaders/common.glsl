@@ -41,9 +41,11 @@ layout(std140) uniform Globals {
     float uMinShade;
     int uBillboardLockMode;
     int uLightingEnabled; // bool
+    int uStaticLightingEnabled; // bool
     int uTrapezoidFilterEnabled; // bool
     int uReflectionsEnabled; // bool
     int uTexturesEnabled; // bool
+    int uVertexSnapEnabled; // bool
     int uTRVersion;
     float uUVRotateOffset;
 };

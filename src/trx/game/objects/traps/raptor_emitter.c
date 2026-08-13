@@ -2,7 +2,6 @@
 #include <trx/core/json/util/write_io.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects.h>
-#include <trx/game/pathing.h>
 
 #define M_MAX_SLOTS 3
 
@@ -23,21 +22,14 @@ static void M_SpawnRaptor(const ITEM *const spawner_item, int32_t slot_idx)
         Item_GetAnim(raptor_item)->current_anim_state;
     raptor_item->goal_anim_state = raptor_item->current_anim_state;
     raptor_item->required_anim_state = 0;
-    raptor_item->flags &= ~(IF_INVISIBLE | IF_KILLED | 3); // 3?
+    raptor_item->is_destroyed = false;
+    raptor_item->trigger.spent = false;
     raptor_item->creature_data = nullptr;
     raptor_item->hit_points = raptor_item->max_hit_points;
     raptor_item->mesh_bits = -1;
-    raptor_item->status = IS_ACTIVE;
-    raptor_item->collidable = true;
+    raptor_item->is_collidable = true;
 
-    if (raptor_item->active) {
-        Item_RemoveActive(p->slots[slot_idx]);
-    }
-
-    Item_AddActive(p->slots[slot_idx]);
-    Item_UpdateRoom(p->slots[slot_idx], NO_ITEM);
-    Item_UpdateRoom(p->slots[slot_idx], spawner_item->room_num);
-    LOT_EnableBaddieAI(p->slots[slot_idx], true);
+    Item_Respawn(p->slots[slot_idx], spawner_item->room_num);
 }
 
 static void M_PopulateSlots(M_PRIV *const p)
@@ -56,11 +48,23 @@ static void M_PopulateSlots(M_PRIV *const p)
     }
 }
 
+// A level with fewer than M_MAX_SLOTS raptors to modify leaves the tail of
+// the slots at NO_ITEM.
+static const ITEM *M_GetRaptorItem(
+    const M_PRIV *const p, const int32_t slot_idx)
+{
+    const int16_t item_num = p->slots[slot_idx];
+    return item_num == NO_ITEM ? nullptr : Item_Get(item_num);
+}
+
+// A dead raptor gives its AI slot up at once, well before the body it leaves
+// has finished fading, so the fade is what says the slot is free to reuse.
 static int32_t M_GetEmptySlot(const M_PRIV *const p)
 {
     for (int32_t i = 0; i < M_MAX_SLOTS; i++) {
-        const ITEM *const item = Item_Get(p->slots[i]);
-        if (item->creature_data == nullptr) {
+        const ITEM *const item = M_GetRaptorItem(p, i);
+        if (item != nullptr && item->creature_data == nullptr
+            && !Item_IsFading(item)) {
             return i;
         }
     }
@@ -92,7 +96,7 @@ static void M_Initialise(const int16_t item_num)
 static void M_Control(int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
-    if (!item->active || item->timer <= 0) {
+    if (!item->is_simulated || item->timer <= 0) {
         return;
     }
 

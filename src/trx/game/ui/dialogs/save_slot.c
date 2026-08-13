@@ -7,6 +7,7 @@
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/input.h>
 #include <trx/game/inventory.h>
+#include <trx/game/inventory_ring/vars.h>
 #include <trx/game/savegame.h>
 #include <trx/game/ui/common.h>
 #include <trx/game/ui/dialogs/base_passport.h>
@@ -26,6 +27,7 @@
 #include <trx/version.h>
 
 #define M_IMMEDIATE (g_TRVersion >= 2)
+#define M_FOOTER_SPACING 3.0f
 
 typedef enum {
     M_PHASE_BROWSE,
@@ -48,6 +50,12 @@ static const GAME_STRING_ID m_DeleteConfirmOptions[2] = {
     GS_ID("general/passport/delete_save_yes"),
     GS_ID("general/passport/delete_save_no"),
 };
+
+// The delete button under the list, and the gap above it.
+static float M_GetFooterHeight(void)
+{
+    return M_FOOTER_SPACING + UI_ProgressButton_GetHeight();
+}
 
 static void M_NonEmptySlot(
     const UI_SAVE_SLOT_DIALOG_STATE *const s, const SAVEGAME_SLOT_REF slot,
@@ -106,7 +114,7 @@ static void M_EmptySlot(
 
 static void M_ConfirmDeleteDialog(const UI_SAVE_SLOT_DIALOG_STATE *const s)
 {
-    UI_BeginModal(0.5f, g_Inv_Mode == INV_TITLE_MODE ? 0.69f : 0.55f);
+    UI_BeginModal(0.5f, g_InvRing_Mode == INV_TITLE_MODE ? 0.69f : 0.55f);
     UI_BeginPad(50.0f, 50.0f);
     UI_BeginWindow((UI_WINDOW_SETTINGS) {
         .title = GS("general/passport/delete_save_confirm"),
@@ -129,8 +137,8 @@ static void M_ConfirmDeleteDialog(const UI_SAVE_SLOT_DIALOG_STATE *const s)
 
 static int32_t M_GetTotalSlots(void)
 {
-    return Savegame_GetSlotCount(SAVEGAME_SLOT_POOL_QUICK)
-        + Savegame_GetSlotCount(SAVEGAME_SLOT_POOL_NORMAL);
+    return SG_Manager_GetSlotCount(SAVEGAME_SLOT_POOL_QUICK)
+        + SG_Manager_GetSlotCount(SAVEGAME_SLOT_POOL_NORMAL);
 }
 
 static SAVEGAME_SLOT_REF M_MapRowToSlot(
@@ -138,7 +146,7 @@ static SAVEGAME_SLOT_REF M_MapRowToSlot(
 {
     ASSERT(s != nullptr);
     if (row < 0 || row >= s->row_count || s->rows == nullptr) {
-        return Savegame_InvalidSlot();
+        return SG_Manager_InvalidSlot();
     }
     return s->rows[row];
 }
@@ -149,22 +157,22 @@ static void M_BuildRows(UI_SAVE_SLOT_DIALOG_STATE *const s)
     s->rows = Memory_Alloc(sizeof(SAVEGAME_SLOT_REF) * max_row_count);
     s->row_count = 0;
 
-    const int32_t quick_visual_count = Savegame_GetQuickVisualCount();
+    const int32_t quick_visual_count = SG_Manager_GetQuickVisualCount();
     for (int32_t i = 0; i < quick_visual_count; i++) {
-        const SAVEGAME_SLOT_REF slot = Savegame_QuickFromVisualIndex(i);
-        if (Savegame_IsValidSlotRef(slot)) {
+        const SAVEGAME_SLOT_REF slot = SG_Manager_QuickFromVisualIndex(i);
+        if (SG_Manager_IsValidSlotRef(slot)) {
             s->rows[s->row_count++] = slot;
         }
     }
 
     const int32_t normal_slot_count =
-        Savegame_GetSlotCount(SAVEGAME_SLOT_POOL_NORMAL);
+        SG_Manager_GetSlotCount(SAVEGAME_SLOT_POOL_NORMAL);
     for (int32_t i = 0; i < normal_slot_count; i++) {
-        s->rows[s->row_count++] = Savegame_NormalSlot(i);
+        s->rows[s->row_count++] = SG_Manager_NormalSlot(i);
     }
 
     if (s->row_count == 0) {
-        s->rows[s->row_count++] = Savegame_InvalidSlot();
+        s->rows[s->row_count++] = SG_Manager_InvalidSlot();
     }
 }
 
@@ -175,14 +183,14 @@ static void M_RebuildRows(
     UI_Requester_Free(&s->req);
     Memory_FreePointer(&s->rows);
     M_BuildRows(s);
-    UI_BasePassportDialog_Init(&s->req, s->row_count);
+    UI_BasePassportDialog_Init(&s->req, s->row_count, M_GetFooterHeight());
     CLAMP(selected_row, 0, s->row_count - 1);
     UI_Requester_SelectRow(&s->req, selected_row);
 }
 
 static bool M_IsSlotDeletable(const SAVEGAME_SLOT_REF slot)
 {
-    return Savegame_IsValidSlotRef(slot) && !Savegame_IsSlotFree(slot);
+    return SG_Manager_IsValidSlotRef(slot) && !SG_Manager_IsSlotFree(slot);
 }
 
 static void M_BeginDeleteConfirmButton(void *const arg)
@@ -226,7 +234,7 @@ UI_SAVE_SLOT_DIALOG_STATE *UI_SaveSlotDialog_Init(
     s->last_selected_row = -1;
 
     int32_t initial_row = 0;
-    if (Savegame_IsValidSlotRef(initial_slot)) {
+    if (SG_Manager_IsValidSlotRef(initial_slot)) {
         for (int32_t i = 0; i < s->row_count; i++) {
             if (s->rows[i].pool == initial_slot.pool
                 && s->rows[i].index == initial_slot.index) {
@@ -235,7 +243,7 @@ UI_SAVE_SLOT_DIALOG_STATE *UI_SaveSlotDialog_Init(
             }
         }
     }
-    UI_BasePassportDialog_Init(&s->req, s->row_count);
+    UI_BasePassportDialog_Init(&s->req, s->row_count, M_GetFooterHeight());
     UI_Requester_SelectRow(&s->req, initial_row);
     s->last_selected_row = initial_row;
     M_ResetDeleteButton(s);
@@ -274,12 +282,12 @@ UI_SAVE_SLOT_DIALOG_CHOICE UI_SaveSlotDialog_Control(
             M_ResetDeleteState(s);
             g_Input = (INPUT_STATE) {};
             g_InputDB = (INPUT_STATE) {};
-            if (!Savegame_Delete(slot)) {
+            if (!SG_Manager_Delete(slot)) {
                 return (UI_SAVE_SLOT_DIALOG_CHOICE) {
                     .action = UI_SAVE_SLOT_DIALOG_DELETE_FAILED,
                 };
             }
-            Savegame_ScanSavedGames();
+            SG_Manager_ScanSavedGames();
             M_RebuildRows(s, focused_row);
         }
         return (UI_SAVE_SLOT_DIALOG_CHOICE) {
@@ -304,7 +312,7 @@ UI_SAVE_SLOT_DIALOG_CHOICE UI_SaveSlotDialog_Control(
     }
     if (choice != UI_REQUESTER_NO_CHOICE) {
         const SAVEGAME_SLOT_REF slot = M_MapRowToSlot(s, sel_row);
-        if (!Savegame_IsValidSlotRef(slot)) {
+        if (!SG_Manager_IsValidSlotRef(slot)) {
             return (UI_SAVE_SLOT_DIALOG_CHOICE) {
                 .action = UI_SAVE_SLOT_DIALOG_NO_CHOICE,
             };
@@ -314,10 +322,10 @@ UI_SAVE_SLOT_DIALOG_CHOICE UI_SaveSlotDialog_Control(
             && slot.pool == SAVEGAME_SLOT_POOL_NORMAL;
         const bool is_valid_load_target =
             s->type == UI_SAVE_SLOT_DIALOG_LOAD_GAME
-            && !Savegame_IsSlotFree(slot);
+            && !SG_Manager_IsSlotFree(slot);
         const bool is_valid_generic_target =
             s->type == UI_SAVE_SLOT_DIALOG_GENERIC
-            && !Savegame_IsSlotFree(slot);
+            && !SG_Manager_IsSlotFree(slot);
 
         if (is_valid_save_target || is_valid_load_target
             || is_valid_generic_target) {
@@ -338,7 +346,7 @@ void UI_SaveSlotDialog(const UI_SAVE_SLOT_DIALOG_STATE *const s)
         M_MapRowToSlot(s, UI_Requester_GetCurrentRow(&s->req));
     const bool can_delete = M_IsSlotDeletable(selected_slot);
 
-    UI_BeginBasePassportDialog();
+    UI_BeginBasePassportDialog(&s->req);
     const char *title = nullptr;
     switch (s->type) {
     case UI_SAVE_SLOT_DIALOG_SAVE_GAME:
@@ -355,7 +363,7 @@ void UI_SaveSlotDialog(const UI_SAVE_SLOT_DIALOG_STATE *const s)
     UI_BeginStackEx((UI_STACK_SETTINGS) {
         .orientation = UI_STACK_VERTICAL,
         .align = { .h = UI_STACK_H_ALIGN_SPAN },
-        .spacing = { .v = 3.0f },
+        .spacing = { .v = M_FOOTER_SPACING },
     });
     UI_BeginRequester(&s->req, title);
 
@@ -364,8 +372,8 @@ void UI_SaveSlotDialog(const UI_SAVE_SLOT_DIALOG_STATE *const s)
     for (int32_t i = first; i < last; ++i) {
         UI_BeginRequesterRow(&s->req, i);
         const SAVEGAME_SLOT_REF slot = M_MapRowToSlot(s, i);
-        const SAVEGAME_INFO *const info = Savegame_GetSavegameInfo(slot);
-        if (Savegame_IsValidSlotRef(slot) && info != nullptr
+        const SAVEGAME_INFO *const info = SG_Manager_GetSavegameInfo(slot);
+        if (SG_Manager_IsValidSlotRef(slot) && info != nullptr
             && info->level_title != nullptr) {
             M_NonEmptySlot(s, slot, info);
         } else {

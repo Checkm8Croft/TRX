@@ -2,6 +2,7 @@
 
 #include <trx/config.h>
 #include <trx/game/camera.h>
+#include <trx/game/cutseq.h>
 #include <trx/game/game.h>
 #include <trx/game/input.h>
 #include <trx/game/lara.h>
@@ -76,6 +77,10 @@ void Camera_SetChunky(const bool is_chunky)
 
 void Camera_Initialise(void)
 {
+    if (Lara_GetItem() == nullptr) {
+        return;
+    }
+
     m_IsInitialised = false;
     Camera_Binoculars_Reset();
     g_Camera.fov = Viewport_GetEffectiveFOV();
@@ -114,7 +119,7 @@ void Camera_Reset(void)
 {
     g_Camera.mic_pos.room_num = NO_ROOM;
     g_Camera.pos.room_num = NO_ROOM;
-    Camera_FlybyMode_Deactivate();
+    Camera_FlybyMode_Reset();
 }
 
 void Camera_ApplyBounce(void)
@@ -124,17 +129,31 @@ void Camera_ApplyBounce(void)
         g_Camera.target.y += g_Camera.bounce;
         g_Camera.bounce = 0;
     } else if (g_Camera.bounce < 0) {
-        const XYZ_32 shake = {
-            .x = g_Camera.bounce * (Random_GetControl() - 0x4000) / 0x7FFF,
-            .y = g_Camera.bounce * (Random_GetControl() - 0x4000) / 0x7FFF,
-            .z = g_Camera.bounce * (Random_GetControl() - 0x4000) / 0x7FFF,
-        };
-        g_Camera.pos.x += shake.x;
-        g_Camera.pos.y += shake.y;
-        g_Camera.pos.z += shake.z;
-        g_Camera.target.y += shake.x;
-        g_Camera.target.y += shake.y;
-        g_Camera.target.z += shake.z;
+        if (g_Config.visuals.camera_mode == CAMERA_MODE_TR4) {
+            const int32_t rnd = ABS(g_Camera.bounce);
+            const int32_t shift = rnd >> 1;
+            const XYZ_32 shake = {
+                .x = (Random_GetControl() % rnd) - shift,
+                .y = (Random_GetControl() % rnd) - shift,
+                .z = (Random_GetControl() % rnd) - shift,
+            };
+            g_Camera.target.x += shake.x;
+            g_Camera.target.y += shake.y;
+            g_Camera.target.z += shake.z;
+        } else {
+            const XYZ_32 shake = {
+                .x = g_Camera.bounce * (Random_GetControl() - 0x4000) / 0x7FFF,
+                .y = g_Camera.bounce * (Random_GetControl() - 0x4000) / 0x7FFF,
+                .z = g_Camera.bounce * (Random_GetControl() - 0x4000) / 0x7FFF,
+            };
+            g_Camera.pos.x += shake.x;
+            g_Camera.pos.y += shake.y;
+            g_Camera.pos.z += shake.z;
+            g_Camera.target.y +=
+                shake.x; // OG bug; using target.x alters behavior considerably
+            g_Camera.target.y += shake.y;
+            g_Camera.target.z += shake.z;
+        }
         g_Camera.bounce += 5;
     }
 }
@@ -166,7 +185,11 @@ void Camera_Update(void)
     }
 
     if (g_Camera.type == CAM_CINEMATIC) {
-        Camera_LoadCutsceneFrame();
+        if (CutSeq_IsPlaying()) {
+            CutSeq_UpdateCamera();
+        } else {
+            Camera_LoadCutsceneFrame();
+        }
         Camera_EnsureEnvironment();
         return;
     }
@@ -190,6 +213,12 @@ void Camera_Update(void)
     const bool fixed_camera = g_Camera.item != nullptr
         && (g_Camera.type == CAM_FIXED || g_Camera.type == CAM_HEAVY);
     const ITEM *const item = fixed_camera ? g_Camera.item : Lara_GetItem();
+    // A title level running behind the menu need not hold Lara, and there is
+    // nothing for the camera to follow without her. It stays where it is.
+    if (item == nullptr) {
+        Camera_EnsureEnvironment();
+        return;
+    }
 
     const BOUNDS_16 *const bounds = Item_GetBoundsAccurate(item);
     int32_t y = item->pos.y;

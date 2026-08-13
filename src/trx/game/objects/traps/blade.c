@@ -23,6 +23,10 @@ typedef enum {
     // clang-format on
 } M_ANIM;
 
+typedef struct {
+    int32_t damage;
+} M_PRIV;
+
 static void M_Initialise(const int16_t item_num)
 {
     const OBJECT *const obj = Object_Get(O_BLADE);
@@ -38,8 +42,7 @@ static void M_Stop(ITEM *const item)
         const ANIM *const anim = Item_GetAnim(item);
         if (!Item_IsTriggerActive(item) && anim->jump_anim_num == item->anim_num
             && Item_TestFrameEqual(item, -1)) {
-            item->status = IS_INACTIVE;
-            Item_RemoveActive(Item_GetIndex(item));
+            Item_RemoveSimulated(Item_GetIndex(item));
             return;
         }
     }
@@ -47,19 +50,10 @@ static void M_Stop(ITEM *const item)
     item->goal_anim_state = M_STATE_STOP;
 }
 
-static int32_t M_GetDamage(const ITEM *const item)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, "damage", &damage)) {
-        return damage.as_int;
-    }
-
-    return M_DEFAULT_DAMAGE;
-}
-
 static void M_Control(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
+    const M_PRIV *const p = item->priv;
 
     if (Item_IsTriggerActive(item)
         && item->current_anim_state == M_STATE_STOP) {
@@ -70,7 +64,7 @@ static void M_Control(const int16_t item_num)
 
     if ((item->touch_bits & M_TOUCH_BITS) != 0
         && item->current_anim_state == M_STATE_CUT) {
-        Lara_TakeDamage(M_GetDamage(item), true);
+        Lara_TakeDamage(p->damage, true);
 
         const ITEM *const lara_item = Lara_GetItem();
         Spawn_BloodBath(
@@ -83,6 +77,7 @@ static void M_Control(const int16_t item_num)
 
 static void M_Setup(OBJECT *const obj)
 {
+    obj->priv_size = sizeof(M_PRIV);
     obj->initialise_func = M_Initialise;
     obj->control_func = M_Control;
     obj->collision_func = Object_Collision_Trap;
@@ -90,8 +85,8 @@ static void M_Setup(OBJECT *const obj)
     obj->save_anim = true;
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_INT(
-            "damage", M_DEFAULT_DAMAGE,
+        OBJECT_PROPERTY(
+            M_PRIV, damage, M_DEFAULT_DAMAGE,
             "Damage dealt while Lara is touching the blade trap."));
 }
 

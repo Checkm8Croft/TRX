@@ -150,6 +150,7 @@ static void M_AddRoomFace(
             .normal = normal,
             .flags = flags,
             .uvw_idx = Output_Textures_GetObjectUVWIndex(face->texture_idx, i),
+            .reflectivity = 1.0f,
             .shade = room_vert->light_base,
             .light_table_idx = room_vert->light_table_value,
             .color = room_vert->color,
@@ -256,7 +257,7 @@ void OutputSource_Rooms_ObserveLevelUnload(void)
 void OutputSource_Rooms_ObserveRoomFlip(const ROOM *const room)
 {
     if (room->flip_status == RFS_UNFLIPPED && room->flipped_room != NO_ROOM) {
-        const int16_t room_1 = Room_GetNumber(room);
+        const int16_t room_1 = Room_GetIndex(room);
         const int16_t room_2 = room->flipped_room;
         SWAP(m_Priv.meshes[room_1], m_Priv.meshes[room_2]);
     }
@@ -265,7 +266,7 @@ void OutputSource_Rooms_ObserveRoomFlip(const ROOM *const room)
 void OutputSource_Rooms_StageRoom(const ROOM *const room)
 {
     M_PRIV *const p = &m_Priv;
-    OUTPUT_MESH *const mesh = p->meshes[Room_GetNumber(room)];
+    OUTPUT_MESH *const mesh = p->meshes[Room_GetIndex(room)];
     const OUTPUT_ROOM_BIND *const bind = Output_Bind_GetRoom(room);
     const MESH_INSTANCE inst = {
         .mesh = mesh,

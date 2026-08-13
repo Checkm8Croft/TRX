@@ -1,7 +1,9 @@
 #include <trx/config.h>
 #include <trx/core/log.h>
+#include <trx/game/clock.h>
 #include <trx/game/game_strings/manager.h>
 #include <trx/game/gun/misc.h>
+#include <trx/game/input.h>
 #include <trx/game/lara.h>
 #include <trx/game/music.h>
 #include <trx/game/option/controls.h>
@@ -126,17 +128,17 @@ void Shell_SyncFromWindow(const bool update_viewport)
 
     // Update config only when not in debounce window
     if (!skip_config) {
-        g_Config.window.is_maximized = is_maximized;
+        CONFIG_SET(g_Config.window.is_maximized, is_maximized);
         if (!is_maximized && !g_Config.window.is_fullscreen) {
-            g_Config.window.x = x;
-            g_Config.window.y = y;
-            g_Config.window.width = width;
-            g_Config.window.height = height;
+            CONFIG_SET(g_Config.window.x, x);
+            CONFIG_SET(g_Config.window.y, y);
+            CONFIG_SET(g_Config.window.width, width);
+            CONFIG_SET(g_Config.window.height, height);
         } else {
-            g_Config.window.fs_width = width;
-            g_Config.window.fs_height = height;
+            CONFIG_SET(g_Config.window.fs_width, width);
+            CONFIG_SET(g_Config.window.fs_height, height);
         }
-        if (g_Config.loaded) {
+        if (Config_IsLoaded()) {
             m_IgnoreConfigChanges = true;
             Config_Update();
             m_IgnoreConfigChanges = false;
@@ -149,13 +151,15 @@ void Shell_SyncFromWindow(const bool update_viewport)
     }
 }
 
-void Shell_HandleConfigChange(const CONFIG *const old, const CONFIG *const new)
+void Shell_HandleConfigChange(const CONFIG_CHANGE *const change)
 {
-    if (!TestReplay_IsOpened()) {
+    // A hold going on or coming off moves a setting without the player having
+    // chosen anything, so there is nothing new to write down.
+    if (change->persist && !TestReplay_IsOpened()) {
         Config_Write();
     }
 
-#define L_CHANGED(subject) (old->subject != new->subject)
+#define L_CHANGED(subject) Config_Change_HasMirror(change, &g_Config.subject)
 
     if (L_CHANGED(audio.sound_volume)) {
         Sound_SetMasterVolume(g_Config.audio.sound_volume);
@@ -172,8 +176,9 @@ void Shell_HandleConfigChange(const CONFIG *const old, const CONFIG *const new)
     if (L_CHANGED(window.is_fullscreen) || L_CHANGED(window.is_maximized)
         || L_CHANGED(window.width) || L_CHANGED(window.height)
         || L_CHANGED(window.fs_width) || L_CHANGED(window.fs_height)
-        || L_CHANGED(rendering.upscaling_factor) || L_CHANGED(rendering.borders)
-        || L_CHANGED(rendering.aspect_mode)) {
+        || L_CHANGED(rendering.upscaling_factor)
+        || L_CHANGED(rendering.supersampling_factor)
+        || L_CHANGED(rendering.borders) || L_CHANGED(rendering.aspect_mode)) {
         if (!m_IgnoreConfigChanges) {
             Shell_SyncToWindow();
         }
@@ -181,10 +186,8 @@ void Shell_HandleConfigChange(const CONFIG *const old, const CONFIG *const new)
     }
 
     if (L_CHANGED(visuals.fog_start) || L_CHANGED(visuals.fog_end)
-        || L_CHANGED(visuals.fog_color.g) || L_CHANGED(visuals.fog_color.b)
-        || L_CHANGED(visuals.fog_color.r) || L_CHANGED(visuals.fog_transparency)
-        || L_CHANGED(visuals.water_color.g) || L_CHANGED(visuals.water_color.b)
-        || L_CHANGED(visuals.water_color.r)) {
+        || L_CHANGED(visuals.fog_color) || L_CHANGED(visuals.fog_transparency)
+        || L_CHANGED(visuals.water_color)) {
         Output_ApplyLevelSettings();
     }
 
@@ -201,6 +204,8 @@ void Shell_HandleConfigChange(const CONFIG *const old, const CONFIG *const new)
     }
 
     if (L_CHANGED(rendering.upscaling_filter)
+        || L_CHANGED(rendering.multisampling_factor)
+        || L_CHANGED(rendering.enable_dithering)
         || L_CHANGED(rendering.enable_wireframe)
         || L_CHANGED(rendering.wireframe_width)
         || L_CHANGED(rendering.enable_vsync)
@@ -216,15 +221,26 @@ void Shell_HandleConfigChange(const CONFIG *const old, const CONFIG *const new)
 
     if ((L_CHANGED(gameplay.maximum_save_slots)
          || L_CHANGED(gameplay.maximum_quick_save_slots))
-        && Savegame_IsInitialised()) {
-        Savegame_Shutdown();
-        Savegame_Init();
-        Savegame_ScanSavedGames();
+        && SG_Manager_IsInitialised()) {
+        SG_Manager_ResizeSlots();
+        SG_Manager_ScanSavedGames();
     }
 
     if (L_CHANGED(input.enable_touch_controls)) {
-        TouchOverlay_SetVisible(new->input.enable_touch_controls);
+        TouchOverlay_SetVisible(g_Config.input.enable_touch_controls);
         Option_Controls_RefreshBackendPicker();
+    }
+
+    if (L_CHANGED(input.enable_controller)) {
+        Input_Discover();
+        Option_Controls_RefreshBackendPicker();
+    }
+
+    // The frame pacing reads the multiplier live, but the sim-time clock caches
+    // its own speed and has to be re-anchored, or writing turbo_speed leaves
+    // sim time running at the old rate until the next flow transition.
+    if (L_CHANGED(gameplay.turbo_speed)) {
+        Clock_SetSimSpeed(Clock_GetSpeedMultiplier());
     }
 #undef L_CHANGED
 }

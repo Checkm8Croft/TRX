@@ -1,5 +1,6 @@
 #include <trx/game/objects/vehicles/skidoo_common.h>
 
+#include <trx/config.h>
 #include <trx/core/math.h>
 #include <trx/core/utils.h>
 #include <trx/game/collision.h>
@@ -112,8 +113,8 @@ static bool M_IsArmed(const SKIDOO_INFO *const skidoo_data)
 
 static bool M_CheckBaddieCollision(ITEM *const item, ITEM *const skidoo)
 {
-    if (!item->collidable || item->status == IS_INVISIBLE
-        || item == Lara_GetItem() || item == skidoo) {
+    if (!item->is_collidable || !item->is_visible || item == Lara_GetItem()
+        || item == skidoo) {
         return false;
     }
 
@@ -139,7 +140,7 @@ static bool M_CheckBaddieCollision(ITEM *const item, ITEM *const skidoo)
             Lara_TakeDamage(100, true);
         }
     } else if (
-        obj->intelligent && item->status == IS_ACTIVE
+        obj->intelligent && Item_IsInPlay(item)
         && (Item_IsTargetable(item) || item->hit_points == 0)) {
         if (Item_ShouldSpawnBlood(item)) {
             Spawn_BloodBath(
@@ -147,7 +148,7 @@ static bool M_CheckBaddieCollision(ITEM *const item, ITEM *const skidoo)
                 skidoo->rot.y, item->room_num, 3);
         }
         if (item->hit_points > 0) {
-            Item_TakeDamage(item, item->hit_points, IDF_NO_HIT_STATUS, skidoo);
+            Item_TakeFatalDamage(item, skidoo);
         }
     }
     return true;
@@ -168,11 +169,6 @@ void Skidoo_Initialise(const int16_t item_num)
     skidoo_data->momentum_angle = item->rot.y;
     skidoo_data->track_mesh = 0;
     skidoo_data->pitch = 0;
-
-    OBJECT_PROPERTY_VALUE value = {};
-    if (ObjectProperty_GetItemValue(item, "test_static_collision", &value)) {
-        skidoo_data->test_static_collision = value.as_bool;
-    }
 }
 
 int32_t Skidoo_CheckGetOn(const int16_t item_num, COLL_INFO *const coll)
@@ -411,7 +407,7 @@ int32_t Skidoo_Dynamics(ITEM *const skidoo)
         .x = skidoo->pos.x,
         .z = skidoo->pos.z,
     };
-    if (!(skidoo->flags & IF_ONE_SHOT)) {
+    if (!skidoo->trigger.spent) {
         Skidoo_BaddieCollision(skidoo);
     }
 
@@ -702,7 +698,7 @@ void Skidoo_Explode(const ITEM *const skidoo)
         effect->object_id = O_EXPLOSION_1;
     }
 
-    Item_Explode(Item_GetIndex(skidoo), ~(SKIDOO_GUN_MESH - 1), 0);
+    Item_Shatter(Item_GetIndex(skidoo), ~(SKIDOO_GUN_MESH - 1), 0);
     Sound_Effect(SFX_EXPLOSION_1, nullptr, SPM_NORMAL);
     Lara_Vehicle_SetIndex(NO_ITEM);
 }
@@ -741,8 +737,14 @@ bool Skidoo_CheckGetOff(void)
         Item_SwitchToAnim(lara_item, LA(LA_FREEFALL), 0);
         lara_item->current_anim_state = M_STATE_GET_OFF_R;
         if (skidoo->pos.y == skidoo->floor) {
-            lara_item->goal_anim_state = M_STATE_STILL;
-            lara_item->fall_speed = DAMAGE_START + DAMAGE_LENGTH;
+            if (g_Config.debug.enable_invulnerability) {
+                lara_item->goal_anim_state = LS(LS_STOP);
+                lara_item->current_anim_state = LS(LS_STOP);
+                Item_SwitchToAnim(lara_item, LA(LA_FREEFALL_LAND), 0);
+            } else {
+                lara_item->goal_anim_state = M_STATE_STILL;
+                lara_item->fall_speed = DAMAGE_START + DAMAGE_LENGTH;
+            }
             lara_item->speed = 0;
             Skidoo_Explode(skidoo);
         } else {
@@ -750,15 +752,17 @@ bool Skidoo_CheckGetOff(void)
             lara_item->pos.y -= 200;
             lara_item->fall_speed = skidoo->fall_speed;
             lara_item->speed = skidoo->speed;
-            Sound_Effect(SFX_LARA_FALL, &lara_item->pos, SPM_NORMAL);
+            if (!g_Config.debug.enable_invulnerability) {
+                Sound_Effect(SFX_LARA_FALL, &lara_item->pos, SPM_NORMAL);
+            }
         }
         lara_item->rot.x = 0;
         lara_item->rot.z = 0;
         lara_item->gravity = true;
         lara->gun_status = LGS_ARMLESS;
         lara->move_angle = skidoo->rot.y;
-        skidoo->flags |= IF_ONE_SHOT;
-        skidoo->collidable = 0;
+        skidoo->trigger.spent = true;
+        skidoo->is_collidable = 0;
         return false;
     }
 
@@ -825,7 +829,7 @@ bool Skidoo_Control(void)
 
     int32_t drive;
     int32_t pitch;
-    if (skidoo->flags & IF_ONE_SHOT) {
+    if (skidoo->trigger.spent) {
         drive = 0;
         collide = 0;
     } else {
@@ -882,7 +886,7 @@ bool Skidoo_Control(void)
     Room_GetSector(
         (XYZ_32) { skidoo->pos.x, skidoo->pos.y - 16, skidoo->pos.z },
         &room_num);
-    if (skidoo->flags & IF_ONE_SHOT) {
+    if (skidoo->trigger.spent) {
         Vehicle_TestTriggers(lara_item, skidoo);
         Item_UpdateRoom(Item_GetIndex(skidoo), room_num);
         if (skidoo->pos.y == skidoo->floor) {

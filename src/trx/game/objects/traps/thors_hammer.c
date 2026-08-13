@@ -60,7 +60,7 @@ static bool M_ShouldKillLara(const ITEM *const item)
 static void M_KillLara(const ITEM *const item)
 {
     ITEM *const lara_item = Lara_GetItem();
-    lara_item->hit_points = -1;
+    Lara_Kill();
     lara_item->pos.y = item->floor;
     lara_item->gravity = false;
     lara_item->enable_shadow = false;
@@ -93,8 +93,7 @@ static void M_ControlHandle(const int16_t item_num)
         if (Item_IsTriggerActive(item)) {
             item->goal_anim_state = M_STATE_TEASE;
         } else {
-            Item_RemoveActive(item_num);
-            item->status = IS_INACTIVE;
+            Item_RemoveSimulated(item_num);
         }
         break;
 
@@ -117,8 +116,8 @@ static void M_ControlHandle(const int16_t item_num)
     case M_STATE_DONE: {
         Room_TestTriggers(item);
         M_UpdateBox(item, true);
-        Item_RemoveActive(item_num);
-        item->status = IS_DEACTIVATED;
+        Item_RemoveSimulated(item_num);
+        Item_SetFinished(item, true);
         break;
     }
     }

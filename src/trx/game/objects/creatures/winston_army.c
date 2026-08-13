@@ -67,11 +67,11 @@ static bool M_RemoveNormalWinston(void)
     const int32_t item_count = Item_GetTotalCount();
     for (int32_t item_num = 0; item_num < item_count; item_num++) {
         ITEM *const item = Item_Get(item_num);
-        if (item->object_id != O_WINSTON || (item->flags & IF_KILLED) != 0) {
+        if (item->object_id != O_WINSTON || item->is_destroyed) {
             continue;
         }
-        item->status = IS_INVISIBLE;
-        Item_Kill(item_num);
+        Item_SetVisible(item, false);
+        Item_Destroy(item_num);
         return true;
     }
     return false;
@@ -263,10 +263,7 @@ static void M_Setup(OBJECT *const obj)
     obj->save_hitpoints = true;
     obj->save_flags = true;
     obj->save_anim = true;
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS));
 }
 
 REGISTER_OBJECT(O_WINSTON_ARMY, M_Setup)

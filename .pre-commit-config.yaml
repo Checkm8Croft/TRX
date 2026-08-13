@@ -1,3 +1,6 @@
+default_install_hook_types: [pre-commit, commit-msg]
+default_stages: [pre-commit]
+
 repos:
 - repo: local
   hooks:
@@ -8,41 +11,187 @@ repos:
     language: system
     files: \.[ch](pp)?$
 
-  - id: additional-lint
-    name: Run additional linters
-    entry: tools/additional_lint
+  - id: lint-json-validity
+    name: JSON files parse
+    entry: tools/lint/checks/json_validity
     language: python
-    stages: [pre-commit]
-    additional_dependencies:
-      - pyjson5
-      - jsonschema
+    files: \.json$
 
-  - id: additional-lint -a
-    name: Run additional linters (repo-wide)
-    entry: tools/additional_lint -a
+  - id: lint-newlines
+    name: Files end in a single newline
+    entry: tools/lint/checks/newlines
     language: python
-    stages: [pre-commit]
+    exclude: \.patch$
+
+  - id: lint-trailing-whitespace
+    name: No trailing whitespace
+    entry: tools/lint/checks/trailing_whitespace
+    language: python
+    exclude: \.(md|patch)$
+
+  - id: lint-const-primitives
+    name: No useless const on primitives
+    entry: tools/lint/checks/const_primitives
+    language: python
+    files: \.h$
+
+  - id: lint-dismissive-words
+    name: No dismissive words
+    entry: tools/lint/checks/dismissive_words
+    language: python
+    files: \.(c|h)$
+
+  - id: lint-no-stdbool
+    name: No stdbool.h
+    entry: tools/lint/checks/no_stdbool
+    language: python
+    files: \.(c|h|cpp|hpp|cc|cxx)$
+
+  - id: lint-meson-sort
+    name: meson.build source list is ordered
+    entry: tools/lint/checks/meson_sort
+    language: python
+    files: (^|/)meson\.build$
+    exclude: /(dwarfstack|tests)/meson\.build$
+
+  - id: lint-clang-format-markers
+    name: clang-format markers are balanced
+    entry: tools/lint/checks/clang_format_markers
+    language: python
+    files: \.c$
+
+  - id: lint-static-order
+    name: Declarations come in the order the guidelines give
+    entry: tools/lint/checks/static_order
+    language: python
+    files: \.c$
+
+  - id: lint-module-static
+    name: Module functions are static
+    entry: tools/lint/checks/module_static
+    language: python
+    files: \.c$
+
+  - id: lint-object-property-binding
+    name: Bound object properties have somewhere to land
+    entry: tools/lint/checks/object_property_binding
+    language: python
+    files: \.c$
+
+  - id: lint-gameflow-schema
+    name: Gameflow files match the schema
+    entry: tools/lint/checks/gameflow_schema
+    language: python
     pass_filenames: false
+    files: (games/.*/gameflow\.json5|docs/gameflow\.schema\.json)$
     additional_dependencies:
       - pyjson5
-      - jsonschema
+      - fastjsonschema
 
-  - id: imports
-    name: imports
-    entry: tools/sort_imports
+  - id: lint-def-entries
+    name: Definition entries are aligned and ordered
+    entry: tools/lint/checks/def_entries --fix
+    language: python
+    files: \.def$
+
+  - id: lint-preset-keys
+    name: Preset setting keys are known
+    entry: tools/lint/checks/preset_keys
+    language: python
+    pass_filenames: false
+    files: (config/map(_tr\d)?\.def|cfg/presets/.*\.json5)$
+    additional_dependencies:
+      - pyjson5
+
+  - id: lint-test-deps
+    name: Unit tests reach no engine dependency
+    entry: tools/lint/checks/test_deps
+    language: python
+    pass_filenames: false
+    files: \.[ch]$
+
+  - id: lint-test-mirror
+    name: Unit tests mirror what they test
+    entry: tools/lint/checks/test_mirror
+    language: python
+    pass_filenames: false
+    files: (^src/tests/|^src/(trx|lua)/.*\.(c|h|lua)$)
+
+  - id: lint-lua-module-order
+    name: Lua module order numbers are unique
+    entry: tools/lint/checks/lua_module_order
+    language: python
+    pass_filenames: false
+    files: ^src/lua/api/.*\.lua$
+
+  - id: gen-sort-imports
+    name: Sort C includes
+    entry: tools/lint/gen/sort_imports
     language: system
     files: \.[ch](pp)?$
 
-  - id: update-game-strings
+  - id: gen-game-strings
     name: Update game strings to match source code
-    entry: tools/update_game_strings
+    entry: tools/lint/gen/game_strings
     language: python
     stages: [pre-commit]
     pass_filenames: false
     additional_dependencies:
       - pyjson5
+
+  - id: gen-lua-docs
+    name: Regenerate Lua API docs from docs/trx/lua/api.json
+    entry: tools/lint/gen/lua_docs
+    language: python
+    stages: [pre-commit]
+    pass_filenames: false
+    files: ^(docs/trx/lua/|src/lua/api/)
+
+  - id: gen-object-docs
+    name: Regenerate object docs from the sources
+    entry: tools/lint/gen/object_docs
+    language: python
+    pass_filenames: false
+    files: ^src/trx/game/.*\.(c|h|def)$
+
+  - id: gen-install-trees
+    name: Regenerate install trees in INSTALLING.md
+    entry: tools/lint/gen/install_trees
+    language: python
+    pass_filenames: false
+    files: ^data/trx/ship/
+
+  - id: gen-water-colors
+    name: Regenerate WATER_COLORS.md from water_colors.yml
+    entry: tools/lint/gen/water_colors
+    language: python
+    pass_filenames: false
+    files: ^docs/trx/water_colors\.yml$
+    additional_dependencies:
+      - pyyaml
+
+  - id: gen-te-symlinks
+    name: Regenerate TombEditor symlink trees
+    entry: tools/lint/gen/te_symlinks
+    language: python
+    pass_filenames: false
+    files: ^(data/trx/ship/cfg/|tools/lint/gen/te_symlinks$)
 
 - repo: https://github.com/JohnnyMorganz/StyLua
   rev: v2.3.0
   hooks:
     - id: stylua-github
+
+- repo: local
+  hooks:
+  - id: commit-msg-dismissive-words
+    name: No dismissive words in commit messages
+    entry: tools/lint/checks/dismissive_words
+    language: python
+    stages: [commit-msg]
+
+  - id: commit-msg-50-72
+    name: Commit message 50/72 rule
+    entry: python3 tools/check_commit_msg
+    language: system
+    stages: [commit-msg]

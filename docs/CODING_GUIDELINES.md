@@ -49,6 +49,10 @@ declaring them as `static` within the module they're used.
 
 Other things:
 
+- Within a file, top-level declarations follow the order: defines, local module
+  types (typedef structs), static module variables, static module functions,
+  public functions. Deviate only when code shape requires it (e.g. a forward
+  declaration or a type dependency that forces a different order).
 - We use clang-format to automatically format the code.
 - We do not omit `{` and `}`.
 - We use K&R brace style.
@@ -72,6 +76,28 @@ Other things:
 
     When expressions become extraordinarily complex, consider refactoring them
     into smaller conditions or functions.
+
+## Naming numbers
+
+A number that stands for something takes a suffix saying what kind it is.
+`item.room_num` beside `item.room` is the shape.
+
+- **`_num`** - needs a container to mean anything: `room_num` and `item_num`
+  need the level, `anim_num` the object, `slot_num` the save pool.
+- **`_id`** - reads on its own: `object_id`, `sample_id`, `track_id`, and a
+  listener's `id`. Name the constants it takes: `type = "catalog.objects"`. An
+  identity the engine mints is better handed over as a handle than as its
+  number, and exposed for reading if at all.
+- **A bare noun is the thing itself**, not a number for it: `item.room` is a
+  handle. Quantities keep theirs as well - `damage`, `timer`, `volume`.
+- **Counting follows the source**: from 0 where the level data numbered it, from
+  1 where TRX made the list and the player sees the position.
+- **`idx` stays in C**, for indices into its own arrays.
+
+A number that several declarations hold is a type of its own: declare it once
+with `api.number` and name it as their type. What it counts, and where it
+counts from, is then written once, and what holds one says only what is its
+own.
 
 ## Tooling
 

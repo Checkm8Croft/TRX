@@ -16,26 +16,11 @@ typedef struct {
 } GYM_TRACK_STATS;
 
 typedef struct {
-    // This signifies whether the config was already read from disk.
-    bool loaded;
-
-    // This holds paths passed to Config_Read(), so that Config_Write() knows
-    // where to save the updates.
-    char *default_path;
-    char *enforced_path;
-
-    // This field is used to force trigger a change event for fields that are
-    // not stored in the CONFIG struct.
-    bool dirty;
-
-    // Start of user fields
     int32_t config_version;
     char *language;
 
     struct {
         bool new_game_plus_unlock;
-        GYM_TRACK_STATS assault_stats;
-        GYM_TRACK_STATS racetrack_stats;
     } profile;
 
     struct {
@@ -53,6 +38,7 @@ typedef struct {
         bool enable_buffering_func_keys;
         bool enable_buffering_inventory;
         bool enable_touch_controls;
+        bool enable_controller;
         float touch_opacity;
         float touch_button_scale;
         float touch_dpad_scale;
@@ -81,15 +67,17 @@ typedef struct {
         bool enable_glide_cameras;
         float game_brightness;
         float ui_brightness;
+        float background_brightness;
         float gamma;
 
         bool enable_reflections;
         bool enable_3d_pickups;
         bool enable_braid;
-        bool enable_breeze;
+        BREEZE_MODE breeze_mode;
         bool enable_gun_lighting;
         bool enable_gun_glow;
         bool enable_fire_lighting;
+        bool enable_static_lighting;
         bool enable_shotgun_flash;
         bool enable_responsive_mesh_tint;
         char *lara_outfit;
@@ -100,7 +88,9 @@ typedef struct {
         bool enable_weather;
         bool enable_poison_vision;
         bool enable_footprints;
+        bool enable_droplets;
         bool enable_ps1_crystals;
+        bool enable_ps1_rain;
 
         bool fix_item_rots;
         bool fix_animated_sprites;
@@ -196,6 +186,7 @@ typedef struct {
         bool enable_lara_mic;
         bool enable_music_in_menu;
         bool enable_music_in_inventory;
+        bool enable_music_on_death;
         bool enable_ps1_sfx;
         bool enable_pitched_sounds;
         bool load_music_triggers;
@@ -210,7 +201,7 @@ typedef struct {
         bool disable_medpacks;
         bool disable_extra_guns;
         bool enable_pickup_aids;
-        bool enable_save_crystals;
+        SAVE_CRYSTAL_MODE save_crystal_mode;
         bool enable_enhanced_saves;
 
         bool enable_cheats;
@@ -232,6 +223,7 @@ typedef struct {
         bool enable_binoculars;
 
         bool enable_jump_twists;
+        bool enable_underwater_auto_draw;
         bool enable_uw_roll;
         bool enable_crouch_roll;
         bool enable_tr2_swimming;
@@ -244,10 +236,12 @@ typedef struct {
         bool enable_step_roll_boost;
         bool enable_slide_to_run;
         bool enable_back_slope_stumble;
-        bool enable_neutral_twists;
+        bool enable_alternative_turns;
         bool enable_controlled_drops;
         bool enable_ledge_jumps;
         bool enable_corner_shimmying;
+        bool enable_fast_shimmying;
+        bool enable_fast_pull_up;
         bool enable_crawling;
         bool enable_responsive_crawl;
         bool enable_crawl_jump;
@@ -265,10 +259,11 @@ typedef struct {
         bool enable_auto_item_selection;
         bool enable_manual_camera;
         bool enable_item_examining;
-        bool enable_target_change;
+        TARGET_CHANGE_MODE target_change_mode;
         bool enable_walk_to_items;
         bool enable_snap_interactions;
         bool enable_fast_pickups;
+        bool enable_multiple_pickups;
         bool enable_continuous_pushblocks;
         bool restore_ps1_enemies;
         bool enable_ally_targeting;
@@ -285,6 +280,7 @@ typedef struct {
         LOOK_MODE look_mode;
         bool enable_inverted_look;
         bool remember_gun_status;
+        RING_MEMORY_MODE ring_memory_mode;
 
         int32_t turbo_speed;
         int32_t camera_speed;
@@ -312,6 +308,7 @@ typedef struct {
         bool fix_walk_run_jump;
         bool fix_wade_wall_hit;
         bool fix_underwater_crawl;
+        bool fix_lift_collision;
 
         bool fix_floor_data_issues;
         bool fix_bridge_collision;
@@ -332,6 +329,9 @@ typedef struct {
         TEXTURE_FILTER ui_filter;
         TEXTURE_FILTER texture_filter;
         TEXTURE_FILTER upscaling_filter;
+        TEXTURE_FILTER fmv_filter;
+        bool enable_vertex_snap;
+        bool enable_dithering;
         bool enable_wireframe;
         float wireframe_width;
         bool enable_vsync;
@@ -340,6 +340,8 @@ typedef struct {
         LIGHTING_CONTRAST lighting_contrast;
         BILLBOARD_LOCK_MODE sprite_lock_mode;
         int32_t upscaling_factor;
+        int32_t supersampling_factor;
+        int32_t multisampling_factor;
         float borders;
     } rendering;
 

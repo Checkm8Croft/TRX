@@ -1,7 +1,9 @@
 #include <trx/config.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/utils.h>
 #include <trx/core/vector.h>
 #include <trx/game/camera.h>
+#include <trx/game/cutseq.h>
 #include <trx/game/effects.h>
 #include <trx/game/fx.h>
 #include <trx/game/lara.h>
@@ -21,6 +23,19 @@ typedef struct {
     int32_t yv;
     int32_t zv;
 } M_PORTAL_VBUF;
+
+static VECTOR *m_RoomsToDraw = nullptr;
+static ROOM_DRAWSET m_DrawnStatics = {};
+
+static int32_t m_Outside;
+static int32_t m_OutsideRight;
+static int32_t m_OutsideLeft;
+static int32_t m_OutsideTop;
+static int32_t m_OutsideBottom;
+
+static int32_t m_BoundStart;
+static int32_t m_BoundEnd;
+static int32_t m_BoundRooms[M_MAX_BOUND_ROOMS] = {};
 
 static inline void M_DrawSet_Init(ROOM_DRAWSET *const s)
 {
@@ -76,19 +91,6 @@ static inline void M_DrawSet_ForEach(
         }
     }
 }
-
-static VECTOR *m_RoomsToDraw = nullptr;
-static ROOM_DRAWSET m_DrawnStatics = {};
-
-static int32_t m_Outside;
-static int32_t m_OutsideRight;
-static int32_t m_OutsideLeft;
-static int32_t m_OutsideTop;
-static int32_t m_OutsideBottom;
-
-static int32_t m_BoundStart;
-static int32_t m_BoundEnd;
-static int32_t m_BoundRooms[M_MAX_BOUND_ROOMS] = {};
 
 static void M_EnsureRoomsToDraw(void)
 {
@@ -322,13 +324,24 @@ static void M_DrawRoomItem(const int16_t item_num, void *const ud)
     ITEM *const item = Item_Get(item_num);
     const OBJECT *const obj = Object_Get(item->object_id);
     OUTPUT_ITEM_BIND *const bind = Output_Bind_GetItem(item);
-    if (bind->drawn || item->status == IS_INVISIBLE
-        || obj->draw_func == nullptr) {
+    if (bind->drawn || !item->is_visible || obj->draw_func == nullptr) {
         return;
     }
 
     M_SetupWaterStatus(Room_Get(item->room_num));
+
+    // A fading body scales down the tint already in force rather than
+    // replacing it, so it keeps the water color it is lying in.
+    const bool is_fading = item->fade > 0;
+    if (is_fading) {
+        RGBA_F tint = Output_GetTint();
+        tint.a *= item->fade / 255.0f;
+        Output_PushTintOverride(tint);
+    }
     bind->drawn |= obj->draw_func(item);
+    if (is_fading) {
+        Output_PopTintOverride();
+    }
 
     if (Output_IsControlFrame()) {
         Item_ControlDraw(item);
@@ -414,6 +427,12 @@ static void M_DrawSingleRoom(const ROOM *const room)
     bind->bound_bottom = Viewport_GetMinY(VIEWPORT_GAME);
 }
 
+static void M_Shutdown(void)
+{
+    Vector_Free(m_RoomsToDraw);
+    m_RoomsToDraw = nullptr;
+}
+
 void Room_DrawReset(void)
 {
     M_EnsureRoomsToDraw();
@@ -445,6 +464,11 @@ int16_t Room_DrawGetRoom(const int16_t idx)
 void Room_DrawAllRooms(const int16_t current_room, const int16_t target_room)
 {
     const ROOM *const room = Room_Get(current_room);
+    // The camera may name a room this level does not have, which the bindings
+    // below would index out of bounds. There is nothing to draw from there.
+    if (room == nullptr) {
+        return;
+    }
     Output_Bind_ResetRooms();
     OUTPUT_ROOM_BIND *const bind = Output_Bind_GetRoom(room);
     bind->test_left = Viewport_GetMinX(VIEWPORT_GAME);
@@ -495,13 +519,17 @@ void Room_DrawAllRooms(const int16_t current_room, const int16_t target_room)
         draw_bind->drawn = false;
     }
 
+    // A title level running behind the menu may hold her object without ever
+    // placing her.
     const ITEM *const lara_item = Lara_GetItem();
-    if (Object_Get(O_LARA)->loaded) {
+    if (lara_item != nullptr && Object_Get(O_LARA)->loaded) {
         const ROOM *const lara_room = Room_Get(lara_item->room_num);
         M_SetupWaterStatus(lara_room);
         Output_SetCurrentRoom(lara_room);
         Lara_Draw(lara_item);
     }
+
+    CutSeq_DrawActors();
 
     Output_SetupAboveWater(false);
     FX_Draw();
@@ -531,8 +559,4 @@ void Room_RemoveDrawnItem(const int16_t room_num, const int16_t item_num)
     }
 }
 
-__attribute__((destructor)) static void M_Shutdown(void)
-{
-    Vector_Free(m_RoomsToDraw);
-    m_RoomsToDraw = nullptr;
-}
+REGISTER_SUBSYSTEM(.shutdown = M_Shutdown)

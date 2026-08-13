@@ -2,6 +2,7 @@
 
 #include <trx/config.h>
 #include <trx/game/camera.h>
+#include <trx/game/console.h>
 #include <trx/game/fx/water.h>
 #include <trx/game/game.h>
 #include <trx/game/gun.h>
@@ -15,6 +16,7 @@
 #include <trx/game/output.h>
 #include <trx/game/pathing.h>
 #include <trx/game/rooms.h>
+#include <trx/game/rules.h>
 #include <trx/game/sound.h>
 #include <trx/game/spawn.h>
 #include <trx/game/stats.h>
@@ -66,7 +68,9 @@ static void M_Cheat(void)
     }
 
     if (g_InputDB.item_cheat) {
-        Lara_Cheat_GiveAllItems();
+        // The cheat is the console command, so the key and the command cannot
+        // drift apart.
+        Console_Eval("give all");
     }
 
     if (g_InputDB.fly_cheat) {
@@ -317,7 +321,7 @@ static void M_ObjectCollision(COLL_INFO *const coll)
                 && !Object_IsType(item->object_id, g_SwitchObjects)) {
                 goto loop_end;
             }
-            if (!item->collidable || item->status == IS_INVISIBLE) {
+            if (!item->is_collidable || !item->is_visible) {
                 goto loop_end;
             }
 
@@ -372,7 +376,7 @@ static void M_UpdateEnvironment(void)
     lara_info->water_surface_dist = -water_height_diff;
 
     if (g_TRVersion >= 3) {
-        FX_Water_WadeSplash(item, water_height, water_depth);
+        FX_Water_WadeSplash(item, water_depth);
     } else if (
         g_Config.gameplay.enable_wading
         && lara_info->water_status != LWS_CHEAT) {
@@ -838,29 +842,32 @@ static void M_HandleExposure(void)
     const ITEM *const lara_item = Lara_GetItem();
     LARA_INFO *const lara_info = Lara_GetLaraInfo();
 
+    // Widened, so a rule set to either extreme moves the timer to the end of
+    // its range rather than around it.
+    int32_t timer = lara_info->exposure_timer;
     if (lara_info->water_status == LWS_CHEAT) {
-        lara_info->exposure_timer = LARA_MAX_EXPOSURE;
+        timer = g_Rules.exposure.max;
     } else if (Room_Get(lara_item->room_num)->flags.damaging) {
         switch (lara_info->water_status) {
         case LWS_ABOVE_WATER:
         case LWS_WADE:
-            lara_info->exposure_timer--;
+            timer -= g_Rules.exposure.drain_land;
             break;
         case LWS_UNDERWATER:
         case LWS_SURFACE:
-            lara_info->exposure_timer -= 2;
+            timer -= g_Rules.exposure.drain_water;
             break;
         default:
             break;
         }
     } else {
-        lara_info->exposure_timer++;
-        CLAMPG(lara_info->exposure_timer, LARA_MAX_EXPOSURE);
+        timer += g_Rules.exposure.recovery;
     }
+    CLAMP(timer, -1, g_Rules.exposure.max);
+    lara_info->exposure_timer = timer;
 
     if (lara_info->exposure_timer < 0) {
-        lara_info->exposure_timer = -1;
-        Lara_TakeDamage(10, false);
+        Lara_TakeDamage(g_Rules.exposure.damage, false);
     }
 }
 
@@ -1023,18 +1030,20 @@ void Lara_Control(void)
             Gym_SetInventoryOpenEnabled(true);
         }
         if (lara_info->death_timer == 0) {
-            Music_Stop();
+            if (!g_Config.audio.enable_music_on_death) {
+                Music_Stop();
+            }
             Stats_AddDeath();
         }
         lara_info->death_timer++;
         lara_info->target = nullptr;
 
-        if ((item->flags & IF_ONE_SHOT) != 0) {
+        if (item->trigger.spent) {
             lara_info->death_timer++;
             return;
         }
     } else if (Room_IsAbyssHeight(item->pos.y)) {
-        item->hit_points = -1;
+        Lara_Kill();
         lara_info->death_timer = 9 * LOGIC_FPS;
     }
 

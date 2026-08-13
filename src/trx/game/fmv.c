@@ -26,12 +26,6 @@
 
 #include <string.h>
 
-static bool m_IsPlaying = false;
-
-static const char *const m_FallbackExts[] = {
-    ".mp4", ".mpeg", ".webm", ".avi", ".fmv", ".rpl", nullptr,
-};
-
 #define M_FADE_TIME 0.4f
 #define M_PAUSE_OVERLAY_OPACITY 0.8f
 
@@ -45,6 +39,12 @@ typedef struct {
     bool show_pause_overlay;
     FADER pause_fader;
 } M_RENDER_CONTEXT;
+
+static bool m_IsPlaying = false;
+
+static const char *const m_FallbackExts[] = {
+    ".mp4", ".mpeg", ".webm", ".avi", ".fmv", ".rpl", nullptr,
+};
 
 static OUTPUT_QUAD_SURFACE_DESC M_MakeSurfaceDesc(
     const int32_t width, const int32_t height)
@@ -102,6 +102,13 @@ static int32_t M_OpenAudioStream(const char *const file_name)
         }
     }
     return AUDIO_NO_SOUND;
+}
+
+static float M_GetAudioVolume(void)
+{
+    return Audio_IsMuted()
+        ? 0.0f
+        : g_Config.audio.master_volume * g_Config.audio.fmv_volume;
 }
 
 static void *M_AllocateSurface(
@@ -186,6 +193,10 @@ static void M_UploadSurface(void *const surface, void *const user_data)
     M_SURFACE *const surface_ = surface;
     const float overlay_opacity = M_GetPauseOverlayOpacity(ctx);
     Output_Quad_Upload(ctx->renderer_2d, &surface_->desc, surface_->buffer);
+    Output_Quad_SetFit(
+        ctx->renderer_2d, OUTPUT_QUAD_FIT_LETTERBOX, surface_->desc.width,
+        surface_->desc.height);
+    Output_Quad_SetFilter(ctx->renderer_2d, g_Config.rendering.fmv_filter);
 
     Output_SwitchViewport(VIEWPORT_GAME);
     Output_Quad_Render(ctx->renderer_2d);
@@ -250,6 +261,7 @@ static bool M_Play(const char *const file_name)
     Video_SetSurfaceLockFunc(video, M_LockSurface, nullptr);
     Video_SetSurfaceUnlockFunc(video, M_UnlockSurface, nullptr);
     Video_SetSurfaceUploadFunc(video, M_UploadSurface, &render_ctx);
+    Video_SetSurfacePixelFormat(video, AV_PIX_FMT_BGRA);
     Video_SetAudioEnabled(video, false);
 
     const int32_t audio_id = M_OpenAudioStream(file_name);
@@ -260,11 +272,14 @@ static bool M_Play(const char *const file_name)
     Fader_InitTo(&render_ctx.pause_fader, 0.0f, 0.0f, 0.0f);
     M_SetPauseText(false);
     Video_Start(video);
+
+    Audio_Stream_SetVolume(audio_id, M_GetAudioVolume());
+    Audio_Stream_Unpause(audio_id);
+
     while (video->is_playing) {
         Shell_ProcessEvents();
 
-        const bool focus_paused =
-            g_Config.gameplay.pause_on_focus_lost && !Shell_IsFocused();
+        const bool focus_paused = Shell_ShouldPauseForFocusLoss();
         Input_Update();
         Shell_ProcessInput();
 
@@ -279,19 +294,11 @@ static bool M_Play(const char *const file_name)
             paused = should_pause;
         }
 
-        const float volume = Audio_IsMuted()
-            ? 0.0f
-            : g_Config.audio.master_volume * g_Config.audio.fmv_volume;
-        Audio_Stream_SetVolume(audio_id, volume);
+        Audio_Stream_SetVolume(audio_id, M_GetAudioVolume());
         const double audio_ts = Audio_Stream_GetTimestamp(audio_id);
         if (audio_ts >= 0.0) {
             Video_SetExternalAudioClock(video, audio_ts);
         }
-
-        Video_SetSurfaceSize(
-            video, Viewport_GetWidth(VIEWPORT_GAME),
-            Viewport_GetHeight(VIEWPORT_GAME));
-        Video_SetSurfacePixelFormat(video, AV_PIX_FMT_BGRA);
 
         Video_PumpEvents(video);
 
@@ -336,7 +343,9 @@ bool FMV_Play(const char *const file_path)
     }
 
     m_IsPlaying = true;
+    Output_SetSupersamplingEnabled(false);
     const bool result = M_Play(file_path);
+    Output_SetSupersamplingEnabled(true);
     m_IsPlaying = false;
     return result;
 }

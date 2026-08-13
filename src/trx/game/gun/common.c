@@ -2,12 +2,77 @@
 #include <trx/core/colors.h>
 #include <trx/debug.h>
 #include <trx/game/const.h>
+#include <trx/game/game.h>
 #include <trx/game/gun.h>
 #include <trx/game/lara.h>
 #include <trx/game/output.h>
 #include <trx/version.h>
 
-#define M_SHOTGUN_AMMO_CLIP 6
+#define M_SHOTGUN_ROUNDS_PER_SHOT 6
+
+// What a weapon is made of outside the numbers weapons.json5 carries: the
+// pickup lying in the world, the box of ammunition for it, and the animation
+// object Lara holds it with. A weapon a game has no object for reads
+// NO_OBJECT, as do the flare and the skidoo, which are held like weapons
+// without being ones.
+// clang-format off
+static const struct {
+    OBJECT_ID gun;
+    OBJECT_ID ammo;
+    OBJECT_ID anim;
+} m_WeaponObjects[NUM_WEAPONS] = {
+    [LGT_UNARMED]      = { NO_OBJECT,            NO_OBJECT,                NO_OBJECT           },
+    [LGT_PISTOLS]      = { O_PISTOL_ITEM,        O_PISTOL_AMMO_ITEM,       O_LARA_PISTOLS      },
+    [LGT_MAGNUMS]      = { O_MAGNUM_ITEM,        O_MAGNUM_AMMO_ITEM,       O_LARA_MAGNUMS      },
+    [LGT_UZIS]         = { O_UZI_ITEM,           O_UZI_AMMO_ITEM,          O_LARA_UZIS         },
+    [LGT_SHOTGUN]      = { O_SHOTGUN_ITEM,       O_SHOTGUN_AMMO_ITEM,      O_LARA_SHOTGUN      },
+    [LGT_M16]          = { O_M16_ITEM,           O_M16_AMMO_ITEM,          O_LARA_M16          },
+    [LGT_GRENADE]      = { O_GRENADE_GUN_ITEM,   O_GRENADE_AMMO_ITEM,      O_LARA_GRENADE_GUN  },
+    [LGT_HARPOON]      = { O_HARPOON_ITEM,       O_HARPOON_AMMO_ITEM,      O_LARA_HARPOON_GUN  },
+    [LGT_FLARE]        = { NO_OBJECT,            NO_OBJECT,                O_LARA_FLARE        },
+    [LGT_SKIDOO]       = { NO_OBJECT,            NO_OBJECT,                NO_OBJECT           },
+    [LGT_AUTOS]        = { O_AUTOS_ITEM,         O_AUTOS_AMMO_ITEM,        O_LARA_AUTOS        },
+    [LGT_DESERT_EAGLE] = { O_DESERT_EAGLE_ITEM,  O_DESERT_EAGLE_AMMO_ITEM, O_LARA_DESERT_EAGLE },
+    [LGT_MP5]          = { O_MP5_ITEM,           O_MP5_AMMO_ITEM,          O_LARA_MP5          },
+    [LGT_ROCKET]       = { O_ROCKET_GUN_ITEM,    O_ROCKET_AMMO_ITEM,       O_LARA_ROCKET_GUN   },
+    [LGT_CROSSBOW]     = { O_CROSSBOW_ITEM,      O_CROSSBOW_AMMO_1_ITEM,   O_LARA_CROSSBOW     },
+    [LGT_REVOLVER]     = { O_REVOLVER_ITEM,      O_REVOLVER_AMMO_ITEM,     O_LARA_REVOLVER     },
+};
+// clang-format on
+
+// Which weapon Lara wears where, when she carries more than one that could
+// hang there. The weapon type says which of the two slots a weapon can use -
+// the rifles go on her back and the rest into her holsters - but not which of
+// them wins, so the order is here.
+// clang-format off
+static const LARA_GUN_TYPE m_HolsterGuns[] = {
+    LGT_PISTOLS, LGT_MAGNUMS, LGT_AUTOS, LGT_DESERT_EAGLE, LGT_UZIS,
+    LGT_REVOLVER, LGT_UNARMED,
+};
+
+static const LARA_GUN_TYPE m_BackGuns[] = {
+    LGT_SHOTGUN, LGT_M16, LGT_MP5, LGT_GRENADE, LGT_ROCKET, LGT_HARPOON,
+    LGT_CROSSBOW, LGT_UNARMED,
+};
+// clang-format on
+
+static LARA_GUN_TYPE M_GetFirstCarried(
+    const INVENTORY_STATE *const inv, const LARA_GUN_TYPE *const gun_types)
+{
+    for (int32_t i = 0; gun_types[i] != LGT_UNARMED; i++) {
+        if (Inv_State_Has(inv, Gun_GetGunObject(gun_types[i]))) {
+            return gun_types[i];
+        }
+    }
+    return LGT_UNARMED;
+}
+
+// Whether the type addresses a row of the table above. A legacy save can hold
+// LGT_UNKNOWN, which is below the first row.
+static bool M_IsWeapon(const LARA_GUN_TYPE gun_type)
+{
+    return gun_type >= LGT_UNARMED && gun_type < NUM_WEAPONS;
+}
 
 static bool M_IsGunType(
     const LARA_GUN_TYPE gun_type, const WEAPON_TYPE weapon_type)
@@ -15,10 +80,12 @@ static bool M_IsGunType(
     return g_Weapons[gun_type].type == weapon_type;
 }
 
-static int32_t M_GetAmmoQuantity(
-    const LARA_GUN_TYPE gun_type, const int32_t shell_count)
+// weapons.json5 counts in shots, which is what the player's counter shows. The
+// engine spends a round at a time and the shotgun spends six of them on one
+// shot, so the quantities there are scaled into what it spends.
+static int32_t M_GetRounds(const LARA_GUN_TYPE gun_type, const int32_t box_qty)
 {
-    return MAX(1, shell_count) * Gun_GetAmmoClipCount(gun_type);
+    return MAX(1, box_qty) * Gun_GetRoundsPerShot(gun_type);
 }
 
 void Gun_AddDynamicLight(void)
@@ -51,140 +118,85 @@ OBJECT_ID Gun_GetLaraAnim(const LARA_GUN_TYPE gun_type)
 
 OBJECT_ID Gun_GetWeaponAnim(const LARA_GUN_TYPE gun_type)
 {
-    // clang-format off
-    switch (gun_type) {
-    case LGT_UNKNOWN:      return O_LARA;
-    case LGT_UNARMED:      return O_LARA;
-    case LGT_PISTOLS:      return O_LARA_PISTOLS;
-    case LGT_MAGNUMS:      return O_LARA_MAGNUMS;
-    case LGT_AUTOS:        return O_LARA_AUTOS;
-    case LGT_DESERT_EAGLE: return O_LARA_DESERT_EAGLE;
-    case LGT_UZIS:         return O_LARA_UZIS;
-    case LGT_SHOTGUN:      return O_LARA_SHOTGUN;
-    case LGT_M16:          return O_LARA_M16;
-    case LGT_MP5:          return O_LARA_MP5;
-    case LGT_GRENADE:      return O_LARA_GRENADE_GUN;
-    case LGT_ROCKET:       return O_LARA_ROCKET_GUN;
-    case LGT_HARPOON:      return O_LARA_HARPOON_GUN;
-    case LGT_CROSSBOW:     return O_LARA_CROSSBOW;
-    case LGT_REVOLVER:     return O_LARA_REVOLVER;
-    case LGT_FLARE:        return O_LARA_FLARE;
-    default:               return NO_OBJECT;
+    // A legacy save can name a gun type the engine no longer knows, and
+    // unarmed has no weapon of its own; both hold Lara's plain animations.
+    if (gun_type <= LGT_UNARMED) {
+        return O_LARA;
     }
-    // clang-format on
+    return M_IsWeapon(gun_type) ? m_WeaponObjects[gun_type].anim : NO_OBJECT;
 }
 
 LARA_GUN_TYPE Gun_GetType(const OBJECT_ID obj_id)
 {
-    // clang-format off
-    switch (obj_id) {
-    case O_PISTOL_ITEM:       return LGT_PISTOLS;
-    case O_MAGNUM_ITEM:       return LGT_MAGNUMS;
-    case O_AUTOS_ITEM:        return LGT_AUTOS;
-    case O_DESERT_EAGLE_ITEM: return LGT_DESERT_EAGLE;
-    case O_UZI_ITEM:          return LGT_UZIS;
-    case O_SHOTGUN_ITEM:      return LGT_SHOTGUN;
-    case O_HARPOON_ITEM:      return LGT_HARPOON;
-    case O_M16_ITEM:          return LGT_M16;
-    case O_MP5_ITEM:          return LGT_MP5;
-    case O_GRENADE_GUN_ITEM:  return LGT_GRENADE;
-    case O_ROCKET_GUN_ITEM:   return LGT_ROCKET;
-    case O_CROSSBOW_ITEM:     return LGT_CROSSBOW;
-    case O_REVOLVER_ITEM:     return LGT_REVOLVER;
-    default:                  return LGT_UNARMED;
+    if (obj_id != NO_OBJECT) {
+        for (LARA_GUN_TYPE gun_type = LGT_UNARMED; gun_type < NUM_WEAPONS;
+             gun_type++) {
+            if (m_WeaponObjects[gun_type].gun == obj_id) {
+                return gun_type;
+            }
+        }
     }
-    // clang-format on
+    return LGT_UNARMED;
 }
 
 OBJECT_ID Gun_GetGunObject(const LARA_GUN_TYPE gun_type)
 {
-    // clang-format off
-    switch (gun_type) {
-    case LGT_PISTOLS:      return O_PISTOL_ITEM;
-    case LGT_MAGNUMS:      return O_MAGNUM_ITEM;
-    case LGT_AUTOS:        return O_AUTOS_ITEM;
-    case LGT_DESERT_EAGLE: return O_DESERT_EAGLE_ITEM;
-    case LGT_UZIS:         return O_UZI_ITEM;
-    case LGT_SHOTGUN:      return O_SHOTGUN_ITEM;
-    case LGT_HARPOON:      return O_HARPOON_ITEM;
-    case LGT_M16:          return O_M16_ITEM;
-    case LGT_MP5:          return O_MP5_ITEM;
-    case LGT_GRENADE:      return O_GRENADE_GUN_ITEM;
-    case LGT_ROCKET:       return O_ROCKET_GUN_ITEM;
-    case LGT_CROSSBOW:     return O_CROSSBOW_ITEM;
-    case LGT_REVOLVER:     return O_REVOLVER_ITEM;
-    default:               return NO_OBJECT;
-    }
-    // clang-format on
+    return M_IsWeapon(gun_type) ? m_WeaponObjects[gun_type].gun : NO_OBJECT;
 }
 
 OBJECT_ID Gun_GetAmmoObject(const LARA_GUN_TYPE gun_type)
 {
-    // clang-format off
-    switch (gun_type) {
-    case LGT_PISTOLS:      return O_PISTOL_AMMO_ITEM;
-    case LGT_MAGNUMS:      return O_MAGNUM_AMMO_ITEM;
-    case LGT_AUTOS:        return O_AUTOS_AMMO_ITEM;
-    case LGT_DESERT_EAGLE: return O_DESERT_EAGLE_AMMO_ITEM;
-    case LGT_UZIS:         return O_UZI_AMMO_ITEM;
-    case LGT_SHOTGUN:      return O_SHOTGUN_AMMO_ITEM;
-    case LGT_HARPOON:      return O_HARPOON_AMMO_ITEM;
-    case LGT_M16:          return O_M16_AMMO_ITEM;
-    case LGT_MP5:          return O_MP5_AMMO_ITEM;
-    case LGT_GRENADE:      return O_GRENADE_AMMO_ITEM;
-    case LGT_ROCKET:       return O_ROCKET_AMMO_ITEM;
-    case LGT_CROSSBOW:     return O_CROSSBOW_AMMO_1_ITEM;
-    case LGT_REVOLVER:     return O_REVOLVER_AMMO_ITEM;
-    default:               return NO_OBJECT;
-    }
-    // clang-format on
+    return M_IsWeapon(gun_type) ? m_WeaponObjects[gun_type].ammo : NO_OBJECT;
 }
 
-int32_t Gun_GetAmmoInitialQuantity(const LARA_GUN_TYPE gun_type)
+int32_t Gun_GetInitialRounds(const LARA_GUN_TYPE gun_type)
 {
-    return M_GetAmmoQuantity(gun_type, g_Weapons[gun_type].ammo.initial_qty);
+    return M_GetRounds(gun_type, g_Weapons[gun_type].ammo.initial_shots);
 }
 
-int32_t Gun_GetAmmoPickupQuantity(const LARA_GUN_TYPE gun_type)
+int32_t Gun_GetRoundsPerBox(const LARA_GUN_TYPE gun_type)
 {
-    return M_GetAmmoQuantity(gun_type, g_Weapons[gun_type].ammo.pickup_qty);
+    return M_GetRounds(gun_type, g_Weapons[gun_type].ammo.box_shots);
 }
 
 int32_t Gun_GetAmmoInventoryQuantity(const LARA_GUN_TYPE gun_type)
 {
-    return g_Weapons[gun_type].ammo.inventory_qty;
+    return g_Weapons[gun_type].ammo.box_label_qty;
 }
 
-int32_t Gun_GetAmmoClipCount(const LARA_GUN_TYPE gun_type)
+int32_t Gun_GetRoundsPerShot(const LARA_GUN_TYPE gun_type)
 {
-    return gun_type == LGT_SHOTGUN ? M_SHOTGUN_AMMO_CLIP : 1;
+    return gun_type == LGT_SHOTGUN ? M_SHOTGUN_ROUNDS_PER_SHOT : 1;
 }
 
-AMMO_INFO *Gun_GetAmmoInfo(const LARA_GUN_TYPE gun_type)
+LARA_GUN_TYPE Gun_GetHolsterChoice(const INVENTORY_STATE *const inv)
 {
-    LARA_INFO *const lara_info = Lara_GetLaraInfo();
-    if (lara_info == nullptr) {
-        return nullptr;
+    return M_GetFirstCarried(inv, m_HolsterGuns);
+}
+
+LARA_GUN_TYPE Gun_GetBackChoice(const INVENTORY_STATE *const inv)
+{
+    return M_GetFirstCarried(inv, m_BackGuns);
+}
+
+bool Gun_HasInfiniteAmmo(const LARA_GUN_TYPE gun_type)
+{
+    if (Game_IsBonusFlagSet(GBF_NGPLUS)) {
+        return true;
     }
-    // clang-format off
-    switch (gun_type) {
-    case LGT_PISTOLS:      return &lara_info->pistol_ammo;
-    case LGT_MAGNUMS:      return &lara_info->magnum_ammo;
-    case LGT_AUTOS:        return &lara_info->autos_ammo;
-    case LGT_DESERT_EAGLE: return &lara_info->desert_eagle_ammo;
-    case LGT_UZIS:         return &lara_info->uzi_ammo;
-    case LGT_SHOTGUN:      return &lara_info->shotgun_ammo;
-    case LGT_HARPOON:      return &lara_info->harpoon_ammo;
-    case LGT_M16:          return &lara_info->m16_ammo;
-    case LGT_MP5:          return &lara_info->mp5_ammo;
-    case LGT_GRENADE:      return &lara_info->grenade_ammo;
-    case LGT_ROCKET:       return &lara_info->rocket_ammo;
-    case LGT_CROSSBOW:     return &lara_info->crossbow_ammo;
-    case LGT_REVOLVER:     return &lara_info->revolver_ammo;
-    case LGT_SKIDOO:       return &lara_info->pistol_ammo;
-    default:               return nullptr;
+    return M_IsWeapon(gun_type) && g_Weapons[gun_type].ammo.infinite;
+}
+
+bool Gun_HasRoundsLeft(const LARA_GUN_TYPE gun_type)
+{
+    return Gun_HasInfiniteAmmo(gun_type) || Inv_GetAmmo(gun_type) > 0;
+}
+
+void Gun_SpendRound(const LARA_GUN_TYPE gun_type)
+{
+    if (!Gun_HasInfiniteAmmo(gun_type)) {
+        Inv_AddAmmo(gun_type, -1);
     }
-    // clang-format on
 }
 
 bool Gun_IsRifleType(const LARA_GUN_TYPE gun_type)

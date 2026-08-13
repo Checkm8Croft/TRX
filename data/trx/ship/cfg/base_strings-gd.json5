@@ -47,85 +47,26 @@
             "pagination_nav": "%d / %d",
         },
         "osd": {
-            "ambiguous_input_2": "Cur-a-steach neo-shoilleir: %s agus %s",
-            "ambiguous_input_3": "Cur-a-steach neo-shoilleir: %s, %s, ...",
             "bilinear_filter_off": "Criathradh teacsdaire: dheth",
             "bilinear_filter_on": "Criathradh teacsdaire: air",
-            "burn_fail_already_off": "Chan eil Lara na teine an-dràsta",
-            "burn_fail_already_on": "Tha Lara mu thràth na teine",
-            "burn_off": "Chaidh Lara air a chur às - phiù!",
-            "burn_on": "Tha Lara a-nis na teine - o mo chreach!",
             "command_bad_invocation": "Iarrtas mì-dhligheach: %s",
-            "command_bool": "air, dheth",
-            "command_decimal": "[deicheach]",
-            "command_integer": "[àireamh slàn]",
-            "command_percent": "[àireamh slàn]",
             "command_unavailable": "Chan eil an àithne seo ri làimh an-dràsta",
-            "command_valid_values": "Luachan dligheach: %s",
             "complete_level": "Ìre deiseil!",
-            "config_option_enforced": "Tha %s air a chur an gnìomh agus chan urrainnear atharrachadh",
-            "config_option_get": "Tha %s air a rèiteachadh gu %s",
-            "config_option_set": "%s air atharrachadh gu %s",
-            "config_option_unknown_option": "Roghainn neo-aithnichte: %s",
-            "current_health_get": "Slàinte làithreach Lara: %d",
-            "current_health_set": "Slàinte Lara air a shuidheachadh gu %d",
-            "current_poison_get": "\\{review}Fuil làrach làithreach Lara: %d (targaid: %d)",
-            "current_poison_set": "\\{review}Fuil Lara air a shuidheachadh gu %d",
-            "current_poison_target_set": "\\{review}Targaid fuil Lara air a shuidheachadh gu %d",
             "door_close": "Dùin Sesame!",
             "door_open": "Fosgail Sesame!",
             "door_open_fail": "Chan eil doras sam bith faisg air Lara",
-            "flipmap_fail_already_off": "Tha am mapa-flip mar-thà DHETH",
-            "flipmap_fail_already_on": "Tha am mapa-flip mar-thà AIR",
-            "flipmap_off": "Mapa-flip air a chur DHETH",
-            "flipmap_on": "Mapa-flip air a chur AIR",
             "fly_mode_off": "Modh itealaich air a chur dheth",
             "fly_mode_on": "Modh itealaich air a chur air",
             "fps_counter_off": "Cuntair FPS dheth",
             "fps_counter_on": "Cuntair FPS air",
-            "give_item": "Chaidh %s air a chur ri clàr-seilbhe Lara",
-            "give_item_all_guns": "Glasaich is losgaidh – tha Lara armaichte gu fiadhaich!",
-            "give_item_all_keys": "Ionndrainn! Tha a h-uile iuchair aig Lara a-nis.",
-            "give_item_cheat": "Tha baga-droma Lara mòran nas truime a-nis!",
-            "heal_already_full_hp": "Tha slàinte làn aig Lara mu thràth",
-            "heal_success": "Chaidh slàinte Lara a lìonadh gu lèir",
-            "invalid_cutscene": "Sealladh-film mì-dhligheach",
-            "invalid_demo": "Taisbeanadh mì-dhligheach",
-            "invalid_item": "Nì neo-aithnichte: %s",
-            "invalid_level": "Ìre mì-dhligheach",
-            "invalid_object": "Oibseact mì-dhligheach",
-            "invalid_room": "Seòmar mì-dhligheach: %d. Seòmraichean dligheach: 0 gu %d",
-            "invalid_sample": "Fuaim mì-dhligheach: %d",
-            "kill": "Beannachd leat!",
-            "kill_all": "Puf! Chaidh %d nàimhdean air falbh!",
-            "kill_all_fail": "Och, chan eil nàimhdean air fhàgail airson marbhadh...",
-            "kill_fail": "Chan eil nàmhaid sam bith faisg air làimh...",
             "lighting_contrast_fmt": "Coimeas Solais: %s",
             "load_game": "Geama air a luchdadh bho slot %d",
-            "load_game_fail_invalid_slot": "Slot mì-dhligheach: %d",
-            "load_game_fail_unavailable_slot": "Chan eil slot sàbhalaidh %d ri làimh",
-            "object_not_found": "Cha deach an t-oibseact a lorg",
-            "play_cutscene": "A' luchdachadh sealladh-film %d",
-            "play_demo": "A' luchdachadh taisbeanaidh %d",
-            "play_level": "A' luchdachadh %s",
-            "pos_lara_missing": "Chan eil Lara an làthair",
-            "pos_lara_pos_fmt": "Seomair: %d\nSuidheachadh: %.3f, %.3f, %.3f\nCuairteachadh: %.3f, %.3f, %.3f",
-            "pos_level_fmt": "Ìre %d",
-            "pos_level_fmt_cutscene": "Sealladh-film %d",
-            "pos_level_fmt_demo": "Taisbeanadh %d",
             "quick_load": "Slot luchdaichte gu luath %d",
             "quick_load_fail_no_bound_slot": "Chan eil slot sàbhalaidh sam bith ceangailte an-dràsta",
             "quick_load_fail_unavailable_bound_slot": "Chan eil an slot sàbhalaidh ceangailte rim faotainn",
             "quick_save": "Sàbhailte gu luath",
             "quick_save_fail_no_slots": "Chan eil slotan sàbhalaidh luath sam bith air an rèiteachadh",
-            "save_game": "Geama air a shàbhaladh gu slot %d",
-            "save_game_fail_invalid_slot": "Slot sàbhalaidh mì-dhligheach: %d",
-            "sound_available_samples": "Fuaimean ri làimh: %s",
-            "sound_playing_sample": "A' cluich fuaim %d",
-            "speed_get": "Astar làithreach: %d",
             "speed_set": "Astar air a shuidheachadh air %d",
-            "strings_failed": "Dh'fhàillig ath-luchdadh nam faidhlichean cànain",
-            "strings_reloaded": "Chaidh na faidhlichean cànain ath-luchdachadh",
             "textures_off": "Teacsaichean: dheth",
             "textures_on": "Teacsaichean: air",
             "trapezoid_filter_off": "Criathradh trapeasoid dheth",
@@ -145,6 +86,7 @@
             "debug_camera_pos": "Tùs a' chamara: ",
             "debug_camera_target": "Targaid a' chamara: ",
             "debug_immune": "Neo-bhàsmhorachd air",
+            "debug_interaction": "Eadar-obrachadh: ",
             "debug_position": "Suidheachadh: ",
             "debug_rotation": "Cuairteachadh: ",
             "debug_speed": "Luas: ",
@@ -161,8 +103,6 @@
             "exit_to_title": "Till gu Tiotal",
             "load_game": "Luchdaich Geama",
             "mode_new_game": "Geama Ùr",
-            "mode_new_game_jp": "GÙ Iapanach",
-            "mode_new_game_jp_plus": "GÙ+ Iapanach",
             "mode_new_game_plus": "Geama Ùr+",
             "new_game": "Geama Ùr",
             "play_previous_levels": "Cluich ìrean roimhe",
@@ -271,6 +211,7 @@
             "assault_finish": "Crìochnaich",
             "assault_no_times_set": "Gun Àmanan Fhathast",
             "assault_other_times_fmt": "%s",
+            "assault_reset_times": "Ath-shuidhich",
             "assault_title": "NA H-ÀMANAN AS FHEÀRR",
             "basic_fmt": "%d",
             "bonus_statistics": "Staitistig a Bharrachd",
@@ -291,12 +232,29 @@
         }
     },
     "console": {
+        "argparse": {
+            "aliases": "Aliasean: %s",
+            "expected": "Bha dùil ri %s.",
+            "hint_boolean": "air no dheth",
+            "hint_integer": "àireamh shlàn",
+            "hint_number": "àireamh",
+            "hint_or": "%s, no %s",
+            "hint_values": "fear de: %s",
+            "invalid": "%s mì-dhligheach: %s.",
+            "missing": "%s a dhìth.",
+            "unexpected": "Argamaid ris nach robh dùil: %s.",
+            "usage": "Cleachdadh: %s",
+        },
         "cmd": {
             "braid": {
                 "help": "Tionndaidheas feaman-fuilt Lara.",
             },
             "burn": {
+                "already_off": "Chan eil Lara na teine an-dràsta",
+                "already_on": "Tha Lara mu thràth na teine",
                 "help": "Tionndaidheas mar a bheil Lara na teine.",
+                "off": "Chaidh Lara air a chur às - phiù!",
+                "on": "Tha Lara a-nis na teine - o mo chreach!",
             },
             "cheats": {
                 "help": "Tionndaidheas cleasan a' gheama.",
@@ -306,9 +264,27 @@
             },
             "debug": {
                 "help": "Tionndaidheas fiosrachadh deasbug.",
+                "option_get": "Tha %s air a rèiteachadh gu %s",
+                "option_set": "%s air atharrachadh gu %s",
+                "unknown_option": "Roghainn neo-aithnichte: %s",
+            },
+            "disco": {
+                "already_off": "Tha na solais dheth mar-thà",
+                "already_on": "Tha na solais air mar-thà",
+                "help": "Tionndaidheas taisbeanadh sholas timcheall Lara.",
+                "off": "Thèid na solais dheth",
+                "on": "Thig na solais air",
             },
             "drain": {
+                "already": "Tha seòmar %d air a dhrèanadh mar-thà",
+                "done": "Chaidh seòmar %d a dhrèanadh",
                 "help": "Drèaneas an t-seomair làithreach.",
+            },
+            "dry": {
+                "already_dry": "Tha Lara tioram mu thràth",
+                "help": "Tiormaichidh seo Lara, a' cur stad air an t-sileadh às dèidh snàmh.",
+                "success": "Chaidh Lara a tiormachadh - chan eil sileadh ann tuilleadh",
+                "underwater": "Tha Lara caran trang an-dràsta - tha i fon uisge",
             },
             "end_level": {
                 "help": "Crìochnaicheas an ìre làithreach.",
@@ -317,37 +293,53 @@
                 "help": "Dùinidh an gèama.",
             },
             "flipmap": {
+                "already_off": "Tha am mapa-flip mar-thà DHETH",
+                "already_on": "Tha am mapa-flip mar-thà AIR",
                 "help": "Tionndaidheas am mapa-flip.",
+                "off": "Mapa-flip air a chur DHETH",
+                "on": "Mapa-flip air a chur AIR",
             },
             "flood": {
+                "already": "Tha seòmar %d na thuil mar-thà",
+                "done": "Chaidh seòmar %d a thuiladh",
                 "help": "Lìonas an t-seomair làithreach le uisge.",
             },
             "fly": {
+                "already_off": "Chan eil Lara ag itealach",
+                "already_on": "The Lara ag itealach mu thrath",
                 "help": "Tionndaidheas an cleas itealach.",
             },
             "fps": {
                 "help": "Atharraicheas an suidheachadh FPS.",
             },
             "give": {
+                "added": "Chaidh %s air a chur ri clàr-seilbhe Lara",
+                "all_given": "Tha baga-droma Lara mòran nas truime a-nis!",
+                "bad_count": "Feumaidh an àireamh a bhith aon no barrachd",
+                "guns_given": "Glasaich is losgaidh – tha Lara armaichte gu fiadhaich!",
+                "guns_help": "Bheir e gach arm a cheadaicheas san ìre do Lara, le connadh.",
                 "help": "Cuireas nì sònraichte anns clàr-seilbhe Lara.",
-                "invalid_secret": "Dìomhaireachd mì-dhligheach: %s (dìomhaireachdan dligheach: %s)",
-                "secret_given": "Chaidh dìomhaireachd %s air a chur ris",
-                "secret_list": "Dìomhaireachdan air an cruinneachadh: %d de %d (%s)",
-                "secret_none": "Dìomhaireachdan air an cruinneachadh: %d de %d",
-                "secret_taken": "Chaidh dìomhaireachd %s air a thoirt air falbh",
-            },
-            "give_secret": {
-                "help": "Seall liosta de dhìomhaireachdan Lara, neo cuir/thoir air falbh fear a rèir àireamh.",
+                "invalid": "Nì neo-aithnichte: %s",
+                "keys_given": "Ionndrainn! Tha a h-uile iuchair aig Lara a-nis.",
+                "keys_help": "Bheir e gach nì sgeòil aig a bheil àite san ìre do Lara.",
+                "moreguns_help": "Bheir e gach arm do Lara, a' gabhail a-steach an fheadhainn a dh'fhàg an ìre a-mach.",
+                "nothing": "Chan eil dad anns an ìre seo airson toirt do Lara",
+                "what_help": "dè bheirear seachad: all, keys, guns, moreguns, no nì sam bith a-rèir a h-ainm",
             },
             "heal": {
+                "already_full_hp": "Tha slàinte làn aig Lara mu thràth",
                 "help": "Leighis Lara gu slàinte làn a-rithist.",
+                "success": "Chaidh slàinte Lara a lìonadh gu lèir",
             },
             "help": {
                 "help": "Seallas cuideachadh airson gach àithne neo cuideachadh mionaideach airson tè shonraichte.",
                 "list": "Òrdughan rim faighinn:",
+                "unknown_command": "Àithne neo-aithnichte: %s",
             },
             "hp": {
+                "get": "Slàinte làithreach Lara: %d",
                 "help": "Suidhicheas slàinte Lara gu àireamh ainmichte.",
+                "set": "Slàinte Lara air a shuidheachadh gu %d",
             },
             "immune": {
                 "help": "Tionndaidh neo-bhàsmhorachd. (Faodaidh Lara fhathast bàsachadh ann an cuid de shuidheachaidhean.)",
@@ -360,13 +352,24 @@
                 "on": "'S urrainn do Lara ruith gu luath gun chrìoch a-nis",
             },
             "kill": {
+                "all": "Puf! Chaidh %d nàimhdean air falbh!",
+                "all_fail": "Och, chan eil nàimhdean air fhàgail airson marbhadh...",
                 "help": "Cuir às do nàimhdean a tha faisg air làimh.",
+                "invalid_object": "Oibseact mì-dhligheach",
+                "nearest": "Beannachd leat!",
+                "nearest_fail": "Chan eil nàmhaid sam bith faisg air làimh...",
+                "object_not_found": "Cha deach an t-oibseact a lorg",
             },
             "lighting": {
                 "help": "Tionndaidh siostam solais",
             },
             "load": {
+                "fail_invalid_slot": "Slot mì-dhligheach: %d",
+                "fail_unavailable_slot": "Chan eil slot sàbhalaidh %d ri làimh",
                 "help": "Luchdaich geama bhon t-slot sàbhalaidh ainmichte neo slot luath.",
+                "quick_success": "Slot luchdaichte gu luath %d",
+                "slot_help": "àireamh sliot, q no quick airson an t-sàbhalaidh luaith as ùire, q2 airson an dàrna fear",
+                "success": "Geama air a luchdadh bho slot %d",
             },
             "lua": {
                 "help": "Ruith an t-sreang còd Lua a chaidh a thoirt seachad.",
@@ -374,62 +377,126 @@
                 "syntax_error": "Mearachd sìntacs Lua: %s",
             },
             "mod": {
+                "current": "Am mod air a luchdadh an-dràsta: %s",
                 "help": "Ath-thòisich an geama le mod sònraichte.",
+                "invalid": "Mod mì-dhligheach: %s",
             },
             "music": {
-                "available_tracks": "\\{review}Tracannan-ciùil rim faighinn: %s",
-                "current": "\\{review}Trac gnàthach: %d",
-                "current_none": "\\{review}Trac gnàthach: gun fheum",
-                "deferred_ambient": "\\{review}Àrainneachd air a chur dheth: %d",
-                "help": "\\{review}Seall an stàit ciùil làithreach, stad air a h-uile ciùil, no cluich trac-ciùil leis an ID a chaidh a thoirt seachad.",
-                "overlay": "\\{review}Trac(annan) os cionn: %s",
-            },
-            "play_cutscene": {
-                "help": "Cluich sealladh-film leis an àireamh ainmichte.",
-            },
-            "play_demo": {
-                "help": "Cluich taisbeanadh leis an àireamh ainmichte.",
-            },
-            "play_gym": {
-                "help": "Cluich ìre an t-Seòmair-eacarsaich.",
-            },
-            "play_level": {
-                "help": "Cluich ìre leis an ainm neo àireamh ainmichte.",
-            },
-            "play_music": {
+                "available_tracks": "Tracannan-ciùil rim faighinn: %s",
+                "current": "Trac gnàthach: %d",
+                "current_none": "Trac gnàthach: gin",
+                "deferred_ambient": "Àrainneachd air a chur dheth: %d",
+                "help": "Seall an stàit ciùil làithreach, stad air a h-uile ciùil, no cluich trac-ciùil leis an ID a chaidh a thoirt seachad.",
+                "id_help": "cluich an trac leis an id seo",
                 "invalid_track": "Slighe-ciùil mì-dhligheach",
+                "overlay": "Trac(annan) os cionn: %s",
+                "status_help": "seall dè tha a' cluich",
+                "stop_help": "cuir stad air a' cheòl gu lèir",
                 "stopped": "Sguir an ceòl",
                 "track": "A' cluich ciùil %d",
             },
+            "play_cutscene": {
+                "help": "Cluich sealladh-film leis an àireamh ainmichte.",
+                "invalid": "Sealladh-film mì-dhligheach",
+                "loading": "A' luchdachadh sealladh-film %d",
+                "none": "Chan eil seallaidhean-film sa gheama seo",
+            },
+            "play_demo": {
+                "help": "Cluich taisbeanadh leis an àireamh ainmichte.",
+                "invalid": "Taisbeanadh mì-dhligheach",
+                "loading": "A' luchdachadh taisbeanaidh %d",
+                "none": "Chan eil taisbeanaidhean sa gheama seo",
+            },
+            "play_gym": {
+                "help": "Cluich ìre an t-Seòmair-eacarsaich.",
+                "invalid": "Ìre mì-dhligheach",
+                "loading": "A' luchdachadh %s",
+            },
+            "play_level": {
+                "help": "Cluich ìre leis an ainm neo àireamh ainmichte.",
+                "invalid": "Ìre mì-dhligheach",
+                "level_help": "àireamh ìre, ainm no gym",
+                "loading": "A' luchdachadh %s",
+            },
             "poison": {
-                "help": "\\{review}A’ suidheachadh ìre fuil Lara chun luach sònraichte. Cleachd -t gus an ìre targaid a shuidheachadh an àite sin (TR4 a-mhàin).",
+                "get": "Puinnsean làithreach Lara: %d (targaid: %d)",
+                "help": "Suidhichidh ìre puinnsean Lara chun luach sònraichte. Cleachd -t gus an ìre targaid a shuidheachadh an àite sin (TR4 a-mhàin).",
+                "set": "Puinnsean Lara air a shuidheachadh gu %d",
+                "target_set": "Targaid puinnsean Lara air a shuidheachadh gu %d",
             },
             "pos": {
                 "help": "Seall suidheachadh Lara.",
+                "lara_missing": "Chan eil Lara an làthair",
+                "lara_pos_fmt": "Seomair: %d\nSuidheachadh: %.3f, %.3f, %.3f\nCuairteachadh: %.3f, %.3f, %.3f",
+                "level_fmt": "Ìre %d",
+                "level_fmt_cutscene": "Sealladh-film %d",
+                "level_fmt_demo": "Taisbeanadh %d",
+            },
+            "rule": {
+                "ambiguous": "Cur-a-steach neo-shoilleir: %s agus %s",
+                "bad_invocation": "Iarrtas mì-dhligheach: %s",
+                "help": "Seallaidh no ùraichidh e an riaghailt-gèama a chaidh a shònrachadh. Cleachd - mar luach gus a bhun-luach a chur air ais.",
+                "rule_get": "Tha %s air a rèiteachadh gu %s",
+                "rule_set": "%s air atharrachadh gu %s",
+                "unknown_rule": "Riaghailt neo-aithnichte: %s",
             },
             "save": {
+                "fail_invalid_slot": "Slot sàbhalaidh mì-dhligheach: %d",
                 "help": "Sàbhail geama dhan t-slot ainmichte neo dhan ath shlot luath.",
+                "quick_fail_no_slots": "Chan eil slotan sàbhalaidh luath sam bith air an rèiteachadh",
+                "quick_success": "Sàbhailte gu luath",
+                "slot_help": "àireamh sliot, q no quick airson an ath shàbhaladh luath, q2 airson an dàrna fear",
+                "success": "Geama air a shàbhaladh gu slot %d",
             },
             "screenshot": {
                 "help": "Sàbhail glacadh-sgrìn gu diosc, le slighe fhaidhle roghainneil.",
             },
+            "secret": {
+                "action_help": "an toirear an dìomhaireachd seachad no an toirear air ais i",
+                "given": "Chaidh dìomhaireachd %s air a chur ris",
+                "help": "Seall liosta de dhìomhaireachdan Lara, neo cuir/thoir air falbh fear a rèir àireamh.",
+                "list": "Dìomhaireachdan air an cruinneachadh: %d de %d (%s)",
+                "none": "Dìomhaireachdan air an cruinneachadh: %d de %d",
+                "secret_help": "dè an dìomhaireachd, no na h-uile",
+                "taken": "Chaidh dìomhaireachd %s air a thoirt air falbh",
+            },
             "set": {
+                "ambiguous_2": "Cur-a-steach neo-shoilleir: %s agus %s",
+                "ambiguous_3": "Cur-a-steach neo-shoilleir: %s, %s, ...",
+                "bad_invocation": "Iarrtas mì-dhligheach: %s",
                 "help": "Cuir air doigh an rèiteachaidh a chaidh a thoirt seachad. Cleachd --force gus atharrachadh a dhèanamh air na rèiteachaidhean a tha air an cur an gnìomh aig ìre airson an t-seisean làithreach.",
+                "option_enforced": "Tha %s air a chur an gnìomh agus chan urrainnear atharrachadh",
+                "option_get": "Tha %s air a rèiteachadh gu %s",
+                "option_set": "%s air atharrachadh gu %s",
+                "unknown_option": "Roghainn neo-aithnichte: %s",
+                "valid_values": "Luachan dligheach: %s",
             },
             "sfx": {
+                "available": "Fuaimean ri làimh: %s",
                 "help": "Cluich buaidh-fuaime leis an ID ainmichte.",
+                "id_help": "cluich an sampall leis an id seo",
+                "invalid": "Fuaim mì-dhligheach: %d",
+                "playing": "A' cluich fuaim %d",
             },
             "spawn": {
                 "fail": "Cha deach an nì air iarraidh a chruthachadh",
+                "help": "Cruthaichidh nì a-rèir a h-ainm ri taobh Lara.",
+                "invalid": "Nì neo-aithnichte: %s",
+                "name_help": "an nì ri chruthachadh, a-rèir a h-ainm",
                 "success": "Chaidh an nì air iarraidh a chruthachadh faisg air Lara",
             },
             "speed": {
+                "get": "Astar làithreach: %d",
                 "help": "Atharraich astar a' gheama.",
+                "set": "Astar air a shuidheachadh air %d",
             },
             "strings": {
+                "failed": "Dh'fhàillig ath-luchdadh nam faidhlichean cànain",
                 "help": "Ath-luchdaich faidhlichean cànain làithreach on diosg.",
+                "reloaded": "Chaidh na faidhlichean cànain ath-luchdachadh",
             },
             "teleport": {
+                "invalid_room": "Seòmar mì-dhligheach: %d. Seòmraichean dligheach: 0 gu %d",
                 "item": "Air a ghluasad gu nì: %d",
                 "item_fail": "Dh'fhàillig gluasad gu nì: %d",
                 "object": "Air a ghluasad gu oibseact: %s",
@@ -460,9 +527,10 @@
                 "help": "Tionndaidheas sioncronachadh-inghearach air neo dheth.",
             },
             "weather": {
+                "current": "Aimsir làithreach: %s, dèine %s",
                 "help": "Atharraichidh seo an aimsir.",
                 "invalid": "Aimsir neo-dhligheach: %s (dligheach: %s)",
-                "set": "Suidhich an aimsir gu %s",
+                "set": "Suidhich an aimsir gu %s, dèine %s",
             },
             "winston": {
                 "dead": "Tha am butlar agad marbh. 'S tu nad fuamhaire!",
@@ -473,6 +541,12 @@
             "wireframe": {
                 "help": "Tionndaidh reandaradh frèam-uèir air neo dheth.",
             }
+        },
+        "config": {
+            "accepted_bool": "air, dheth",
+            "accepted_decimal": "[deicheach]",
+            "accepted_integer": "[àireamh slàn]",
+            "accepted_percent": "[àireamh slàn]",
         }
     },
     "dynamic": {
@@ -523,6 +597,10 @@
                 "tr3_gym": "TR3 Trèanadh",
                 "tr3_nevada": "Nevada",
                 "tr3_south_pacific": "A' Chuain Sèimh a Deas",
+                "tr4_classic": "TR4 Clasaigeach",
+                "tr4_golden_lara": "TR4 Lara Òir",
+                "tr4_young": "TR4 Òg",
+                "tr4_young_golden_lara": "TR4 Òg Òir",
             }
         },
         "mods": {
@@ -588,10 +666,16 @@
             "BLOOD_EFFECTS_PINK": "Pinc",
             "BLOOD_EFFECTS_RED": "Dearg",
         },
+        "BREEZE_MODE": {
+            "BREEZE_MODE_OFF": "Dheth",
+            "BREEZE_MODE_TR2": "TR2",
+            "BREEZE_MODE_TR3": "TR3",
+        },
         "CAMERA_MODE": {
             "CAMERA_MODE_TR1": "TR1",
             "CAMERA_MODE_TR2": "TR2",
             "CAMERA_MODE_TR3": "TR3",
+            "CAMERA_MODE_TR4": "TR4",
         },
         "CREATURE_DROWN_POLICY": {
             "CREATURE_DROWN_POLICY_DEFAULT": "Bunaiteach",
@@ -634,6 +718,7 @@
             "INPUT_ROLE_EQUIP_ROCKET_LAUNCHER": "Uidheamaich Lannsair Rocaid",
             "INPUT_ROLE_EQUIP_SHOTGUN": "Uidheamaich Gunna-sgaoil",
             "INPUT_ROLE_EQUIP_UZIS": "Uidheamaich Uzis",
+            "INPUT_ROLE_FAST_FORWARD_CHEAT": "Air Adhart Luath (Cùm)",
             "INPUT_ROLE_FLY_CHEAT": "Cleas Itealaich",
             "INPUT_ROLE_FPS": "Seall FPS",
             "INPUT_ROLE_INVENTORY": "Clàr-seilbhe",
@@ -651,6 +736,7 @@
             "INPUT_ROLE_SAVE": "Sàbhail",
             "INPUT_ROLE_SCREENSHOT": "Glacadh-sgrìn",
             "INPUT_ROLE_SLOW": "Coisich",
+            "INPUT_ROLE_SLOW_MOTION_CHEAT": "Gluasad Slaodach (Cùm)",
             "INPUT_ROLE_SPRINT": "Ruith gu Luath",
             "INPUT_ROLE_STEP_LEFT": "Ceum air Chlì",
             "INPUT_ROLE_STEP_RIGHT": "Ceum air Dheas",
@@ -666,12 +752,13 @@
             "INPUT_ROLE_TURBO_CHEAT": "Luas Turbo",
             "INPUT_ROLE_UP": "Ruith",
             "INPUT_ROLE_USE_BIG_MEDI": "Pasgan Mòr",
+            "INPUT_ROLE_USE_BINOCULARS": "Prosbaig",
             "INPUT_ROLE_USE_FLARE": "Cleachd Lòchran",
             "INPUT_ROLE_USE_SMALL_MEDI": "Pasgan Beag",
         },
         "INTRO_FMV_MODE": {
-            "INTRO_FMV_LAUNCH": "\\{review}Tòisich",
-            "INTRO_FMV_NEW_GAME": "\\{review}Geama ùr",
+            "INTRO_FMV_LAUNCH": "Tòisich",
+            "INTRO_FMV_NEW_GAME": "Geama ùr",
         },
         "JUMP_LOCK_MODE": {
             "JUMP_LOCK_DISABLED": "Dheth",
@@ -706,6 +793,18 @@
             "QUICK_GUNS_MODE_DRAW_AND_HOLSTER": "Tarraing/falach",
             "QUICK_GUNS_MODE_DRAW_ONLY": "Tarraing a-mhàin",
         },
+        "RING_MEMORY_MODE": {
+            "RING_MEMORY_ALL": "Gach fàinne",
+            "RING_MEMORY_MAIN": "Prìomh fhàinne",
+            "RING_MEMORY_OFF": "Dheth",
+        },
+        "SAVE_CRYSTAL_MODE": {
+            "SAVE_CRYSTAL_HEAL": "Slànachadh",
+            "SAVE_CRYSTAL_OFF": "Dheth",
+            "SAVE_CRYSTAL_PICKUP": "Nithean",
+            "SAVE_CRYSTAL_SAVE": "Sàbhaladh",
+            "SAVE_CRYSTAL_SAVE_PICKUP": "Sàbhaladh (nithean)",
+        },
         "SCREENSHOT_FORMAT": {
             "SCREENSHOT_FORMAT_JPEG": "JPG",
             "SCREENSHOT_FORMAT_PNG": "PNG",
@@ -723,6 +822,11 @@
             "SUNGLASSES_MODE_OFF": "Dheth",
             "SUNGLASSES_MODE_OPAQUE": "Neo-shoilleir",
             "SUNGLASSES_MODE_TRANSPARENT": "Follaiseach",
+        },
+        "TARGET_CHANGE_MODE": {
+            "TARGET_CHANGE_MODE_ENHANCED": "Leudaichte",
+            "TARGET_CHANGE_MODE_OFF": "Dheth",
+            "TARGET_CHANGE_MODE_TR4": "TR4",
         },
         "TARGET_LOCK_MODE": {
             "TARGET_LOCK_MODE_FULL": "Glas làn",
@@ -772,13 +876,17 @@
             "title": "Ceòl sa phrìomh chlàr",
             "description": "Cluichidh ceòl anns a' phrìomh chlàr.",
         },
+        "audio.enable_music_on_death": {
+            "title": "Ceòl às dèidh a' bhàis",
+            "description": "Cumaidh an t-òran làithreach a' cluich nuair a bhàsaicheas Lara.",
+        },
         "audio.enable_pitched_sounds": {
             "title": "Fuaimean atharraichte",
             "description": "Cuiridh seo cead air buaidhean fuaim le beagan caochlaidhean àirde-fuaim gus iomadachd a thoirt do dh'fhuaimean a' gheama.",
         },
         "audio.enable_ps1_sfx": {
             "title": "Cleachd fuaimean a' PhS1",
-            "description": "Cleachd fuaimean sònraichte bhon PhS1 an àite an fheaghainn PhC.\n\n - Fuaim Uzi (TR1 a-mhàin)\n- Gluasad crochte (TR1 a-mhàin)\n- Fuaim casrùisgte Lara (TR2 a-mhàin)",
+            "description": "Cleachd fuaimean sònraichte bhon PhS1 an àite an fheaghainn PhC.\n\n - Fuaim Uzi (TR1 a-mhàin)\n- Gluasad crochte (TR1 a-mhàin)\n- Fuaim casrùisgte Lara (TR2 a-mhàin)\n- Plosaidhean an lasairneach agus nan cinn-teine (TR3 a-mhàin).",
         },
         "audio.enable_underwater_anim_sfx": {
             "title": "SFX beòthalachd fon uisge",
@@ -786,7 +894,7 @@
         },
         "audio.fix_chainblock_secret_sound": {
             "title": "Càraich fuaim bloca slabhraidh",
-            "description": "Cuiridh seo casg air fuaim dìomhaireachd a chluich gu ceàrr nuair a thèid an iuchair òir a chleachdadh ann an Uaigh Tihocan.",
+            "description": "Cuiridh seo casg air fuaim dìomhaireachd a chluich gu ceàrr nuair a thèid an iuchair òir a chleachdadh ann an Uaigh Tihocan ann an TR1.",
         },
         "audio.fix_secrets_killing_music": {
             "title": "Ceòl dìomhaireachd ioma-fhilleadh",
@@ -888,6 +996,10 @@
             "title": "Targaidich air càirdean",
             "description": "Leigidh seo le Lara a targaidich air càirdean - manaich, 's a leithid. Mura tèid seo a chur an comas, bidh iad dìonach air peilearan Lara.",
         },
+        "gameplay.enable_alternative_turns": {
+            "title": "Tionndaidhean eile",
+            "description": "Leigidh seo le Lara tionndaidhean is toinneamhan eile a dhèanamh nuair a tha i na seasamh.\n\n- Brùth na putanan rolaidh is leuma còmhla gus toinneamh air an àite a dhèanamh.\n- Brùth na putanan rolaidh is coiseachd còmhla gus tionndadh luath a dhèanamh air an àite.\n- Brùth am putan rolaidh air na bàraichean muncaidh gus tionndadh luath a dhèanamh air an àite.",
+        },
         "gameplay.enable_auto_item_selection": {
             "title": "Roghainn ro-làimh air iuchraichean",
             "description": "Ma bhriogas Lara air gnìomh aig toll iuchrach neo àite tòimhseachain, taghaidh i an nì ceart gu fèin-obrachail.",
@@ -914,7 +1026,7 @@
         },
         "gameplay.enable_cheats": {
             "title": "Cleasan",
-            "description": "Cuiridh seo diofar chleasan an comas:\n\n- L: crìochnaich an ìre sa bhad.\n- I: bheir do Lara na h-armachd uile, pailteas lòin, pasganan slàinte agus stuthan cuilbheart na h-ìre làithreach.\n- O: cuir snàmh tro èadhar an comas.\n  - Coisich: stad a' snàmh tro èadhar.\n  - Uidheamaich: fosgail an doras as fhaisge (chan obraichidh seo an-còmhnaidh).",
+            "description": "Cuiridh seo diofar chleasan an comas:\n\n- \\{input level_skip_cheat}: crìochnaich an ìre sa bhad.\n- \\{input item_cheat}: bheir do Lara na h-armachd uile, pailteas lòin, pasganan slàinte agus stuthan cuilbheart na h-ìre làithreach.\n- \\{input fly_cheat}: cuir snàmh tro èadhar an comas.\n  - \\{input slow}: stad a' snàmh tro èadhar.\n  - \\{input draw}: fosgail an doras as fhaisge (chan obraichidh seo an-còmhnaidh).",
         },
         "gameplay.enable_cinematic_skips": {
             "title": "Leum troimh seallaidhean",
@@ -941,8 +1053,8 @@
             "description": "Leigidh seo le Lara tionndadh san adhar agus grèim a ghabhail air an oir a dh'fhàg i, fhad 's a tha am putan gnìomh air a chumail sios tron tuiteam.",
         },
         "gameplay.enable_corner_shimmying": {
-            "title": "\\{review}Siubhal timcheall oiseanan",
-            "description": "\\{review}Leigidh seo le Lara gluasad timcheall oiseanan nuair a tha i an crochadh ri oir no a' sreap balla (stoidhle TR4).",
+            "title": "Siubhal timcheall oiseanan",
+            "description": "Leigidh seo le Lara gluasad timcheall oiseanan nuair a tha i an crochadh ri oir no a' sreap balla (stoidhle TR4).",
         },
         "gameplay.enable_crawl_jump": {
             "title": "Leum às snàg",
@@ -954,7 +1066,7 @@
         },
         "gameplay.enable_crawling": {
             "title": "Snàgail",
-            "description": "Leigidh seo le Lara cromadh sìos agus snàgail.",
+            "description": "Leigidh seo le Lara cromadh sìos agus snàgail. Tha seo ann bho TR3 a-mach; chan eil gin dhiubh san TR1 no TR2 thùsail.",
         },
         "gameplay.enable_credits": {
             "title": "Sgrìoban creideis",
@@ -988,6 +1100,14 @@
             "title": "Togail gu luath",
             "description": "Leigidh seo le Lara nithean a thogail nas luaithe, coltach ri TR4+.",
         },
+        "gameplay.enable_fast_pull_up": {
+            "title": "Togail luath",
+            "description": "Leigidh seo le Lara i fhèin a thogail suas bho oirean nas luaithe.",
+        },
+        "gameplay.enable_fast_shimmying": {
+            "title": "Crochadh luath",
+            "description": "Leigidh seo le Lara gluasad nas luaithe nuair a tha i a' dol gu clì no deas na crochte.",
+        },
         "gameplay.enable_fmv": {
             "title": "Bhideothan",
             "description": "Cuiridh seo cluich bhideothan an comas.",
@@ -1006,7 +1126,7 @@
         },
         "gameplay.enable_jump_twists": {
             "title": "Snìomh leum",
-            "description": "Cuiridh seo snìomh is leth-chasach TR2+ an comas — m.e. brùth rolla rè leum neo dàibheadh.",
+            "description": "Cuiridh seo snìomh is leth-chasach TR2+ an comas — m.e. brùth rolla rè leum neo dàibheadh. Chan eil gin dhiubh san TR1 thùsail.",
         },
         "gameplay.enable_killer_pushblocks": {
             "title": "Cleachd blocaichean putadh marbhach",
@@ -1014,7 +1134,7 @@
         },
         "gameplay.enable_lean_jumping": {
             "title": "Leum le claonadh",
-            "description": "Leigidh Lara sleamhnachadh beagan air adhart/air ais le leum neodrach ma bhithear a' cumail iuchair stiùiridh.",
+            "description": "Leigidh Lara sleamhnachadh beagan air adhart/air ais le leum neodrach ma bhithear a' cumail iuchair stiùiridh. Tha seo ann bho TR2 a-mach; san TR1 thùsail gluaisidh i air adhart co-dhiù, ge b' e dè an iuchair, ach fada nas slaodaiche.",
         },
         "gameplay.enable_ledge_jumps": {
             "title": "Leum bho oir",
@@ -1028,9 +1148,9 @@
             "title": "Camara làimhe",
             "description": "Cuir comas air putanan a' chamara (\\{input camera_forward}\\{input camera_back}\\{input camera_left}\\{input camera_right}) a thathas a' cleachdadh gus smachd a chumail air camara Modh Dealbh, gus cuideachd camara a' gheama a chuairteachadh.",
         },
-        "gameplay.enable_neutral_twists": {
-            "title": "Snìomh neodrach",
-            "description": "Leigidh seo le Lara tionndadh san adhar fhad 's a tha i a' leum gu neodrach. Brùth air na putanan leum is rola còmhla ri chèile nuair a tha i na seasamh.",
+        "gameplay.enable_multiple_pickups": {
+            "title": "Togail iomadh nì",
+            "description": "Leigidh seo le Lara na nithean togail uile a tha san aon àite a thogail san aon bheothachadh (TR1–3). Ma tha seo à comas, feumaidh Lara am beothachadh ath-aithris airson gach nì (TR4+).",
         },
         "gameplay.enable_pickup_aids": {
             "title": "Taic togail",
@@ -1048,10 +1168,6 @@
             "title": "Ruith luath freagairteach",
             "description": "Cuiridh seo staid ruith luath nas freagairtiche an gnìomh do Lara.\n\n- leigidh le Lara ruith gu luath cho luath 's a tha neart aice, seach a bhith a' feitheamh gus am bi stamina làn aice.\n- leigidh le Lara ruith gu luath suas staidhre gun a bhith a stad le beòthalachd ruith àbhaisteach.",
         },
-        "gameplay.enable_save_crystals": {
-            "title": "Criostalan sàbhalaidh",
-            "description": "Cuiridh seo cuingealachadh air sàbhaladh gu toiseach ìrean is criostalan sàbhalaidh aon-chleachdadh, coltach ris a' PhS1. Feumar ath-thòiseachadh an ìre airson seo obrachadh.",
-        },
         "gameplay.enable_slide_to_run": {
             "title": "Sleamhnaich-gus-ruith",
             "description": "Leigidh seo le Lara ruith sa bhad nuair a ruigeas i air uachdar còmhnard às dèidh a bhith a' sleamhnachadh air leac leathann. Cum am putan air adhart sios gus a ghnìomhachadh.",
@@ -1062,11 +1178,11 @@
         },
         "gameplay.enable_smooth_wall_deflect": {
             "title": "Ath-bheòthachadh bhalla rèidh",
-            "description": "Cuidichidh Lara le tilleadh nas luaithe às dèidh buille ri balla ma thèid stiùireadh is 'air adhart' a chumail.",
+            "description": "Cuidichidh Lara le tilleadh nas luaithe às dèidh buille ri balla ma thèid stiùireadh is 'air adhart' a chumail. Tha seo ann bho TR2 a-mach; ma tha e à comas, tillidh i aig astar an TR1 thùsail.",
         },
         "gameplay.enable_snap_interactions": {
             "title": "Eadar-obrachaidhean snap",
-            "description": "Leigidh seo le Lara greim a ghabhail sa bhad air targaidean eadar-obrachaidh, leithid nithean ri thogail agus suidsichean. Ma tha seo à comas, feumaidh Lara stad gu tur mus urrainn dhi eadar-obrachadh.",
+            "description": "Leigidh seo le Lara greim a ghabhail sa bhad air targaidean eadar-obrachaidh, leithid nithean ri thogail agus suidsichean. Ma tha seo à comas, feumaidh Lara stad gu tur mus urrainn dhi eadar-obrachadh. Tha an grèim sa bhad a' freagairt ri TR1/2, agus an stad ro làimh ri TR3+.",
         },
         "gameplay.enable_soft_statics": {
             "title": "Bualadh mogal bog",
@@ -1078,15 +1194,11 @@
         },
         "gameplay.enable_step_roll_boost": {
             "title": "Brùthadh le rolla bho cheum",
-            "description": "Leigidh Lara leum bhon cheum aon-bhriog ma bhriogar rolla faisg air an oir.",
+            "description": "Leigidh Lara leum bhon cheum aon-bhriog ma bhriogar rolla faisg air an oir. Chan eil seo ach san TR1 thùsail; chan eil e ann an TR2+.",
         },
         "gameplay.enable_swing_cancel": {
             "title": "Sguir siùdadh",
-            "description": "Leigidh seo le Lara leigeil às nuair a tha i a' siùdadh, agus grèim a ghlacadh sa bhad airson gluasad luath.",
-        },
-        "gameplay.enable_target_change": {
-            "title": "Atharraich targaid",
-            "description": "Cuiridh seo an comas atharrachadh targaid TR4+ fhad 's a tha Lara ag amas.",
+            "description": "Leigidh seo le Lara leigeil às nuair a tha i a' siùdadh, agus grèim a ghlacadh sa bhad airson gluasad luath. Tha seo ann bho TR2 a-mach; chan eil an TR1 thùsail ga cheadachadh.",
         },
         "gameplay.enable_timer_in_inventory": {
             "title": "Gleoc sa chlàr-seilbhe",
@@ -1106,23 +1218,27 @@
         },
         "gameplay.enable_tr2_jumping": {
             "title": "Leum freagairteach",
-            "description": "Leigidh le Lara leum aig àm sam bith nuair a tha i a' ruith.",
+            "description": "Leigidh le Lara leum aig àm sam bith nuair a tha i a' ruith. Tha seo ann bho TR2 a-mach; ma tha e à comas, leumaidh i aig puingean suidhichte na beòthalachd ruith, mar san TR1 thùsail.",
         },
         "gameplay.enable_tr2_swim_cancel": {
             "title": "Stad snàmh freagairteach",
-            "description": "Leigidh Lara stad gu sgiobalta fon uisge nuair a thèid am putan snàmh a leigeil às.",
+            "description": "Leigidh Lara stad gu sgiobalta fon uisge nuair a thèid am putan snàmh a leigeil às. Tha seo ann bho TR2 a-mach; ma tha e à comas, stadaidh i mar a nì i san TR1 thùsail.",
         },
         "gameplay.enable_tr2_swimming": {
             "title": "Snàmh rèidh",
             "description": "Cuiridh seo lùb luathaidh air tionndadh Lara fon uisge airson gluasad nas rèidh, mar ann an TR2 bho thùs.",
         },
+        "gameplay.enable_underwater_auto_draw": {
+            "title": "Tarraing airm fon uisge",
+            "description": "Leigidh seo leis an iuchair tarraing airm arm a thaghadh as urrainn dha Lara a chleachdadh fon uisge, mar an gunna mhuirgheadh, seach gun dèan i dad nuair nach gabh an t-arm mu dheireadh a chleachdadh an sin.",
+        },
         "gameplay.enable_uw_roll": {
             "title": "Rolla fon uisge",
-            "description": "Leigidh le Lara rolla a dhèanamh fon uisge.",
+            "description": "Leigidh le Lara rolla a dhèanamh fon uisge. Tha seo ann bho TR2 a-mach; chan eil rolla fon uisge san TR1 thùsail.",
         },
         "gameplay.enable_wading": {
             "title": "Coiseachd tro uisge",
-            "description": "Leigidh le Lara coiseachd tro uisge eu-dhomhain seach a bhith air a stad aig uachdar na h-aibhne.",
+            "description": "Leigidh le Lara coiseachd tro uisge eu-dhomhain seach a bhith air a stad aig uachdar na h-aibhne. Tha seo ann bho TR2 a-mach; chan eil coiseachd tro uisge san TR1 thùsail.",
         },
         "gameplay.enable_walk_to_items": {
             "title": "Eadar-obrachadh beòthail",
@@ -1146,7 +1262,7 @@
         },
         "gameplay.fix_descending_glitch": {
             "title": "Càraich tuiteam air leacan bristeach",
-            "description": "Càradh far am bi Lara a' tuiteam gu sgiobalta tro leacan briste nuair a dhèanas i ceum-taoibh neo coiseachd air ais orra.",
+            "description": "Càradh far am bi Lara a' tuiteam gu sgiobalta tro leacan briste nuair a dhèanas i ceum-taoibh neo coiseachd air ais orra. Chan eil an duilgheadas seo san TR2+ thùsail; tha e ann an TR1.",
         },
         "gameplay.fix_flare_throw_priority": {
             "title": "Càraich prìomhachas tilgeadh lòchran",
@@ -1158,7 +1274,7 @@
         },
         "gameplay.fix_free_flare_glitch": {
             "title": "Càraich glitch lòchran an-asgaidh",
-            "description": "Càradh far am faighear lòchran gun chosgais le bhith a' brùthadh am putan fhad 's a thogas Lara rud sam bith an àrd.",
+            "description": "Càradh far am faighear lòchran gun chosgais le bhith a' brùthadh am putan fhad 's a thogas Lara rud sam bith an àrd, no le bhith ag iarraidh tè tron chlàr-seilbhe nuair a tha i a' snàgadh.",
         },
         "gameplay.fix_item_duplication_glitch": {
             "title": "Càraich glitch dùblachaidh nì",
@@ -1167,6 +1283,10 @@
         "gameplay.fix_lara_pickup_embed": {
             "title": "Càraich cath-thogail",
             "description": "Càradh far am bi Lara uaireannan a' gluasad a-steach gu ballachan nuair a tha i a' togail rudeigin fon uisge, agus os cionn uisge fo mhullaichean cas leathann.",
+        },
+        "gameplay.fix_lift_collision": {
+            "title": "Ceartaich bualadh lioftan",
+            "description": "Ceartaichidh seo duilgheadasan far nach bi Lara a' bualadh air lioftan a tha a' gluasad. Dh'fhaodadh sin a fàgail glaiste no toirt oirre dol troimhe.",
         },
         "gameplay.fix_m16_accuracy": {
             "title": "Càraich cruinneas M16/MP5",
@@ -1186,7 +1306,7 @@
         },
         "gameplay.fix_step_glitch": {
             "title": "Càraich glitch ceumannan",
-            "description": "Càradh far am bi Lara uaireannan air a putadh tro bhalla ri taobh ceuman nuair a ruitheas i suas orra.",
+            "description": "Càradh far am bi Lara uaireannan air a putadh tro bhalla ri taobh ceuman nuair a ruitheas i suas orra. Chan eil an duilgheadas seo san TR1 thùsail; tha e ann an TR2 is TR3.",
         },
         "gameplay.fix_underwater_crawl": {
             "title": "Càraich snàgadh fon uisge",
@@ -1202,7 +1322,7 @@
         },
         "gameplay.fix_wall_geometry": {
             "title": "Càradh geoimeatraidh bhallachan",
-            "description": "Càraichidh seo cùisean ann an geoimeatraidh ìrean OG far am faod claonaidhean taobh a-staigh bhallachan leantainn gu àireamhachadh àirde mearachdach.",
+            "description": "Càraichidh seo cùisean ann an geoimeatraidh ìrean OG far am faod claonaidhean taobh a-staigh bhallachan leantainn gu àireamhachadh àirde mearachdach. Chan eil an duilgheadas seo san TR3+ thùsail; tha e ann an TR1 is TR2.",
         },
         "gameplay.fix_water_exit": {
             "title": "Càraich fàgail à seòmar uisge",
@@ -1210,7 +1330,7 @@
         },
         "gameplay.game_modes_policy": {
             "title": "Taghadh modh geama",
-            "description": "Leigeas le roghainnean Geama Ùr+ a bhith rim faotainn sa phasport aig toiseach a' gheama.\n\n- Geama Ùr+: fuasgladh nan armachd air fad le peilearan gun chrìoch; bidh HP dùbailte aig na nàimhdean.\n- GÙ Iapanach: bidh na h-armachd ag adhbhrachadh milleadh dùbailte, agus bheir togail lòchrain 8 seach 6.\n- GÙ+ Iapanach: measgachadh de GÙ+ is GÙ Iapanach.\n\nRoghainnean rim faighinn:\n\n- An-còmhnaidh: bidh uinneag taghadh nam modhan-geama ri fhaighinn an-còmhnaidh.\n- A-riamh: cha bhi uinneag taghadh nam modhan-geama ri fhaighinn idir.\n- Air chrìoch: cha bhi uinneag taghadh nam modhan-geama ri fhaighinn gus am bi an geama air a chrìochnachadh.",
+            "description": "Leigeas le roghainnean Geama Ùr+ a bhith rim faotainn sa phasport aig toiseach a' gheama.\n\n- Geama Ùr+: fuasgladh nan armachd air fad le peilearan gun chrìoch; bidh HP dùbailte aig na nàimhdean.\n\nRoghainnean rim faighinn:\n\n- An-còmhnaidh: bidh uinneag taghadh nam modhan-geama ri fhaighinn an-còmhnaidh.\n- A-riamh: cha bhi uinneag taghadh nam modhan-geama ri fhaighinn idir, agus bidh gach geama ùr na gheama àbhaisteach.\n- Air chrìoch: cha bhi uinneag taghadh nam modhan-geama ri fhaighinn gus am bi an geama air a chrìochnachadh.",
         },
         "gameplay.harpoon_recoil": {
             "title": "Ath-luchdadh harpùn",
@@ -1221,8 +1341,8 @@
             "description": "Leigidh seo le Lara beòthalachd shònraichte a thòiseachadh às dèidh dhi dad a dhèanamh fad an àireamh de dhiogan suidhichte. Suidhich gu 0 gus a chur à comas.",
         },
         "gameplay.intro_fmv_mode": {
-            "title": "\\{review}Ùine FMV Ro-ràdh",
-            "description": "\\{review}Smachdan air cuin a chluicheas FMV sgeulachd fosglaidh gach geama.\n\n- Geama ùr: cluich e nuair a thòisicheas geama ùr.\n- Tòiseachadh: cluich e a h-uile uair a thèid am geama a thòiseachadh no atharrachadh gu, coltach ris na geamannan tùsail.",
+            "title": "Ro-ràdh FMV",
+            "description": "Atharraichidh cuin a chluicheas FMV sgeulachd fosglaidh gach geama.\n\n- Geama ùr: cluich nuair a thòisicheas geama ùr.\n- Tòiseachadh: cluich gach uair a' thòisicheas a' gheama no nuair a dh'atharraicheas am mod, coltach ris na geamannan tùsail.",
         },
         "gameplay.jump_lock_mode": {
             "title": "Modh glasadh leum",
@@ -1234,7 +1354,7 @@
         },
         "gameplay.look_mode": {
             "title": "Modh seallaidh",
-            "description": "Leigidh seo leat smachd a chumail air cuin as urrainn do Lara sealladh a chleachdadh.\n\n- Cuibhrichte: chan eil sealladh comasach ach nuair a tha Lara na stad, agus a-riamh fon uisge.\n- Leasaichte: tha sealladh comasach rè a' mhòr-chuid de bheòthalachd, ach chan ann rè gluasadan mar putadh bloca.\n- Neo-chuibhrichte: tha sealladh comasach aig àm sam bith fo smachd Lara àbhaisteach.",
+            "description": "Leigidh seo leat smachd a chumail air cuin as urrainn do Lara sealladh a chleachdadh.\n\n- Cuibhrichte: chan eil sealladh comasach ach nuair a tha Lara na stad, agus a-riamh fon uisge.\n- Leasaichte: tha sealladh comasach rè a' mhòr-chuid de bheòthalachd, ach chan ann rè gluasadan mar putadh bloca.\n- Neo-chuibhrichte: tha sealladh comasach aig àm sam bith fo smachd Lara àbhaisteach.\n\nTha Cuibhrichte a' freagairt ris an TR1 thùsail, agus Leasaichte ris an TR2+ thùsail.",
         },
         "gameplay.maximum_quick_save_slots": {
             "title": "Àireamh nan slotan sàbhalaidh luath",
@@ -1258,11 +1378,23 @@
         },
         "gameplay.restore_ps1_enemies": {
             "title": "Aisig nàimhdean PS1",
-            "description": "Cuiridh seo spaoileadan ann an City of Khamoon (PS1), seòmar 25. Feumaidh ath-thòiseachadh a' gheama gu lèir gus obraicheas seo.",
+            "description": "Cuiridh seo spaoileadan ann an City of Khamoon (PS1) ann an TR1, seòmar 25. Feumaidh ath-thòiseachadh a' gheama gu lèir gus obraicheas seo.",
+        },
+        "gameplay.ring_memory_mode": {
+            "title": "Cuimhnich àite na maoine",
+            "description": "Fosglaidh fàinne air an nì air an do dh'fhàgadh i, seach air a' chiad fhear.\n\n- Dheth: tòisichidh gach fosgladh air a' chiad nì, mar a bha sa gheama thùsail.\n- Prìomh fhàinne: cha chuimhnichear ach fàinne nan nithean.\n- Gach fàinne: cuimhnichear fàinne nan nithean agus fàinne nan iuchraichean.\n\nTillidh a' chiad nì mura h-eil na chaidh a chuimhneachadh aig Lara tuilleadh, agus tòisichidh gach ìre an sin.",
+        },
+        "gameplay.save_crystal_mode": {
+            "title": "Modh nan criostalan",
+            "description": "Suidhichidh seo dè nì na criostalan a tha sgapte tro na h-ìrean.\n\n- Dheth: chan bhith criostalan ann.\n- Sàbhaladh: bidh na criostalan aon-chleachdaidh agus leigidh iad le Lara an geama a shàbhaladh far a bheil iad, coltach ri tionndadh PS1 de TR1. A bharrachd air sin, chan urrainnear sàbhaladh ach aig toiseach nan ìrean.\n- Sàbhaladh (nithean): thèid na criostalan a chruinneachadh agus leigidh iad le Lara an geama a shàbhaladh on chlàr-seilbhe bho àite sam bith san ìre, coltach ri tionndadh PS1 de TR3. A bharrachd air sin, chan urrainnear sàbhaladh ach aig toiseach nan ìrean.\n- Slànachadh: aisigidh na criostalan leth de shlàinte Lara agus leigheasaidh iad puinnsean nuair a bheanas i riutha, coltach ri tionndadh PC de TR3.\n- Nithean: 's e nithean cruinneachaidh a th' anns na criostalan, is thèid iad air a chunntadh ann an staitistigean na h-ìre.\n\nFeumar an ìre ath-thòiseachadh airson seo obrachadh.",
         },
         "gameplay.start_lara_hitpoints": {
             "title": "Slàinte tòiseachaidh Lara",
             "description": "Suidhichidh seo luach slàinte Lara aig toiseach gach ìre.",
+        },
+        "gameplay.target_change_mode": {
+            "title": "Atharraich targaid",
+            "description": "Atharraichidh seo mar a ghluaiseas Lara eadar targaidean fhad 's a tha i ag amas.\n\n- Dheth: cumaidh Lara an targaid a th'aice.\n- Leudaichte: brùth am putan Atharraich Targaid gus atharrachadh.\n- TR4: thoir gnogag air a' phutan Seall gus atharrachadh; ma chumas tu sìos e, seallaidh i mun cuairt às dèidh greis ghoirid.",
         },
         "gameplay.target_mode": {
             "title": "Modh glas armachd",
@@ -1270,7 +1402,7 @@
         },
         "gameplay.wall_glitch_mode": {
             "title": "Modh glitch bhalla",
-            "description": "Cuiridh seo modh glitch bhalla TR1 ann an TR2 agus a chaochladh an comas. Leigidh seo cuideachd le càradh iomlan air na glitchan uile.",
+            "description": "Taghaidh seo dè na glitchean balla as urrainn do Lara a dhèanamh.\n\n- TR1: mar a tha e san TR1 thùsail, far an cuir leum air adhart a-steach do bhalla Lara gu a mhullach.\n- TR2: mar a tha e san TR2 is TR3 thùsail, far nach obraich an leum sin tuilleadh, ach far an tèid Lara troimhe fhathast ma bhuaileas i an làr agus am balla aig an aon àm ann an cuid a gheoimeatraidh.\n- Air a chàradh: chan obraich glitch seach a chèile dhiubh, agus chan fhaod Lara a dhol tro roinn dhùinte doras tuilleadh.",
         },
         "input.enable_buffering_func_keys": {
             "title": "Bùthadh (putanan F)",
@@ -1279,6 +1411,10 @@
         "input.enable_buffering_inventory": {
             "title": "Bùthadh (clàr-stòraidh)",
             "description": "Leigeas leis am putan clàr-stòraidh smachd mionaideach (2-fhraim) a thoirt air gluasad Lara.",
+        },
+        "input.enable_controller": {
+            "title": "Taic smachdairean",
+            "description": "Leigidh seo leis a' gheama smachdairean ceangailte a leughadh. Cuir seo dheth ma tha thu a' cleachdadh bathar-bog ath-mhapaidh bhon taobh a-muigh a tha mar-thà ag eadar-theangachadh an smachdair gu cur-a-steach a' mheur-chlàir.",
         },
         "input.enable_responsive_passport": {
             "title": "Pasport freagairteach",
@@ -1328,13 +1464,25 @@
             "title": "Iomallan",
             "description": "Cuiridh seo iomallan dubha timcheall air uinneag a' gheama.",
         },
+        "rendering.enable_dithering": {
+            "title": "Dithering",
+            "description": "Lùghdaichidh seo an dealbh gu dathan 8-biod le pàtran dithering òrdaichte, airson coltas nan tionndaidhean le reandaradh bathar-bog.",
+        },
         "rendering.enable_trapezoid_filter": {
             "title": "Criathradh trapeasoid",
             "description": "Cuiridh seo ceartachadh air trapeasoidean (ceàrnan neo-chothromach) airson reandaradh nas fhearr.",
         },
+        "rendering.enable_vertex_snap": {
+            "title": "Glacadh nan oisean",
+            "description": "Cruinnichidh seo suidheachadh nan oisean gu piocsailean slàna air sgrìn 320x240, airson geoimeatraidh chrithich coltach ri na tionndaidhean PlayStation.",
+        },
         "rendering.enable_vsync": {
             "title": "V-Sionc",
             "description": "Tionndaidheas sioncronachadh-inghearach air neo dheth.",
+        },
+        "rendering.fmv_filter": {
+            "title": "Criathradh nam videothan",
+            "description": "Cuiridh seo atharrachadh eadar coltas rèidh agus piogsailte air na videothan.",
         },
         "rendering.fps": {
             "title": "FPS",
@@ -1344,6 +1492,10 @@
             "title": "Iomsgaradh solais",
             "description": "Cuiridh seo atharrachadh air iomsgaradh solais fiùghantach, airson m.e. lasraichean neo losgadh armachd.",
         },
+        "rendering.multisampling_factor": {
+            "title": "Ioma-shamplachadh",
+            "description": "Rèitichidh seo oirean bhallachan is nithean le bhith a' gabhail grunn shamplaichean de gach piogsail rin taobh. Tòrr nas saoire na os-shamplachadh, ach fàgaidh e oirean sprites mar dhuilleach is teine mar a bha iad.",
+        },
         "rendering.screenshot_format": {
             "title": "Fòrmat glacadh-sgrìn",
             "description": "Fòrmat fhaidhle airson glacadh-sgrìn.",
@@ -1351,6 +1503,10 @@
         "rendering.sprite_lock_mode": {
             "title": "Glasadh sprìde",
             "description": "Bheir seo buaidh air na h-aisealean a tha glaiste nuair a thathar a' coimhead air sprìdean air an sgrion.\n\n- Gin sam bith: seall air na sprìdean gu àbhaisteach.\n- Rothladh: glasaich an aiseal rothlaidh – gu feumail a-mhàin ann am modh dealbh.\n- Rothladh is claonadh: bidh na sprìdean nan seasamh dìreach agus cha bhith iad nan laighe air an talamh nuair a thathar gan choimhead bho shuas.\n- Sealladh: glasaich na h-aisealean rothlaidh agus claonadh, 's a bharrachd air sin, rothlaich na sprìdean beagan a dh'ionnsaigh meadhan an sgrion.",
+        },
+        "rendering.supersampling_factor": {
+            "title": "Os-shamplachadh",
+            "description": "Nì seo an geama aig iomadach den dùmhlachd-bhreacaidh aige agus lùghdaichidh e air ais e le cuibheas, a' rèiteachadh oirean fiaclach. Iarraidh factaran nas àirde tòrr a bharrachd obrach air a' chairt-ghrafaigs.",
         },
         "rendering.texture_filter": {
             "title": "Criathradh inneach",
@@ -1386,7 +1542,7 @@
         },
         "ui.bar_look": {
             "title": "Coltas nam bàraichean",
-            "description": "Atharraichidh seo coltas nam bàraichean EA.",
+            "description": "Taghaidh seo am frèam agus na dathan a thèid a chleachdadh airson bàraichean na h-eadar-aghaidh, air an togail bho aon de na sgaoilidhean tùsail. Co-dhùnaidh an taghadh cuideachd dè an seata de roghainnean datha gu h-ìosal a bhios an sàs.",
         },
         "ui.bar_scale": {
             "title": "Meud bàr",
@@ -1426,7 +1582,7 @@
         },
         "ui.enemy_healthbar_show_mode": {
             "title": "Modh bàr-nàmhaid",
-            "description": "Cuiridh seo bàr-shlàinte an nàmhaid gnìomhaich an comas.",
+            "description": "Stiùirichidh seo cuin a nochdas bàr-slàinte airson an nàmhaid air a bheil Lara ag amas.\n\n- An-còmhnaidh: seall e airson amas sam bith.\n- A-mhàin ri boss: na seall e ach nuair as e boss an t-amas.\n- Na seall idir: na seall e idir.",
         },
         "ui.exposurebar_color": {
             "title": "Dath bàr-fuachd",
@@ -1486,7 +1642,7 @@
         },
         "ui.show_bars": {
             "title": "Cleachd bàraichean",
-            "description": "Cuiridh seo dheth gach bàr sa gheama, a' falach fiosrachadh mu shlàinte Lara agus goireasan eile (airson ruith dhùbhlanach).",
+            "description": "Seallaidh seo na bàraichean sa gheama. Ma chuireas tu dheth iad, thèid fiosrachadh mu shlàinte Lara agus goireasan eile fhalach (airson ruith dhùbhlanach).",
         },
         "ui.show_pickups_overlay": {
             "title": "Taisbeanadh thogailtean",
@@ -1568,13 +1724,21 @@
             "title": "Meud teacsa",
             "description": "Atharraicheas meud an teacsa.",
         },
+        "visuals.background_brightness": {
+            "title": "Soilleireachd dealbhan",
+            "description": "Atharraichidh soilleireachd nan dealbhan agus nam pàtranan cùlaibh.",
+        },
         "visuals.blood_effects": {
             "title": "Buaidhean fuil",
             "description": "Smachd air dathan spàirn fola.\n\n- Ciorramh: chan eilear a’ sealltainn spàirn fola sam bith.\n- Pinc: an àbhaist ann an sgaoilidhean PC Gearmailteach de TR3.\n- Dearg: an àbhaist anns a h-uile sgaoileadh reic eile.",
         },
+        "visuals.breeze_mode": {
+            "title": "Gaoth",
+            "description": "Cuiridh seo buaidh na gaoithe air feaman-fuilt Lara, boinneagan uisge a' thuiteas far Lara, agus an t-uisge/sneachd ann an seòmraichean freagarrach.\n\n- Dheth: cuir à comas buaidh na gaoithe.\n- TR2: bidh a' ghaoth an-còmhnaidh a' sèideadh air aon taobh.\n- TR3: bidh taobh na gaoithe ag atharrachadh thar ùine.",
+        },
         "visuals.camera_mode": {
             "title": "Modh camara",
-            "description": "Atharraichidh seo an doigh anns a bhios a' chamara ag obair, m.e. aig àm ghnìomhan shonraichte, mar a bhith a' cleachdadh iuchraichean.",
+            "description": "Taghaidh seo giùlan camara dè an geama a thèid a chleachdadh.\n\n- TR1: leanaidh an camara-tòrachd bogsaichean lorg-slighe na h-ìre.\n- TR2: an aon rud, le crìochan tòrachd is seallaidh eadar-dhealaichte agus dòigh eile air camarathan suidhichte a làimhseachadh.\n- TR3: cleachdaidh an camara-tòrachd loidhne-seallaidh an àite nam bogsaichean lorg-slighe.\n- TR4: mar TR3, agus freagraidh an camara cuideachd nuair a ghluaiseas gnìomh sealladh Lara, mar a bhith a' togail nì no a' dol timcheall oisean 'na crochadh.",
         },
         "visuals.enable_3d_pickups": {
             "title": "Togail 3D",
@@ -1584,9 +1748,9 @@
             "title": "Feaman-fuilt Lara",
             "description": "Cuiridh seo feaman-fuilt Lara an comas.",
         },
-        "visuals.enable_breeze": {
-            "title": "Gaoth",
-            "description": "Cuiridh seo buaidh na gaoithe air feaman-fuilt Lara ann an seòmraichean freagarrach.",
+        "visuals.enable_droplets": {
+            "title": "Boinnean uisge",
+            "description": "Leigeas le boinnean uisge sileadh far Lara às dèidh dhi an t-uisge fhàgail.",
         },
         "visuals.enable_exit_fade_effects": {
             "title": "Dorchachadh aig fàgail",
@@ -1601,8 +1765,8 @@
             "description": "Cuiridh seo comas air solas fiùghantach a bhith air a chruthachadh ri taobh lasraichean gnìomhach.",
         },
         "visuals.enable_fog_bulbs": {
-            "title": "\\{review}Builgeanan ceò",
-            "description": "\\{review}Cuiridh seo comas air èifeachdan ceò a chaidh an suidheachadh anns na h-ìrean.",
+            "title": "Builgeanan ceò",
+            "description": "Cuiridh seo comas air èifeachdan ceò a chaidh an suidheachadh anns na h-ìrean.",
         },
         "visuals.enable_footprints": {
             "title": "Clachan-coise",
@@ -1613,20 +1777,24 @@
             "description": "Cuir an comas gluasad sleamhainn air camarathan stèidhichte a bhios a' coimhead air Lara le lùb astair rèidh a chleachdadh. Ma tha e à comas, atharraichidh na camarathan seo an sealladh sa bhad.",
         },
         "visuals.enable_gun_glow": {
-            "title": "\\{review}Soillseachadh gunna",
-            "description": "\\{review}Tha seallaidh e losgadh gun agus losgadh flare gu leth-truailleach agus cuiridh e bloom de sholas timcheall orra, mar a chìthear anns an dreach TR2 PS1.",
+            "title": "Soillseachadh gunna",
+            "description": "Cuiridh seo gàir mun cuairt air losgadh gunna agus lòchran gu leth-truailleach, mar a chìthear anns an dreach TR2 PS1.",
         },
         "visuals.enable_gun_lighting": {
             "title": "Solais armachd",
             "description": "Cuiridh seo solais beòthail ri losgadh agus spreadhadh.",
         },
         "visuals.enable_poison_vision": {
-            "title": "\\{review}Sealladh puinnseanta",
-            "description": "\\{review}Buaileas am faicsinneachd fhad ‘s a tha Lara puinnseanta. Cuir dheth ma tha thu buailteach do tinneas gluasad.",
+            "title": "Sealladh puinnseanta",
+            "description": "Buaileas am faicsinneachd fhad 's a tha Lara puinnseanta. Cuir dheth ma tha thu buailteach do tinneas gluasad.",
         },
         "visuals.enable_ps1_crystals": {
             "title": "Dath criostail PS1",
             "description": "Bidh na criostalan sàbhalaidh purpaidh mar a tha iad anns a' PhS1.",
+        },
+        "visuals.enable_ps1_rain": {
+            "title": "Boinneagan uisge PS1",
+            "description": "Thèid boinneagan uisge a chur ris an t-sealladh seach am measgachadh ann, agus mar sin bidh iad bàn mar a bha iad air a' PS1.",
         },
         "visuals.enable_reflections": {
             "title": "Meòrachadh",
@@ -1644,6 +1812,10 @@
             "title": "Bogsa-nan-Speuran",
             "description": "Cuiridh seo bogsa-nan-speuran an comas ann an ìrean far a bheil e freagarrach.",
         },
+        "visuals.enable_static_lighting": {
+            "title": "Solas air mogalan statach",
+            "description": "Leigidh seo le lasraichean is solais fiùghantach eile mogalan statach a shoillseachadh. Chan eil TR4 tùsail a' soillseachadh ach geoimeatraidh nan seòmraichean.",
+        },
         "visuals.enable_weather": {
             "title": "Aimsir",
             "description": "Cuir air neo dheth an aimsir anns na h-ìrean anns a bheil i an àite.",
@@ -1653,8 +1825,8 @@
             "description": "Ceartachaidh nan sprìodan lusan fo uisge tùsail gus an gluasad gu ceart ann an raointean uisge.",
         },
         "visuals.fix_item_rots": {
-            "title": "Càraich cuairteachadh nithean",
-            "description": "Càradh bugan far a bheil cuid de thogailtean air an tionndadh gu ceàrr le togailtean 3D air a chomasachadh.",
+            "title": "Càraich suidheachadh nithean",
+            "description": "Ceartaichidh seo grunn dhuilgheadasan anns na geamannan tùsail a tha air an adhbhrachadh le nithean air an cur no air an stiùireadh gu ceàrr.",
         },
         "visuals.fix_texture_issues": {
             "title": "Càraich duilgheadasan inneach",
@@ -1666,11 +1838,11 @@
         },
         "visuals.fog_end": {
             "title": "Deireadh ceò",
-            "description": "Suidhichidh seo an astar (ann an leacan) bhon chamara far a dhùnas ceò air a h-uile càil.",
+            "description": "Suidhichidh seo an astar (ann an leacan) bhon chamara far a dhùnas ceò air a h-uile càil. Anns an TR2 is TR3 thùsail, tachraidh sin aig 20 leac. Faodaidh ìre luach dhi fhèin a ghiùlan, agus thèid sin a chleachdadh na àite.",
         },
         "visuals.fog_start": {
             "title": "Tòiseachadh ceò",
-            "description": "Suidhichidh seo an astar (ann an leacan) bhon chamara far a thoisicheas ceò.",
+            "description": "Suidhichidh seo an astar (ann an leacan) bhon chamara far a thoisicheas ceò. Anns an TR2 is TR3 thùsail, tòisichidh e aig 12 leac. Faodaidh ìre luach dhi fhèin a ghiùlan, agus thèid sin a chleachdadh na àite.",
         },
         "visuals.fog_transparency": {
             "title": "Follaiseachd a' cheòth",
@@ -1707,6 +1879,19 @@
         "visuals.water_color": {
             "title": "Dath an uisge",
             "description": "Dath an uisge.",
+        },
+        "visuals.water_color_mode": {
+            "description": "Modh dath an uisge a thèid a chleachdadh. Nuair a tha ro-shuidheachadh air a thaghadh, cumaidh e dath an uisge gu h-ìosal; fàgaidh Gnàthaichte an dath sin agad fhèin.",
+            "title": "Ro-shuidheachadh dath an uisge",
+            "values": {
+                "custom": "Gnàthaichte",
+                "dos": "DOS",
+                "pc": "PC",
+                "pc_hardware": "PC (bathar-cruaidh)",
+                "pc_software": "PC (bathar-bog)",
+                "ps1": "PS1",
+                "tombati": "TombATI",
+            }
         }
     },
     "objects": {
@@ -1774,34 +1959,34 @@
             "name": "Beòthaladh 9",
         },
         "animating_ext_1": {
-            "name": "\\{review}Nìomhaire Leudaichte 1",
+            "name": "Beòthaladh Leudaichte 1",
         },
         "animating_ext_10": {
-            "name": "\\{review}Nìomhaire Leudaichte 10",
+            "name": "Beòthaladh Leudaichte 10",
         },
         "animating_ext_2": {
-            "name": "\\{review}Nìomhaire Leudaichte 2",
+            "name": "Beòthaladh Leudaichte 2",
         },
         "animating_ext_3": {
-            "name": "\\{review}Nìomhaire Leudaichte 3",
+            "name": "Beòthaladh Leudaichte 3",
         },
         "animating_ext_4": {
-            "name": "\\{review}Nìomhaire Leudaichte 4",
+            "name": "Beòthaladh Leudaichte 4",
         },
         "animating_ext_5": {
-            "name": "\\{review}Nìomhaire Leudaichte 5",
+            "name": "Beòthaladh Leudaichte 5",
         },
         "animating_ext_6": {
-            "name": "\\{review}Nìomhaire Leudaichte 6",
+            "name": "Beòthaladh Leudaichte 6",
         },
         "animating_ext_7": {
-            "name": "\\{review}Nìomhaire Leudaichte 7",
+            "name": "Beòthaladh Leudaichte 7",
         },
         "animating_ext_8": {
-            "name": "\\{review}Nìomhaire Leudaichte 8",
+            "name": "Beòthaladh Leudaichte 8",
         },
         "animating_ext_9": {
-            "name": "\\{review}Nìomhaire Leudaichte 9",
+            "name": "Beòthaladh Leudaichte 9",
         },
         "ape": {
             "name": "Apa",
@@ -1954,10 +2139,10 @@
             "name": "Mullach-gheugan",
         },
         "ceiling_trapdoor_1": {
-            "name": "\\{review}Trap-dhoras mullaich 1",
+            "name": "Làr-lùbte mullaich 1",
         },
         "ceiling_trapdoor_2": {
-            "name": "\\{review}Trap-dhoras mullaich 2",
+            "name": "Làr-lùbte mullaich 2",
         },
         "centaur": {
             "name": "Ceud-damh",
@@ -1972,7 +2157,7 @@
             "name": "Mùtant Spòganach",
         },
         "climbing_pole": {
-            "name": "\\{review}Sgàilean a’ Chladach",
+            "name": "Cabar Shreap",
         },
         "clock_chimes": {
             "name": "Gleoc Bartoli",
@@ -1987,7 +2172,7 @@
             "name": "Inneal Gèaraichean 3",
         },
         "cog_switch": {
-            "name": "\\{review}Suidse fhiaclach",
+            "name": "Suidse fhiaclach",
         },
         "combat_end": {
             "name": "Crioch-shabaid",
@@ -2017,22 +2202,28 @@
             ]
         },
         "crossbow": {
-            "name": "\\{review}Cros-bhogha",
+            "name": "Cros-bhogha",
         },
         "crossbow_ammo": {
-            "name": "\\{review}Boltaichean Cros-bhogha",
+            "name": "Boltaichean Cros-bhogha",
         },
         "crossbow_bolt": {
-            "name": "\\{review}Bolt Cros-bhogha",
+            "name": "Bolt Cros-bhogha",
         },
         "crow": {
             "name": "Feannag",
         },
         "crowbar": {
-            "name": "\\{review}Bàr-craobh",
+            "name": "Bàr-craobh",
         },
         "crowbar_anim": {
-            "name": "\\{review}Beothachadh Bàrr-adhair",
+            "name": "Beothachadh Bàrr-craobh",
+        },
+        "crystal": {
+            "name": [
+                "Criostal",
+                "Criostal Geama Sàbhalaidh",
+            ]
         },
         "cult_1": {
             "name": "Ruspal le Masg 1",
@@ -2122,7 +2313,7 @@
             "name": "Doras 8",
         },
         "double_doors": {
-            "name": "\\{review}Doras dùbailte",
+            "name": "Doras dùbailte",
         },
         "dragon_back": {
             "name": "Cùl an Dràgon",
@@ -2176,13 +2367,13 @@
             "name": "Sgaoiladair Èibhleag",
         },
         "examine_1": {
-            "name": "\\{review}Sgrùdadh Nì 1",
+            "name": "Sgrùdadh Nì 1",
         },
         "examine_2": {
-            "name": "\\{review}Sgrùdadh Nì 2",
+            "name": "Sgrùdadh Nì 2",
         },
         "examine_3": {
-            "name": "\\{review}Sgrùdadh Nì 3",
+            "name": "Sgrùdadh Nì 3",
         },
         "explosion_1": {
             "name": "Spreadhadh 1",
@@ -2248,6 +2439,12 @@
         "flame_emitter_small": {
             "name": "Sgaoileadair Teine (Beag)",
         },
+        "flame_emitter_tr4_ground": {
+            "name": "Sgaoiladair Teine (TR4, làr)",
+        },
+        "flame_emitter_tr4_wall": {
+            "name": "Sgaoiladair Teine (TR4, balla)",
+        },
         "flare": {
             "name": "Lòchran",
         },
@@ -2261,10 +2458,10 @@
             "name": "Solas Boillsgeach",
         },
         "floor_trapdoor_1": {
-            "name": "\\{review}Trap-dhoras ùrlair 1",
+            "name": "Làr-lùbte 1",
         },
         "floor_trapdoor_2": {
-            "name": "\\{review}Trap-dhoras ùrlair 2",
+            "name": "Làr-lùbte 2",
         },
         "fuse_box": {
             "name": "Bogsa Fuse",
@@ -2357,97 +2554,97 @@
             "name": "Iuchair 1",
         },
         "key_10": {
-            "name": "\\{review}Iuchair 10",
+            "name": "Iuchair 10",
         },
         "key_11": {
-            "name": "\\{review}Iuchair 11",
+            "name": "Iuchair 11",
         },
         "key_12": {
-            "name": "\\{review}Iuchair 12",
+            "name": "Iuchair 12",
         },
         "key_1_combo_1": {
-            "name": "\\{review}Iuchair 1 (Measg 1)",
+            "name": "Iuchair 1 (Measg 1)",
         },
         "key_1_combo_2": {
-            "name": "\\{review}Iuchair 1 (Measg 2)",
+            "name": "Iuchair 1 (Measg 2)",
         },
         "key_2": {
             "name": "Iuchair 2",
         },
         "key_2_combo_1": {
-            "name": "\\{review}Iuchair 2 (Measg 1)",
+            "name": "Iuchair 2 (Measg 1)",
         },
         "key_2_combo_2": {
-            "name": "\\{review}Iuchair 2 (Measg 2)",
+            "name": "Iuchair 2 (Measg 2)",
         },
         "key_3": {
             "name": "Iuchair 3",
         },
         "key_3_combo_1": {
-            "name": "\\{review}Iuchair 3 (Measg 1)",
+            "name": "Iuchair 3 (Measg 1)",
         },
         "key_3_combo_2": {
-            "name": "\\{review}Iuchair 3 (Measg 2)",
+            "name": "Iuchair 3 (Measg 2)",
         },
         "key_4": {
             "name": "Iuchair 4",
         },
         "key_4_combo_1": {
-            "name": "\\{review}Iuchair 4 (Measg 1)",
+            "name": "Iuchair 4 (Measg 1)",
         },
         "key_4_combo_2": {
-            "name": "\\{review}Iuchair 4 (Measg 2)",
+            "name": "Iuchair 4 (Measg 2)",
         },
         "key_5": {
-            "name": "\\{review}Iuchair 5",
+            "name": "Iuchair 5",
         },
         "key_5_combo_1": {
-            "name": "\\{review}Iuchair 5 (Measg 1)",
+            "name": "Iuchair 5 (Measg 1)",
         },
         "key_5_combo_2": {
-            "name": "\\{review}Iuchair 5 (Measg 2)",
+            "name": "Iuchair 5 (Measg 2)",
         },
         "key_6": {
-            "name": "\\{review}Iuchair 6",
+            "name": "Iuchair 6",
         },
         "key_6_combo_1": {
-            "name": "\\{review}Iuchair 6 (Measg 1)",
+            "name": "Iuchair 6 (Measg 1)",
         },
         "key_6_combo_2": {
-            "name": "\\{review}Iuchair 6 (Measg 2)",
+            "name": "Iuchair 6 (Measg 2)",
         },
         "key_7": {
-            "name": "\\{review}Iuchair 7",
+            "name": "Iuchair 7",
         },
         "key_7_combo_1": {
-            "name": "\\{review}Iuchair 7 (Measg 1)",
+            "name": "Iuchair 7 (Measg 1)",
         },
         "key_7_combo_2": {
-            "name": "\\{review}Iuchair 7 (Measg 2)",
+            "name": "Iuchair 7 (Measg 2)",
         },
         "key_8": {
-            "name": "\\{review}Iuchair 8",
+            "name": "Iuchair 8",
         },
         "key_8_combo_1": {
-            "name": "\\{review}Iuchair 8 (Measg 1)",
+            "name": "Iuchair 8 (Measg 1)",
         },
         "key_8_combo_2": {
-            "name": "\\{review}Iuchair 8 (Combo 2)",
+            "name": "Iuchair 8 (Combo 2)",
         },
         "key_9": {
-            "name": "\\{review}Iuchair 9",
+            "name": "Iuchair 9",
         },
         "key_hole_1": {
             "name": "Toll Iuchrach 1",
         },
         "key_hole_10": {
-            "name": "\\{review}Toll-Iuchair 10",
+            "name": "Toll Iuchrach 10",
         },
         "key_hole_11": {
-            "name": "\\{review}Toll-Iuchair 11",
+            "name": "Toll Iuchrach 11",
         },
         "key_hole_12": {
-            "name": "\\{review}Toll-Iuchair 12",
+            "name": "Toll Iuchrach 12",
         },
         "key_hole_2": {
             "name": "Toll Iuchrach 2",
@@ -2459,25 +2656,25 @@
             "name": "Toll Iuchrach 4",
         },
         "key_hole_5": {
-            "name": "\\{review}Toll-Iuchair 5",
+            "name": "Toll Iuchrach 5",
         },
         "key_hole_6": {
-            "name": "\\{review}Toll-Iuchair 6",
+            "name": "Toll Iuchrach 6",
         },
         "key_hole_7": {
-            "name": "\\{review}Toll-Iuchair 7",
+            "name": "Toll Iuchrach 7",
         },
         "key_hole_8": {
-            "name": "\\{review}Toll-Iuchair 8",
+            "name": "Toll Iuchrach 8",
         },
         "key_hole_9": {
-            "name": "\\{review}Toll-Iuchair 9",
+            "name": "Toll Iuchrach 9",
         },
         "kick_door_1": {
-            "name": "\\{review}Doras breabaidh 1",
+            "name": "Doras breabaidh 1",
         },
         "kick_door_2": {
-            "name": "\\{review}Doras breabaidh 2",
+            "name": "Doras breabaidh 2",
         },
         "kill_all_triggered": {
             "name": "Cur às do gach rud",
@@ -2498,7 +2695,7 @@
             "name": "Beòthalachd Bàta",
         },
         "lara_crossbow": {
-            "name": "\\{review}Beothachadh Cros-bhogha",
+            "name": "Beothachadh Cros-bhogha",
         },
         "lara_desert_eagle": {
             "name": "Beòthalachd an Desert Eagle",
@@ -2543,7 +2740,7 @@
             "name": "Beòthalachd Quad-baidhsagal",
         },
         "lara_revolver": {
-            "name": "\\{review}Beothachadh Revolver",
+            "name": "Beothachadh Dag",
         },
         "lara_rib": {
             "name": "Beòthalachd RIB",
@@ -2567,7 +2764,7 @@
             "name": "Larson",
         },
         "lasersight": {
-            "name": "\\{review}Sgàil Laser",
+            "name": "Sgàil Laser",
         },
         "lava_wedge": {
             "name": "Cliathaich Teine-teinteach",
@@ -2577,7 +2774,7 @@
             "name": "Bàr Luaidhe",
         },
         "lens_flare": {
-            "name": "\\{review}Soillseachadh Lens",
+            "name": "Soillseachadh Lens",
         },
         "lift": {
             "name": "Lioft",
@@ -2742,37 +2939,37 @@
             "name": "Nì Togail 1",
         },
         "pickup_1_combo_1": {
-            "name": "\\{review}Nìochd Pickup 1 (Combo 1)",
+            "name": "Nì Togail 1 (Cothlamadh 1)",
         },
         "pickup_1_combo_2": {
-            "name": "\\{review}Nìochd Pickup 1 (Combo 2)",
+            "name": "Nì Togail 1 (Cothlamadh 2)",
         },
         "pickup_2": {
             "name": "Nì Togail 2",
         },
         "pickup_2_combo_1": {
-            "name": "\\{review}Nìochd Pickup 2 (Combo 1)",
+            "name": "Nì Togail 2 (Cothlamadh 1)",
         },
         "pickup_2_combo_2": {
-            "name": "\\{review}Nìochd Pickup 2 (Combo 2)",
+            "name": "Nì Togail 2 (Cothlamadh 2)",
         },
         "pickup_3": {
-            "name": "\\{review}Nì Gabhail 3",
+            "name": "Nì Togail 3",
         },
         "pickup_3_combo_1": {
-            "name": "\\{review}Nìochd Pickup 3 (Combo 1)",
+            "name": "Nì Togail 3 (Cothlamadh 1)",
         },
         "pickup_3_combo_2": {
-            "name": "\\{review}Nìochd Pickup 3 (Combo 2)",
+            "name": "Nì Togail 3 (Cothlamadh 2)",
         },
         "pickup_4": {
-            "name": "\\{review}Nì Gabhail 4",
+            "name": "Nì Togail 4",
         },
         "pickup_4_combo_1": {
-            "name": "\\{review}Nìochd Pickup 4 (Combo 1)",
+            "name": "Nì Togail 4 (Cothlamadh 1)",
         },
         "pickup_4_combo_2": {
-            "name": "\\{review}Nìochd Pickup 4 (Combo 2)",
+            "name": "Nì Togail 4 (Cothlamadh 2)",
         },
         "pickup_aid": {
             "name": "Cobhair Togail",
@@ -2859,106 +3056,106 @@
             "name": "Punc 2",
         },
         "pushpull_door_1": {
-            "name": "\\{review}Doras putaidh/tarraing 1",
+            "name": "Doras putaidh/tarraing 1",
         },
         "pushpull_door_2": {
-            "name": "\\{review}Doras putaidh/tarraing 2",
+            "name": "Doras putaidh/tarraing 2",
         },
         "puzzle_1": {
             "name": "Nì Tòimhseachain 1",
         },
         "puzzle_10": {
-            "name": "\\{review}Nìomhaire Fuasgladh 10",
+            "name": "Nì Tòimhseachain 10",
         },
         "puzzle_11": {
-            "name": "\\{review}Nìomhaire Fuasgladh 11",
+            "name": "Nì Tòimhseachain 11",
         },
         "puzzle_12": {
-            "name": "\\{review}Nìomhaire Fuasgladh 12",
+            "name": "Nì Tòimhseachain 12",
         },
         "puzzle_1_combo_1": {
-            "name": "\\{review}Nìomhaire Fuasgladh 1 (Measg 1)",
+            "name": "Nì Tòimhseachain 1 (Cothlamadh 1)",
         },
         "puzzle_1_combo_2": {
-            "name": "\\{review}Nìomhaire Fuasgladh 1 (Measg 2)",
+            "name": "Nì Tòimhseachain 1 (Cothlamadh 2)",
         },
         "puzzle_2": {
             "name": "Nì Tòimhseachain 2",
         },
         "puzzle_2_combo_1": {
-            "name": "\\{review}Nìomhaire Fuasgladh 2 (Measg 1)",
+            "name": "Nì Tòimhseachain 2 (Cothlamadh 1)",
         },
         "puzzle_2_combo_2": {
-            "name": "\\{review}Nìomhaire Fuasgladh 2 (Measg 2)",
+            "name": "Nì Tòimhseachain 2 (Cothlamadh 2)",
         },
         "puzzle_3": {
             "name": "Nì Tòimhseachain 3",
         },
         "puzzle_3_combo_1": {
-            "name": "\\{review}Nìomhaire Fuasgladh 3 (Measg 1)",
+            "name": "Nì Tòimhseachain 3 (Cothlamadh 1)",
         },
         "puzzle_3_combo_2": {
-            "name": "\\{review}Nìomhaire Fuasgladh 3 (Measg 2)",
+            "name": "Nì Tòimhseachain 3 (Cothlamadh 2)",
         },
         "puzzle_4": {
             "name": "Nì Tòimhseachain 4",
         },
         "puzzle_4_combo_1": {
-            "name": "\\{review}Nìomhaire Fuasgladh 4 (Measg 1)",
+            "name": "Nì Tòimhseachain 4 (Cothlamadh 1)",
         },
         "puzzle_4_combo_2": {
-            "name": "\\{review}Nìomhaire Fuasgladh 4 (Measg 2)",
+            "name": "Nì Tòimhseachain 4 (Cothlamadh 2)",
         },
         "puzzle_5": {
-            "name": "\\{review}Nìomhaire Fuasgladh 5",
+            "name": "Nì Tòimhseachain 5",
         },
         "puzzle_5_combo_1": {
-            "name": "\\{review}Nìomhaire Fuasgladh 5 (Measg 1)",
+            "name": "Nì Tòimhseachain 5 (Cothlamadh 1)",
         },
         "puzzle_5_combo_2": {
-            "name": "\\{review}Nìomhaire Fuasgladh 5 (Measg 2)",
+            "name": "Nì Tòimhseachain 5 (Cothlamadh 2)",
         },
         "puzzle_6": {
-            "name": "\\{review}Nìomhaire Fuasgladh 6",
+            "name": "Nì Tòimhseachain 6",
         },
         "puzzle_6_combo_1": {
-            "name": "\\{review}Nìomhaire Fuasgladh 6 (Measg 1)",
+            "name": "Nì Tòimhseachain 6 (Cothlamadh 1)",
         },
         "puzzle_6_combo_2": {
-            "name": "\\{review}Nìomhaire Fuasgladh 6 (Measg 2)",
+            "name": "Nì Tòimhseachain 6 (Cothlamadh 2)",
         },
         "puzzle_7": {
-            "name": "\\{review}Nìomhaire Fuasgladh 7",
+            "name": "Nì Tòimhseachain 7",
         },
         "puzzle_7_combo_1": {
-            "name": "\\{review}Nìomhaire Fuasgladh 7 (Measg 1)",
+            "name": "Nì Tòimhseachain 7 (Cothlamadh 1)",
         },
         "puzzle_7_combo_2": {
-            "name": "\\{review}Nìomhaire Fuasgladh 7 (Measg 2)",
+            "name": "Nì Tòimhseachain 7 (Cothlamadh 2)",
         },
         "puzzle_8": {
-            "name": "\\{review}Nìomhaire Fuasgladh 8",
+            "name": "Nì Tòimhseachain 8",
         },
         "puzzle_8_combo_1": {
-            "name": "\\{review}Nìomhaire Fuasgladh 8 (Measg 1)",
+            "name": "Nì Tòimhseachain 8 (Cothlamadh 1)",
         },
         "puzzle_8_combo_2": {
-            "name": "\\{review}Nìochd Puzzle 8 (Combo 2)",
+            "name": "Nì Tòimhseachain 8 (Cothlamadh 2)",
         },
         "puzzle_9": {
-            "name": "\\{review}Nìomhaire Fuasgladh 9",
+            "name": "Nì Tòimhseachain 9",
         },
         "puzzle_done_1": {
             "name": "Toll Tòimhseachain 1 (Deiseil)",
         },
         "puzzle_done_10": {
-            "name": "\\{review}Toll Puzzle 10 (Deiseil)",
+            "name": "Toll Tòimhseachain 10 (Deiseil)",
         },
         "puzzle_done_11": {
-            "name": "\\{review}Toll Puzzle 11 (Deiseil)",
+            "name": "Toll Tòimhseachain 11 (Deiseil)",
         },
         "puzzle_done_12": {
-            "name": "\\{review}Toll Puzzle 12 (Deiseil)",
+            "name": "Toll Tòimhseachain 12 (Deiseil)",
         },
         "puzzle_done_2": {
             "name": "Toll Tòimhseachain 2 (Deiseil)",
@@ -2970,31 +3167,31 @@
             "name": "Toll Tòimhseachain 4 (Deiseil)",
         },
         "puzzle_done_5": {
-            "name": "\\{review}Toll Puzzle 5 (Deiseil)",
+            "name": "Toll Tòimhseachain 5 (Deiseil)",
         },
         "puzzle_done_6": {
-            "name": "\\{review}Toll Puzzle 6 (Deiseil)",
+            "name": "Toll Tòimhseachain 6 (Deiseil)",
         },
         "puzzle_done_7": {
-            "name": "\\{review}Toll Puzzle 7 (Deiseil)",
+            "name": "Toll Tòimhseachain 7 (Deiseil)",
         },
         "puzzle_done_8": {
-            "name": "\\{review}Toll Puzzle 8 (Deiseil)",
+            "name": "Toll Tòimhseachain 8 (Deiseil)",
         },
         "puzzle_done_9": {
-            "name": "\\{review}Toll Puzzle 9 (Deiseil)",
+            "name": "Toll Tòimhseachain 9 (Deiseil)",
         },
         "puzzle_hole_1": {
             "name": "Toll Tòimhseachain 1 (Falamh)",
         },
         "puzzle_hole_10": {
-            "name": "\\{review}Toll Puzzle 10 (Falamh)",
+            "name": "Toll Tòimhseachain 10 (Falamh)",
         },
         "puzzle_hole_11": {
-            "name": "\\{review}Toll Puzzle 11 (Falamh)",
+            "name": "Toll Tòimhseachain 11 (Falamh)",
         },
         "puzzle_hole_12": {
-            "name": "\\{review}Toll Puzzle 12 (Falamh)",
+            "name": "Toll Tòimhseachain 12 (Falamh)",
         },
         "puzzle_hole_2": {
             "name": "Toll Tòimhseachain 2 (Falamh)",
@@ -3006,19 +3203,19 @@
             "name": "Toll Tòimhseachain 4 (Falamh)",
         },
         "puzzle_hole_5": {
-            "name": "\\{review}Toll Puzzle 5 (Falamh)",
+            "name": "Toll Tòimhseachain 5 (Falamh)",
         },
         "puzzle_hole_6": {
-            "name": "\\{review}Toll Puzzle 6 (Falamh)",
+            "name": "Toll Tòimhseachain 6 (Falamh)",
         },
         "puzzle_hole_7": {
-            "name": "\\{review}Toll Puzzle 7 (Falamh)",
+            "name": "Toll Tòimhseachain 7 (Falamh)",
         },
         "puzzle_hole_8": {
-            "name": "\\{review}Toll Puzzle 8 (Falamh)",
+            "name": "Toll Tòimhseachain 8 (Falamh)",
         },
         "puzzle_hole_9": {
-            "name": "\\{review}Toll Puzzle 9 (Falamh)",
+            "name": "Toll Tòimhseachain 9 (Falamh)",
         },
         "quad_bike": {
             "name": "Quad-baidhsagal",
@@ -3036,10 +3233,10 @@
             "name": "Nì Tòir 4",
         },
         "quest_5": {
-            "name": "\\{review}Nì Iomairt 5",
+            "name": "Nì Tòir 5",
         },
         "quest_6": {
-            "name": "\\{review}Nì Iomairt 6",
+            "name": "Nì Tòir 6",
         },
         "raptor": {
             "name": [
@@ -3060,10 +3257,10 @@
             "name": "Solas Dearg",
         },
         "revolver": {
-            "name": "\\{review}Revolver",
+            "name": "Dag",
         },
         "revolver_ammo": {
-            "name": "\\{review}Ammo Revolver",
+            "name": "Lòin Dag",
         },
         "rib": {
             "name": "RIB",
@@ -3105,7 +3302,7 @@
             ]
         },
         "rope": {
-            "name": "\\{review}Ròpa",
+            "name": "Ròpa",
         },
         "rotating_laser": {
             "name": "Laser rothlach",
@@ -3118,6 +3315,9 @@
         },
         "rx_worker_3": {
             "name": "Neach-obrach RX 3",
+        },
+        "sarcophagus": {
+            "name": "Sarcophagus",
         },
         "save_crystal": {
             "name": "Criostal Geama Sàbhalaidh",
@@ -3287,11 +3487,41 @@
                 "Suids",
             ]
         },
+        "switch_type_crowbar": {
+            "name": "Suids Bàr-craobh",
+        },
+        "switch_type_floor": {
+            "name": "Suids Làir",
+        },
+        "switch_type_generic_1": {
+            "name": "Suids Coitcheann 1",
+        },
+        "switch_type_generic_2": {
+            "name": "Suids Coitcheann 2",
+        },
+        "switch_type_generic_3": {
+            "name": "Suids Coitcheann 3",
+        },
+        "switch_type_generic_4": {
+            "name": "Suids Coitcheann 4",
+        },
+        "switch_type_generic_5": {
+            "name": "Suids Coitcheann 5",
+        },
+        "switch_type_generic_6": {
+            "name": "Suids Coitcheann 6",
+        },
+        "switch_type_jump": {
+            "name": "Suids Àrd",
+        },
         "switch_type_normal": {
             "name": [
                 "Luaidhe",
                 "Suids",
             ]
+        },
+        "switch_type_pulley": {
+            "name": "Suids Tarraing",
         },
         "switch_type_small": {
             "name": "Suids Beag",
@@ -3302,6 +3532,9 @@
                 "Suids fon-Uisge",
             ]
         },
+        "switch_type_uw_ceiling": {
+            "name": "Suids Mullaich fon-Uisge",
+        },
         "switch_type_wheel": {
             "name": "Suids Cuidhle",
         },
@@ -3310,6 +3543,9 @@
                 "Ribe Fiaclan",
                 "Doras 'Clang-Clang'",
             ]
+        },
+        "teleporter": {
+            "name": "Cian-ghiùlanair",
         },
         "text_box": {
             "name": "Frèam Eadar-aghaidh",
@@ -3370,7 +3606,7 @@
             "name": "Priobag",
         },
         "underwater_door": {
-            "name": "\\{review}Doras fon uisge",
+            "name": "Doras fon uisge",
         },
         "upv": {
             "name": "Carbad fon uisge",
@@ -3403,10 +3639,10 @@
             "name": "Ceò Eas",
         },
         "waterskin_1": {
-            "name": "\\{review}Botal Uisge Beag",
+            "name": "Botal Uisge Beag",
         },
         "waterskin_2": {
-            "name": "\\{review}Botal Uisge Mòr",
+            "name": "Botal Uisge Mòr",
         },
         "white_light": {
             "name": "Solas Geal",

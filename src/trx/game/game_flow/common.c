@@ -2,6 +2,7 @@
 
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/vector.h>
 #include <trx/debug.h>
 #include <trx/game/game_flow/vars.h>
@@ -33,6 +34,7 @@ static void M_FreeInjections(INJECTION_DATA *const injections)
 static void M_FreeLevel(GF_LEVEL *const level)
 {
     Memory_FreePointer(&level->path);
+    Memory_FreePointer(&level->key);
     Memory_FreePointer(&level->title);
     Memory_FreePointer(&level->script_path);
     Memory_FreePointer(&level->lara_outfit);
@@ -98,10 +100,14 @@ void GF_Shutdown(void)
     Memory_FreePointer(&gf->ambient_tracks.ids);
     gf->ambient_tracks.count = 0;
     Memory_FreePointer(&gf->settings.sfx_path);
-    Memory_FreePointer(&gf->main_script_path);
     Memory_FreePointer(&gf->meta.name);
     Memory_FreePointer(&gf->meta.extends);
     Memory_FreePointer(&gf->path);
+
+    // A mod switch loads the next gameflow into this same struct, and the
+    // reader only writes the fields its gameflow names. Anything left here
+    // would be read as the new mod's setting.
+    *gf = (GAME_FLOW) {};
 }
 
 void GF_OverrideCommand(const GF_COMMAND command)
@@ -344,3 +350,5 @@ void GF_SetLevelTitle(GF_LEVEL *const level, const char *const title)
     Memory_FreePointer(&level->title);
     level->title = title != nullptr ? Memory_DupStr(title) : nullptr;
 }
+
+REGISTER_SUBSYSTEM(.shutdown = GF_Shutdown)

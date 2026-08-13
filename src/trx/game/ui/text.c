@@ -9,7 +9,7 @@
 #include <trx/debug.h>
 #include <trx/game/input/common.h>
 #include <trx/game/objects.h>
-#include <trx/game/output.h>
+#include <trx/game/output/textures.h>
 #include <trx/game/ui/common.h>
 #include <trx/game/ui/draw.h>
 #include <trx/game/ui/scaler.h>
@@ -142,7 +142,7 @@ static float M_ScaleScreen(const float value)
 
 static float M_ScaleNeutral(const float value)
 {
-    return value * g_Config.ui.text_scale;
+    return value * UI_Scaler_GetTextScale();
 }
 
 static RGBA_F M_ToRGBA_F(const RGB_888 color)
@@ -280,7 +280,25 @@ static const M_GLYPH_INFO *M_GetResolvedGlyph(const M_GLYPH_INFO *glyph)
     return entry != nullptr ? entry->glyph : nullptr;
 }
 
-static int32_t M_DetectBulletIndent(
+// Width the glyph occupies when drawn, matching the resolution and font
+// fallback that M_Process applies.
+static float M_GetLayoutWidth(
+    const M_GLYPH_INFO *const glyph, const M_FONT font)
+{
+    const M_GLYPH_INFO *const resolved = M_GetResolvedGlyph(glyph);
+    if (resolved == nullptr) {
+        return 0.0f;
+    }
+    M_FONT glyph_font = font;
+    if (glyph_font == M_FONT_SMALL && !M_HasGlyph(glyph_font, resolved)) {
+        glyph_font = M_FONT_DEFAULT;
+    }
+    return resolved->width[glyph_font];
+}
+
+// How far the continuations of a line are indented, so that a line broken in
+// two still reads as one entry rather than as two at different depths.
+static int32_t M_DetectHangingIndent(
     const M_GLYPH_INFO **glyphs, const size_t glyph_count, const size_t idx)
 {
     size_t scan = idx;
@@ -294,7 +312,7 @@ static int32_t M_DetectBulletIndent(
         && glyphs[scan + 1]->role == GLYPH_SPACE) {
         return leading_spaces + 2;
     }
-    return 0;
+    return leading_spaces;
 }
 
 static void M_EmitIndent(
@@ -330,7 +348,7 @@ static size_t M_WordWrap(
 {
     size_t out_len = 0;
     float cur_width = 0.0f;
-    int32_t bullet_indent = 0;
+    int32_t hanging_indent = 0;
 
     const float space_width = M_WORD_SPACING * scale_f;
 
@@ -354,8 +372,8 @@ static size_t M_WordWrap(
             continue;
         }
 
-        if (cur_width == 0.0f && bullet_indent == 0) {
-            bullet_indent = M_DetectBulletIndent(glyphs, glyph_count, i);
+        if (cur_width == 0.0f && hanging_indent == 0) {
+            hanging_indent = M_DetectHangingIndent(glyphs, glyph_count, i);
         }
 
         if (glyph->role == GLYPH_FONT_MARKER) {
@@ -363,16 +381,16 @@ static size_t M_WordWrap(
         } else if (glyph->role == GLYPH_NEW_LINE) {
             L_CONCAT_CHAR('\n')
             cur_width = 0.0f;
-            bullet_indent = 0;
+            hanging_indent = 0;
         } else if (glyph->role == GLYPH_NEW_PAGE) {
             L_CONCAT_CHAR('\f')
             cur_width = 0.0f;
-            bullet_indent = 0;
+            hanging_indent = 0;
         } else if (glyph->role == GLYPH_SPACE) {
             const float w = M_WORD_SPACING * scale_f;
             if (cur_width + w > max_width) {
                 M_EmitNewline(
-                    dst, &out_len, bullet_indent, space_width, &cur_width);
+                    dst, &out_len, hanging_indent, space_width, &cur_width);
             } else {
                 L_CONCAT_CHAR(' ')
                 cur_width += w;
@@ -393,14 +411,13 @@ static size_t M_WordWrap(
                 word_len++;
             }
 
-            // Compute width (sum widths + spacing)
+            // Compute width (sum widths + spacing). The spacing after the last
+            // glyph counts too: what follows the word is a space, which
+            // M_Process draws after that spacing.
             float word_width = 0.0f;
             for (size_t j = i; j < i + word_len; j++) {
                 word_width += M_LETTER_SPACING;
-                word_width += glyphs[j]->width[current_font];
-            }
-            if (word_width > 0) {
-                word_width -= M_LETTER_SPACING;
+                word_width += M_GetLayoutWidth(glyphs[j], current_font);
             }
             word_width *= scale_f;
 
@@ -408,7 +425,7 @@ static size_t M_WordWrap(
             if (cur_width + word_width > max_width) {
                 if (cur_width > 0.0f) {
                     M_EmitNewline(
-                        dst, &out_len, bullet_indent, space_width, &cur_width);
+                        dst, &out_len, hanging_indent, space_width, &cur_width);
                 }
 
                 // Break word if longer than line
@@ -416,11 +433,12 @@ static size_t M_WordWrap(
                     for (size_t j = i; j < i + word_len; j++) {
                         const M_GLYPH_INFO *const next_glyph = glyphs[j];
                         const float glyph_width =
-                            (next_glyph->width[current_font] + M_LETTER_SPACING)
+                            (M_GetLayoutWidth(next_glyph, current_font)
+                             + M_LETTER_SPACING)
                             * scale_f;
                         if (cur_width + glyph_width > max_width) {
                             M_EmitNewline(
-                                dst, &out_len, bullet_indent, space_width,
+                                dst, &out_len, hanging_indent, space_width,
                                 &cur_width);
                         }
                         L_CONCAT_STR(next_glyph->text)
@@ -471,9 +489,9 @@ static void M_Process(
 
     const float scale = scale_func(UI_TEXT_BASE_SCALE * settings.scale);
 
-    float x = scale_func(base_x / g_Config.ui.text_scale);
+    float x = scale_func(base_x / UI_Scaler_GetTextScale());
     float y = scale_func(
-        base_y / g_Config.ui.text_scale + settings.scale * UI_TEXT_HEIGHT);
+        base_y / UI_Scaler_GetTextScale() + settings.scale * UI_TEXT_HEIGHT);
     int32_t z = settings.z;
 
     float max_width = 0.0f;
@@ -702,7 +720,7 @@ void UI_Text_Draw(
 {
     M_Process(
         text, nullptr, nullptr, settings, base_x,
-        base_y - g_Config.ui.text_scale, M_ScaleScreen,
+        base_y - UI_Scaler_GetTextScale(), M_ScaleScreen,
         UI_ScheduleDrawScreenSprite);
 }
 
@@ -716,7 +734,7 @@ char *UI_Text_WordWrap(
     size_t glyph_count = 0;
     const M_GLYPH_INFO **glyphs = M_DecomposeWithCache(text, &glyph_count);
 
-    const float scale_f = scale * g_Config.ui.text_scale;
+    const float scale_f = scale * UI_Scaler_GetTextScale();
     size_t len = M_WordWrap(glyphs, glyph_count, scale_f, max_width, nullptr);
     char *const wrapped_text = Memory_Alloc(len);
     M_WordWrap(glyphs, glyph_count, scale_f, max_width, wrapped_text);

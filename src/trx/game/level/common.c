@@ -2,6 +2,7 @@
 #include <trx/core/benchmark.h>
 #include <trx/core/log.h>
 #include <trx/game/camera.h>
+#include <trx/game/cutseq/playback.h>
 #include <trx/game/effects.h>
 #include <trx/game/fx.h>
 #include <trx/game/game.h>
@@ -9,6 +10,8 @@
 #include <trx/game/gym.h>
 #include <trx/game/items.h>
 #include <trx/game/lara.h>
+#include <trx/game/lara/mesh.h>
+#include <trx/game/lara/skin/common.h>
 #include <trx/game/level.h>
 #include <trx/game/lua.h>
 #include <trx/game/music.h>
@@ -21,11 +24,20 @@
 #include <trx/game/savegame.h>
 #include <trx/game/sound.h>
 #include <trx/game/sparks.h>
+#include <trx/game/stats.h>
 #include <trx/game/ui.h>
 
 void Level_Unload(void)
 {
-    Music_ResetTrackFlags();
+    // First, so the end event a dropped cutscene fires reaches a script that
+    // can still read the world it played in.
+    CutSeq_Reset();
+
+    // And then the script itself, before the world it was written against is
+    // taken apart under it.
+    LUA_DropLevelScript();
+
+    Music_ResetTrackStates();
     Sound_ResetSamples();
 
     Lara_InitialiseLoad(NO_ITEM);
@@ -56,6 +68,10 @@ bool Level_Initialise(
         Random_SeedControl(0xD371F947);
     }
 
+    // Before the incoming level takes over as the current one, so a script
+    // hearing the unload still finds the level it was written for.
+    Level_Unload();
+
     Game_SetIsLevelComplete(false);
     if (level->type != GFL_TITLE && level->type != GFL_DEMO) {
         Gym_SetInventoryOpenEnabled(false);
@@ -66,29 +82,21 @@ bool Level_Initialise(
     GF_SetCurrentLevel(level);
 
     if (level->type != GFL_TITLE) {
-        // TODO: move me elsewhere
-        RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
-        if (resume != nullptr) {
-            resume->stats.timer = 0;
-            resume->stats.secret_flags = 0;
-            resume->stats.secret_count = 0;
-            resume->stats.crystal_count = 0;
-            resume->stats.pickup_count = 0;
-            resume->stats.kill_count = 0;
-            resume->stats.ammo_hits = 0;
-            resume->stats.ammo_used = 0;
-            resume->stats.medipacks_used = 0;
-            resume->stats.distance_travelled = 0;
-        }
+        Stats_ResetLevel(level);
     }
 
     if (level == nullptr) {
         return false;
     }
 
-    Level_Unload();
+    // Read here rather than at the first cutscene trigger, so a scene starts
+    // without waiting on the file.
+    CutSeq_Load();
 
-    Lua_FireEventInt32(LUA_EVENT_BEFORE_LEVEL_FILE, level->num);
+    // After the unload, so what the outgoing level torn down reaches the script
+    // that set it up, and here rather than in the sequencer, so a level loaded
+    // by any other path - the title screen among them - still runs its own.
+    LUA_RunLevelScript(level);
 
     Level_Pipeline_Load(level);
 
@@ -107,6 +115,21 @@ bool Level_Initialise(
     Option_Reset();
     Overlay_Reset();
     Overlay_SetHealthBarTimer(100);
+
+    // Every other level type reaches Lara_Initialise through the sequencer;
+    // the title is loaded on its own, and still has to dress her for the
+    // cutscenes it plays behind the menu.
+    if (level->type == GFL_TITLE && Lara_GetItem() != nullptr) {
+        Lara_Skin_Initialise();
+        Lara_Mesh_Initialise(level);
+    }
+
+    // A title runs behind the menu rather than reaching live play, so nothing
+    // else would ever say its item setup is over and let the events flow. It
+    // has no save to overlay either, which is what the quiet period is for.
+    if (level->type == GFL_TITLE) {
+        Game_SetIsSettingUpItems(false);
+    }
 
     Benchmark_End(&benchmark, nullptr);
     return true;

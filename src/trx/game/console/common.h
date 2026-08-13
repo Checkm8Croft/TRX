@@ -1,8 +1,10 @@
 #pragma once
 
 #include <trx/core/log.h>
+#include <trx/core/vector.h>
 #include <trx/game/console/types.h>
 
+#include <stddef.h>
 #include <stdint.h>
 
 #define Console_LogGeneric(level, ...)                                         \
@@ -11,9 +13,6 @@
 #define Console_LogWarning(...)                                                \
     Console_LogGeneric(LOG_LEVEL_WARNING, __VA_ARGS__)
 #define Console_LogError(...) Console_LogGeneric(LOG_LEVEL_ERROR, __VA_ARGS__)
-
-void Console_Init(void);
-void Console_Shutdown(void);
 
 void Console_Open(void);
 void Console_Close(void);

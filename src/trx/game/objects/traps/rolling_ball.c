@@ -15,6 +15,10 @@
 #define M_SHAKE_RANGE (WALL_L * 10) // = 10240
 #define M_CLEARANCE_UNIT (STEP_L * 3) // = 768
 
+typedef struct {
+    int32_t air_damage;
+} M_PRIV;
+
 static void M_Roll(ITEM *const item)
 {
     item->gravity = false;
@@ -41,16 +45,6 @@ static void M_Roll(ITEM *const item)
             g_Camera.bounce = 40 * (dist - M_SHAKE_RANGE) / M_SHAKE_RANGE;
         }
     }
-}
-
-static int32_t M_GetAirDamage(const ITEM *const item)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, "air_damage", &damage)) {
-        return damage.as_int;
-    }
-
-    return M_DEFAULT_AIR_DAMAGE;
 }
 
 static bool M_TestStop(const ITEM *const item)
@@ -107,7 +101,7 @@ static void M_Stop(ITEM *const item, const XYZ_32 old_pos)
 {
     if (item->object_id == O_ROLLING_BALL_1) {
         Sound_Effect(SFX_ROLLING_BALL_1_STOP, &item->pos, SPM_NORMAL);
-        item->status = IS_DEACTIVATED;
+        Item_SetFinished(item, true);
     } else if (item->object_id == O_ROLLING_BALL_2) {
         Sound_Effect(SFX_ROLLING_BALL_2_STOP, &item->pos, SPM_NORMAL);
         item->goal_anim_state = TRAP_WORKING;
@@ -116,7 +110,7 @@ static void M_Stop(ITEM *const item, const XYZ_32 old_pos)
         item->goal_anim_state = TRAP_WORKING;
     } else if (item->object_id == O_ROLLING_BALL_4) {
         Sound_Effect(SFX_ROLLING_BALL_4_STOP, &item->pos, SPM_NORMAL);
-        item->status = IS_DEACTIVATED;
+        Item_SetFinished(item, true);
     }
 
     item->pos.x = old_pos.x;
@@ -130,19 +124,19 @@ static void M_Stop(ITEM *const item, const XYZ_32 old_pos)
 static void M_Control(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
-    item->enable_interpolation = item->status == IS_ACTIVE;
+    item->enable_interpolation = Item_IsInPlay(item);
 
-    if (item->status == IS_DEACTIVATED && !Item_IsTriggerActive(item)) {
+    if (item->is_finished && !Item_IsTriggerActive(item)) {
         Trap_Reset(item);
         return;
     }
 
-    if (item->status != IS_ACTIVE) {
+    if (!Item_IsInPlay(item)) {
         int16_t room_num = item->room_num;
         const SECTOR *const sector = Room_GetSector(item->pos, &room_num);
         const int32_t height = Room_GetHeight(sector, item->pos);
         if (item->floor < height) {
-            item->status = IS_ACTIVE;
+            Item_SetFinished(item, false);
             item->floor = height;
         }
         return;
@@ -185,10 +179,11 @@ static void M_Collision(
     const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
 {
     ITEM *const item = Item_Get(item_num);
+    const M_PRIV *const p = item->priv;
     const LARA_INFO *const lara = Lara_GetLaraInfo();
 
-    if (item->status != IS_ACTIVE) {
-        if (item->status != IS_INVISIBLE) {
+    if (!Item_IsInPlay(item)) {
+        if (item->is_visible) {
             Object_Collision(item_num, lara_item, coll);
         }
         return;
@@ -205,7 +200,7 @@ static void M_Collision(
         if (coll->enable_baddie_push) {
             Lara_Col_ItemPush(item, coll, coll->enable_hit, true);
         }
-        Lara_TakeDamage(M_GetAirDamage(item), false);
+        Lara_TakeDamage(p->air_damage, false);
 
         // TODO: handle overflows
         const int32_t dx = lara_item->pos.x - item->pos.x;
@@ -223,7 +218,7 @@ static void M_Collision(
     } else {
         lara_item->hit_status = true;
         if (lara_item->hit_points > 0) {
-            lara_item->hit_points = -1;
+            Lara_Kill();
             Item_UpdateRoom(lara->item_num, item->room_num);
 
             lara_item->rot.x = 0;
@@ -254,6 +249,7 @@ static void M_Collision(
 
 static void M_Setup(OBJECT *const obj)
 {
+    obj->priv_size = sizeof(M_PRIV);
     obj->initialise_func = Trap_Initialise;
     obj->control_func = M_Control;
     obj->collision_func = M_Collision;
@@ -263,8 +259,8 @@ static void M_Setup(OBJECT *const obj)
     obj->load_floor = true;
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_INT(
-            "air_damage", M_DEFAULT_AIR_DAMAGE,
+        OBJECT_PROPERTY(
+            M_PRIV, air_damage, M_DEFAULT_AIR_DAMAGE,
             "Damage dealt when Lara is clipped by a moving boulder without "
             "being crushed."));
 }

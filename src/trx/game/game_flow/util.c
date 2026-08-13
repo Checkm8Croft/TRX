@@ -41,10 +41,10 @@ void GF_DisableObjectsIfNeeded(void)
     }
 
     if (g_Config.gameplay.disable_extra_guns) {
-        const RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
+        const RESUME_INFO *const resume = SG_Resume_GetEntry(level);
         ASSERT(resume != nullptr);
         for (int32_t i = 0; g_GunObjects[i] != NO_OBJECT; i++) {
-            if (resume->flags.has_pistols) {
+            if (Inv_State_Has(&resume->inv, O_PISTOL_ITEM)) {
                 M_DisableObject(g_GunObjects[i]);
             } else {
                 M_ReplaceObject(g_GunObjects[i], O_PISTOL_ITEM);

@@ -69,9 +69,13 @@ typedef struct OBJECT {
 
     void (*control_func)(int16_t item_num);
     bool (*draw_func)(const ITEM *item);
-    // NOTE: not to be union'd with draw_func, due to default draw_func impl
-    // being Object_DrawAnimatingItem which takes an ITEM*
-    bool (*effect_draw_func)(const EFFECT *item);
+
+    // Effects are counted in their own pool and drawn from their own struct,
+    // so neither of these can be the item's: the number a control takes would
+    // name another item, and the default draw is Object_DrawAnimatingItem,
+    // which takes an ITEM.
+    void (*effect_control_func)(int16_t effect_num);
+    bool (*effect_draw_func)(const EFFECT *effect);
 
     void (*collision_func)(int16_t item_num, ITEM *lara_item, COLL_INFO *coll);
     int32_t (*floor_height_func)(const ITEM *item, XYZ_32 pos, int32_t height);
@@ -79,7 +83,7 @@ typedef struct OBJECT {
         const ITEM *item, XYZ_32 pos, int32_t height);
     void (*activate_func)(ITEM *item);
     void (*event_func)(ITEM *item, OBJECT_EVENT event, const void *data);
-    bool (*trigger_func)(ITEM *item, const TRIGGER *trigger);
+    bool (*trigger_func)(ITEM *item, const ITEM_TRIGGER *trigger);
     bool (*gun_hit_func)(
         ITEM *item, const GAME_VECTOR *start, const GAME_VECTOR *hit_pos,
         int32_t *damage);
@@ -104,6 +108,10 @@ typedef struct OBJECT {
 
     int16_t anim_idx;
     int16_t anim_count;
+    // The widest box any of the object's frames reaches. Unlike the box of
+    // the frame being drawn, it does not change as the object animates, so a
+    // decision taken from it holds for the whole level.
+    BOUNDS_16 anim_bounds;
     int16_t pivot_length;
     int16_t radius;
     int16_t shadow_size;
@@ -117,6 +125,10 @@ typedef struct OBJECT {
     bool enable_interpolation;
     bool loaded;
     bool intelligent;
+    // Whether the object leaves a body behind when it dies, which the rules
+    // may then fade away. Set for every intelligent object; an object that is
+    // not one of those, such as the mummy, says so itself.
+    bool leaves_corpse;
     bool save_position;
     bool save_hitpoints;
     bool save_flags;

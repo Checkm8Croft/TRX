@@ -53,7 +53,7 @@ static bool m_IsShadeEffect = false;
 static bool m_IsSkyboxEnabled = false;
 
 static int32_t m_TintOverrideDepth = 0;
-static RGB_F m_TintOverrideStack[8] = {};
+static RGBA_F m_TintOverrideStack[8] = {};
 
 float Output_GetTime(void)
 {
@@ -179,18 +179,18 @@ void Output_SetWaterColor(const RGB_888 color)
     m_WaterColor.b = color.b / 255.0f;
 }
 
-RGB_F Output_GetTint(void)
+RGBA_F Output_GetTint(void)
 {
     if (m_TintOverrideDepth != 0) {
         return m_TintOverrideStack[m_TintOverrideDepth - 1];
     }
     if (m_IsShadeEffect) {
-        return m_WaterColor;
+        return Color_RGBToRGBA(m_WaterColor);
     }
-    return COLOR_RGB_F_WHITE;
+    return COLOR_RGBA_F_WHITE;
 }
 
-void Output_PushTintOverride(const RGB_F tint)
+void Output_PushTintOverride(const RGBA_F tint)
 {
     ASSERT(m_TintOverrideDepth < (int32_t)ARRAY_SIZE(m_TintOverrideStack));
     m_TintOverrideStack[m_TintOverrideDepth++] = tint;
@@ -231,6 +231,13 @@ void Output_GetPerspProjectionMatrix(GLfloat output[][4])
     }
     case FOV_MODE_PS1: {
         const float persp = ((4.0f / 3.0f) / aspect) * (240.0f / 200.0f);
+        f_x = persp / tanf(fov * 0.5f);
+        f_y = f_x * aspect;
+        break;
+    }
+    case FOV_MODE_PS1_FIT: {
+        const float persp =
+            ((4.0f / 3.0f) / MAX(aspect, 16.0f / 10.0f)) * (240.0f / 200.0f);
         f_x = persp / tanf(fov * 0.5f);
         f_y = f_x * aspect;
         break;
@@ -377,7 +384,8 @@ void Output_SetTime(const float time)
 
 void Output_AnimateTextures(int32_t num_frames)
 {
-    const int32_t anim_delta = g_TRVersion == 3 ? 2 : 1;
+    // TR3 and TR4 halve the cycle threshold relative to TR1 and TR2.
+    const int32_t anim_delta = g_TRVersion >= 3 ? 2 : 1;
 
     m_TimeInGame += num_frames;
     m_AnimatedTexturesOffset += num_frames * anim_delta;

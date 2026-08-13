@@ -1,5 +1,6 @@
 #pragma once
 
+#include <trx/game/inventory.h>
 #include <trx/game/lara/types.h>
 
 void Gun_InitialiseNewWeapon(void);
@@ -16,11 +17,26 @@ OBJECT_ID Gun_GetWeaponAnim(LARA_GUN_TYPE gun_type);
 LARA_GUN_TYPE Gun_GetType(OBJECT_ID obj_id);
 OBJECT_ID Gun_GetGunObject(LARA_GUN_TYPE gun_type);
 OBJECT_ID Gun_GetAmmoObject(LARA_GUN_TYPE gun_type);
-int32_t Gun_GetAmmoInitialQuantity(LARA_GUN_TYPE gun_type);
-int32_t Gun_GetAmmoPickupQuantity(LARA_GUN_TYPE gun_type);
+// Ammunition is counted in rounds, one of which is what a single shot at a
+// target spends. The shotgun fires six of them at once.
+int32_t Gun_GetInitialRounds(LARA_GUN_TYPE gun_type);
+int32_t Gun_GetRoundsPerBox(LARA_GUN_TYPE gun_type);
+int32_t Gun_GetRoundsPerShot(LARA_GUN_TYPE gun_type);
 int32_t Gun_GetAmmoInventoryQuantity(LARA_GUN_TYPE gun_type);
-int32_t Gun_GetAmmoClipCount(LARA_GUN_TYPE gun_type);
-AMMO_INFO *Gun_GetAmmoInfo(LARA_GUN_TYPE gun_type);
+// Which weapon hangs in Lara's holsters and which on her back, out of what an
+// inventory holds. More than one can qualify, and these say which wins.
+LARA_GUN_TYPE Gun_GetHolsterChoice(const INVENTORY_STATE *inv);
+LARA_GUN_TYPE Gun_GetBackChoice(const INVENTORY_STATE *inv);
+
+// Whether the weapon spends nothing when it fires, so that its rounds are
+// neither counted down nor shown to the player.
+bool Gun_HasInfiniteAmmo(LARA_GUN_TYPE gun_type);
+// Whether the weapon has anything left to fire. One that never runs out
+// always has.
+bool Gun_HasRoundsLeft(LARA_GUN_TYPE gun_type);
+// Takes the round a shot costs, from a weapon that spends any.
+void Gun_SpendRound(LARA_GUN_TYPE gun_type);
+
 bool Gun_IsRifleType(LARA_GUN_TYPE gun_type);
 bool Gun_IsSinglePistolType(LARA_GUN_TYPE gun_type);
 

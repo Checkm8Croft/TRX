@@ -1,6 +1,7 @@
 #include <trx/game/option/controls.h>
 
 #include <trx/config.h>
+#include <trx/config/section.h>
 #include <trx/game/ui.h>
 
 typedef struct {
@@ -15,15 +16,16 @@ static M_PRIV m_Priv = {};
 
 static void M_HandleKeyChange(const EVENT *event, void *user_data)
 {
-    g_Config.dirty = true;
+    Config_SectionChanged();
     Config_Update();
 }
 
 static void M_HandleLayoutChange(const EVENT *event, void *user_data)
 {
     const M_PRIV *const p = user_data;
-    g_Config.input.layout[p->ui.state.backend] =
-        p->ui.state.editor_state[p->ui.state.backend].active_layout;
+    CONFIG_SET(
+        g_Config.input.layout[p->ui.state.backend],
+        p->ui.state.editor_state[p->ui.state.backend].active_layout);
     Config_Update();
 }
 
@@ -88,5 +90,5 @@ void Option_Controls_RefreshBackendPicker(void)
     if (!p->ui.is_ready) {
         return;
     }
-    UI_ControlsBackend_Init(&p->ui.state.backend_state);
+    UI_Controls_RefreshBackends(&p->ui.state);
 }

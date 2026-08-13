@@ -87,7 +87,7 @@ static void M_Explode(int16_t grenade_item_num, const XYZ_32 pos)
     }
 
     Creature_AlertNearbyGuards(grenade_item);
-    Item_Kill(grenade_item_num);
+    Item_Destroy(grenade_item_num);
 }
 
 static bool M_CanExplodeTarget(const ITEM *const item)
@@ -121,12 +121,11 @@ static bool M_TryExplodeItem(
     if (target_item == Lara_GetItem()) {
         return false;
     }
-    if (!target_item->collidable) {
+    if (!target_item->is_collidable) {
         return false;
     }
 
-    if (target_item->status == IS_INVISIBLE
-        || target_obj->collision_func == nullptr) {
+    if (!target_item->is_visible || target_obj->collision_func == nullptr) {
         return false;
     }
 

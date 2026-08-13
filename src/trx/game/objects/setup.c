@@ -19,14 +19,11 @@ static void M_SetupLara(OBJECT *const obj)
     obj->save_hitpoints = true;
     obj->save_flags = true;
     obj->save_anim = true;
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", LARA_MAX_HITPOINTS, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(LARA_MAX_HITPOINTS));
     ObjectProperty_SetObjectValueRaw(
         obj, "max_hit_points",
-        (OBJECT_PROPERTY_VALUE) {
-            .type = OBJECT_PROPERTY_TYPE_INT,
+        (TRX_VALUE) {
+            .type = TVT_S32,
             .as_int = g_Config.gameplay.start_lara_hitpoints,
         });
 }
@@ -64,16 +61,19 @@ void Object_SetupAllObjects(void)
         obj->save_anim = false;
         obj->load_floor = false;
         obj->intelligent = false;
+        obj->leaves_corpse = false;
         obj->smartness = -1;
 
         ObjectProperty_ResetObject(obj);
         if (obj->setup_func != nullptr) {
             obj->setup_func(obj);
         }
+        obj->leaves_corpse |= obj->intelligent;
 
         // TODO: this is poor design
         OBJECT_PROPERTIES(
-            obj, OBJECT_PROPERTY_INT("ocb", 0, "Object configuration value."));
+            obj,
+            OBJECT_PROPERTY_STORED("ocb", 0, "Object configuration value."));
     }
 
     Lara_Hair_Initialise();

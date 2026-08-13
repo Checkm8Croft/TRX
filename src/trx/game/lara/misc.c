@@ -219,7 +219,7 @@ void Lara_TouchDeathSector(const GF_DEATH_TILE death_tile)
         return;
     }
 
-    lara_item->hit_points = -1;
+    Lara_Kill();
     lara_item->hit_status = true;
 
     switch (death_tile) {
@@ -267,10 +267,9 @@ void Lara_RapidsDrown(void)
     LARA_INFO *const lara_info = Lara_GetLaraInfo();
 
     Lara_SwitchToExtraState(LS_EXTRA_RAPIDS_DROWN);
-
-    lara_item->gravity = false;
-    lara_item->hit_points = -1;
+    Lara_Kill();
     lara_item->hit_status = true;
+    lara_item->gravity = false;
     lara_item->fall_speed = 0;
     lara_item->speed = 0;
 
@@ -428,7 +427,7 @@ void Lara_CatchFireEx(const FLAME_TYPE type)
     } else {
         effect->pos = lara_item->pos;
     }
-    effect->frame_num = g_TRVersion == 3 ? type : 0;
+    effect->frame_num = g_TRVersion >= 3 ? type : 0;
     effect->object_id = O_FLAME;
     effect->counter = -1;
     lara_info->burn = true;
@@ -457,10 +456,29 @@ void Lara_Extinguish(void)
         const int16_t next_effect_num = effect->next_active;
         if (effect->object_id == O_FLAME && effect->counter < 0) {
             effect->counter = 0;
-            Effect_Kill(effect_num);
+            Effect_Destroy(effect_num);
         }
         effect_num = next_effect_num;
     }
+}
+
+void Lara_Dry(void)
+{
+    LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    for (LARA_MESH mesh = LM_FIRST; mesh < LM_NUMBER_OF; mesh++) {
+        lara_info->wet[mesh] = 0;
+    }
+}
+
+bool Lara_IsWet(void)
+{
+    const LARA_INFO *const lara_info = Lara_GetLaraInfo();
+    for (LARA_MESH mesh = LM_FIRST; mesh < LM_NUMBER_OF; mesh++) {
+        if (lara_info->wet[mesh] != 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 bool Lara_HasState(const LARA_TRX_STATE *const test_arr)
@@ -471,6 +489,10 @@ bool Lara_HasState(const LARA_TRX_STATE *const test_arr)
     }
 
     const ITEM *const lara_item = Lara_GetItem();
+    if (lara_item == nullptr) {
+        return false;
+    }
+
     for (int32_t i = 0; test_arr[i] != LS_TRX_INVALID; i++) {
         if (test_arr[i] == LS_U(lara_item->current_anim_state)) {
             return true;

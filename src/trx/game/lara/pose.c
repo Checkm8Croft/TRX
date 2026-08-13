@@ -5,6 +5,7 @@
 #include <trx/core/json/util/read_io.h>
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/vector.h>
 #include <trx/debug.h>
 #include <trx/game/game_flow.h>
@@ -18,6 +19,8 @@
 
 static VECTOR *m_Poses = nullptr;
 static int32_t m_ActivePose = M_NO_POSE;
+static LARA_POSE m_Override = {};
+static bool m_OverrideActive = false;
 
 static void M_WarnWithJSONError(const JSON_READ_IO *const io)
 {
@@ -74,6 +77,9 @@ static bool M_LoadPosesArray(JSON_READ_IO *const io, VECTOR *const poses)
 
 static void M_LoadPoses(void)
 {
+    if (m_Poses != nullptr) {
+        return;
+    }
     m_Poses = Vector_Create(sizeof(LARA_POSE));
     ASSERT(m_Poses != nullptr);
 
@@ -95,14 +101,7 @@ static void M_LoadPoses(void)
     JSON_ValueFree(doc);
 }
 
-void Lara_Pose_Init(void)
-{
-    if (m_Poses == nullptr) {
-        M_LoadPoses();
-    }
-}
-
-void Lara_Pose_Shutdown(void)
+static void M_Shutdown(void)
 {
     if (m_Poses != nullptr) {
         Vector_Free(m_Poses);
@@ -144,8 +143,21 @@ void Lara_Pose_Cycle(const int32_t dir)
 
 const LARA_POSE *Lara_Pose_Get(void)
 {
+    if (m_OverrideActive) {
+        return &m_Override;
+    }
     if (m_ActivePose == M_NO_POSE) {
         return nullptr;
     }
     return Vector_Get(m_Poses, m_ActivePose);
 }
+
+void Lara_Pose_SetOverride(const LARA_POSE *const pose)
+{
+    m_OverrideActive = pose != nullptr;
+    if (pose != nullptr) {
+        m_Override = *pose;
+    }
+}
+
+REGISTER_SUBSYSTEM(.load = M_LoadPoses, .shutdown = M_Shutdown)

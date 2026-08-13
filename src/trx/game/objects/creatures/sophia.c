@@ -18,7 +18,6 @@
 #include <trx/game/random.h>
 #include <trx/game/sound.h>
 #include <trx/game/sparks.h>
-#include <trx/game/stats.h>
 
 // clang-format off
 #define M_HIT_POINTS     300
@@ -104,7 +103,7 @@ static int32_t m_DeathHeights[5] = {};
 static int32_t M_GetObjectDamage(
     const char *const key, const int32_t default_value)
 {
-    OBJECT_PROPERTY_VALUE damage = {};
+    TRX_VALUE damage = {};
     const OBJECT *const obj = Object_Get(O_SOPHIA);
     if (ObjectProperty_GetObjectValue(obj, key, &damage)) {
         return damage.as_int;
@@ -186,10 +185,10 @@ static void M_Die(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
     item->hit_points = 0;
-    item->collidable = false;
-    Item_Kill(item_num);
+    item->is_collidable = false;
+    Item_Destroy(item_num);
     LOT_DisableBaddieAI(item_num);
-    item->flags |= IF_INVISIBLE;
+    item->trigger.spent = true;
 }
 
 static bool M_KnockBackCollision(const FX_RING *const ring)
@@ -356,7 +355,8 @@ static void M_Control(const int16_t item_num)
     if (p->death_counter == 0 && p->fuse_box_num != NO_ITEM) {
         const ITEM *const fuse_box = Item_Get(p->fuse_box_num);
         if (!Item_TestAnimEqual(fuse_box, 0)) {
-            Stats_AddKill();
+            // The fuse box kills her; weapon damage never lands.
+            Item_TakeFatalDamage(item, Lara_GetItem());
             p->death_counter = 1;
         }
     }
@@ -371,10 +371,6 @@ static void M_Control(const int16_t item_num)
     int16_t torso_y = 0;
 
     if (p->death_counter != 0) {
-        if (p->death_counter == 1) {
-            item->hit_points = 0;
-        }
-
         RGB_888 color;
         int32_t falloff;
         if (p->death_counter < 12) {
@@ -941,25 +937,23 @@ static void M_Setup(OBJECT *const obj)
     Object_GetBone(obj, 6)->rot.y = true;
     Object_GetBone(obj, 13)->rot.y = true;
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."),
-        OBJECT_PROPERTY_INT(
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS),
+        OBJECT_PROPERTY_STORED(
             "knockback_damage", SOPHIA_KNOCKBACK_DAMAGE,
             "Damage dealt by the knockback shockwave."),
-        OBJECT_PROPERTY_INT(
+        OBJECT_PROPERTY_STORED(
             "laser_bolt_damage", SOPHIA_LASER_BOLT_DAMAGE,
             "Damage dealt by regular laser bolt direct hits."),
-        OBJECT_PROPERTY_INT(
+        OBJECT_PROPERTY_STORED(
             "big_laser_bolt_damage", SOPHIA_BIG_LASER_BOLT_DAMAGE,
             "Damage dealt by the big laser bolt direct hit."),
-        OBJECT_PROPERTY_INT(
+        OBJECT_PROPERTY_STORED(
             "laser_bolt_splash_damage", SOPHIA_LASER_BOLT_SPLASH_DAMAGE,
             "Maximum splash damage dealt by regular laser bolts."),
-        OBJECT_PROPERTY_INT(
+        OBJECT_PROPERTY_STORED(
             "big_laser_bolt_splash_damage", SOPHIA_BIG_LASER_BOLT_SPLASH_DAMAGE,
             "Maximum splash damage dealt by the big laser bolt."),
-        OBJECT_PROPERTY_INT(
+        OBJECT_PROPERTY_STORED(
             "plasma_ball_damage", SOPHIA_PLASMA_BALL_DAMAGE,
             "Damage dealt by plasma ball direct hits."));
 }

@@ -6,6 +6,7 @@
 #include <trx/game/game.h>
 #include <trx/game/interpolation.h>
 #include <trx/game/inventory_ring.h>
+#include <trx/game/lua/events.h>
 #include <trx/game/output/overlay.h>
 #include <trx/game/shell.h>
 
@@ -41,6 +42,11 @@ static PHASE_CONTROL M_Start(PHASE *const phase)
 
     p->state = STATE_RUN;
     Game_SetIsPlaying(true);
+
+    // The same event a played level fires: for any level, this is the
+    // moment it starts running.
+    // A demo is never resumed from a save.
+    LUA_FireEventBool(LUA_EVENT_GAME_START, false);
 
     return (PHASE_CONTROL) { .action = PHASE_ACTION_CONTINUE };
 }

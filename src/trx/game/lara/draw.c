@@ -46,8 +46,10 @@ static void M_CacheMatrix(const LARA_MESH mesh)
 }
 
 static void M_DrawEquipmentMesh(
-    const OBJECT_MESH *const mesh, const CLIP clip, const bool interpolated)
+    const LARA_SKIN_EQUIPMENT *const equipment, const CLIP clip,
+    const bool interpolated)
 {
+    const OBJECT_MESH *const mesh = equipment->mesh;
     const GAME_VECTOR pos = {
         .room_num = Lara_GetItem()->room_num,
         .pos = Matrix_MulVec32_M(
@@ -60,9 +62,15 @@ static void M_DrawEquipmentMesh(
     };
     Output_PushTintOverride(Lara_GetMeshTint(pos));
     if (interpolated) {
+        Matrix_Push_I();
+        Matrix_TranslateRel16_I(equipment->offset);
         Output_DrawObjectMesh_I(mesh, clip);
+        Matrix_Pop_I();
     } else {
+        Matrix_Push();
+        Matrix_TranslateRel16(equipment->offset);
         Output_DrawObjectMesh(mesh, clip);
+        Matrix_Pop();
     }
     Output_PopTintOverride();
 }
@@ -96,10 +104,17 @@ static void M_DrawLaraMesh(
         .pos = Matrix_MulVec32_M(g_WMatrixPtr, origin),
     };
     Output_PushTintOverride(Lara_GetMeshTint(pos));
+    if (m_IsLara) {
+        Lara_Joints_StashMatrix(mesh_num, interpolated);
+    }
     if (interpolated) {
         Output_DrawObjectMesh_I(mesh, clip);
     } else {
         Output_DrawObjectMesh(mesh, clip);
+    }
+
+    if (m_IsLara) {
+        Lara_Joints_Draw(mesh_num, clip, interpolated);
     }
     Output_PopTintOverride();
 }
@@ -138,7 +153,7 @@ static inline void M_DrawEquipment(
         return;
     }
 
-    M_DrawEquipmentMesh(equipment->mesh, clip, interpolated);
+    M_DrawEquipmentMesh(equipment, clip, interpolated);
 }
 
 static bool M_Draw_I(
@@ -409,8 +424,7 @@ bool Lara_Draw(const ITEM *const item)
     const ITEM *const lara_item = Lara_GetItem();
     m_IsLara = item == lara_item;
     if (m_IsLara
-        && (item->status == IS_INVISIBLE || (item->flags & IF_ONE_SHOT) != 0
-            || item->mesh_bits == 0)) {
+        && (!item->is_visible || item->trigger.spent || item->mesh_bits == 0)) {
         return false;
     }
 

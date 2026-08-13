@@ -240,8 +240,10 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── qualopec_textures.bin
 │   │   │   ├── sanctuary_fd.bin
 │   │   │   ├── sanctuary_itemrots.bin
+│   │   │   ├── sanctuary_meshfixes.bin
 │   │   │   ├── sanctuary_scion.bin
 │   │   │   ├── sanctuary_textures.bin
+│   │   │   ├── scion_alignment.bin
 │   │   │   ├── scion_collision.bin
 │   │   │   ├── shimmy_sfx.bin
 │   │   │   ├── skate_kid_sfx.bin
@@ -255,6 +257,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── tihocan_skybox.bin
 │   │   │   ├── tihocan_textures.bin
 │   │   │   ├── title_textures.bin
+│   │   │   ├── uw_switch_sfx.bin
 │   │   │   ├── uzi_sfx.bin
 │   │   │   ├── valley_fd.bin
 │   │   │   ├── valley_itemrots.bin
@@ -263,6 +266,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── vilcabamba_door_sfx.bin
 │   │   │   ├── vilcabamba_itemrots.bin
 │   │   │   ├── vilcabamba_textures.bin
+│   │   │   ├── wall_switch_sfx.bin
 │   │   │   └── winston_model.bin
 │   │   ├── levels
 │   │   │   ├── cut1.phd
@@ -347,7 +351,11 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── track59.flac
 │   │   │   └── track60.flac
 │   │   ├── scripts
-│   │   │   └── gym.lua
+│   │   │   ├── _game.lua
+│   │   │   ├── gym.lua
+│   │   │   ├── level3b.lua
+│   │   │   ├── level8c.lua
+│   │   │   └── level10b.lua
 │   │   ├── catalog_item_actions.csv
 │   │   ├── catalog_lara_anims.csv
 │   │   ├── catalog_lara_states.csv
@@ -394,6 +402,8 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── egypt.phd
 │   │   │   ├── end2.phd
 │   │   │   └── end.phd
+│   │   ├── scripts
+│   │   │   └── _game.lua
 │   │   ├── gameflow.json5
 │   │   ├── strings-de.json5
 │   │   ├── strings-fr.json5
@@ -662,6 +672,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── wall_crystals.bin
 │   │   │   ├── wall_itemrots.bin
 │   │   │   ├── wall_music_tracks.bin
+│   │   │   ├── wall_switch_sfx.bin
 │   │   │   ├── wall_textures.bin
 │   │   │   ├── winston_model.bin
 │   │   │   ├── wreck_cameras.bin
@@ -768,13 +779,11 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── 60.mp3
 │   │   │   └── 61.mp3
 │   │   ├── scripts
+│   │   │   ├── _game.lua
 │   │   │   ├── assault.lua
 │   │   │   ├── cut3.lua
 │   │   │   ├── floating.lua
 │   │   │   ├── house.lua
-│   │   │   ├── level1.lua
-│   │   │   ├── level3.lua
-│   │   │   ├── level4.lua
 │   │   │   └── monastry.lua
 │   │   ├── catalog_item_actions.csv
 │   │   ├── catalog_lara_anims.csv
@@ -842,6 +851,11 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── level4.tr2
 │   │   │   ├── level5.tr2
 │   │   │   └── title.tr2
+│   │   ├── scripts
+│   │   │   ├── _game.lua
+│   │   │   ├── level1.lua
+│   │   │   ├── level3.lua
+│   │   │   └── level4.lua
 │   │   ├── gameflow.json5
 │   │   ├── main.sfx
 │   │   ├── strings-de.json5
@@ -977,6 +991,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── antarc_door134_frames.bin
 │   │   │   ├── antarc_sky.bin
 │   │   │   ├── antarc_textures.bin
+│   │   │   ├── antarc_wheel_frames.bin
 │   │   │   ├── area51_animating_bounds.bin
 │   │   │   ├── area51_patrol.bin
 │   │   │   ├── area51_sky.bin
@@ -997,6 +1012,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── coastal_sky.bin
 │   │   │   ├── coastal_spike_sfx.bin
 │   │   │   ├── coastal_textures.bin
+│   │   │   ├── coastal_wheel_frames.bin
 │   │   │   ├── common_pickup_meshes.bin
 │   │   │   ├── compound_animating_bounds.bin
 │   │   │   ├── compound_cine.bin
@@ -1005,6 +1021,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── crash_animating_bounds.bin
 │   │   │   ├── crash_pickup_meshes.bin
 │   │   │   ├── crash_sky.bin
+│   │   │   ├── crystal.bin
 │   │   │   ├── cut1_setup.bin
 │   │   │   ├── cut2_setup.bin
 │   │   │   ├── cut3_setup.bin
@@ -1030,6 +1047,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── hiss_sfx.bin
 │   │   │   ├── india_sky.bin
 │   │   │   ├── inv_background.bin
+│   │   │   ├── jungle_fd.bin
 │   │   │   ├── lara_animations.bin
 │   │   │   ├── lara_extra.bin
 │   │   │   ├── lara_guns.bin
@@ -1075,6 +1093,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── undersea_pickup_meshes.bin
 │   │   │   ├── undersea_textures.bin
 │   │   │   ├── undersea_train.bin
+│   │   │   ├── undersea_wheel_frames.bin
 │   │   │   ├── water_sfx.bin
 │   │   │   ├── willsden_heli.bin
 │   │   │   ├── willsden_textures.bin
@@ -1105,28 +1124,28 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── tower.tr2
 │   │   │   └── triboss.tr2
 │   │   ├── scripts
-│   │   │   ├── aldwych.lua
+│   │   │   ├── _game.lua
 │   │   │   ├── antarc.lua
 │   │   │   ├── area51.lua
-│   │   │   ├── chunnel.lua
+│   │   │   ├── chamber.lua
+│   │   │   ├── city.lua
 │   │   │   ├── compound.lua
 │   │   │   ├── crash.lua
 │   │   │   ├── cut8.lua
-│   │   │   ├── ganges.lua
 │   │   │   ├── house.lua
 │   │   │   ├── jungle.lua
 │   │   │   ├── mines.lua
 │   │   │   ├── nevada.lua
 │   │   │   ├── office.lua
+│   │   │   ├── quadchas.lua
 │   │   │   ├── rapids.lua
+│   │   │   ├── roofs.lua
+│   │   │   ├── sewer.lua
 │   │   │   ├── shore.lua
 │   │   │   ├── temple.lua
-│   │   │   ├── thames.lua
-│   │   │   ├── tinnos.lua
 │   │   │   ├── tonyboss.lua
 │   │   │   ├── tower.lua
-│   │   │   ├── triboss.lua
-│   │   │   └── zoo.lua
+│   │   │   └── triboss.lua
 │   │   ├── catalog_item_actions.csv
 │   │   ├── catalog_lara_anims.csv
 │   │   ├── catalog_lara_states.csv
@@ -1220,6 +1239,12 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── undersea.tr2
 │   │   │   ├── willsden.tr2
 │   │   │   └── zoo.tr2
+│   │   ├── scripts
+│   │   │   ├── _game.lua
+│   │   │   ├── chunnel.lua
+│   │   │   ├── slinc.lua
+│   │   │   ├── undersea.lua
+│   │   │   └── zoo.lua
 │   │   ├── gameflow.json5
 │   │   ├── main.sfx
 │   │   ├── strings-de.json5
@@ -1249,8 +1274,11 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── bikebit.lua
 │   │   │   ├── cortyard.lua
 │   │   │   ├── csplit1.lua
+│   │   │   ├── csplit2.lua
 │   │   │   ├── highstrt.lua
+│   │   │   ├── joby1a.lua
 │   │   │   ├── joby2.lua
+│   │   │   ├── joby3b.lua
 │   │   │   ├── joby4a.lua
 │   │   │   ├── joby4b.lua
 │   │   │   ├── joby4c.lua
@@ -1268,6 +1296,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── semer.lua
 │   │   │   ├── settomb1.lua
 │   │   │   ├── settomb2.lua
+│   │   │   ├── title.lua
 │   │   │   └── train.lua
 │   │   ├── catalog_item_actions.csv
 │   │   ├── catalog_lara_anims.csv
@@ -1286,6 +1315,8 @@ If you install everything correctly, your game directory should look more or les
 │       ├── gameflow.json5
 │       ├── strings-it.json5
 │       └── strings.json5
+├── modules
+│   └── water_color.lua
 └── TRX.exe</code></pre>
 </details>
 
@@ -1560,8 +1591,10 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── qualopec_textures.bin
     │   │   │   │   ├── sanctuary_fd.bin
     │   │   │   │   ├── sanctuary_itemrots.bin
+    │   │   │   │   ├── sanctuary_meshfixes.bin
     │   │   │   │   ├── sanctuary_scion.bin
     │   │   │   │   ├── sanctuary_textures.bin
+    │   │   │   │   ├── scion_alignment.bin
     │   │   │   │   ├── scion_collision.bin
     │   │   │   │   ├── shimmy_sfx.bin
     │   │   │   │   ├── skate_kid_sfx.bin
@@ -1575,6 +1608,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── tihocan_skybox.bin
     │   │   │   │   ├── tihocan_textures.bin
     │   │   │   │   ├── title_textures.bin
+    │   │   │   │   ├── uw_switch_sfx.bin
     │   │   │   │   ├── uzi_sfx.bin
     │   │   │   │   ├── valley_fd.bin
     │   │   │   │   ├── valley_itemrots.bin
@@ -1583,6 +1617,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── vilcabamba_door_sfx.bin
     │   │   │   │   ├── vilcabamba_itemrots.bin
     │   │   │   │   ├── vilcabamba_textures.bin
+    │   │   │   │   ├── wall_switch_sfx.bin
     │   │   │   │   └── winston_model.bin
     │   │   │   ├── levels
     │   │   │   │   ├── cut1.phd
@@ -1667,7 +1702,11 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── track59.flac
     │   │   │   │   └── track60.flac
     │   │   │   ├── scripts
-    │   │   │   │   └── gym.lua
+    │   │   │   │   ├── _game.lua
+    │   │   │   │   ├── gym.lua
+    │   │   │   │   ├── level3b.lua
+    │   │   │   │   ├── level8c.lua
+    │   │   │   │   └── level10b.lua
     │   │   │   ├── catalog_item_actions.csv
     │   │   │   ├── catalog_lara_anims.csv
     │   │   │   ├── catalog_lara_states.csv
@@ -1714,6 +1753,8 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── egypt.phd
     │   │   │   │   ├── end2.phd
     │   │   │   │   └── end.phd
+    │   │   │   ├── scripts
+    │   │   │   │   └── _game.lua
     │   │   │   ├── gameflow.json5
     │   │   │   ├── strings-de.json5
     │   │   │   ├── strings-fr.json5
@@ -1982,6 +2023,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── wall_crystals.bin
     │   │   │   │   ├── wall_itemrots.bin
     │   │   │   │   ├── wall_music_tracks.bin
+    │   │   │   │   ├── wall_switch_sfx.bin
     │   │   │   │   ├── wall_textures.bin
     │   │   │   │   ├── winston_model.bin
     │   │   │   │   ├── wreck_cameras.bin
@@ -2088,13 +2130,11 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── 60.mp3
     │   │   │   │   └── 61.mp3
     │   │   │   ├── scripts
+    │   │   │   │   ├── _game.lua
     │   │   │   │   ├── assault.lua
     │   │   │   │   ├── cut3.lua
     │   │   │   │   ├── floating.lua
     │   │   │   │   ├── house.lua
-    │   │   │   │   ├── level1.lua
-    │   │   │   │   ├── level3.lua
-    │   │   │   │   ├── level4.lua
     │   │   │   │   └── monastry.lua
     │   │   │   ├── catalog_item_actions.csv
     │   │   │   ├── catalog_lara_anims.csv
@@ -2162,6 +2202,11 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── level4.tr2
     │   │   │   │   ├── level5.tr2
     │   │   │   │   └── title.tr2
+    │   │   │   ├── scripts
+    │   │   │   │   ├── _game.lua
+    │   │   │   │   ├── level1.lua
+    │   │   │   │   ├── level3.lua
+    │   │   │   │   └── level4.lua
     │   │   │   ├── gameflow.json5
     │   │   │   ├── main.sfx
     │   │   │   ├── strings-de.json5
@@ -2297,6 +2342,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── antarc_door134_frames.bin
     │   │   │   │   ├── antarc_sky.bin
     │   │   │   │   ├── antarc_textures.bin
+    │   │   │   │   ├── antarc_wheel_frames.bin
     │   │   │   │   ├── area51_animating_bounds.bin
     │   │   │   │   ├── area51_patrol.bin
     │   │   │   │   ├── area51_sky.bin
@@ -2317,6 +2363,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── coastal_sky.bin
     │   │   │   │   ├── coastal_spike_sfx.bin
     │   │   │   │   ├── coastal_textures.bin
+    │   │   │   │   ├── coastal_wheel_frames.bin
     │   │   │   │   ├── common_pickup_meshes.bin
     │   │   │   │   ├── compound_animating_bounds.bin
     │   │   │   │   ├── compound_cine.bin
@@ -2325,6 +2372,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── crash_animating_bounds.bin
     │   │   │   │   ├── crash_pickup_meshes.bin
     │   │   │   │   ├── crash_sky.bin
+    │   │   │   │   ├── crystal.bin
     │   │   │   │   ├── cut1_setup.bin
     │   │   │   │   ├── cut2_setup.bin
     │   │   │   │   ├── cut3_setup.bin
@@ -2350,6 +2398,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── hiss_sfx.bin
     │   │   │   │   ├── india_sky.bin
     │   │   │   │   ├── inv_background.bin
+    │   │   │   │   ├── jungle_fd.bin
     │   │   │   │   ├── lara_animations.bin
     │   │   │   │   ├── lara_extra.bin
     │   │   │   │   ├── lara_guns.bin
@@ -2395,6 +2444,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── undersea_pickup_meshes.bin
     │   │   │   │   ├── undersea_textures.bin
     │   │   │   │   ├── undersea_train.bin
+    │   │   │   │   ├── undersea_wheel_frames.bin
     │   │   │   │   ├── water_sfx.bin
     │   │   │   │   ├── willsden_heli.bin
     │   │   │   │   ├── willsden_textures.bin
@@ -2425,28 +2475,28 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── tower.tr2
     │   │   │   │   └── triboss.tr2
     │   │   │   ├── scripts
-    │   │   │   │   ├── aldwych.lua
+    │   │   │   │   ├── _game.lua
     │   │   │   │   ├── antarc.lua
     │   │   │   │   ├── area51.lua
-    │   │   │   │   ├── chunnel.lua
+    │   │   │   │   ├── chamber.lua
+    │   │   │   │   ├── city.lua
     │   │   │   │   ├── compound.lua
     │   │   │   │   ├── crash.lua
     │   │   │   │   ├── cut8.lua
-    │   │   │   │   ├── ganges.lua
     │   │   │   │   ├── house.lua
     │   │   │   │   ├── jungle.lua
     │   │   │   │   ├── mines.lua
     │   │   │   │   ├── nevada.lua
     │   │   │   │   ├── office.lua
+    │   │   │   │   ├── quadchas.lua
     │   │   │   │   ├── rapids.lua
+    │   │   │   │   ├── roofs.lua
+    │   │   │   │   ├── sewer.lua
     │   │   │   │   ├── shore.lua
     │   │   │   │   ├── temple.lua
-    │   │   │   │   ├── thames.lua
-    │   │   │   │   ├── tinnos.lua
     │   │   │   │   ├── tonyboss.lua
     │   │   │   │   ├── tower.lua
-    │   │   │   │   ├── triboss.lua
-    │   │   │   │   └── zoo.lua
+    │   │   │   │   └── triboss.lua
     │   │   │   ├── catalog_item_actions.csv
     │   │   │   ├── catalog_lara_anims.csv
     │   │   │   ├── catalog_lara_states.csv
@@ -2540,6 +2590,12 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── undersea.tr2
     │   │   │   │   ├── willsden.tr2
     │   │   │   │   └── zoo.tr2
+    │   │   │   ├── scripts
+    │   │   │   │   ├── _game.lua
+    │   │   │   │   ├── chunnel.lua
+    │   │   │   │   ├── slinc.lua
+    │   │   │   │   ├── undersea.lua
+    │   │   │   │   └── zoo.lua
     │   │   │   ├── gameflow.json5
     │   │   │   ├── main.sfx
     │   │   │   ├── strings-de.json5
@@ -2569,8 +2625,11 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── bikebit.lua
     │   │   │   │   ├── cortyard.lua
     │   │   │   │   ├── csplit1.lua
+    │   │   │   │   ├── csplit2.lua
     │   │   │   │   ├── highstrt.lua
+    │   │   │   │   ├── joby1a.lua
     │   │   │   │   ├── joby2.lua
+    │   │   │   │   ├── joby3b.lua
     │   │   │   │   ├── joby4a.lua
     │   │   │   │   ├── joby4b.lua
     │   │   │   │   ├── joby4c.lua
@@ -2588,6 +2647,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── semer.lua
     │   │   │   │   ├── settomb1.lua
     │   │   │   │   ├── settomb2.lua
+    │   │   │   │   ├── title.lua
     │   │   │   │   └── train.lua
     │   │   │   ├── catalog_item_actions.csv
     │   │   │   ├── catalog_lara_anims.csv
@@ -2606,6 +2666,8 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │       ├── gameflow.json5
     │   │       ├── strings-it.json5
     │   │       └── strings.json5
+    │   ├── modules
+    │   │   └── water_color.lua
     │   └── icon.icns
     ├── _CodeSignature
     ├── Frameworks

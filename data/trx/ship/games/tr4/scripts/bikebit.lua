@@ -1,3 +1,3 @@
-trx.events.before_item_setup(function(level)
-  trx.items[57].properties.crowbar = true
+trx.events.on_game_start(function()
+  trx.items[56].properties.crowbar = true
 end)

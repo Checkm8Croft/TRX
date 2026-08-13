@@ -51,7 +51,7 @@ static void M_Collision(
     const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
 {
     ITEM *const train_item = Item_Get(item_num);
-    if (train_item->status != IS_ACTIVE) {
+    if (!Item_IsInPlay(train_item)) {
         Object_Collision(item_num, lara_item, coll);
         return;
     }
@@ -69,7 +69,7 @@ static void M_Collision(
     Sound_StopEffect(SFX_TRAIN_LOOP);
 
     LARA_INFO *const lara = Lara_GetLaraInfo();
-    lara_item->hit_points = 0;
+    Lara_Kill();
     lara_item->rot.y = train_item->rot.y;
     lara->move_angle = lara_item->rot.y;
     lara_item->gravity = false;
@@ -102,7 +102,7 @@ static void M_Control(const int16_t item_num)
     item->pos.y = mid_height;
 
     if (item->pos.y == NO_HEIGHT) {
-        Item_Kill(item_num);
+        Item_Destroy(item_num);
         return;
     }
 
@@ -111,7 +111,9 @@ static void M_Control(const int16_t item_num)
     Room_GetSector(item->pos, &room_num);
     Item_UpdateRoom(item_num, room_num);
 
-    item->rot.x = (mid_height - front_height) << 1;
+    if (mid_height != NO_HEIGHT && front_height != NO_HEIGHT) {
+        item->rot.x = (mid_height - front_height) << 1;
+    }
 
     const XYZ_32 light_pos =
         XYZ_32_OffsetYaw(item->pos, item->rot.y, M_LIGHT_DIST);

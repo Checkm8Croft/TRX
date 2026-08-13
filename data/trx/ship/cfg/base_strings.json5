@@ -47,85 +47,26 @@
             "pagination_nav": "%d / %d",
         },
         "osd": {
-            "ambiguous_input_2": "Ambiguous input: %s and %s",
-            "ambiguous_input_3": "Ambiguous input: %s, %s, ...",
             "bilinear_filter_off": "Bilinear filter: off",
             "bilinear_filter_on": "Bilinear filter: on",
-            "burn_fail_already_off": "Lara's not currently on fire",
-            "burn_fail_already_on": "Lara's already on fire",
-            "burn_off": "Lara's been extinguished - phew!",
-            "burn_on": "Lara's now on fire - ouch!",
             "command_bad_invocation": "Invalid invocation: %s",
-            "command_bool": "on, off",
-            "command_decimal": "[decimal]",
-            "command_integer": "[integer]",
-            "command_percent": "[integer]",
             "command_unavailable": "This command is not currently available",
-            "command_valid_values": "Valid values: %s",
             "complete_level": "Level complete!",
-            "config_option_enforced": "%s is enforced and cannot be changed",
-            "config_option_get": "%s is currently set to %s",
-            "config_option_set": "%s changed to %s",
-            "config_option_unknown_option": "Unknown option: %s",
-            "current_health_get": "Current Lara's health: %d",
-            "current_health_set": "Lara's health set to %d",
-            "current_poison_get": "Current Lara's poison: %d (target: %d)",
-            "current_poison_set": "Lara's poison set to %d",
-            "current_poison_target_set": "Lara's poison target set to %d",
             "door_close": "Close Sesame!",
             "door_open": "Open Sesame!",
             "door_open_fail": "No doors in Lara's proximity",
-            "flipmap_fail_already_off": "Flipmap is already OFF",
-            "flipmap_fail_already_on": "Flipmap is already ON",
-            "flipmap_off": "Flipmap set to OFF",
-            "flipmap_on": "Flipmap set to ON",
             "fly_mode_off": "Fly mode disabled",
             "fly_mode_on": "Fly mode enabled",
             "fps_counter_off": "FPS counter: off",
             "fps_counter_on": "FPS counter: on",
-            "give_item": "Added %s to Lara's inventory",
-            "give_item_all_guns": "Lock'n'load - Lara's armed to the teeth!",
-            "give_item_all_keys": "Surprise! Every key item Lara needs is now in her backpack.",
-            "give_item_cheat": "Lara's backpack just got way heavier!",
-            "heal_already_full_hp": "Lara's already at full health",
-            "heal_success": "Healed Lara back to full health",
-            "invalid_cutscene": "Invalid cutscene",
-            "invalid_demo": "Invalid demo",
-            "invalid_item": "Unknown item: %s",
-            "invalid_level": "Invalid level",
-            "invalid_object": "Invalid object",
-            "invalid_room": "Invalid room: %d. Valid rooms are 0-%d",
-            "invalid_sample": "Invalid sound: %d",
-            "kill": "Bye-bye!",
-            "kill_all": "Poof! %d enemies gone!",
-            "kill_all_fail": "Uh-oh, there are no enemies left to kill...",
-            "kill_fail": "No enemy nearby...",
             "lighting_contrast_fmt": "Lighting Contrast: %s",
             "load_game": "Loaded game from save slot %d",
-            "load_game_fail_invalid_slot": "Invalid save slot %d",
-            "load_game_fail_unavailable_slot": "Save slot %d is not available",
-            "object_not_found": "Object not found",
-            "play_cutscene": "Loading cutscene %d",
-            "play_demo": "Loading demo %d",
-            "play_level": "Loading %s",
-            "pos_lara_missing": "Lara not present",
-            "pos_lara_pos_fmt": "Room: %d\nPosition: %.3f, %.3f, %.3f\nRotation: %.3f, %.3f, %.3f",
-            "pos_level_fmt": "Level %d",
-            "pos_level_fmt_cutscene": "Cutscene %d",
-            "pos_level_fmt_demo": "Demo %d",
             "quick_load": "Quick-loaded slot %d",
             "quick_load_fail_no_bound_slot": "No save slot is currently bound",
             "quick_load_fail_unavailable_bound_slot": "The bound save slot is not available",
             "quick_save": "Quick-saved",
             "quick_save_fail_no_slots": "No quick save slots are configured",
-            "save_game": "Saved game to save slot %d",
-            "save_game_fail_invalid_slot": "Invalid save slot %d",
-            "sound_available_samples": "Available sounds: %s",
-            "sound_playing_sample": "Playing sound %d",
-            "speed_get": "Current speed: %d",
             "speed_set": "Speed set to %d",
-            "strings_failed": "Failed to reload the language files",
-            "strings_reloaded": "Language files reloaded",
             "textures_off": "Textures: off",
             "textures_on": "Textures: on",
             "trapezoid_filter_off": "Trapezoid filter: off",
@@ -145,6 +86,7 @@
             "debug_camera_pos": "Camera origin: ",
             "debug_camera_target": "Camera target: ",
             "debug_immune": "Invulnerability on",
+            "debug_interaction": "Interaction: ",
             "debug_position": "Position: ",
             "debug_rotation": "Rotation: ",
             "debug_speed": "Speed: ",
@@ -161,8 +103,6 @@
             "exit_to_title": "Exit to Title",
             "load_game": "Load Game",
             "mode_new_game": "New Game",
-            "mode_new_game_jp": "Japanese NG",
-            "mode_new_game_jp_plus": "Japanese NG+",
             "mode_new_game_plus": "New Game+",
             "new_game": "New Game",
             "play_previous_levels": "Play previous levels",
@@ -271,6 +211,7 @@
             "assault_finish": "Finish",
             "assault_no_times_set": "No Times Set",
             "assault_other_times_fmt": "%s",
+            "assault_reset_times": "Reset",
             "assault_title": "BEST TIMES",
             "basic_fmt": "%d",
             "bonus_statistics": "Bonus Statistics",
@@ -291,12 +232,29 @@
         }
     },
     "console": {
+        "argparse": {
+            "aliases": "Aliases: %s",
+            "expected": "Expected %s.",
+            "hint_boolean": "on or off",
+            "hint_integer": "a whole number",
+            "hint_number": "a number",
+            "hint_or": "%s, or %s",
+            "hint_values": "one of: %s",
+            "invalid": "Invalid %s: %s.",
+            "missing": "Missing %s.",
+            "unexpected": "Unexpected argument: %s.",
+            "usage": "Usage: %s",
+        },
         "cmd": {
             "braid": {
                 "help": "Toggles Lara's braid.",
             },
             "burn": {
+                "already_off": "Lara's not currently on fire",
+                "already_on": "Lara's already on fire",
                 "help": "Toggles Lara being on fire.",
+                "off": "Lara's been extinguished - phew!",
+                "on": "Lara's now on fire - ouch!",
             },
             "cheats": {
                 "help": "Toggles in-game cheats on or off.",
@@ -306,9 +264,27 @@
             },
             "debug": {
                 "help": "Toggles visual debug information.",
+                "option_get": "%s is currently set to %s",
+                "option_set": "%s changed to %s",
+                "unknown_option": "Unknown option: %s",
+            },
+            "disco": {
+                "already_off": "The lights are already out",
+                "already_on": "The lights are already on",
+                "help": "Toggles a light show around Lara.",
+                "off": "The lights go out",
+                "on": "The lights come on",
             },
             "drain": {
+                "already": "Room %d is already drained",
+                "done": "Drained room %d",
                 "help": "Dries the current room, removing the water.",
+            },
+            "dry": {
+                "already_dry": "Lara's already bone dry",
+                "help": "Dries Lara off, stopping her dripping after a swim.",
+                "success": "Lara's been toweled off - no more dripping",
+                "underwater": "Lara's a bit busy being underwater right now",
             },
             "end_level": {
                 "help": "Ends the current level.",
@@ -317,37 +293,53 @@
                 "help": "Exits the game.",
             },
             "flipmap": {
+                "already_off": "Flipmap is already OFF",
+                "already_on": "Flipmap is already ON",
                 "help": "Toggles the flip map.",
+                "off": "Flipmap set to OFF",
+                "on": "Flipmap set to ON",
             },
             "flood": {
+                "already": "Room %d is already flooded",
+                "done": "Flooded room %d",
                 "help": "Submerges the current room with water.",
             },
             "fly": {
+                "already_off": "Lara is not flying",
+                "already_on": "Lara is already flying",
                 "help": "Toggles the fly-mode cheat.",
             },
             "fps": {
                 "help": "Changes the FPS value.",
             },
             "give": {
+                "added": "Added %s to Lara's inventory",
+                "all_given": "Lara's backpack just got way heavier!",
+                "bad_count": "The count has to be one or more",
+                "guns_given": "Lock'n'load - Lara's armed to the teeth!",
+                "guns_help": "Gives Lara every weapon the level allows, with ammunition.",
                 "help": "Adds a given item to Lara's inventory.",
-                "invalid_secret": "Invalid secret: %s (valid secrets: %s)",
-                "secret_given": "Added secret %s",
-                "secret_list": "Secrets collected: %d of %d (%s)",
-                "secret_none": "Secrets collected: %d of %d",
-                "secret_taken": "Removed secret %s",
-            },
-            "give_secret": {
-                "help": "Lists Lara's secrets, or takes/gives a secret by number.",
+                "invalid": "Unknown item: %s",
+                "keys_given": "Surprise! Every key item Lara needs is now in her backpack.",
+                "keys_help": "Gives Lara every plot item the level has a place for.",
+                "moreguns_help": "Gives Lara every weapon, including the ones the level leaves out.",
+                "nothing": "This level carries nothing Lara can be given",
+                "what_help": "what to give: all, keys, guns, moreguns, or an item by name",
             },
             "heal": {
+                "already_full_hp": "Lara's already at full health",
                 "help": "Heals Lara back to full health.",
+                "success": "Healed Lara back to full health",
             },
             "help": {
                 "help": "Shows help for all commands or detailed help for one.",
                 "list": "Available commands:",
+                "unknown_command": "Unknown command: %s",
             },
             "hp": {
+                "get": "Current Lara's health: %d",
                 "help": "Sets Lara's health to the specified value.",
+                "set": "Lara's health set to %d",
             },
             "immune": {
                 "help": "Toggles invulnerability. (Lara can still be killed in some circumstances.)",
@@ -360,13 +352,24 @@
                 "on": "Lara can now sprint forever",
             },
             "kill": {
+                "all": "Poof! %d enemies gone!",
+                "all_fail": "Uh-oh, there are no enemies left to kill...",
                 "help": "Kills nearby enemies.",
+                "invalid_object": "Invalid object",
+                "nearest": "Bye-bye!",
+                "nearest_fail": "No enemy nearby...",
+                "object_not_found": "Object not found",
             },
             "lighting": {
                 "help": "Toggles lighting system.",
             },
             "load": {
+                "fail_invalid_slot": "Invalid save slot %d",
+                "fail_unavailable_slot": "Save slot %d is not available",
                 "help": "Loads game from the given save slot or from a quick save.",
+                "quick_success": "Quick-loaded slot %d",
+                "slot_help": "a slot number, q or quick for the most recent quick save, q2 for the second",
+                "success": "Loaded game from save slot %d",
             },
             "lua": {
                 "help": "Executes the given Lua code string.",
@@ -374,7 +377,9 @@
                 "syntax_error": "Lua syntax error: %s",
             },
             "mod": {
+                "current": "Currently loaded mod: %s",
                 "help": "Switches to the specified mod and restarts the game.",
+                "invalid": "Invalid mod: %s",
             },
             "music": {
                 "available_tracks": "Available music tracks: %s",
@@ -382,54 +387,116 @@
                 "current_none": "Current track: none",
                 "deferred_ambient": "Deferred ambient: %d",
                 "help": "Shows the current music state, stops all music, or plays a music track with the given id.",
-                "overlay": "Overlay track(s): %s",
-            },
-            "play_cutscene": {
-                "help": "Plays a cutscene with the given number.",
-            },
-            "play_demo": {
-                "help": "Plays a demo with the given number.",
-            },
-            "play_gym": {
-                "help": "Plays the Gym level.",
-            },
-            "play_level": {
-                "help": "Plays a level with the given name or number.",
-            },
-            "play_music": {
+                "id_help": "play the track with this id",
                 "invalid_track": "Invalid music track",
+                "overlay": "Overlay track(s): %s",
+                "status_help": "report what is playing",
+                "stop_help": "stop all music",
                 "stopped": "Music stopped",
                 "track": "Playing music track %d",
             },
+            "play_cutscene": {
+                "help": "Plays a cutscene with the given number.",
+                "invalid": "Invalid cutscene",
+                "loading": "Loading cutscene %d",
+                "none": "This game has no cutscenes",
+            },
+            "play_demo": {
+                "help": "Plays a demo with the given number.",
+                "invalid": "Invalid demo",
+                "loading": "Loading demo %d",
+                "none": "This game has no demos",
+            },
+            "play_gym": {
+                "help": "Plays the Gym level.",
+                "invalid": "Invalid level",
+                "loading": "Loading %s",
+            },
+            "play_level": {
+                "help": "Plays a level with the given name or number.",
+                "invalid": "Invalid level",
+                "level_help": "a level number, name or gym",
+                "loading": "Loading %s",
+            },
             "poison": {
+                "get": "Current Lara's poison: %d (target: %d)",
                 "help": "Sets Lara's poison level to the specified value. Use -t to set the target level instead (TR4 only).",
+                "set": "Lara's poison set to %d",
+                "target_set": "Lara's poison target set to %d",
             },
             "pos": {
                 "help": "Shows Lara's position.",
+                "lara_missing": "Lara not present",
+                "lara_pos_fmt": "Room: %d\nPosition: %.3f, %.3f, %.3f\nRotation: %.3f, %.3f, %.3f",
+                "level_fmt": "Level %d",
+                "level_fmt_cutscene": "Cutscene %d",
+                "level_fmt_demo": "Demo %d",
+            },
+            "rule": {
+                "ambiguous": "Ambiguous input: %s and %s",
+                "bad_invocation": "Invalid invocation: %s",
+                "help": "Displays or updates the given gameplay rule. Use - as the value to put its default back.",
+                "rule_get": "%s is currently set to %s",
+                "rule_set": "%s changed to %s",
+                "unknown_rule": "Unknown rule: %s",
             },
             "save": {
+                "fail_invalid_slot": "Invalid save slot %d",
                 "help": "Saves game to the given save slot or to the next quick save slot.",
+                "quick_fail_no_slots": "No quick save slots are configured",
+                "quick_success": "Quick-saved",
+                "slot_help": "a slot number, q or quick for the next quick save, q2 for the second",
+                "success": "Saved game to save slot %d",
             },
             "screenshot": {
                 "help": "Saves a screenshot to disk at optional location.",
             },
+            "secret": {
+                "action_help": "whether to give the secret or take it back",
+                "given": "Added secret %s",
+                "help": "Lists Lara's secrets, or takes/gives a secret by number.",
+                "list": "Secrets collected: %d of %d (%s)",
+                "none": "Secrets collected: %d of %d",
+                "secret_help": "which secret, or all of them",
+                "taken": "Removed secret %s",
+            },
             "set": {
+                "ambiguous_2": "Ambiguous input: %s and %s",
+                "ambiguous_3": "Ambiguous input: %s, %s, ...",
+                "bad_invocation": "Invalid invocation: %s",
                 "help": "Displays or updates the given configuration setting. Use --force to change level-enforced settings for the current session.",
+                "option_enforced": "%s is enforced and cannot be changed",
+                "option_get": "%s is currently set to %s",
+                "option_set": "%s changed to %s",
+                "unknown_option": "Unknown option: %s",
+                "valid_values": "Valid values: %s",
             },
             "sfx": {
+                "available": "Available sounds: %s",
                 "help": "Plays a sound effect with the given id.",
+                "id_help": "play the sample with this id",
+                "invalid": "Invalid sound: %d",
+                "playing": "Playing sound %d",
             },
             "spawn": {
                 "fail": "Failed to spawn requested object",
+                "help": "Spawns an object by name in front of Lara.",
+                "invalid": "Unknown object: %s",
+                "name_help": "the object to spawn, by name",
                 "success": "Requested object spawned near Lara",
             },
             "speed": {
+                "get": "Current speed: %d",
                 "help": "Changes the game's speed.",
+                "set": "Speed set to %d",
             },
             "strings": {
+                "failed": "Failed to reload the language files",
                 "help": "Reloads the current language files from disk.",
+                "reloaded": "Language files reloaded",
             },
             "teleport": {
+                "invalid_room": "Invalid room: %d. Valid rooms are 0-%d",
                 "item": "Teleported to item: %d",
                 "item_fail": "Failed to teleport to item: %d",
                 "object": "Teleported to object: %s",
@@ -460,9 +527,10 @@
                 "help": "Toggles vertical sync.",
             },
             "weather": {
+                "current": "Current weather: %s, severity %s",
                 "help": "Changes the current weather type.",
                 "invalid": "Invalid weather: %s (valid: %s)",
-                "set": "Weather set to %s",
+                "set": "Weather set to %s, severity %s",
             },
             "winston": {
                 "dead": "Your butler is dead. You monster!",
@@ -473,6 +541,12 @@
             "wireframe": {
                 "help": "Toggles wireframe rendering.",
             }
+        },
+        "config": {
+            "accepted_bool": "on, off",
+            "accepted_decimal": "[decimal]",
+            "accepted_integer": "[integer]",
+            "accepted_percent": "[integer]",
         }
     },
     "dynamic": {
@@ -523,6 +597,10 @@
                 "tr3_gym": "TR3 Gym",
                 "tr3_nevada": "Nevada",
                 "tr3_south_pacific": "South Pacific",
+                "tr4_classic": "TR4 Classic",
+                "tr4_golden_lara": "TR4 Golden Lara",
+                "tr4_young": "TR4 Young",
+                "tr4_young_golden_lara": "TR4 Young Golden Lara",
             }
         },
         "mods": {
@@ -588,10 +666,16 @@
             "BLOOD_EFFECTS_PINK": "Pink",
             "BLOOD_EFFECTS_RED": "Red",
         },
+        "BREEZE_MODE": {
+            "BREEZE_MODE_OFF": "Off",
+            "BREEZE_MODE_TR2": "TR2",
+            "BREEZE_MODE_TR3": "TR3",
+        },
         "CAMERA_MODE": {
             "CAMERA_MODE_TR1": "TR1",
             "CAMERA_MODE_TR2": "TR2",
             "CAMERA_MODE_TR3": "TR3",
+            "CAMERA_MODE_TR4": "TR4",
         },
         "CREATURE_DROWN_POLICY": {
             "CREATURE_DROWN_POLICY_DEFAULT": "Default",
@@ -634,6 +718,7 @@
             "INPUT_ROLE_EQUIP_ROCKET_LAUNCHER": "Equip Rocket Launcher",
             "INPUT_ROLE_EQUIP_SHOTGUN": "Equip Shotgun",
             "INPUT_ROLE_EQUIP_UZIS": "Equip Uzis",
+            "INPUT_ROLE_FAST_FORWARD_CHEAT": "Fast Forward (Hold)",
             "INPUT_ROLE_FLY_CHEAT": "Fly Cheat",
             "INPUT_ROLE_FPS": "Show FPS",
             "INPUT_ROLE_INVENTORY": "Inventory",
@@ -651,6 +736,7 @@
             "INPUT_ROLE_SAVE": "Save",
             "INPUT_ROLE_SCREENSHOT": "Screenshot",
             "INPUT_ROLE_SLOW": "Walk",
+            "INPUT_ROLE_SLOW_MOTION_CHEAT": "Slow Motion (Hold)",
             "INPUT_ROLE_SPRINT": "Sprint",
             "INPUT_ROLE_STEP_LEFT": "Step Left",
             "INPUT_ROLE_STEP_RIGHT": "Step Right",
@@ -666,6 +752,7 @@
             "INPUT_ROLE_TURBO_CHEAT": "Turbo Speed",
             "INPUT_ROLE_UP": "Run",
             "INPUT_ROLE_USE_BIG_MEDI": "Large Medi",
+            "INPUT_ROLE_USE_BINOCULARS": "Binoculars",
             "INPUT_ROLE_USE_FLARE": "Flare",
             "INPUT_ROLE_USE_SMALL_MEDI": "Small Medi",
         },
@@ -706,6 +793,18 @@
             "QUICK_GUNS_MODE_DRAW_AND_HOLSTER": "Draw or holster",
             "QUICK_GUNS_MODE_DRAW_ONLY": "Draw only",
         },
+        "RING_MEMORY_MODE": {
+            "RING_MEMORY_ALL": "All rings",
+            "RING_MEMORY_MAIN": "Main ring",
+            "RING_MEMORY_OFF": "Off",
+        },
+        "SAVE_CRYSTAL_MODE": {
+            "SAVE_CRYSTAL_HEAL": "Healing",
+            "SAVE_CRYSTAL_OFF": "Off",
+            "SAVE_CRYSTAL_PICKUP": "Pickups",
+            "SAVE_CRYSTAL_SAVE": "Saving",
+            "SAVE_CRYSTAL_SAVE_PICKUP": "Saving (pickups)",
+        },
         "SCREENSHOT_FORMAT": {
             "SCREENSHOT_FORMAT_JPEG": "JPG",
             "SCREENSHOT_FORMAT_PNG": "PNG",
@@ -723,6 +822,11 @@
             "SUNGLASSES_MODE_OFF": "Off",
             "SUNGLASSES_MODE_OPAQUE": "Opaque",
             "SUNGLASSES_MODE_TRANSPARENT": "Transparent",
+        },
+        "TARGET_CHANGE_MODE": {
+            "TARGET_CHANGE_MODE_ENHANCED": "Enhanced",
+            "TARGET_CHANGE_MODE_OFF": "Off",
+            "TARGET_CHANGE_MODE_TR4": "TR4",
         },
         "TARGET_LOCK_MODE": {
             "TARGET_LOCK_MODE_FULL": "Full lock",
@@ -772,13 +876,17 @@
             "title": "Main menu music",
             "description": "Plays music in the main menu.",
         },
+        "audio.enable_music_on_death": {
+            "title": "Play music after death",
+            "description": "Keeps the active music track playing when Lara dies.",
+        },
         "audio.enable_pitched_sounds": {
             "title": "Pitched sounds",
             "description": "Allows sound effects to be randomly, slightly pitched to vary the game sounds.",
         },
         "audio.enable_ps1_sfx": {
             "title": "PS1 SFX replacements",
-            "description": "Enables specific sound effect replacements using PS1 equivalents.\n\n- Uzi fire (TR1 only)\n- Shimmying (TR1 only)\n- Lara barefoot sounds (TR2 only)",
+            "description": "Enables specific sound effect replacements using PS1 equivalents.\n\n- Uzi fire (TR1 only)\n- Shimmying (TR1 only)\n- Lara barefoot sounds (TR2 only)\n- Flamethrower and firehead blasts (TR3 only)",
         },
         "audio.enable_underwater_anim_sfx": {
             "title": "Underwater animation SFX",
@@ -786,7 +894,7 @@
         },
         "audio.fix_chainblock_secret_sound": {
             "title": "Fix chain block sound",
-            "description": "Prevents the secret sound from incorrectly playing when using the golden key in Tomb of Tihocan.",
+            "description": "Prevents the secret sound from incorrectly playing when using the golden key in TR1's Tomb of Tihocan.",
         },
         "audio.fix_secrets_killing_music": {
             "title": "Layered secret music",
@@ -888,6 +996,10 @@
             "title": "Allow targeting allies",
             "description": "Allows Lara to target allies, such as monks. If disabled, allies will be immune to Lara's ammunition.",
         },
+        "gameplay.enable_alternative_turns": {
+            "title": "Alternative turns",
+            "description": "Allows Lara to perform alternative turn/twist movements when she is stationary.\n\n- Press roll and jump inputs together to perform a neutral twist.\n- Press roll and walk inputs together to quick-turn on the spot.\n- Press roll when on monkeybars to quick-turn on the spot.",
+        },
         "gameplay.enable_auto_item_selection": {
             "title": "Key item pre-selection",
             "description": "When Lara presses action against a keyhole or puzzle slot, and she has the corresponding item in the inventory, that item will be pre-selected.",
@@ -914,7 +1026,7 @@
         },
         "gameplay.enable_cheats": {
             "title": "Cheats",
-            "description": "Enables various cheats:\n\n- L: immediately end the level.\n- I: give Lara all weapons; a boost of ammo and medipacks; and all plot items for the current level.\n- O: enable fly cheat (swimming midair).\n  - WALK key: exit fly mode.\n  - GUN key: open the closest door (doesn't work in some places).",
+            "description": "Enables various cheats:\n\n- \\{input level_skip_cheat}: immediately end the level.\n- \\{input item_cheat}: give Lara all weapons; a boost of ammo and medipacks; and all plot items for the current level.\n- \\{input fly_cheat}: enable fly cheat (swimming midair).\n  - \\{input slow}: exit fly mode.\n  - \\{input draw}: open the closest door (doesn't work in some places).",
         },
         "gameplay.enable_cinematic_skips": {
             "title": "Cinematic skips",
@@ -954,7 +1066,7 @@
         },
         "gameplay.enable_crawling": {
             "title": "Crawling",
-            "description": "Allows Lara to crouch and crawl.",
+            "description": "Allows Lara to crouch and crawl (TR3+ style). The original TR1 and TR2 have neither.",
         },
         "gameplay.enable_credits": {
             "title": "Credit screens",
@@ -988,6 +1100,14 @@
             "title": "Fast pickups",
             "description": "Allows Lara to pick items up more quickly, similar to TR4+.",
         },
+        "gameplay.enable_fast_pull_up": {
+            "title": "Fast pull up",
+            "description": "Allows Lara to pull up from ledges more quickly.",
+        },
+        "gameplay.enable_fast_shimmying": {
+            "title": "Fast shimmying",
+            "description": "Allows Lara to move more quickly when shimmying left or right.",
+        },
         "gameplay.enable_fmv": {
             "title": "FMVs",
             "description": "Enables FMVs playing.",
@@ -1006,7 +1126,7 @@
         },
         "gameplay.enable_jump_twists": {
             "title": "Jump twists",
-            "description": "Enables jump twists and somersaults i.e. press roll during jump and swan dive animations.",
+            "description": "Enables jump twists and somersaults i.e. press roll during jump and swan dive animations (TR2+ style). The original TR1 has neither.",
         },
         "gameplay.enable_killer_pushblocks": {
             "title": "Enable killer pushblocks",
@@ -1014,7 +1134,7 @@
         },
         "gameplay.enable_lean_jumping": {
             "title": "Lean jumping",
-            "description": "Allows Lara to creep forwards or backwards further when performing neutral jumps with the relevant input key pressed.",
+            "description": "Allows Lara to creep forwards or backwards further when performing neutral jumps with the relevant input key pressed (TR2+ style). In the original TR1 she creeps forwards whatever the input, and far more slowly.",
         },
         "gameplay.enable_ledge_jumps": {
             "title": "Ledge jumps",
@@ -1028,9 +1148,9 @@
             "title": "Manual camera",
             "description": "Enables the camera keys (\\{input camera_forward}\\{input camera_back}\\{input camera_left}\\{input camera_right}) used to control Photo Mode camera, to also rotate the ingame camera.",
         },
-        "gameplay.enable_neutral_twists": {
-            "title": "Neutral twists",
-            "description": "Allows Lara to twist in the air while performing a neutral jump. Press jump and roll inputs together while stationary.",
+        "gameplay.enable_multiple_pickups": {
+            "title": "Multiple pickups",
+            "description": "Allows Lara to collect all pickup items that share the same position in the same animation (TR1-3). If disabled, Lara must repeat the animation for each item (TR4+).",
         },
         "gameplay.enable_pickup_aids": {
             "title": "Pickup aids",
@@ -1048,10 +1168,6 @@
             "title": "Responsive sprinting",
             "description": "Enables a more responsive sprinting state for Lara.\n\n- allows sprinting whenever Lara has energy, rather than only when her stamina is full.\n- allows sprinting up stairs rather than being interrupted by Lara's regular run animation.",
         },
-        "gameplay.enable_save_crystals": {
-            "title": "Save crystals",
-            "description": "Limits saving to the beginning of levels and save crystals. Levels have limited, single use save crystals like the PS1 version. Changing this option will require restarting the level.",
-        },
         "gameplay.enable_slide_to_run": {
             "title": "Slide-to-run",
             "description": "Allows Lara to start running immediately when she reaches ground after sliding forwards on a slope. Hold the forward input to activate.",
@@ -1062,11 +1178,11 @@
         },
         "gameplay.enable_smooth_wall_deflect": {
             "title": "Smooth wall deflection",
-            "description": "Allows Lara to recover more quickly after hitting a wall and a direction key is held together with forward.",
+            "description": "Allows Lara to recover more quickly after hitting a wall and a direction key is held together with forward (TR2+ style). If disabled, she recovers at the original TR1 pace.",
         },
         "gameplay.enable_snap_interactions": {
             "title": "Snap interactions",
-            "description": "Allows Lara to snap immediately to interaction targets, such as pickups and switches. If disabled, Lara will need to first be at a standstill before interacting.",
+            "description": "Allows Lara to snap immediately to interaction targets, such as pickups and switches (TR1/2 style). If disabled, Lara will need to first be at a standstill before interacting (TR3+ style).",
         },
         "gameplay.enable_soft_statics": {
             "title": "Soft static collision",
@@ -1078,15 +1194,11 @@
         },
         "gameplay.enable_step_roll_boost": {
             "title": "Step roll boost",
-            "description": "Allows Lara to be boosted off a one-click high step if roll is pressed near the edge.",
+            "description": "Allows Lara to be boosted off a one-click high step if roll is pressed near the edge. Only the original TR1 does this; TR2+ do not.",
         },
         "gameplay.enable_swing_cancel": {
             "title": "Swing cancels",
-            "description": "Allows Lara's ledge-swinging animation to be canceled by letting go and quickly grabbing again.",
-        },
-        "gameplay.enable_target_change": {
-            "title": "Target change",
-            "description": "Enables TR4+ target changing while aiming weapons. Press the Change Target button while aiming to change targets.",
+            "description": "Allows Lara's ledge-swinging animation to be canceled by letting go and quickly grabbing again (TR2+ style). The original TR1 does not allow it.",
         },
         "gameplay.enable_timer_in_inventory": {
             "title": "Timer counts in inventory",
@@ -1106,23 +1218,27 @@
         },
         "gameplay.enable_tr2_jumping": {
             "title": "Responsive jumping",
-            "description": "Allows Lara to jump at any point while running.",
+            "description": "Allows Lara to jump at any point while running (TR2+ style). If disabled, she jumps at the set points of the running animation, as in the original TR1.",
         },
         "gameplay.enable_tr2_swim_cancel": {
             "title": "Responsive swim cancel",
-            "description": "Allows Lara to stop more responsively underwater when the swim key is released.",
+            "description": "Allows Lara to stop more responsively underwater when the swim key is released (TR2+ style). If disabled, she comes to a stop as she does in the original TR1.",
         },
         "gameplay.enable_tr2_swimming": {
             "title": "Smooth swimming",
             "description": "Gives Lara's underwater turn rate an acceleration curve for smoother movement, as per TR2+ originally. Disabling this option will give Lara a snappier turn rate, per original TR1.",
         },
+        "gameplay.enable_underwater_auto_draw": {
+            "title": "Underwater weapon draw",
+            "description": "Lets the draw weapon key reach for a weapon Lara can use underwater, such as the harpoon gun, rather than doing nothing when the weapon she last held cannot be used there.",
+        },
         "gameplay.enable_uw_roll": {
             "title": "Underwater roll",
-            "description": "Allows Lara to roll while underwater.",
+            "description": "Allows Lara to roll while underwater (TR2+ style). The original TR1 has no underwater roll.",
         },
         "gameplay.enable_wading": {
             "title": "Wading",
-            "description": "Allows Lara to wade through shallow water, rather than becoming stuck on the water surface.",
+            "description": "Allows Lara to wade through shallow water, rather than becoming stuck on the water surface (TR2+ style). The original TR1 has no wading.",
         },
         "gameplay.enable_walk_to_items": {
             "title": "Animated interactions",
@@ -1146,7 +1262,7 @@
         },
         "gameplay.fix_descending_glitch": {
             "title": "Fix breakable floor falls",
-            "description": "Fixes sidestepping and walking backwards on breakable tiles causing Lara to immediately descend to the tile underneath.",
+            "description": "Fixes sidestepping and walking backwards on breakable tiles causing Lara to immediately descend to the tile underneath. The original TR2+ do not have this glitch; TR1 does.",
         },
         "gameplay.fix_flare_throw_priority": {
             "title": "Fix flare throw priority",
@@ -1158,7 +1274,7 @@
         },
         "gameplay.fix_free_flare_glitch": {
             "title": "Fix free flare glitch",
-            "description": "Fixes the ability to spawn a free flare when pressing the flare input while picking up any item.",
+            "description": "Fixes the ability to spawn a free flare when pressing the flare input while picking up any item, or by requesting one via the inventory while crawling.",
         },
         "gameplay.fix_item_duplication_glitch": {
             "title": "Fix item duplication glitch",
@@ -1167,6 +1283,10 @@
         "gameplay.fix_lara_pickup_embed": {
             "title": "Fix pickup embed glitch",
             "description": "Fixes Lara sometimes drifting into walls when collecting underwater items, and fixes Lara embedding under steeply sloped ceilings when picking up an item above water.",
+        },
+        "gameplay.fix_lift_collision": {
+            "title": "Fix lift collision",
+            "description": "Fixes Lara not colliding correctly with moving lifts, which can cause her to become stuck or pass through them.",
         },
         "gameplay.fix_m16_accuracy": {
             "title": "Fix M16/MP5 accuracy",
@@ -1186,7 +1306,7 @@
         },
         "gameplay.fix_step_glitch": {
             "title": "Fix step glitch",
-            "description": "Fixes Lara sometimes being pushed into walls adjacent to steps when running up them in a specific way.",
+            "description": "Fixes Lara sometimes being pushed into walls adjacent to steps when running up them in a specific way. The original TR1 does not have this glitch; TR2 and TR3 do.",
         },
         "gameplay.fix_underwater_crawl": {
             "title": "Fix underwater crawling",
@@ -1202,7 +1322,7 @@
         },
         "gameplay.fix_wall_geometry": {
             "title": "Fix wall geometry",
-            "description": "Fixes cases in OG level geometry where tilts inside walls can lead to inaccurate height calculations.",
+            "description": "Fixes cases in OG level geometry where tilts inside walls can lead to inaccurate height calculations. The original TR3+ does not have this problem; TR1 and TR2 do.",
         },
         "gameplay.fix_water_exit": {
             "title": "Fix water exit",
@@ -1210,7 +1330,7 @@
         },
         "gameplay.game_modes_policy": {
             "title": "Game mode selection",
-            "description": "Allows new game plus options to be selected from the new game passport menu.\n\n- New Game+: unlocks all weapons with infinite ammo; enemies have double the HP.\n- Japanese NG: weapons do double damage and flare pickups contain 8 rather than 6.\n- Japanese NG+: combination of New Game+ and Japanese NG.\n\nAvailable options:\n\n- Always: the game modes dialog will always be available.\n- Never: the game modes dialog will never be available.\n- On completion: the game modes dialog will only be available after the game has been beaten.",
+            "description": "Allows new game plus options to be selected from the new game passport menu.\n\n- New Game+: unlocks all weapons with infinite ammo; enemies have double the HP.\n\nAvailable options:\n\n- Always: the game modes dialog will always be available.\n- Never: the game modes dialog will never be available, and every new game is a regular one.\n- On completion: the game modes dialog will only be available after the game has been beaten.",
         },
         "gameplay.harpoon_recoil": {
             "title": "Harpoon recoil",
@@ -1234,7 +1354,7 @@
         },
         "gameplay.look_mode": {
             "title": "Look mode",
-            "description": "Allows controlling when Lara is able to use look.\n\n- Restricted: look is only permitted when Lara is stationary, and never when underwater.\n- Enhanced: look is permitted during most animations, aside from ones such as pushing a block.\n- Unrestricted: look is permitted at any time during normal Lara control.",
+            "description": "Allows controlling when Lara is able to use look.\n\n- Restricted: look is only permitted when Lara is stationary, and never when underwater, as in the original TR1.\n- Enhanced: look is permitted during most animations, aside from ones such as pushing a block, as in the original TR2+.\n- Unrestricted: look is permitted at any time during normal Lara control.",
         },
         "gameplay.maximum_quick_save_slots": {
             "title": "Number of quick save slots",
@@ -1258,11 +1378,23 @@
         },
         "gameplay.restore_ps1_enemies": {
             "title": "Restore PS1 enemies",
-            "description": "Adds the mummy that appears in the PlayStation version of City of Khamoon, room 25.\nChanging this option will require restarting the game.",
+            "description": "Adds the mummy that appears in the PlayStation version of TR1's City of Khamoon, room 25.\nChanging this option will require restarting the game.",
+        },
+        "gameplay.ring_memory_mode": {
+            "title": "Remember inventory position",
+            "description": "Opens a ring on the entry it was left on, rather than on its first one.\n\n- Off: every opening starts at the first entry, as in the original game.\n- Main ring: only the item ring is remembered.\n- All rings: the item and keys rings are remembered.\n\nThe first entry comes back if Lara no longer carries what was remembered, and each level starts there.",
+        },
+        "gameplay.save_crystal_mode": {
+            "title": "Crystal mode",
+            "description": "Chooses what the crystals scattered through the levels do.\n\n- Off: crystals are not present.\n- Saving: crystals are single use and let Lara save the game where they stand, like the PS1 release of TR1. Saving is otherwise limited to the beginning of levels.\n- Saving (pickups): crystals are collected and let Lara save the game from the inventory wherever she is, like the PS1 release of TR3. Saving is otherwise limited to the beginning of levels.\n- Healing: crystals restore half of Lara's health and cure poison when she touches them, like the PC version of TR3.\n- Pickups: crystals are collectibles counted in the level statistics, and do nothing else.\n\nChanging this option will require restarting the level.",
         },
         "gameplay.start_lara_hitpoints": {
             "title": "Lara's starting health",
             "description": "Sets Lara's health value for the beginning of each level.",
+        },
+        "gameplay.target_change_mode": {
+            "title": "Target change",
+            "description": "Changes how Lara switches between targets while aiming weapons.\n\n- Off: Lara keeps the target she has.\n- Enhanced: press the Change Target button to switch.\n- TR4: tap the Look button to switch; holding it still looks around, after a short delay.",
         },
         "gameplay.target_mode": {
             "title": "Weapon lock mode",
@@ -1270,7 +1402,7 @@
         },
         "gameplay.wall_glitch_mode": {
             "title": "Wall glitch mode",
-            "description": "Allows using TR1 wall glitch behavior in TR2 and vice-versa; equally allows fixing all types of wall glitch.",
+            "description": "Chooses which wall glitches Lara can perform.\n\n- TR1: as in the original TR1, which includes jumping forwards into a wall and teleporting to the top of it.\n- TR2: as in the original TR2 and TR3, where that jump no longer works, but Lara can still teleport by hitting the floor and the wall at the same time in certain geometry.\n- Fixed: neither glitch works, and Lara can no longer pass a door's blocked sector.",
         },
         "input.enable_buffering_func_keys": {
             "title": "Buffering (F-keys)",
@@ -1279,6 +1411,10 @@
         "input.enable_buffering_inventory": {
             "title": "Buffering (inventory)",
             "description": "Enables inventory (2-frame) buffering to achieve precise control of Lara's movement.",
+        },
+        "input.enable_controller": {
+            "title": "Controller support",
+            "description": "Lets the game read connected controllers. Turn this off if you use external remapping software that already translates your controller into keyboard input.",
         },
         "input.enable_responsive_passport": {
             "title": "Responsive passport",
@@ -1328,13 +1464,25 @@
             "title": "Borders",
             "description": "Adds black borders around the game window.",
         },
+        "rendering.enable_dithering": {
+            "title": "Dithering",
+            "description": "Reduces the picture to 8-bit color with an ordered dither pattern, for the look of the software-rendered releases.",
+        },
         "rendering.enable_trapezoid_filter": {
             "title": "Trapezoid filter",
             "description": "Corrects rendering of quadrilaterals.",
         },
+        "rendering.enable_vertex_snap": {
+            "title": "Vertex snapping",
+            "description": "Rounds vertex positions to whole pixels of a 320x240 screen, for the wobbly geometry of the PlayStation releases.",
+        },
         "rendering.enable_vsync": {
             "title": "VSync",
             "description": "Turns V-Sync on or off.",
+        },
+        "rendering.fmv_filter": {
+            "title": "FMV filter",
+            "description": "Switches between a smooth and a pixelated look for the FMVs.",
         },
         "rendering.fps": {
             "title": "FPS",
@@ -1344,13 +1492,21 @@
             "title": "Lighting contrast",
             "description": "Boosts contrast for dynamic light sources such as flares and gun flashes.",
         },
+        "rendering.multisampling_factor": {
+            "title": "Multisampling",
+            "description": "Smooths the edges of walls and objects by taking several samples of each pixel along them. Much cheaper than supersampling, but it leaves the edges of sprites such as foliage and fire alone.",
+        },
         "rendering.screenshot_format": {
             "title": "Screenshot format",
             "description": "Screenshot file format.",
         },
         "rendering.sprite_lock_mode": {
             "title": "Sprite lock mode",
-            "description": "Controls which axes to lock when showing sprites on the screen.\n\n- None: show the sprites normally.\n- Roll: lock the roll axis – useful only in photo mode.\n- Roll & pitch: ensure the sprites stand upright and do not lie on the ground when looking at them from above.\n- Perspective: lock roll and pitch axes and addititonally, rotate the sprites slightly towards the center of the screen.",
+            "description": "Controls which axes to lock when showing sprites on the screen.\n\n- None: show the sprites normally.\n- Roll: lock the roll axis – useful only in photo mode.\n- Roll & pitch: ensure the sprites stand upright and do not lie on the ground when looking at them from above.\n- Perspective: lock roll and pitch axes and additionally, rotate the sprites slightly towards the center of the screen.",
+        },
+        "rendering.supersampling_factor": {
+            "title": "Supersampling",
+            "description": "Renders the game at a multiple of its resolution and averages it back down, which smooths jagged edges. Higher factors cost the graphics card several times more work.",
         },
         "rendering.texture_filter": {
             "title": "Texture filter",
@@ -1386,7 +1542,7 @@
         },
         "ui.bar_look": {
             "title": "Bars appearance",
-            "description": "Controls the visual appearance of the UI bars.",
+            "description": "Chooses the frame and colors the UI bars are drawn with, taken from one of the original releases. The choice also decides which set of bar color settings below applies.",
         },
         "ui.bar_scale": {
             "title": "Bars scale",
@@ -1426,7 +1582,7 @@
         },
         "ui.enemy_healthbar_show_mode": {
             "title": "Enemy bar mode",
-            "description": "Enables showing a healthbar for the active enemy.",
+            "description": "Controls when a healthbar is shown for the enemy Lara has targeted.\n\n- Always: show it for any target.\n- Boss only: show it only when the target is a boss.\n- Never: never show it.",
         },
         "ui.exposurebar_color": {
             "title": "Exposure bar color",
@@ -1470,7 +1626,7 @@
         },
         "ui.menu_style": {
             "title": "Menu style",
-            "description": "Changes how menus are displayed.\n\n - PC: UI style matches the PC version.\n - PS1: UI style matches the PS1 version.",
+            "description": "Changes how menus are displayed.\n\n- PC: UI style matches the PC version.\n- PS1: UI style matches the PS1 version.",
         },
         "ui.pause_background_style": {
             "title": "Pause background",
@@ -1486,7 +1642,7 @@
         },
         "ui.show_bars": {
             "title": "Show bars",
-            "description": "Disables all ingame bars, obscuring information on Lara's health and other resources (for challenge runs).",
+            "description": "Shows the ingame bars. Turning them off obscures information on Lara's health and other resources (for challenge runs).",
         },
         "ui.show_pickups_overlay": {
             "title": "Pickups overlay",
@@ -1568,13 +1724,21 @@
             "title": "Text scale",
             "description": "Changes the size of UI text.",
         },
+        "visuals.background_brightness": {
+            "title": "Background brightness",
+            "description": "Changes the brightness of background images and patterns.",
+        },
         "visuals.blood_effects": {
             "title": "Blood effects",
             "description": "Controls blood spark colors.\n\n- Disabled: no blood sparks are shown.\n- Pink: the default in German PC releases of TR3.\n- Red: the default in all other retail releases.",
         },
+        "visuals.breeze_mode": {
+            "title": "Breeze",
+            "description": "Changes the way the breeze affects Lara's braid, water droplets falling off Lara, and rain/snow in appropriate rooms.\n\n- Off: disable the breeze effect.\n- TR2: breeze always blows in the same direction.\n- TR3: breeze changes direction over time.",
+        },
         "visuals.camera_mode": {
             "title": "Camera mode",
-            "description": "Adjusts how camera behaves during actions like using keys.",
+            "description": "Chooses which game's camera behavior to use.\n\n- TR1: the chase camera follows the level's pathfinding boxes.\n- TR2: the same, with different chase and look limits, and different handling of fixed cameras.\n- TR3: the chase camera uses line of sight rather than the pathfinding boxes.\n- TR4: as TR3, and the camera also responds when an action moves Lara's view, such as picking up an item or shimmying around a corner.",
         },
         "visuals.enable_3d_pickups": {
             "title": "3D pickups",
@@ -1584,9 +1748,9 @@
             "title": "Lara's braid",
             "description": "Enables Lara's braid.",
         },
-        "visuals.enable_breeze": {
-            "title": "Breeze",
-            "description": "Enables the breeze effect on Lara's braid in appropriate rooms.",
+        "visuals.enable_droplets": {
+            "title": "Water droplets",
+            "description": "Enables rendering of water droplets dripping off Lara after she leaves water.",
         },
         "visuals.enable_exit_fade_effects": {
             "title": "Fade on game exit",
@@ -1628,6 +1792,10 @@
             "title": "PS1 crystal tint",
             "description": "Save crystals will be drawn with a purple tint, more similar to the PS1 type.",
         },
+        "visuals.enable_ps1_rain": {
+            "title": "PS1 raindrops",
+            "description": "Raindrops will be added to the scene rather than blended into it, so they appear pale as on the PS1.",
+        },
         "visuals.enable_reflections": {
             "title": "Reflections",
             "description": "Enables reflections on certain objects.",
@@ -1644,6 +1812,10 @@
             "title": "Skyboxes",
             "description": "Enables the skybox in supported levels.",
         },
+        "visuals.enable_static_lighting": {
+            "title": "Static mesh lighting",
+            "description": "Lets flames and other dynamic lights illuminate static meshes. The original TR4 lights only room geometry.",
+        },
         "visuals.enable_weather": {
             "title": "Weather",
             "description": "Enables rendering of weather effects in supported levels.",
@@ -1653,8 +1825,8 @@
             "description": "Fixes original underwater plant sprites so they animate properly in water areas.",
         },
         "visuals.fix_item_rots": {
-            "title": "Fix item rotation issues",
-            "description": "Fixes original issues with some incorrectly rotated pickups when using the 3D pickups option.",
+            "title": "Fix item placement issues",
+            "description": "Fixes several original-game issues caused by incorrect item placement or configuration, including rotations, positions, and room assignments.",
         },
         "visuals.fix_texture_issues": {
             "title": "Fix texture issues",
@@ -1666,11 +1838,11 @@
         },
         "visuals.fog_end": {
             "title": "Fog end",
-            "description": "Sets distance in tiles where fog makes everything fully obscured.",
+            "description": "Sets distance in tiles where fog makes everything fully obscured. The original TR2 and TR3 reach that point at 20 tiles. A level can carry its own value, which is used instead.",
         },
         "visuals.fog_start": {
             "title": "Fog start",
-            "description": "Sets distance in tiles where fog begins to appear.",
+            "description": "Sets distance in tiles where fog begins to appear. The original TR2 and TR3 begin at 12 tiles. A level can carry its own value, which is used instead.",
         },
         "visuals.fog_transparency": {
             "title": "Fog transparency",
@@ -1707,6 +1879,19 @@
         "visuals.water_color": {
             "title": "Water color",
             "description": "Color of the water.",
+        },
+        "visuals.water_color_mode": {
+            "description": "Which release's underwater tint to use. While a preset is picked it holds the water color below; Custom leaves that color to you.",
+            "title": "Water color preset",
+            "values": {
+                "custom": "Custom",
+                "dos": "DOS",
+                "pc": "PC",
+                "pc_hardware": "PC (hardware)",
+                "pc_software": "PC (software)",
+                "ps1": "PS1",
+                "tombati": "TombATI",
+            }
         }
     },
     "objects": {
@@ -2031,6 +2216,12 @@
         "crowbar_anim": {
             "name": "Crowbar Animation",
         },
+        "crystal": {
+            "name": [
+                "Crystal",
+                "Savegame Crystal",
+            ]
+        },
         "cult_1": {
             "name": "Masked Goon 1",
         },
@@ -2255,6 +2446,12 @@
                 "Flame Emitter (Small)",
                 "Fire Emitter (Small)",
             ]
+        },
+        "flame_emitter_tr4_ground": {
+            "name": "Flame Emitter (TR4 Ground)",
+        },
+        "flame_emitter_tr4_wall": {
+            "name": "Flame Emitter (TR4 Wall)",
         },
         "flare": {
             "name": "Flare",
@@ -2576,7 +2773,10 @@
             "name": "Uzis Animation",
         },
         "large_medipack": {
-            "name": "Large Medipack",
+            "name": [
+                "Large Medipack",
+                "Big Medipack",
+            ]
         },
         "larson": {
             "name": "Larson",
@@ -3148,6 +3348,9 @@
                 "Flamethrower",
             ]
         },
+        "sarcophagus": {
+            "name": "Sarcophagus",
+        },
         "save_crystal": {
             "name": "Savegame Crystal",
         },
@@ -3326,12 +3529,77 @@
             "name": "Swinging Axe",
         },
         "switch_type_airlock": {
-            "name": "Airlock Switch",
+            "name": [
+                "Airlock Switch",
+                "Switch",
+            ]
         },
         "switch_type_button": {
             "name": [
                 "Button",
                 "Push Button",
+                "Switch",
+            ]
+        },
+        "switch_type_crowbar": {
+            "name": [
+                "Lever",
+                "Switch",
+                "Crowbar Switch",
+            ]
+        },
+        "switch_type_floor": {
+            "name": [
+                "Lever",
+                "Switch",
+                "Floor Switch",
+            ]
+        },
+        "switch_type_generic_1": {
+            "name": [
+                "Generic Switch 1",
+                "Lever",
+                "Switch",
+            ]
+        },
+        "switch_type_generic_2": {
+            "name": [
+                "Generic Switch 2",
+                "Lever",
+                "Switch",
+            ]
+        },
+        "switch_type_generic_3": {
+            "name": [
+                "Generic Switch 3",
+                "Lever",
+                "Switch",
+            ]
+        },
+        "switch_type_generic_4": {
+            "name": [
+                "Generic Switch 4",
+                "Lever",
+                "Switch",
+            ]
+        },
+        "switch_type_generic_5": {
+            "name": [
+                "Generic Switch 5",
+                "Lever",
+                "Switch",
+            ]
+        },
+        "switch_type_generic_6": {
+            "name": [
+                "Generic Switch 6",
+                "Lever",
+                "Switch",
+            ]
+        },
+        "switch_type_jump": {
+            "name": [
+                "Jump Switch",
                 "Switch",
             ]
         },
@@ -3341,13 +3609,32 @@
                 "Switch",
             ]
         },
+        "switch_type_pulley": {
+            "name": [
+                "Pulley Switch",
+                "Switch",
+            ]
+        },
         "switch_type_small": {
-            "name": "Small Switch",
+            "name": [
+                "Small Switch",
+                "Switch",
+            ]
         },
         "switch_type_uw": {
             "name": [
                 "Underwater Lever",
                 "Underwater Switch",
+                "Lever",
+                "Switch",
+            ]
+        },
+        "switch_type_uw_ceiling": {
+            "name": [
+                "Underwater Ceiling Lever",
+                "Underwater Ceiling Switch",
+                "Lever",
+                "Switch",
             ]
         },
         "switch_type_wheel": {
@@ -3355,6 +3642,7 @@
                 "Wheel Switch",
                 "Pulley Switch",
                 "Valve Switch",
+                "Switch",
             ]
         },
         "teeth_trap": {
@@ -3362,6 +3650,9 @@
                 "Teeth Trap",
                 "Clang-clang Door",
             ]
+        },
+        "teleporter": {
+            "name": "Teleporter",
         },
         "text_box": {
             "name": "UI Frame",
@@ -3470,7 +3761,10 @@
             "name": "Winston",
         },
         "winston_army": {
-            "name": "Winston (army)",
+            "name": [
+                "Winston (army)",
+                "Army Winston",
+            ]
         },
         "wolf": {
             "name": "Wolf",

@@ -3,6 +3,7 @@
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
 #include <trx/debug.h>
+#include <trx/game/replay/test_replay.h>
 #include <trx/game/shell.h>
 
 #ifdef _WIN32
@@ -19,13 +20,34 @@
 static bool m_IsExiting = false;
 static bool m_IsFocused = true;
 
+// SDL_ShowSimpleMessageBox blocks until the dialog is dismissed, which never
+// happens in a batch run, so such a run hangs instead of reporting the error
+// and stopping.
+static bool M_IsInteractive(void)
+{
+    const SHELL_ARGS *const args = Shell_GetArgs();
+    if (args == nullptr) {
+        return true;
+    }
+    return !args->headless && !args->startup.dump_lua_api;
+}
+
 static void M_ShowFatalError(
     const char *const log_message, const char *const dialog_message)
 {
     LOG_ERROR("%s", log_message);
-    SDL_Window *const window = Shell_GetWindow();
-    SDL_ShowSimpleMessageBox(
-        SDL_MESSAGEBOX_ERROR, "Tomb Raider Error", dialog_message, window);
+    if (M_IsInteractive()) {
+        // The dialog is placed over its parent window. Until the game window is
+        // shown, it is still hidden at the position the config named, so the
+        // dialog is better off centered on the screen instead.
+        SDL_Window *window = Shell_GetWindow();
+        if (window != nullptr
+            && (SDL_GetWindowFlags(window) & SDL_WINDOW_SHOWN) == 0) {
+            window = nullptr;
+        }
+        SDL_ShowSimpleMessageBox(
+            SDL_MESSAGEBOX_ERROR, "Tomb Raider Error", dialog_message, window);
+    }
     Shell_Terminate(1);
 }
 
@@ -189,4 +211,14 @@ void Shell_SetIsFocused(const bool is_focused)
 bool Shell_IsFocused(void)
 {
     return m_IsFocused;
+}
+
+bool Shell_ShouldPauseForFocusLoss(void)
+{
+    // A recording's events are read before anything asks this, so pausing
+    // would fire them into a game that is not running.
+    if (TestReplay_IsOpened()) {
+        return false;
+    }
+    return g_Config.gameplay.pause_on_focus_lost && !Shell_IsFocused();
 }

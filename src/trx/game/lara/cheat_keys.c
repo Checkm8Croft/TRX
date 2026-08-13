@@ -38,40 +38,40 @@ static void M_GiveItems(void)
 {
     LARA_INFO *const lara_info = Lara_GetLaraInfo();
     if (Lara_Cheat_GiveGun(LGT_SHOTGUN, false)) {
-        lara_info->shotgun_ammo.ammo = 500;
+        Inv_SetAmmo(LGT_SHOTGUN, 500);
     }
     if (Lara_Cheat_GiveGun(LGT_MAGNUMS, false)) {
-        lara_info->magnum_ammo.ammo = 500;
+        Inv_SetAmmo(LGT_MAGNUMS, 500);
     }
     if (Lara_Cheat_GiveGun(LGT_AUTOS, false)) {
-        lara_info->autos_ammo.ammo = 500;
+        Inv_SetAmmo(LGT_AUTOS, 500);
     }
     if (Lara_Cheat_GiveGun(LGT_DESERT_EAGLE, false)) {
-        lara_info->desert_eagle_ammo.ammo = 500;
+        Inv_SetAmmo(LGT_DESERT_EAGLE, 500);
     }
     if (Lara_Cheat_GiveGun(LGT_UZIS, false)) {
-        lara_info->uzi_ammo.ammo = 5000;
+        Inv_SetAmmo(LGT_UZIS, 5000);
     }
     if (Lara_Cheat_GiveGun(LGT_HARPOON, false)) {
-        lara_info->harpoon_ammo.ammo = 5000;
+        Inv_SetAmmo(LGT_HARPOON, 5000);
     }
     if (Lara_Cheat_GiveGun(LGT_GRENADE, false)) {
-        lara_info->grenade_ammo.ammo = 5000;
+        Inv_SetAmmo(LGT_GRENADE, 5000);
     }
     if (Lara_Cheat_GiveGun(LGT_ROCKET, false)) {
-        lara_info->rocket_ammo.ammo = 5000;
+        Inv_SetAmmo(LGT_ROCKET, 5000);
     }
     if (Lara_Cheat_GiveGun(LGT_M16, false)) {
-        lara_info->m16_ammo.ammo = 5000;
+        Inv_SetAmmo(LGT_M16, 5000);
     }
     if (Lara_Cheat_GiveGun(LGT_MP5, false)) {
-        lara_info->mp5_ammo.ammo = 5000;
+        Inv_SetAmmo(LGT_MP5, 5000);
     }
     if (Lara_Cheat_GiveGun(LGT_CROSSBOW, false)) {
-        lara_info->crossbow_ammo.ammo = 5000;
+        Inv_SetAmmo(LGT_CROSSBOW, 5000);
     }
     if (Lara_Cheat_GiveGun(LGT_REVOLVER, false)) {
-        lara_info->revolver_ammo.ammo = 500;
+        Inv_SetAmmo(LGT_REVOLVER, 500);
     }
     Inv_AddItemNTimes(O_SMALL_MEDIPACK_ITEM, 50);
     Inv_AddItemNTimes(O_LARGE_MEDIPACK_ITEM, 50);
@@ -85,12 +85,12 @@ static void M_ExplodeLara(void)
 {
     const LARA_INFO *const lara_info = Lara_GetLaraInfo();
     ITEM *const lara_item = Lara_GetItem();
-    Item_Explode(lara_info->item_num, -1, 1);
+    Item_Shatter(lara_info->item_num, -1, 1);
     Sound_Effect(SFX_EXPLOSION_1, &lara_item->pos, SPM_NORMAL);
-    lara_item->hit_points = 0;
-    lara_item->status = IS_INVISIBLE;
-    lara_item->collidable = false;
-    lara_item->flags |= IF_INVISIBLE;
+    Lara_Kill();
+    Item_SetVisible(lara_item, false);
+    lara_item->is_collidable = false;
+    lara_item->trigger.spent = true;
 }
 
 static bool M_ProcessOutcome(

@@ -3,6 +3,7 @@
 #include <trx/core/json/util/read_io.h>
 #include <trx/core/json/util/write_io.h>
 #include <trx/game/camera.h>
+#include <trx/game/const.h>
 #include <trx/game/input.h>
 #include <trx/game/lara.h>
 #include <trx/game/music.h>
@@ -273,7 +274,7 @@ static void M_Collision(
 
 static void M_CheckStrikeSwitch(ITEM *const item)
 {
-    if (item->status == IS_ACTIVE) {
+    if (Item_IsInPlay(item)) {
         return;
     }
 
@@ -286,15 +287,14 @@ static void M_CheckStrikeSwitch(ITEM *const item)
 
     Sound_Effect(SFX_SPANNER_CLUNK, &item->pos, SPM_ALWAYS);
     Room_TestTriggers(item);
-    Item_AddActive(Item_GetIndex(item));
-    item->flags = IF_CODE_BITS;
-    item->status = IS_ACTIVE;
+    Item_AddSimulated(Item_GetIndex(item));
+    item->trigger = (ITEM_TRIGGER_STATE) { .mask = TRIGGER_MASK_ALL };
 }
 
 static void M_CheckObjectCollision(ITEM *const item, ITEM *const cart)
 {
-    if (!item->collidable || item->status == IS_INVISIBLE
-        || item == Lara_GetItem() || item == cart) {
+    if (!item->is_collidable || !item->is_visible || item == Lara_GetItem()
+        || item == cart) {
         return;
     }
 
@@ -324,7 +324,7 @@ static void M_CheckObjectCollision(ITEM *const item, ITEM *const cart)
             cart->rot.y, item->room_num, 3);
     }
     if (item->hit_points > 0) {
-        Item_TakeDamage(item, item->hit_points, IDF_NO_HIT_STATUS, cart);
+        Item_TakeFatalDamage(item, cart);
     }
 }
 
@@ -540,7 +540,7 @@ static void M_UserControl(ITEM *const item)
             item->pos = XYZ_32_OffsetYaw(item->pos, item->rot.y, STEP_L / 2);
         } else if (Lara_Vehicle_TestAnimEqual(M_ANIM_TOPPLED)) {
             p->flags.suppress_anim = true;
-            lara_item->hit_points = -1;
+            Lara_Kill();
         }
         break;
     }
@@ -617,7 +617,7 @@ static void M_UserControl(ITEM *const item)
         p->flags.dead = true;
         p->speed = 0;
         item->speed = 0;
-        lara_item->hit_points = -1;
+        Lara_Kill();
         return;
     }
 
@@ -871,14 +871,14 @@ static void M_Setup(OBJECT *const obj)
 
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_INT(
+        OBJECT_PROPERTY_STORED(
             "track_1", Music_ToGameID(MX_MINE_CART_THEME),
             "Random music track pool, slot 1. -1 = disabled."),
-        OBJECT_PROPERTY_INT(
+        OBJECT_PROPERTY_STORED(
             "track_2", -1, "Random music track pool, slot 2. -1 = disabled."),
-        OBJECT_PROPERTY_INT(
+        OBJECT_PROPERTY_STORED(
             "track_3", -1, "Random music track pool, slot 3. -1 = disabled."),
-        OBJECT_PROPERTY_INT(
+        OBJECT_PROPERTY_STORED(
             "track_4", -1, "Random music track pool, slot 4. -1 = disabled."));
 }
 

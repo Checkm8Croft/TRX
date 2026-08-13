@@ -2,7 +2,10 @@
 
 #include <trx/game/input/common.h>
 
-#include <SDL2/SDL_events.h>
+// Only the backends themselves look inside an event, and this header is what
+// anything asking a backend a question has to include - so keep the type
+// opaque here rather than pulling SDL2 in with it.
+typedef union SDL_Event SDL_Event;
 
 typedef struct {
     void (*init)(void);
@@ -16,7 +19,7 @@ typedef struct {
     void (*unassign_role)(INPUT_LAYOUT layout, INPUT_ROLE role, int32_t slot);
     bool (*assign_from_json_object)(
         INPUT_LAYOUT layout, INPUT_ROLE role, int32_t slot,
-        JSON_OBJECT *bind_obj);
+        const JSON_OBJECT *bind_obj);
     bool (*assign_to_json_object)(
         INPUT_LAYOUT layout, INPUT_ROLE role, int32_t slot,
         JSON_OBJECT *bind_obj);
@@ -24,3 +27,5 @@ typedef struct {
     bool (*read_and_assign)(INPUT_LAYOUT layout, INPUT_ROLE role, int32_t slot);
     void (*resolve_combos)(INPUT_LAYOUT layout, INPUT_STATE *result);
 } INPUT_BACKEND_IMPL;
+
+const INPUT_BACKEND_IMPL *Input_GetBackendImpl(INPUT_BACKEND backend);

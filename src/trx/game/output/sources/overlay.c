@@ -13,6 +13,7 @@
 #include <trx/game/game.h>
 #include <trx/game/interpolation.h>
 #include <trx/game/objects.h>
+#include <trx/game/output/common.h>
 #include <trx/game/output/const.h>
 #include <trx/game/output/overlay.h>
 #include <trx/game/output/quad.h>
@@ -103,7 +104,6 @@ typedef struct {
 
 typedef struct {
     bool has_content;
-    float captured_brightness;
     TRX_GL_TEXTURE texture;
     int32_t width;
     int32_t height;
@@ -124,6 +124,7 @@ typedef struct {
         OUTPUT_QUAD *renderer;
         M_SNAPSHOT_STATE state;
         bool transition_active;
+        bool transition_drawn;
         FADER transition_fader;
     } snapshot;
     struct {
@@ -216,8 +217,7 @@ static bool M_PrepareViewportCopy(
 
 static void M_CopyFboToTexture(
     const VIEWPORT_SPACE viewport, const GLuint src_fbo,
-    const bool src_is_default_fbo, TRX_GL_TEXTURE *const texture,
-    const int32_t width, const int32_t height)
+    TRX_GL_TEXTURE *const texture, const int32_t width, const int32_t height)
 {
     if (texture == nullptr || !texture->initialized || width <= 0
         || height <= 0) {
@@ -234,10 +234,6 @@ static void M_CopyFboToTexture(
 
     GLint prev_read_fbo = 0;
     glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read_fbo);
-    GLint prev_read_buffer = 0;
-    if (src_is_default_fbo) {
-        glGetIntegerv(GL_READ_BUFFER, &prev_read_buffer);
-    }
 
     GLuint read_fbo = src_fbo;
 #if defined(TRX_TARGET_IOS)
@@ -262,9 +258,6 @@ static void M_CopyFboToTexture(
         GL_TEXTURE_2D, 0, 0, 0, rect.x, rect.y, copy_width, copy_height);
 
     glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read_fbo);
-    if (src_is_default_fbo) {
-        glReadBuffer(prev_read_buffer);
-    }
     TRX_GL_CheckError();
 }
 
@@ -304,22 +297,11 @@ static void M_ImageCandidates_Scan(
     LOG_INFO("Searching for overlay images");
     VECTOR *candidates = nullptr;
 
-    const char *last_slash = strrchr(base_image_path, '/');
-    const char *last_backslash = strrchr(base_image_path, '\\');
-    const char *last_sep =
-        last_slash > last_backslash ? last_slash : last_backslash;
-
-    size_t dir_len = 0;
-    char *dir_path = nullptr;
-    if (last_sep != nullptr) {
-        dir_len = (size_t)(last_sep - base_image_path);
-        dir_path = String_Format("%.*s", (int)dir_len, base_image_path);
-    } else {
+    char *dir_path = File_GetParentDirectory(base_image_path);
+    if (dir_path == nullptr) {
         dir_path = Memory_DupStr(".");
     }
-
-    const char *const file_name =
-        last_sep != nullptr ? last_sep + 1 : base_image_path;
+    const char *const file_name = File_GetBaseName(base_image_path);
 
     void *const dir_handle = File_OpenDirectory(dir_path);
     if (dir_handle == nullptr) {
@@ -578,6 +560,8 @@ static void M_DrawOp_Image(const M_DRAW_OP_IMAGE *const op)
     Output_Quad_SetTextureSize(p->image.renderer, nullptr);
     Output_Quad_SetFilter(p->image.renderer, op->texture_filter);
     Output_Quad_SetDesaturation(p->image.renderer, op->desaturation);
+    Output_Quad_SetBrightnessScale(
+        p->image.renderer, g_Config.visuals.background_brightness);
     if (op->use_fit) {
         Output_Quad_SetFit(
             p->image.renderer, OUTPUT_QUAD_FIT_SMART, (float)op->width,
@@ -624,6 +608,8 @@ static void M_DrawImageImpl(
     }
 }
 
+// A snapshot holds the pixels as they were presented, brightness included, so
+// it is drawn without a scale of its own.
 static void M_DrawOp_Snapshot(const M_DRAW_OP_SNAPSHOT *const op)
 {
     const M_PRIV *const p = &m_Priv;
@@ -750,6 +736,8 @@ static void M_DrawOp_Pattern(const M_DRAW_OP_PATTERN *const op)
         op->wave ? OUTPUT_QUAD_EFFECT_WAVE : OUTPUT_QUAD_EFFECT_VIGNETTE);
     Output_Quad_SetFilter(
         p->pattern.renderer, g_Config.rendering.texture_filter);
+    Output_Quad_SetBrightnessScale(
+        p->pattern.renderer, g_Config.visuals.background_brightness);
     Output_Quad_ClearFit(p->pattern.renderer);
     Output_Quad_SetOpacity(p->pattern.renderer, op->opacity);
     if (op->opacity >= 1.0f) {
@@ -787,45 +775,55 @@ static void M_RunQueue(const VECTOR *const queue)
     }
 }
 
+static void M_DrawTransitionSnapshot(M_PRIV *const p)
+{
+    if (!p->snapshot.transition_active || p->snapshot.transition_drawn) {
+        return;
+    }
+
+    // A capture holds the frame at the window's resolution, which only the UI
+    // buffer shares. Drawing it into the scene buffer would send it through
+    // the upscaling factor a second time.
+    if (TRX_GL_Context_GetViewport() != VIEWPORT_UI) {
+        return;
+    }
+
+    const float opacity = Fader_GetCurrentValue(&p->snapshot.transition_fader);
+    if (opacity <= 0.0f || !p->snapshot.state.has_content
+        || !p->snapshot.state.texture.initialized) {
+        p->snapshot.transition_active = false;
+        p->snapshot.state.has_content = false;
+        return;
+    }
+
+    M_DrawOp_Snapshot(&(M_DRAW_OP_SNAPSHOT) {
+        .texture_id = p->snapshot.state.texture.id,
+        .width = p->snapshot.state.width,
+        .height = p->snapshot.state.height,
+        .opacity = opacity,
+        .tint = COLOR_RGB_F_WHITE,
+    });
+    p->snapshot.transition_drawn = true;
+
+    if (!Fader_IsActive(&p->snapshot.transition_fader)) {
+        p->snapshot.transition_active = false;
+        p->snapshot.state.has_content = false;
+    }
+}
+
 static void M_RenderBegin(const SCENE_SOURCE *const source)
 {
     M_PRIV *const p = &m_Priv;
     Vector_Clear(p->ops[0]);
     Vector_Clear(p->ops[1]);
     Memory_ArenaReset(&p->alloc);
-
-    if (p->snapshot.transition_active) {
-        const float opacity =
-            Fader_GetCurrentValue(&p->snapshot.transition_fader);
-
-        if (opacity <= 0.0f || !p->snapshot.state.has_content
-            || !p->snapshot.state.texture.initialized) {
-            p->snapshot.transition_active = false;
-            p->snapshot.state.has_content = false;
-            return;
-        }
-
-        M_SCHEDULE_OP(
-            false, M_DrawOp_Snapshot,
-            ((M_DRAW_OP_SNAPSHOT) {
-                .texture_id = p->snapshot.state.texture.id,
-                .width = p->snapshot.state.width,
-                .height = p->snapshot.state.height,
-                .opacity = opacity,
-                .tint = COLOR_RGB_F_WHITE,
-            }));
-
-        if (!Fader_IsActive(&p->snapshot.transition_fader)) {
-            p->snapshot.transition_active = false;
-            p->snapshot.state.has_content = false;
-        }
-    }
 }
 
 static void M_RenderPass(const SCENE_SOURCE *const src, const SCENE_PASS pass)
 {
     M_PRIV *const p = &m_Priv;
     if (pass == SCENE_PASS_OVERLAY_PRE_UI) {
+        M_DrawTransitionSnapshot(p);
         M_RunQueue(p->ops[0]);
     } else if (pass == SCENE_PASS_OVERLAY_POST_UI) {
         M_RunQueue(p->ops[1]);
@@ -836,7 +834,8 @@ static bool M_IsDirty(const SCENE_SOURCE *const src, const SCENE_PASS pass)
 {
     M_PRIV *const p = &m_Priv;
     if (pass == SCENE_PASS_OVERLAY_PRE_UI) {
-        return p->ops[0]->count > 0 || p->snapshot.transition_active;
+        return p->ops[0]->count > 0
+            || (p->snapshot.transition_active && !p->snapshot.transition_drawn);
     } else if (pass == SCENE_PASS_OVERLAY_POST_UI) {
         return p->ops[1]->count > 0;
     }
@@ -860,7 +859,7 @@ bool Output_Overlay_LoadImage(const char *const file_name)
 
 void Output_Overlay_DrawImage(const char *const file_name)
 {
-    M_DrawImageImpl(file_name, 0.0f, TEXTURE_FILTER_POINT);
+    M_DrawImageImpl(file_name, 0.0f, g_Config.rendering.upscaling_filter);
 }
 
 void Output_Overlay_DrawImageBilinear(const char *const file_name)
@@ -871,18 +870,7 @@ void Output_Overlay_DrawImageBilinear(const char *const file_name)
 void Output_Overlay_DrawImageMono(
     const char *const file_name, const float intensity)
 {
-    M_DrawImageImpl(file_name, intensity, TEXTURE_FILTER_POINT);
-}
-
-static void M_FinishSnapshotCapture(M_PRIV *const p)
-{
-    p->snapshot.state.has_content = true;
-
-    // Remove the captured brightness so we can reapply the current multiplier.
-    p->snapshot.state.captured_brightness = g_Config.visuals.ui_brightness;
-    CLAMPL(p->snapshot.state.captured_brightness, 0.001f);
-    Output_Quad_SetBrightnessScale(
-        p->snapshot.renderer, 1.0f / p->snapshot.state.captured_brightness);
+    M_DrawImageImpl(file_name, intensity, g_Config.rendering.upscaling_filter);
 }
 
 void Output_Overlay_CaptureSnapshot(void)
@@ -896,12 +884,14 @@ void Output_Overlay_CaptureSnapshot(void)
         return;
     }
 
-    // The presented frame includes UI/console; this captures everything
-    // that was on screen at the moment of the call.
-    M_CopyFboToTexture(
-        VIEWPORT_TARGET, 0, true, &p->snapshot.state.texture,
-        p->snapshot.state.width, p->snapshot.state.height);
-    M_FinishSnapshotCapture(p);
+    // The scene and the UI still hold the frame the player is looking at, so
+    // it is put together a second time rather than read back from the window.
+    // A driver does not have to keep the presented pixels readable, and on
+    // Mesa with Intel graphics it did not.
+    TRX_GL_Renderer_CompositeToTexture(
+        &p->snapshot.state.texture, p->snapshot.state.width,
+        p->snapshot.state.height);
+    p->snapshot.state.has_content = true;
 }
 
 void Output_Overlay_CaptureGameSnapshot(void)
@@ -910,17 +900,17 @@ void Output_Overlay_CaptureGameSnapshot(void)
     p->snapshot.transition_active = false;
     p->snapshot.state.has_content = false;
 
-    // The geometry FBO is rendered at VIEWPORT_GAME's resolution, which is
-    // lower than VIEWPORT_TARGET whenever an upscaling factor is active;
-    // size the snapshot texture to match so the capture isn't clamped into
-    // a corner of an oversized texture.
-    M_EnsureSnapshotTexture(p, VIEWPORT_GAME);
+    // The scene is resolved at VIEWPORT_SCENE's resolution, which is lower
+    // than VIEWPORT_TARGET whenever an upscaling factor is active; size the
+    // snapshot texture to match so the capture isn't clamped into a corner of
+    // an oversized texture.
+    M_EnsureSnapshotTexture(p, VIEWPORT_SCENE);
     if (!p->snapshot.state.texture.initialized) {
         return;
     }
 
     Interpolation_Disable();
-    TRX_GL_Renderer_BindGeometryFbo();
+    Output_SwitchViewport(VIEWPORT_GAME);
 
     SceneCompositor_BeginScene();
     Game_Draw(false);
@@ -928,10 +918,10 @@ void Output_Overlay_CaptureGameSnapshot(void)
     Interpolation_Enable();
 
     M_CopyFboToTexture(
-        VIEWPORT_GAME, TRX_GL_Renderer_GetGeometryFboId(), false,
+        VIEWPORT_SCENE, TRX_GL_Renderer_ResolveSceneFbo(),
         &p->snapshot.state.texture, p->snapshot.state.width,
         p->snapshot.state.height);
-    M_FinishSnapshotCapture(p);
+    p->snapshot.state.has_content = true;
 }
 
 void Output_Overlay_DrawSnapshot(const float opacity)
@@ -976,6 +966,11 @@ void Output_Overlay_DrawPatternOpacity(const bool wave, const float opacity)
         ((M_DRAW_OP_PATTERN) { .wave = wave, .opacity = opacity }));
 }
 
+void Output_Overlay_BeginFrame(void)
+{
+    m_Priv.snapshot.transition_drawn = false;
+}
+
 void Output_Overlay_BeginTransitionFadeOut(
     const float duration, const float start)
 {
@@ -986,6 +981,7 @@ void Output_Overlay_BeginTransitionFadeOut(
     }
 
     p->snapshot.transition_active = true;
+    p->snapshot.transition_drawn = false;
     Fader_InitTo(&p->snapshot.transition_fader, start, 0.0f, duration);
 }
 

@@ -1,48 +1,24 @@
 #include <trx/config.h>
-#include <trx/config/presets.h>
-#include <trx/core/enum_map.h>
+#include <trx/config/registry.h>
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
-#include <trx/core/utils.h>
+#include <trx/core/subsystem.h>
 #include <trx/debug.h>
 #include <trx/game/catalog/manager.h>
 #include <trx/game/clock.h>
-#include <trx/game/console.h>
-#include <trx/game/events.h>
-#include <trx/game/fmv.h>
-#include <trx/game/game.h>
-#include <trx/game/game_buf.h>
 #include <trx/game/game_flow.h>
-#include <trx/game/game_strings/entries.h>
 #include <trx/game/game_strings/manager.h>
-#include <trx/game/gun.h>
-#include <trx/game/input.h>
-#include <trx/game/input/backends/touch.h>
-#include <trx/game/inventory_ring.h>
-#include <trx/game/items/walkable.h>
-#include <trx/game/lara/pose.h>
-#include <trx/game/lara/skin.h>
-#include <trx/game/level.h>
 #include <trx/game/lua.h>
-#include <trx/game/music.h>
-#include <trx/game/objects.h>
-#include <trx/game/option.h>
 #include <trx/game/output.h>
-#include <trx/game/overlay.h>
-#include <trx/game/random.h>
 #include <trx/game/replay/test_recorder.h>
 #include <trx/game/replay/test_replay.h>
-#include <trx/game/rooms.h>
 #include <trx/game/savegame.h>
 #include <trx/game/shell.h>
 #include <trx/game/shell/platform.h>
 #include <trx/game/shell/session.h>
 #include <trx/game/shell/state.h>
-#include <trx/game/sound.h>
 #include <trx/game/stats.h>
-#include <trx/game/ui/settings.h>
-#include <trx/game/ui/touch_overlay.h>
 #include <trx/gl/context.h>
 #include <trx/version.h>
 
@@ -56,6 +32,10 @@ static char *m_PendingMod = nullptr;
 // Flags preserved across mod switches (needed to rebuild args in main()).
 static bool m_PrevHeadless = false;
 static bool m_PrevQuiet = false;
+
+// Given back before the config module goes down, so a mod switch does not
+// leave a copy behind.
+static int32_t m_ConfigListener = -1;
 
 static void M_CreateGameWindow(void)
 {
@@ -98,6 +78,33 @@ static void M_CreateGameWindow(void)
     Shell_EnableThemeSupport(m_Window);
 }
 
+static void M_ExitUnsupportedGraphics(void)
+{
+    char *driver = TRX_GL_Context_DescribeDriver(m_Window);
+
+#ifdef _WIN32
+    const char *const hint =
+        " Where the card is too old for that, installing "
+        "Mesa3D lets TRX draw the game without it.";
+#else
+    const char *const hint = "";
+#endif
+
+    char *message = String_Format(
+        "TRX needs OpenGL 3.3 to draw the game, and the graphics driver on "
+        "this computer does not offer it.\n"
+        "\n"
+        "Graphics driver: %s\n"
+        "\n"
+        "Installing the latest drivers for the graphics card usually helps.%s",
+        driver != nullptr ? driver : "unknown", hint);
+
+    Shell_ExitSystem(message);
+
+    Memory_FreePointer(&message);
+    Memory_FreePointer(&driver);
+}
+
 static void M_CreateGLContext(void)
 {
     if (TRX_GL_Context_GetWindowHandle() != nullptr) {
@@ -117,7 +124,7 @@ static void M_CreateGLContext(void)
         SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 #endif
     if (!TRX_GL_Context_Attach(m_Window)) {
-        Shell_ExitSystem("System Error: cannot attach opengl context");
+        M_ExitUnsupportedGraphics();
     }
 }
 
@@ -131,9 +138,7 @@ static void M_ShowWindow(void)
 
 static void M_HandleConfigChange(const EVENT *const event, void *const data)
 {
-    const CONFIG *const old = &g_SavedConfig;
-    const CONFIG *const new = &g_Config;
-    Shell_HandleConfigChange(old, new);
+    Shell_HandleConfigChange(event->data);
 }
 
 static void M_SetupSDL(void)
@@ -176,38 +181,6 @@ static void M_LoadCatalog(
     }
 }
 
-void Shell_RequestModSwitch(const char *const mod_name)
-{
-    Memory_FreePointer(&m_PendingMod);
-    m_PendingMod = Memory_DupStr(mod_name);
-}
-
-const char *Shell_GetPendingMod(void)
-{
-    return m_PendingMod;
-}
-
-void Shell_ClearPendingMod(void)
-{
-    Memory_FreePointer(&m_PendingMod);
-}
-
-bool Shell_GetPrevHeadless(void)
-{
-    return m_PrevHeadless;
-}
-
-bool Shell_GetPrevQuiet(void)
-{
-    return m_PrevQuiet;
-}
-
-const SHELL_ARGS *Shell_GetArgs(void)
-{
-    ASSERT(m_Session != nullptr);
-    return m_Session->args;
-}
-
 static void M_InitModules(void)
 {
     Shell_SetupHiDPI();
@@ -215,21 +188,26 @@ static void M_InitModules(void)
     M_SetupSDL();
     M_SetupGL();
 
-    GameString_Init();
-    GameStringManager_Init();
-    UI_Init();
-    Overlay_Init();
-    GameEvent_Init();
+    // Some of the subsystems read the clock or the video state as they come
+    // up, so the platform stands first.
+    Subsystem_InitAll();
 
-    GameBuf_Init();
-    Random_Seed();
-
-    Clock_Init();
     LUA_Init();
+
+    const SHELL_ARGS *const args = Shell_GetArgs();
+    if (args != nullptr && args->startup.dump_lua_api) {
+        LUA_DumpAPI();
+        exit(0);
+    }
 }
 
 static void M_ShutdownModules(void)
 {
+    if (m_ConfigListener >= 0) {
+        Config_UnsubscribeChanges(m_ConfigListener);
+        m_ConfigListener = -1;
+    }
+
     if (TestReplay_IsOpened()) {
         TestReplay_Close();
     }
@@ -237,30 +215,11 @@ static void M_ShutdownModules(void)
         TestRecorder_Close();
     }
 
-    Lara_Pose_Shutdown();
-    Lara_Skin_Shutdown();
-
-    Console_Shutdown();
-    Savegame_Shutdown();
-
-    GF_Shutdown();
+    // The Lua bridges are subscribed to the modules they wrap and unsubscribe
+    // here, so the modules have to still be standing.
     LUA_Shutdown();
-    Overlay_Shutdown();
-    Option_Shutdown();
-    Output_Shutdown();
 
-    Input_Shutdown();
-    Music_Shutdown();
-    Sound_Shutdown();
-    UI_Shutdown();
-    GameEvent_Shutdown();
-
-    GameStringManager_Shutdown();
-    GameString_Shutdown();
-    Walkable_Shutdown();
-    Room_Shutdown();
-    GameBuf_Shutdown();
-    Catalog_Shutdown();
+    Subsystem_ShutdownAll();
 }
 
 static void M_PrepareSystem(void)
@@ -303,28 +262,19 @@ static void M_PrepareSystem(void)
         ShellState_RememberLastPlayedMod(s->args->startup.mod->name);
     }
 
-    Config_ApplyDefaultSettings();
+    Config_RegisterBuiltInOptions();
 
     TRXPath_Init(s->args);
 
-    Input_Init();
-    Console_Init();
+    // The catalogs name the objects, samples and music the subsystem loads
+    // look themselves up in.
     M_LoadCatalog(CATALOG_OBJECTS, "catalog_objects.csv", false);
     M_LoadCatalog(CATALOG_MUSIC, "catalog_music.csv", false);
     M_LoadCatalog(CATALOG_SAMPLES, "catalog_samples.csv", true);
     M_LoadCatalog(CATALOG_LARA_STATES, "catalog_lara_states.csv", false);
     M_LoadCatalog(CATALOG_LARA_ANIMS, "catalog_lara_anims.csv", false);
     M_LoadCatalog(CATALOG_ITEM_ACTIONS, "catalog_item_actions.csv", false);
-    Lara_Pose_Init();
-    InvRing_LoadVars(
-        TRXPath_Resolve(TRX_DYNAMIC_PATH_COMMON_CONFIG, "inv_ring.json5"));
-    Gun_LoadVars(
-        TRXPath_Resolve(TRX_DYNAMIC_PATH_COMMON_CONFIG, "weapons.json5"));
-    UI_Settings_LoadFromFile(
-        TRXPath_Resolve(TRX_DYNAMIC_PATH_COMMON_CONFIG, "ui.json5"));
-    Lara_Skin_LoadFromFile(
-        TRXPath_Resolve(TRX_DYNAMIC_PATH_COMMON_CONFIG, "outfits.json5"));
-    Config_Presets_ScanFiles();
+    Subsystem_LoadAll();
 
     if (test_replay_path != nullptr) {
         TestReplay_Start();
@@ -343,13 +293,50 @@ static void M_PrepareSystem(void)
                 s->args->test_record_path, s->args->original_args);
         }
     }
-    Config_SubscribeChanges(M_HandleConfigChange, nullptr);
+    m_ConfigListener = Config_SubscribeChanges(M_HandleConfigChange, nullptr);
 
-    // Auto-enable touch controls on first run if touch hardware is present.
-    if (!g_Config.loaded && Touch_HasHardwareSupport()) {
-        g_Config.input.enable_touch_controls = true;
+    Subsystem_ApplyConfigAll();
+}
+
+void Shell_RequestModSwitch(const char *const mod_name)
+{
+    Memory_FreePointer(&m_PendingMod);
+    m_PendingMod = Memory_DupStr(mod_name);
+}
+
+const char *Shell_GetPendingMod(void)
+{
+    return m_PendingMod;
+}
+
+void Shell_ClearPendingMod(void)
+{
+    Memory_FreePointer(&m_PendingMod);
+}
+
+bool Shell_GetPrevHeadless(void)
+{
+    return m_PrevHeadless;
+}
+
+bool Shell_GetPrevQuiet(void)
+{
+    return m_PrevQuiet;
+}
+
+const SHELL_ARGS *Shell_GetArgs(void)
+{
+    ASSERT(m_Session != nullptr);
+    return m_Session->args;
+}
+
+void Shell_SetHeadless(const bool headless)
+{
+    ASSERT(m_Session != nullptr);
+    SHELL_ARGS *const args = (SHELL_ARGS *)m_Session->args;
+    if (args->headless == headless) {
+        return;
     }
-    TouchOverlay_SetVisible(g_Config.input.enable_touch_controls);
 
 #if defined(TRX_TARGET_IOS)
     // iOS has no desktop-style resizable/positionable window -- the app is
@@ -368,10 +355,13 @@ static void M_PrepareSystem(void)
         Sound_SetMasterVolume(g_Config.audio.sound_volume);
         Music_SetVolume(g_Config.audio.music_volume);
     } else {
+    args->headless = headless;
+    // The clock counts frames either way; only the pacing changes here.
+    if (headless) {
         Clock_DisableWait();
-        const int32_t fps = s->args->headless_fps > 0 ? s->args->headless_fps
-                                                      : Clock_GetCurrentFPS();
-        Clock_EnableHeadlessFixedFPS(fps);
+    } else {
+        Clock_EnableWait();
+        Clock_SyncTick();
     }
 }
 
@@ -407,137 +397,24 @@ int32_t Shell_Main(const SHELL_ARGS *const args)
     GF_Init();
     GF_LoadFromFile(Shell_GetGameFlowPath(s->args->startup.mod));
 
-    GameStringManager_ClearSourceFiles();
-    const char *const common_strings_path = Shell_GetCommonStringsPath();
-    if (common_strings_path == nullptr) {
-        Shell_ExitSystem("Missing common strings file");
-    }
-    GameStringManager_AddSourceFile(common_strings_path, false);
-    if (s->args->startup.mod->base_mod != nullptr) {
-        char *base_strings_path =
-            Shell_GetBaseGameStringsPath(s->args->startup.mod);
-        if (base_strings_path == nullptr) {
-            Shell_ExitSystemFmt(
-                "Missing base mod strings file for '%s'",
-                s->args->startup.mod->name);
-        }
-        GameStringManager_AddSourceFile(base_strings_path, false);
-        Memory_FreePointer(&base_strings_path);
-    }
-    char *mod_strings_path = Shell_GetGameStringsPath(s->args->startup.mod);
-    if (mod_strings_path == nullptr) {
-        Shell_ExitSystemFmt(
-            "Missing strings file for selected mod '%s'",
-            s->args->startup.mod->name);
-    }
-    GameStringManager_AddSourceFile(mod_strings_path, true);
-    Memory_FreePointer(&mod_strings_path);
-    GameStringManager_DiscoverLanguages();
-    GameStringManager_ReloadLanguage(g_Config.language);
+    GameStringManager_LoadForMod(s->args->startup.mod);
 
     Savegame_Init();
-    Savegame_ScanSavedGames();
+    SG_Manager_ScanSavedGames();
 
-    // Execute global Lua script if provided
-    if (g_GameFlow.main_script_path != nullptr) {
-        LUA_RESULT res = Lua_EvalFile(g_GameFlow.main_script_path);
-        if (res.code != LUA_OK) {
-            LOG_ERROR("Lua main script error: %s", res.message);
-        }
-        Lua_FreeResult(&res);
+    LUA_RunGameScript();
+
+    // The settings a recording carries are the ones that exist by now, the
+    // game's own among them.
+    if (TestReplay_IsOpened()) {
+        TestReplay_ApplyDeferredConfig();
+    }
+    if (TestRecorder_IsOpened()) {
+        TestRecorder_WriteConfig();
     }
 
     Stats_CalculateMaxStats();
-    GF_COMMAND gf_cmd = GF_DoFrontendSequence();
-
-    bool loop_continue = !Shell_IsExiting();
-    while (loop_continue) {
-        LOG_INFO(
-            "action=%s param=%d", ENUM_MAP_TO_STRING(GF_ACTION, gf_cmd.action),
-            gf_cmd.param);
-
-        switch (gf_cmd.action) {
-        case GF_START_GAME:
-        case GF_SELECT_GAME: {
-            const int32_t level_num = gf_cmd.param;
-            const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, level_num);
-            const GF_SEQUENCE_CONTEXT seq_ctx =
-                gf_cmd.action == GF_SELECT_GAME ? GFSC_SELECT : GFSC_NORMAL;
-            if (level != nullptr) {
-                gf_cmd = GF_DoLevelSequence(level, seq_ctx);
-            }
-            break;
-        }
-
-        case GF_GLOBE_SELECT:
-            gf_cmd = GF_RunGlobeSelect(nullptr);
-            break;
-
-        case GF_START_SAVED_GAME: {
-            const SAVEGAME_SLOT_REF slot = Savegame_SlotFromParam(gf_cmd.param);
-            const int32_t level_num = Savegame_GetLevelNumber(slot);
-            if (level_num < 0) {
-                LOG_ERROR("Corrupt save file!");
-                gf_cmd = (GF_COMMAND) { .action = GF_EXIT_TO_TITLE };
-            } else {
-                Savegame_BindSlot(slot);
-                const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, level_num);
-                gf_cmd = GF_DoLevelSequence(level, GFSC_SAVED);
-            }
-            break;
-        }
-
-        case GF_RESTART_GAME: {
-            const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, gf_cmd.param);
-            gf_cmd = GF_InterpretSequence(level, GFSC_RESTART, nullptr);
-            break;
-        }
-
-        case GF_STORY_SO_FAR:
-            gf_cmd =
-                GF_PlayAvailableStory(Savegame_SlotFromParam(gf_cmd.param));
-            break;
-
-        case GF_START_CINE:
-            gf_cmd = GF_DoCutsceneSequence(gf_cmd.param, false);
-            break;
-
-        case GF_START_DEMO:
-            gf_cmd = GF_DoDemoSequence(gf_cmd.param);
-            break;
-
-        case GF_NOOP:
-        case GF_LEVEL_COMPLETE:
-            gf_cmd = (GF_COMMAND) { .action = GF_EXIT_TO_TITLE };
-            break;
-
-        case GF_EXIT_TO_TITLE:
-            if (s->args->startup.level_request.path != nullptr) {
-                gf_cmd = (GF_COMMAND) { .action = GF_EXIT_GAME };
-            } else if (g_GameFlow.title_level == nullptr) {
-                Shell_ExitSystem("Missing title level");
-            } else {
-                gf_cmd = GF_RunTitle();
-            }
-            break;
-
-        case GF_EXIT_GAME:
-        case GF_SWITCH_MOD:
-            loop_continue = false;
-            break;
-
-        default:
-            ASSERT_FAIL_FMT(
-                "invalid action (action=%s, param=%d)",
-                ENUM_MAP_TO_STRING(GF_ACTION, gf_cmd.action), gf_cmd.param);
-        }
-    }
-
-    if (GF_GetCurrentLevel() != nullptr) {
-        Level_Unload();
-    }
-    Game_SetCurrentLevel(nullptr);
-    GF_SetCurrentLevel(nullptr);
+    GF_RunUntilExit(GF_DoFrontendSequence());
 
     if (m_PendingMod != nullptr) {
         if (TestReplay_IsOpened()) {

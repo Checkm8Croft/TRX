@@ -5,6 +5,7 @@
 #include <trx/game/input/combo.h>
 #include <trx/version.h>
 
+#include <SDL2/SDL_events.h>
 #include <SDL2/SDL_keyboard.h>
 #include <string.h>
 
@@ -12,14 +13,14 @@
 #define KEY_DOWN(a) (m_KeyboardState[(a)])
 
 typedef struct {
-    INPUT_ROLE role;
-    SDL_Scancode scancode;
-} BUILTIN_KEYBOARD_LAYOUT;
-
-typedef struct {
     int32_t key_count;
     SDL_Scancode keys[INPUT_COMBO_MAX_KEYS];
 } KEYBOARD_BINDING;
+
+typedef struct {
+    INPUT_ROLE role;
+    KEYBOARD_BINDING bind;
+} BUILTIN_KEYBOARD_LAYOUT;
 
 typedef struct {
     KEYBOARD_BINDING slots[INPUT_BINDING_SLOTS];
@@ -30,9 +31,12 @@ static bool m_Conflicts[INPUT_LAYOUT_NUMBER_OF][INPUT_ROLE_NUMBER_OF] = {};
 
 static const BUILTIN_KEYBOARD_LAYOUT m_BuiltinLayoutBase[] = {
 // clang-format off
-#define INPUT_KEYBOARD_ASSIGN(role, key) { role, key },
+#define INPUT_KEYBOARD_ASSIGN(role, key) \
+    { role, { (key) != SDL_SCANCODE_UNKNOWN ? 1 : 0, { key } } },
+#define INPUT_KEYBOARD_ASSIGN_COMBO(role, key1, key2) \
+    { role, { 2, { key1, key2 } } },
 #include <trx/game/input/backends/keyboard.def>
-    { -1, SDL_SCANCODE_UNKNOWN },
+    { -1, {} },
     // clang-format on
 };
 
@@ -40,6 +44,26 @@ static BUILTIN_KEYBOARD_LAYOUT m_BuiltinLayout[ARRAY_SIZE(m_BuiltinLayoutBase)];
 
 static KEYBOARD_ROLE_BINDING m_Layout[INPUT_LAYOUT_NUMBER_OF]
                                      [INPUT_ROLE_NUMBER_OF];
+
+// Per-scancode tracking for combo prefix deferral.
+static bool m_PrefixWasHeld[SDL_NUM_SCANCODES];
+static bool m_PrefixComboFired[SDL_NUM_SCANCODES];
+
+// Per-scancode press-tick table. Records the tick each key most recently
+// transitioned from released to held, so combos that start on keys the
+// user was already holding can be rejected.
+static uint32_t m_KeyDownTick[SDL_NUM_SCANCODES];
+static uint32_t m_Tick;
+
+// Per-role deferral tracking for combo disambiguation.
+static bool m_RoleWasActive[INPUT_ROLE_NUMBER_OF];
+
+static bool m_RoleLongerFired[INPUT_ROLE_NUMBER_OF];
+
+// Combo capture state for listen mode.
+static KEYBOARD_BINDING m_CaptureBuffer = { .key_count = 0 };
+
+static bool m_CaptureActive = false;
 
 // Update internal controller button/axis state from SDL events.
 // @param event     Event to process.
@@ -303,12 +327,9 @@ static const char *M_GetScancodeName(SDL_Scancode scancode)
     // clang-format on
 }
 
-static bool M_CheckScancode(const SDL_Scancode scancode)
+static bool M_CheckScancode(const SDL_Scancode scancode, const bool exact)
 {
     if (scancode == SDL_SCANCODE_UNKNOWN) {
-        return false;
-    }
-    if (scancode == SDL_SCANCODE_RETURN && KEY_DOWN(SDL_SCANCODE_LALT)) {
         return false;
     }
 #ifdef _WIN32
@@ -319,6 +340,9 @@ static bool M_CheckScancode(const SDL_Scancode scancode)
 #endif
     if (KEY_DOWN(scancode)) {
         return true;
+    }
+    if (exact) {
+        return false;
     }
     if (scancode == SDL_SCANCODE_LCTRL) {
         return KEY_DOWN(SDL_SCANCODE_RCTRL);
@@ -341,23 +365,44 @@ static bool M_CheckScancode(const SDL_Scancode scancode)
     return false;
 }
 
+// A binding of one key takes either side of a paired modifier, so that Ctrl
+// bound as action answers to both. A combo takes the side it was bound to:
+// Alt+Enter otherwise fires from the Alt a player jumps with.
 static bool M_CheckBinding(const KEYBOARD_BINDING *const bind)
 {
     if (bind->key_count == 0) {
         return false;
     }
     for (int32_t k = 0; k < bind->key_count; k++) {
-        if (!M_CheckScancode(bind->keys[k])) {
+        if (!M_CheckScancode(bind->keys[k], bind->key_count > 1)) {
             return false;
         }
     }
     return true;
 }
 
-// Combo adapter forward declarations.
+static const KEYBOARD_BINDING *M_GetBinding(
+    const INPUT_LAYOUT layout, const INPUT_ROLE role, const int32_t slot)
+{
+    return &m_Layout[layout][role].slots[slot];
+}
+
+// Combo adapter functions for the shared combo layer.
 static INPUT_COMBO_BINDING M_GetComboBinding(
-    INPUT_LAYOUT layout, INPUT_ROLE role, int32_t slot);
-static bool M_ComboKeysEqual(const void *a, const void *b);
+    const INPUT_LAYOUT layout, const INPUT_ROLE role, const int32_t slot)
+{
+    const KEYBOARD_BINDING *b = M_GetBinding(layout, role, slot);
+    return (INPUT_COMBO_BINDING) {
+        .key_count = b->key_count,
+        .keys = b->keys,
+        .key_stride = sizeof(SDL_Scancode),
+    };
+}
+
+static bool M_ComboKeysEqual(const void *const a, const void *const b)
+{
+    return *(const SDL_Scancode *)a == *(const SDL_Scancode *)b;
+}
 
 static bool M_Key(const INPUT_LAYOUT layout, const INPUT_ROLE role)
 {
@@ -373,12 +418,6 @@ static bool M_Key(const INPUT_LAYOUT layout, const INPUT_ROLE role)
         }
     }
     return false;
-}
-
-static const KEYBOARD_BINDING *M_GetBinding(
-    const INPUT_LAYOUT layout, const INPUT_ROLE role, const int32_t slot)
-{
-    return &m_Layout[layout][role].slots[slot];
 }
 
 static bool M_BindingsEqual(
@@ -457,7 +496,10 @@ static void M_HandleBuiltInDefaults(void)
 {
 #define L_BIND(role, code)                                                     \
     do {                                                                       \
-        M_GetBuiltInLayout(role)->scancode = code;                             \
+        M_GetBuiltInLayout(role)->bind = (KEYBOARD_BINDING) {                  \
+            .key_count = (code) != SDL_SCANCODE_UNKNOWN ? 1 : 0,               \
+            .keys = { code },                                                  \
+        };                                                                     \
     } while (0)
 
     if (g_TRVersion == 2) {
@@ -490,14 +532,10 @@ static void M_Init(void)
     }
     // allow specific engines to re-assign default bindings
     M_HandleBuiltInDefaults();
-    // then load actually defined default bindings into slot 0
+    // then load the defined default bindings into slot 0
     for (int32_t i = 0; m_BuiltinLayout[i].role != (INPUT_ROLE)-1; i++) {
         const BUILTIN_KEYBOARD_LAYOUT *const builtin = &m_BuiltinLayout[i];
-        m_Layout[INPUT_LAYOUT_DEFAULT][builtin->role].slots[0] =
-            (KEYBOARD_BINDING) {
-                .key_count = builtin->scancode != SDL_SCANCODE_UNKNOWN ? 1 : 0,
-                .keys = { builtin->scancode },
-            };
+        m_Layout[INPUT_LAYOUT_DEFAULT][builtin->role].slots[0] = builtin->bind;
     }
     M_CheckConflicts(INPUT_LAYOUT_DEFAULT);
 
@@ -514,8 +552,6 @@ static bool M_CustomUpdate(INPUT_STATE *const result, const INPUT_LAYOUT layout)
     result->menu_show_info |= result->look;
     result->menu_fine_adjust |= result->slow;
     result->menu_coarse_adjust |= result->draw;
-    result->toggle_fullscreen =
-        KEY_DOWN(SDL_SCANCODE_RETURN) && KEY_DOWN(SDL_SCANCODE_LALT);
     result->menu_skip = result->menu_confirm || result->menu_back;
     return true;
 }
@@ -535,6 +571,9 @@ static const char *M_GetName(
 {
     INPUT_ROLE actual_role = role;
     switch (role) {
+    case INPUT_ROLE_MENU_CONFIRM:
+        actual_role = INPUT_ROLE_ACTION;
+        break;
     case INPUT_ROLE_MENU_SHOW_INFO:
         actual_role = INPUT_ROLE_LOOK;
         break;
@@ -562,7 +601,7 @@ static const char *M_GetName(
     buf[0] = '\0';
     for (int32_t k = 0; k < bind->key_count; k++) {
         if (k > 0) {
-            strcat(buf, "+");
+            strcat(buf, INPUT_COMBO_SEPARATOR);
         }
         const char *name = M_GetScancodeName(bind->keys[k]);
         if (name != nullptr) {
@@ -581,9 +620,9 @@ static void M_UnassignRole(
 
 static bool M_AssignFromJSONObject(
     const INPUT_LAYOUT layout, const INPUT_ROLE role, const int32_t slot,
-    JSON_OBJECT *const bind_obj)
+    const JSON_OBJECT *const bind_obj)
 {
-    JSON_ARRAY *const combo_arr = JSON_ObjectGetArray(bind_obj, "combo");
+    const JSON_ARRAY *const combo_arr = JSON_ObjectGetArray(bind_obj, "combo");
     if (combo_arr != nullptr) {
         // New combo format: "combo": [scancode1, scancode2, ...]
         const int32_t count = combo_arr->length < INPUT_COMBO_MAX_KEYS
@@ -639,36 +678,9 @@ static bool M_AssignToJSONObject(
     return true;
 }
 
-// Per-scancode tracking for combo prefix deferral.
-static bool m_PrefixWasHeld[SDL_NUM_SCANCODES];
-static bool m_PrefixComboFired[SDL_NUM_SCANCODES];
-
-// Per-scancode press-tick table. Records the tick each key most recently
-// transitioned from released to held, so combos that start on keys the
-// user was already holding can be rejected.
-static uint32_t m_KeyDownTick[SDL_NUM_SCANCODES];
-static uint32_t m_Tick;
-
 static uint32_t M_GetPressTick(const void *const key)
 {
     return m_KeyDownTick[*(const SDL_Scancode *)key];
-}
-
-// Combo adapter functions for the shared combo layer.
-static INPUT_COMBO_BINDING M_GetComboBinding(
-    const INPUT_LAYOUT layout, const INPUT_ROLE role, const int32_t slot)
-{
-    const KEYBOARD_BINDING *b = M_GetBinding(layout, role, slot);
-    return (INPUT_COMBO_BINDING) {
-        .key_count = b->key_count,
-        .keys = b->keys,
-        .key_stride = sizeof(SDL_Scancode),
-    };
-}
-
-static bool M_ComboKeysEqual(const void *const a, const void *const b)
-{
-    return *(const SDL_Scancode *)a == *(const SDL_Scancode *)b;
 }
 
 static INPUT_COMBO_BINDING M_ToCombo(const KEYBOARD_BINDING *const b)
@@ -691,10 +703,6 @@ static const KEYBOARD_BINDING *M_GetPressedBinding(
     }
     return nullptr;
 }
-
-// Per-role deferral tracking for combo disambiguation.
-static bool m_RoleWasActive[INPUT_ROLE_NUMBER_OF];
-static bool m_RoleLongerFired[INPUT_ROLE_NUMBER_OF];
 
 static void M_ResolveCombos(
     const INPUT_LAYOUT layout, INPUT_STATE *const result)
@@ -856,10 +864,6 @@ static void M_ResolveCombos(
         m_PrefixWasHeld[sc] = held;
     }
 }
-
-// Combo capture state for listen mode.
-static KEYBOARD_BINDING m_CaptureBuffer = { .key_count = 0 };
-static bool m_CaptureActive = false;
 
 static bool M_CaptureHasKey(const SDL_Scancode scancode)
 {

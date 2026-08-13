@@ -1,6 +1,7 @@
 #include <trx/game/ui/dialogs/controls_editor.h>
 
 #include <trx/config.h>
+#include <trx/config/section.h>
 #include <trx/core/utils.h>
 #include <trx/game/const.h>
 #include <trx/game/game_strings/entries.h>
@@ -26,6 +27,9 @@
 #include <trx/game/viewport.h>
 #include <trx/version.h>
 
+#define M_MIN_INPUT_SIZE 80.0f
+#define M_INPUT_PADDING 6.0f
+
 typedef enum {
     M_PHASE_NAVIGATE_LAYOUT,
     M_PHASE_NAVIGATE_GROUP,
@@ -35,11 +39,6 @@ typedef enum {
     M_PHASE_LISTEN_DEBOUNCE,
     M_PHASE_EXIT,
 } M_PHASE;
-
-static bool M_IsTouch(const UI_CONTROLS_EDITOR_STATE *const s)
-{
-    return s->backend == INPUT_BACKEND_TOUCH;
-}
 
 static const UI_CONTROLS_EDITOR_GROUP m_Groups[] = {
     {
@@ -97,11 +96,14 @@ static const UI_CONTROLS_EDITOR_GROUP m_Groups[] = {
                 { .role = INPUT_ROLE_CAMERA_RIGHT },
                 { .role = INPUT_ROLE_CAMERA_FORWARD },
                 { .role = INPUT_ROLE_CAMERA_BACK },
+                { .role = INPUT_ROLE_USE_BINOCULARS },
                 { .role = INPUT_ROLE_CHANGE_OUTFIT },
                 { .role = INPUT_ROLE_FLY_CHEAT },
                 { .role = INPUT_ROLE_ITEM_CHEAT },
                 { .role = INPUT_ROLE_LEVEL_SKIP_CHEAT },
                 { .role = INPUT_ROLE_TURBO_CHEAT },
+                { .role = INPUT_ROLE_FAST_FORWARD_CHEAT },
+                { .role = INPUT_ROLE_SLOW_MOTION_CHEAT },
                 { .role = (INPUT_ROLE)-1 },
             },
     },
@@ -118,8 +120,7 @@ static const UI_CONTROLS_EDITOR_GROUP m_Groups[] = {
                 { .role = INPUT_ROLE_PAUSE },
                 // { .role = INPUT_ROLE_SCREENSHOT }, // handled specially
                 { .role = INPUT_ROLE_FPS },
-                // { .role = INPUT_ROLE_TOGGLE_FULLSCREEN }, // handled
-                // specially
+                { .role = INPUT_ROLE_TOGGLE_FULLSCREEN },
                 { .role = INPUT_ROLE_ENTER_CONSOLE },
                 { .role = INPUT_ROLE_TOGGLE_PHOTO_MODE },
                 { .role = INPUT_ROLE_TOGGLE_UI },
@@ -139,6 +140,11 @@ static const UI_CONTROLS_EDITOR_GROUP m_Groups[] = {
         .rows = nullptr,
     },
 };
+
+static bool M_IsTouch(const UI_CONTROLS_EDITOR_STATE *const s)
+{
+    return s->backend == INPUT_BACKEND_TOUCH;
+}
 
 static int32_t M_GetVisibleRows(void)
 {
@@ -194,7 +200,11 @@ static bool M_IsRoleUsable(const INPUT_ROLE role)
     case INPUT_ROLE_ITEM_CHEAT:
     case INPUT_ROLE_LEVEL_SKIP_CHEAT:
     case INPUT_ROLE_TURBO_CHEAT:
+    case INPUT_ROLE_FAST_FORWARD_CHEAT:
+    case INPUT_ROLE_SLOW_MOTION_CHEAT:
         return g_Config.gameplay.enable_cheats;
+    case INPUT_ROLE_USE_BINOCULARS:
+        return g_Config.gameplay.enable_binoculars;
     default:
         break;
     }
@@ -210,26 +220,54 @@ static int32_t M_GetInputRoleCount(const UI_CONTROLS_EDITOR_GROUP *const group)
     return count;
 }
 
+// The key column takes its width from the longest binding any layout holds, so
+// that a combo such as Alt+Return does not run into the column beside it.
+static void M_MeasureColumns(UI_CONTROLS_EDITOR_STATE *const s)
+{
+    s->label_size = 0.0f;
+    s->input_size = M_MIN_INPUT_SIZE;
+    for (INPUT_ROLE role = 0; role < INPUT_ROLE_NUMBER_OF; role++) {
+        float w;
+        UI_Label_Measure(Input_GetRoleName(role), &w, nullptr);
+        s->label_size = MAX(s->label_size, w / UI_Scaler_GetTextScale());
+
+        for (INPUT_LAYOUT layout = 0; layout < INPUT_LAYOUT_NUMBER_OF;
+             layout++) {
+            for (int32_t slot = 0; slot < INPUT_BINDING_SLOTS; slot++) {
+                const char *const key_name =
+                    Input_GetKeyName(s->backend, layout, role, slot);
+                if (key_name == nullptr) {
+                    continue;
+                }
+                UI_Label_Measure(key_name, &w, nullptr);
+                s->input_size =
+                    MAX(s->input_size,
+                        w / UI_Scaler_GetTextScale() + M_INPUT_PADDING);
+            }
+        }
+    }
+}
+
 static void M_ResetLayout(void *const arg)
 {
-    const UI_CONTROLS_EDITOR_STATE *const s = arg;
+    UI_CONTROLS_EDITOR_STATE *const s = arg;
     Sound_Effect(
         g_TRVersion == 1 ? SFX_MENU_GAMEBOY : SFX_MENU_SPINOUT, nullptr,
         SPM_NORMAL);
     Input_ResetLayout(s->backend, s->active_layout);
-    g_Config.dirty = true;
+    Config_SectionChanged();
     Config_Update();
 }
 
 static void M_UnbindKey(void *const arg)
 {
-    const UI_CONTROLS_EDITOR_STATE *const s = arg;
+    UI_CONTROLS_EDITOR_STATE *const s = arg;
     Sound_Effect(
         g_TRVersion == 1 ? SFX_MENU_GAMEBOY : SFX_MENU_SPINOUT, nullptr,
         SPM_NORMAL);
     Input_UnassignRole(
         s->backend, s->active_layout, s->active_role, s->active_slot);
-    g_Config.dirty = true;
+    Config_SectionChanged();
     Config_Update();
 }
 
@@ -373,6 +411,7 @@ static UI_CONTROLS_CHOICE M_Listen(UI_CONTROLS_EDITOR_STATE *const s)
         TouchOverlay_ExitSelectionMode();
     }
     Input_ExitListenMode();
+    M_MeasureColumns(s);
 
     const EVENT event = {
         .name = "key_change",
@@ -514,6 +553,20 @@ static void M_Footer(UI_CONTROLS_EDITOR_STATE *const s)
     UI_EndStack();
 }
 
+static void M_Header(void *const user_data)
+{
+    UI_CONTROLS_EDITOR_STATE *const s = user_data;
+    UI_BeginStackEx((UI_STACK_SETTINGS) {
+        .orientation = UI_STACK_VERTICAL,
+        .align = { .h = UI_STACK_H_ALIGN_SPAN },
+        .spacing = { .v = 4.0f },
+    });
+    M_CurrentLayout(s);
+    M_GroupsHeader(s);
+    UI_EndStack();
+    UI_Spacer(0.0f, 5.0f);
+}
+
 void UI_ControlsEditor_Init(
     UI_CONTROLS_EDITOR_STATE *const s, const INPUT_BACKEND backend,
     const int32_t layout, EVENT_MANAGER *const events)
@@ -572,13 +625,7 @@ void UI_ControlsEditor_Init(
     s->scroll.max_items = M_GetInputRoleCount(s->active_group);
     s->active_role = s->active_group->rows[s->scroll.sel_item].role;
 
-    s->label_size = 0.0f;
-    for (int32_t i = 0; i < INPUT_ROLE_NUMBER_OF; i++) {
-        float w;
-        UI_Label_Measure(Input_GetRoleName(i), &w, nullptr);
-        s->label_size = MAX(s->label_size, w / g_Config.ui.text_scale);
-    }
-    s->input_size = 80;
+    M_MeasureColumns(s);
 }
 
 void UI_ControlsEditor_Free(UI_CONTROLS_EDITOR_STATE *const s)
@@ -613,20 +660,6 @@ UI_CONTROLS_CHOICE UI_ControlsEditor_Control(UI_CONTROLS_EDITOR_STATE *const s)
     default:
         return UI_CONTROLS_CHOICE_NOOP;
     }
-}
-
-static void M_Header(void *const user_data)
-{
-    UI_CONTROLS_EDITOR_STATE *const s = user_data;
-    UI_BeginStackEx((UI_STACK_SETTINGS) {
-        .orientation = UI_STACK_VERTICAL,
-        .align = { .h = UI_STACK_H_ALIGN_SPAN },
-        .spacing = { .v = 4.0f },
-    });
-    M_CurrentLayout(s);
-    M_GroupsHeader(s);
-    UI_EndStack();
-    UI_Spacer(0.0f, 5.0f);
 }
 
 void UI_ControlsEditor(UI_CONTROLS_EDITOR_STATE *const s)

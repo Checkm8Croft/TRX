@@ -1,3 +1,3 @@
-trx.events.before_item_setup(function(level)
+trx.events.on_game_start(function()
   trx.objects.animating_16.properties.collidable = false
 end)

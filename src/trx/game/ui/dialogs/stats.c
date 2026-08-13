@@ -66,6 +66,7 @@ typedef struct UI_STATS_DIALOG_STATE {
     };
 
     const M_LOOK *look;
+    UI_PROGRESS_BUTTON_STATE *reset_button;
     bool has_floordata_secrets;
     bool has_visible_rows;
 } UI_STATS_DIALOG_STATE;
@@ -149,10 +150,10 @@ static void M_AdjustMaxKills(
         return;
     }
     s->adjusted_max_stats = *s->max_stats;
-    s->adjusted_max_stats.max_kill_count =
+    s->adjusted_max_stats.maxes[STATS_CAT_KILLS] =
         s->adjusted_max_stats.max_kill_non_ally_count;
     if (include_allies) {
-        s->adjusted_max_stats.max_kill_count +=
+        s->adjusted_max_stats.maxes[STATS_CAT_KILLS] +=
             s->adjusted_max_stats.max_kill_ally_count;
     }
     s->max_stats = &s->adjusted_max_stats;
@@ -166,7 +167,7 @@ static bool M_HasHurtAlliesSoFar(const int32_t level_num)
     }
     for (int32_t i = 0; i <= level_num && i < level_table->count; i++) {
         const GF_LEVEL *const level = &level_table->levels[i];
-        const RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
+        const RESUME_INFO *const resume = SG_Resume_GetEntry(level);
         if (resume != nullptr && resume->flags.available
             && resume->hurt_allies) {
             return true;
@@ -187,7 +188,7 @@ static bool M_HasHurtAlliesEver(const bool include_bonus_levels)
               || (level->type == GFL_BONUS && include_bonus_levels))) {
             continue;
         }
-        const RESUME_INFO *const resume = Savegame_GetCurrentInfo(level);
+        const RESUME_INFO *const resume = SG_Resume_GetEntry(level);
         if (resume != nullptr && resume->hurt_allies) {
             return true;
         }
@@ -195,24 +196,23 @@ static bool M_HasHurtAlliesEver(const bool include_bonus_levels)
     return false;
 }
 
-static void M_FormatIconSecrets(
-    char *const out, const LEVEL_STATS *const level_stats)
+static void M_FormatIconSecrets(char *const out, const GF_LEVEL *const level)
 {
     char *ptr = out;
     int32_t num_secrets = 0;
     for (int32_t i = 0; i < STATS_MAX_SECRETS; i++) {
-        if (!Stats_IsSecretValid(i)) {
+        if (!Stats_IsSecretValid(level, i)) {
             continue;
         }
 
-        const bool has_secret = Stats_HasSecret(i);
+        const bool has_secret = Stats_HasSecret(level, i);
         if (!has_secret && out == ptr) {
             // Do not reserve space pointlessly.
             // Good: [secret][ ][ ]
             // Bad:  [ ][ ][secret] – should be just [secret]
             continue;
         }
-        const OBJECT_ID obj_id = Stats_GetSecretObject(i);
+        const OBJECT_ID obj_id = Stats_GetSecretObject(level, i);
         if (obj_id != NO_OBJECT) {
             int32_t secret_num = 0;
             for (int32_t j = 0; g_SecretObjects[j] != NO_OBJECT; j++) {
@@ -311,7 +311,7 @@ static void M_RowFromRole(
 
     case M_ROW_ICON_SECRETS: {
         char buf[256];
-        M_FormatIconSecrets(buf, (LEVEL_STATS *)s->stats);
+        M_FormatIconSecrets(buf, GF_GetLevel(GFLT_MAIN, s->args.level_num));
         M_Row(s, GS("general/stats/secrets"), buf);
         break;
     }
@@ -320,31 +320,33 @@ static void M_RowFromRole(
         M_Row(
             s, GS("general/stats/secrets"),
             String_FormatStatic(
-                GS("general/stats/detail_fmt"), s->stats->secret_count,
-                s->max_stats->max_secret_count));
+                GS("general/stats/detail_fmt"),
+                s->stats->counts[STATS_CAT_SECRETS],
+                s->max_stats->maxes[STATS_CAT_SECRETS]));
         break;
 
     case M_ROW_CRYSTALS:
         M_Row(
             s, GS("general/stats/crystals"),
             String_FormatStatic(
-                num_fmt, s->stats->crystal_count,
-                s->max_stats->max_crystal_count));
+                num_fmt, s->stats->counts[STATS_CAT_CRYSTALS],
+                s->max_stats->maxes[STATS_CAT_CRYSTALS]));
         break;
 
     case M_ROW_PICKUPS:
         M_Row(
             s, GS("general/stats/pickups"),
             String_FormatStatic(
-                num_fmt, s->stats->pickup_count,
-                s->max_stats->max_pickup_count));
+                num_fmt, s->stats->counts[STATS_CAT_PICKUPS],
+                s->max_stats->maxes[STATS_CAT_PICKUPS]));
         break;
 
     case M_ROW_KILLS:
         M_Row(
             s, GS("general/stats/kills"),
             String_FormatStatic(
-                num_fmt, s->stats->kill_count, s->max_stats->max_kill_count));
+                num_fmt, s->stats->counts[STATS_CAT_KILLS],
+                s->max_stats->maxes[STATS_CAT_KILLS]));
         break;
 
     case M_ROW_DEATHS:
@@ -444,6 +446,13 @@ static bool M_EmitDummyRow(
     return true;
 }
 
+// Pickup crystals exist only to be counted, so their row is not optional.
+static bool M_ShowCrystals(void)
+{
+    return g_Config.ui.stats.show_crystals
+        || g_Config.gameplay.save_crystal_mode == SAVE_CRYSTAL_PICKUP;
+}
+
 static bool M_EmitConfiguredStatsRows(
     const UI_STATS_DIALOG_STATE *const s, const bool dry_run)
 {
@@ -458,12 +467,11 @@ static bool M_EmitConfiguredStatsRows(
         if (g_Config.ui.stats.show_pickups) {
             has_rows |= emit_row_func(s, M_ROW_PICKUPS, 0);
         }
-        if (g_Config.ui.stats.show_crystals
-            && s->max_stats->max_crystal_count != 0) {
+        if (M_ShowCrystals() && s->max_stats->maxes[STATS_CAT_CRYSTALS] != 0) {
             has_rows |= emit_row_func(s, M_ROW_CRYSTALS, 0);
         }
         if (g_Config.ui.stats.show_secrets
-            && s->max_stats->max_secret_count != 0) {
+            && s->max_stats->maxes[STATS_CAT_SECRETS] != 0) {
             has_rows |= emit_row_func(s, M_ROW_AUTO_SECRETS, 0);
         }
         if (g_Config.ui.stats.show_time_taken) {
@@ -474,11 +482,10 @@ static bool M_EmitConfiguredStatsRows(
             has_rows |= emit_row_func(s, M_ROW_TIMER, 0);
         }
         if (g_Config.ui.stats.show_secrets
-            && s->max_stats->max_secret_count != 0) {
+            && s->max_stats->maxes[STATS_CAT_SECRETS] != 0) {
             has_rows |= emit_row_func(s, M_ROW_AUTO_SECRETS, 0);
         }
-        if (g_Config.ui.stats.show_crystals
-            && s->max_stats->max_crystal_count != 0) {
+        if (M_ShowCrystals() && s->max_stats->maxes[STATS_CAT_CRYSTALS] != 0) {
             has_rows |= emit_row_func(s, M_ROW_CRYSTALS, 0);
         }
         if (g_Config.ui.stats.show_pickups) {
@@ -647,6 +654,26 @@ static int32_t M_GetAssaultCourseRowCount(const UI_STATS_DIALOG_STATE *const s)
     return MAX(count, M_MIN_ASSAULT_COURSE_ROWS);
 }
 
+static bool M_HasAnyRecordedTime(const UI_STATS_DIALOG_STATE *const s)
+{
+    for (GYM_TRACK_TYPE track = 0; track < GYM_TRACK_NUMBER_OF; track++) {
+        if (s->assault_stats[track]->entries[0].time != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static void M_ResetAssaultCourseStats(void *const user_data)
+{
+    UI_STATS_DIALOG_STATE *const s = user_data;
+    for (GYM_TRACK_TYPE track = 0; track < GYM_TRACK_NUMBER_OF; track++) {
+        Gym_TrackManager_ClearStats(track);
+    }
+    UI_Scrollable_SetMaxItems(&s->scrollable, M_GetAssaultCourseRowCount(s));
+    UI_Scrollable_SelectFirstItem(&s->scrollable);
+}
+
 static UI_WINDOW_SETTINGS M_GetWindowSettings(
     const UI_STATS_DIALOG_STATE *const s)
 {
@@ -701,7 +728,7 @@ UI_STATS_DIALOG_STATE *UI_StatsDialog_Init(const UI_STATS_DIALOG_ARGS args)
         const GF_LEVEL *const current_level =
             GF_GetLevel(GFLT_MAIN, s->args.level_num);
         const RESUME_INFO *const current_info =
-            Savegame_GetCurrentInfo(current_level);
+            SG_Resume_GetEntry(current_level);
         s->stats = (const STATS_COMMON *)&current_info->stats;
         s->max_stats = Stats_GetLevelMaxStats(current_level);
         const bool include_allies = M_HasHurtAlliesSoFar(s->args.level_num);
@@ -737,6 +764,10 @@ UI_STATS_DIALOG_STATE *UI_StatsDialog_Init(const UI_STATS_DIALOG_ARGS args)
         }
         s->scrollable.max_items = M_GetAssaultCourseRowCount(s);
         s->has_visible_rows = true;
+        s->reset_button = UI_ProgressButton_Init(
+            g_Config.input.backend, INPUT_ROLE_UNBIND_KEY,
+            GS_ID("general/stats/assault_reset_times"),
+            M_ResetAssaultCourseStats, s);
         break;
     }
 
@@ -745,6 +776,9 @@ UI_STATS_DIALOG_STATE *UI_StatsDialog_Init(const UI_STATS_DIALOG_ARGS args)
 
 void UI_StatsDialog_Free(UI_STATS_DIALOG_STATE *const s)
 {
+    if (s->reset_button != nullptr) {
+        UI_ProgressButton_Free(s->reset_button);
+    }
     Memory_Free(s);
 }
 
@@ -755,6 +789,9 @@ bool UI_StatsDialog_HasVisibleRows(const UI_STATS_DIALOG_STATE *const s)
 
 int32_t UI_StatsDialog_Control(UI_STATS_DIALOG_STATE *const s)
 {
+    if (s->reset_button != nullptr && M_HasAnyRecordedTime(s)) {
+        UI_ProgressButton_Control(s->reset_button);
+    }
     return UI_ScrollableStack_Control(&s->scrollable, UI_STACK_VERTICAL);
 }
 
@@ -784,6 +821,11 @@ void UI_StatsDialog(UI_STATS_DIALOG_STATE *const s)
             });
         M_AssaultCourseStatsRows(s);
         UI_EndScrollableStack();
+        UI_BeginHide(!M_HasAnyRecordedTime(s));
+        UI_BeginAnchor(0.5f, 0.5f);
+        UI_ProgressButton(s->reset_button);
+        UI_EndAnchor();
+        UI_EndHide();
         break;
     }
 

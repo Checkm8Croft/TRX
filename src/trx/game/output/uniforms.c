@@ -31,9 +31,11 @@
     X_DECLARE_MEMBER(float, min_shade)                                         \
     X_DECLARE_MEMBER(int, billboard_lock_mode)                                 \
     X_DECLARE_MEMBER(int, lighting_enabled)                                    \
+    X_DECLARE_MEMBER(int, static_lighting_enabled)                             \
     X_DECLARE_MEMBER(int, trapezoid_filter_enabled)                            \
     X_DECLARE_MEMBER(int, reflections_enabled)                                 \
     X_DECLARE_MEMBER(int, textures_enabled)                                    \
+    X_DECLARE_MEMBER(int, vertex_snap_enabled)                                 \
     X_DECLARE_MEMBER(int, tr_version)                                          \
     X_DECLARE_MEMBER(float, uv_rotate_offset)
 
@@ -148,9 +150,11 @@ void Output_Uniforms_UploadGeneral(const OUTPUT_UNIFORMS *const uniforms)
         .min_shade = M_GetMinShade(),
         .billboard_lock_mode = g_Config.rendering.sprite_lock_mode,
         .lighting_enabled = g_Config.rendering.enable_lighting,
+        .static_lighting_enabled = g_Config.visuals.enable_static_lighting,
         .textures_enabled = g_Config.rendering.enable_textures,
         .trapezoid_filter_enabled = g_Config.rendering.enable_trapezoid_filter,
         .reflections_enabled = g_Config.visuals.enable_reflections,
+        .vertex_snap_enabled = g_Config.rendering.enable_vertex_snap,
         .fog_distance = {Output_GetFogStart(), Output_GetFogEnd()},
         .fog_color = {
             Output_GetFogColor().r,
@@ -175,37 +179,6 @@ void Output_Uniforms_UploadFogDistance(
         glBufferSubData, GL_UNIFORM_BUFFER,
         offsetof(M_UNIFORM_GENERAL, fog_distance), sizeof(fog_distance),
         &fog_distance);
-}
-
-void Output_Uniforms_UploadGameBrightnessMultiplier(
-    const OUTPUT_UNIFORMS *const uniforms,
-    const float game_brightness_multiplier)
-{
-    ASSERT(uniforms != nullptr);
-
-    float clamped = game_brightness_multiplier;
-    CLAMP(clamped, CONFIG_MIN_BRIGHTNESS, CONFIG_MAX_BRIGHTNESS);
-
-    glBindBuffer(GL_UNIFORM_BUFFER, uniforms->general);
-    TRX_GL_TRACK_SUBDATA(
-        glBufferSubData, GL_UNIFORM_BUFFER,
-        offsetof(M_UNIFORM_GENERAL, brightness_multiplier), sizeof(clamped),
-        &clamped);
-}
-
-void Output_Uniforms_UploadUIBrightnessMultiplier(
-    const OUTPUT_UNIFORMS *const uniforms, const float brightness_multiplier)
-{
-    ASSERT(uniforms != nullptr);
-
-    float clamped = brightness_multiplier;
-    CLAMP(clamped, CONFIG_MIN_BRIGHTNESS, CONFIG_MAX_BRIGHTNESS);
-
-    glBindBuffer(GL_UNIFORM_BUFFER, uniforms->general);
-    TRX_GL_TRACK_SUBDATA(
-        glBufferSubData, GL_UNIFORM_BUFFER,
-        offsetof(M_UNIFORM_GENERAL, ui_brightness_multiplier), sizeof(clamped),
-        &clamped);
 }
 
 void Output_Uniforms_UploadRoomLights(

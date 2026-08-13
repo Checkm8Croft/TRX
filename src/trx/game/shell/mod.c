@@ -204,9 +204,19 @@ static void M_ValidateNoMixedModLayouts(void)
         const char *const legacy_gameflow =
             String_FormatStatic("%s/%s/gameflow.json5", config_dir, mod->name);
         if (File_Exists(legacy_gameflow)) {
+            // The paths are long enough that the message box cannot fit them
+            // on one line, and it does not wrap.
             Shell_ExitSystemFmt(
-                "Mixed mod layout detected: found legacy mod data at '%s' "
-                "while '%s' is used for mods. Move '%s' to '%s/%s/'.",
+                "Mixed mod layout detected.\n"
+                "\n"
+                "Legacy mod data found at:\n"
+                "    %s\n"
+                "\n"
+                "Mods are read from:\n"
+                "    %s\n"
+                "\n"
+                "Move the '%s' directory to:\n"
+                "    %s/%s/",
                 legacy_gameflow, games_dir, mod->name, games_dir, mod->name);
         }
     }
@@ -232,6 +242,25 @@ __attribute__((destructor)) static void M_Shutdown(void)
     }
     Vector_Free(m_Mods);
     m_Mods = nullptr;
+}
+
+static bool M_MatchesEngineVersion(
+    const SHELL_MOD *const mod, const int32_t engine_version)
+{
+    return engine_version == 0 || mod->engine_version == engine_version;
+}
+
+static const SHELL_MOD *M_GetFirstAvailableMod(const int32_t engine_version)
+{
+    for (int32_t i = 0; i < m_Mods->count; i++) {
+        const SHELL_MOD *const mod = Vector_Get(m_Mods, i);
+        if (!Shell_CanSwitchToMod(mod)
+            || !M_MatchesEngineVersion(mod, engine_version)) {
+            continue;
+        }
+        return mod;
+    }
+    return nullptr;
 }
 
 void Shell_ScanAvailableMods(void)
@@ -319,25 +348,6 @@ const SHELL_MOD *Shell_GetModByName(const char *const name)
         if (mod->is_available && strcmp(mod->name, name) == 0) {
             return mod;
         }
-    }
-    return nullptr;
-}
-
-static bool M_MatchesEngineVersion(
-    const SHELL_MOD *const mod, const int32_t engine_version)
-{
-    return engine_version == 0 || mod->engine_version == engine_version;
-}
-
-static const SHELL_MOD *M_GetFirstAvailableMod(const int32_t engine_version)
-{
-    for (int32_t i = 0; i < m_Mods->count; i++) {
-        const SHELL_MOD *const mod = Vector_Get(m_Mods, i);
-        if (!Shell_CanSwitchToMod(mod)
-            || !M_MatchesEngineVersion(mod, engine_version)) {
-            continue;
-        }
-        return mod;
     }
     return nullptr;
 }

@@ -33,6 +33,7 @@ typedef enum {
     OUTPUT_MESH_ATTR_FLAGS           = 5,
     OUTPUT_MESH_ATTR_COLOR           = 6,
     OUTPUT_MESH_ATTR_SHADE           = 7,
+    OUTPUT_MESH_ATTR_REFLECTIVITY    = 8,
     // clang-format on
 } OUTPUT_MESH_ATTRIBUTE;
 
@@ -40,7 +41,7 @@ typedef struct OUTPUT_MESH_SHADER OUTPUT_MESH_SHADER;
 
 OUTPUT_MESH_SHADER *Output_MeshShader_Create(void);
 void Output_MeshShader_Free(OUTPUT_MESH_SHADER *shader);
-void Output_MeshShader_Bind(const OUTPUT_MESH_SHADER *shader);
+void Output_MeshShader_Bind(OUTPUT_MESH_SHADER *shader);
 
 // TODO: these could could use UBOs
 void Output_MeshShader_UploadModelMatrix(
@@ -49,6 +50,6 @@ void Output_MeshShader_UploadWaterEffect(
     OUTPUT_MESH_SHADER *shader, int32_t water_effect);
 void Output_MeshShader_UploadWibbleEffect(
     OUTPUT_MESH_SHADER *shader, bool is_enabled);
-void Output_MeshShader_UploadTint(OUTPUT_MESH_SHADER *shader, RGB_F tint);
+void Output_MeshShader_UploadTint(OUTPUT_MESH_SHADER *shader, RGBA_F tint);
 void Output_MeshShader_UploadAlphaDiscard(
     OUTPUT_MESH_SHADER *shader, bool is_enabled);

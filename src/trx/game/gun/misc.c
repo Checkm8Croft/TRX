@@ -22,20 +22,6 @@
 
 #define M_NEAR_ANGLE (DEG_1 * 15) // = 2730
 
-static ITEM *m_TargetList[LOT_SLOT_COUNT] = {};
-static ITEM *m_LastTargetList[LOT_SLOT_COUNT] = {};
-static int16_t m_TargetCount = 0;
-
-static bool M_TargetListContains(const ITEM *const item, const int16_t count)
-{
-    for (int16_t i = 0; i < count; i++) {
-        if (m_TargetList[i] == item) {
-            return true;
-        }
-    }
-    return false;
-}
-
 typedef struct {
     const WEAPON_INFO *weapon;
     const GAME_VECTOR *start;
@@ -51,6 +37,21 @@ typedef struct {
     int16_t old_target_y_rot;
     bool old_target_in_list;
 } M_TARGET_CONTEXT;
+
+static ITEM *m_TargetList[LOT_SLOT_COUNT] = {};
+static ITEM *m_LastTargetList[LOT_SLOT_COUNT] = {};
+static ITEM *m_BestTarget = nullptr;
+static int16_t m_TargetCount = 0;
+
+static bool M_TargetListContains(const ITEM *const item, const int16_t count)
+{
+    for (int16_t i = 0; i < count; i++) {
+        if (m_TargetList[i] == item) {
+            return true;
+        }
+    }
+    return false;
+}
 
 static void M_ConsiderTarget(M_TARGET_CONTEXT *const ctx, ITEM *const item)
 {
@@ -118,6 +119,50 @@ static void M_ConsiderTarget(M_TARGET_CONTEXT *const ctx, ITEM *const item)
     }
 }
 
+static void M_DrawGunGlow(
+    const WEAPON_INFO *const weapon, const bool interpolated)
+{
+    if (g_TRVersion < 3 && !g_Config.visuals.enable_gun_glow) {
+        return;
+    }
+    if (weapon->glow_scale <= 0.0f) {
+        return;
+    }
+    const OBJECT *const glow_obj = Object_Get(O_GLOW);
+    if (!glow_obj->loaded) {
+        return;
+    }
+
+    // The glow follows a mesh that may be drawn between two game frames, so
+    // the sprite position has to be interpolated the same way.
+    if (interpolated) {
+        Matrix_Push_I();
+        Matrix_TranslateRel32_I(weapon->glow_pos);
+        Matrix_Interpolate();
+    } else {
+        Matrix_Push();
+        Matrix_TranslateRel32(weapon->glow_pos);
+    }
+    const XYZ_32 pos = {
+        .x = (int32_t)(g_WMatrixPtr->_03 >> W2V_SHIFT),
+        .y = (int32_t)(g_WMatrixPtr->_13 >> W2V_SHIFT),
+        .z = (int32_t)(g_WMatrixPtr->_23 >> W2V_SHIFT),
+    };
+    if (interpolated) {
+        Matrix_Pop_I();
+    } else {
+        Matrix_Pop();
+    }
+
+    // The flare's glow pulses as its pyro burns; gunfire glows are steady.
+    const int16_t shade =
+        weapon->glow_flicker ? (Random_GetDraw() & 0xFFF) + SHADE_NEUTRAL : 0;
+    Output_DrawSprite(
+        pos.x, pos.y, pos.z, glow_obj->mesh_idx, shade,
+        Color_RGBToRGBA(weapon->glow_color), DRAW_BLEND_ADD,
+        weapon->glow_scale);
+}
+
 void Gun_ApplyFlashSemiTransparency(void)
 {
     // TR3+ level data already flags the flash faces as semi-transparent;
@@ -136,36 +181,6 @@ void Gun_ApplyFlashSemiTransparency(void)
         Object_SetSemiTransparent(
             flash_objects[i], g_Config.visuals.enable_gun_glow);
     }
-}
-
-static void M_DrawGunGlow(const WEAPON_INFO *const weapon)
-{
-    if (g_TRVersion < 3 && !g_Config.visuals.enable_gun_glow) {
-        return;
-    }
-    if (weapon->glow_scale <= 0.0f) {
-        return;
-    }
-    const OBJECT *const glow_obj = Object_Get(O_GLOW);
-    if (!glow_obj->loaded) {
-        return;
-    }
-
-    Matrix_Push();
-    Matrix_TranslateRel32(weapon->glow_pos);
-    const XYZ_32 pos = {
-        .x = (int32_t)(g_WMatrixPtr->_03 >> W2V_SHIFT),
-        .y = (int32_t)(g_WMatrixPtr->_13 >> W2V_SHIFT),
-        .z = (int32_t)(g_WMatrixPtr->_23 >> W2V_SHIFT),
-    };
-    Matrix_Pop();
-
-    // The flare's glow pulses as its pyro burns; gunfire glows are steady.
-    const int16_t shade =
-        weapon->glow_flicker ? (Random_GetDraw() & 0xFFF) + SHADE_NEUTRAL : 0;
-    Output_DrawSprite(
-        pos.x, pos.y, pos.z, glow_obj->mesh_idx, shade, weapon->glow_color,
-        DRAW_BLEND_ADD, weapon->glow_scale);
 }
 
 void Gun_FindTargetPoint(const ITEM *const item, GAME_VECTOR *const target)
@@ -398,19 +413,19 @@ void Gun_DrawFlash(
         Object_DrawMesh(flash_obj->mesh_idx, clip, interpolated);
     }
 
-    M_DrawGunGlow(&weapon);
+    M_DrawGunGlow(&weapon, interpolated);
     Output_PopTintOverride();
 }
 
 void Gun_UpdateLaraMeshes(const OBJECT_ID obj_id)
 {
-    const bool lara_has_rifle = Inv_RequestItem(O_SHOTGUN_ITEM)
-        || Inv_RequestItem(O_HARPOON_ITEM) || Inv_RequestItem(O_M16_ITEM)
-        || Inv_RequestItem(O_MP5_ITEM) || Inv_RequestItem(O_GRENADE_GUN_ITEM)
-        || Inv_RequestItem(O_ROCKET_GUN_ITEM);
-    const bool lara_has_pistols = Inv_RequestItem(O_PISTOL_ITEM)
-        || Inv_RequestItem(O_MAGNUM_ITEM) || Inv_RequestItem(O_AUTOS_ITEM)
-        || Inv_RequestItem(O_DESERT_EAGLE_ITEM) || Inv_RequestItem(O_UZI_ITEM);
+    const bool lara_has_rifle = Inv_HasItem(O_SHOTGUN_ITEM)
+        || Inv_HasItem(O_HARPOON_ITEM) || Inv_HasItem(O_M16_ITEM)
+        || Inv_HasItem(O_MP5_ITEM) || Inv_HasItem(O_GRENADE_GUN_ITEM)
+        || Inv_HasItem(O_ROCKET_GUN_ITEM);
+    const bool lara_has_pistols = Inv_HasItem(O_PISTOL_ITEM)
+        || Inv_HasItem(O_MAGNUM_ITEM) || Inv_HasItem(O_AUTOS_ITEM)
+        || Inv_HasItem(O_DESERT_EAGLE_ITEM) || Inv_HasItem(O_UZI_ITEM);
 
     LARA_GUN_TYPE back_gun_type = LGT_UNARMED;
     LARA_GUN_TYPE holsters_gun_type = LGT_UNARMED;
@@ -490,7 +505,7 @@ void Gun_HitTarget(
                 .room_num = item->room_num,
             };
             if (start != nullptr) {
-                Spawn_RicochetRay(*start, pos);
+                Spawn_RicochetRay(*start, pos, 3);
             } else {
                 Spawn_Ricochet(pos);
             }
@@ -542,7 +557,8 @@ void Gun_GetNewTarget(const WEAPON_INFO *const weapon)
 
     // Preserve OG targeting behavior.
     if (g_Config.gameplay.target_mode == TARGET_LOCK_MODE_FULL
-        && !g_Config.gameplay.enable_target_change && !g_Input.action) {
+        && g_Config.gameplay.target_change_mode == TARGET_CHANGE_MODE_OFF
+        && !g_Input.action) {
         lara->target = nullptr;
     }
 
@@ -589,6 +605,7 @@ void Gun_GetNewTarget(const WEAPON_INFO *const weapon)
     }
 
     m_TargetCount = ctx.num_targets;
+    m_BestTarget = ctx.best_target;
 
     if ((g_Config.gameplay.target_mode == TARGET_LOCK_MODE_FULL
          || g_Config.gameplay.target_mode == TARGET_LOCK_MODE_SEMI)
@@ -647,6 +664,13 @@ void Gun_ChangeTarget(const WEAPON_INFO *const weapon)
             lara->target = m_TargetList[new_target];
             break;
         }
+    }
+
+    // Every target in range has been through the cycle already: start it over
+    // rather than leaving Lara with none, which would unlock her arms.
+    if (lara->target == nullptr) {
+        lara->target = m_BestTarget;
+        m_LastTargetList[0] = nullptr;
     }
 
     if (lara->target != m_LastTargetList[0]) {

@@ -1,11 +1,14 @@
 #include <trx/game/lara/skin/common.h>
 
 #include <trx/config.h>
+#include <trx/config/registry.h>
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
 #include <trx/debug.h>
+#include <trx/game/fmv.h>
 #include <trx/game/game.h>
+#include <trx/game/game_flow.h>
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/gun.h>
 #include <trx/game/lara.h>
@@ -20,6 +23,7 @@ static bool m_UseCombatFace = false;
 static LARA_GUN_TYPE m_HolsterType_L = LGT_UNARMED;
 static LARA_GUN_TYPE m_HolsterType_R = LGT_UNARMED;
 static LARA_SKIN_EQUIPMENT m_Equipment[LM_NUMBER_OF] = {};
+static OBJECT_MESH *m_MeshOverrides[LM_NUMBER_OF] = {};
 
 static inline const LARA_SKIN_OUTFIT *M_GetCurrentOutfit(void)
 {
@@ -58,11 +62,7 @@ static LARA_SKIN_TYPE M_GetFallbackOutfitType(void)
 static void M_SetConfigOutfit(const char *const outfit_name)
 {
     ASSERT(outfit_name != nullptr);
-    char *const old = g_Config.visuals.lara_outfit;
-    g_Config.visuals.lara_outfit = Memory_DupStr(outfit_name);
-    // Keep the old pointer alive until after the duplication so Config_Update
-    // can reliably detect a string change via pointer identity.
-    Memory_Free(old);
+    CONFIG_SET(g_Config.visuals.lara_outfit, outfit_name);
 }
 
 static LARA_SKIN_TYPE M_GetCurrentLevelOutfitType(void)
@@ -142,17 +142,21 @@ static int32_t M_GetNoHolsterMeshIdx(
     return obj->mesh_idx + offset;
 }
 
-static inline int32_t M_GetRelativeBraidOffset(void)
+static inline int32_t M_GetRelativeBraidOffset(const int32_t braid_idx)
 {
     const LARA_SKIN_OUTFIT *const outfit = M_GetCurrentOutfit();
     if (!outfit->braid.enabled) {
         return M_NO_MESH;
     }
 
+    if (braid_idx < 0 || braid_idx >= outfit->braid.count) {
+        return M_NO_MESH;
+    }
+
     const LARA_INFO *const lara = Lara_GetLaraInfo();
-    int32_t offset = outfit->braid.mesh_offset;
+    int32_t offset = outfit->braid.setup[braid_idx].mesh_offset;
     if (outfit->is_reflective || (lara->mesh_effects & (1 << LM_HEAD)) != 0) {
-        offset = outfit->braid.gold_offset;
+        offset = outfit->braid.setup[braid_idx].gold_offset;
     }
 
     return offset;
@@ -161,7 +165,7 @@ static inline int32_t M_GetRelativeBraidOffset(void)
 static inline int32_t M_GetMeshIdx(
     const LARA_MESH mesh, const LARA_SKIN_OUTFIT *const outfit)
 {
-    const OBJECT *const skin_obj = Object_Get(outfit->obj_id);
+    const OBJECT *const skin_obj = Object_Get(outfit->mesh_obj_id);
     int32_t offset = M_NO_MESH;
 
     if (g_Config.visuals.enable_braid) {
@@ -179,6 +183,11 @@ static inline int32_t M_GetMeshIdx(
 static inline void M_ApplyMeshIfValid(
     const LARA_MESH mesh, const LARA_SKIN_OUTFIT *const outfit)
 {
+    if (m_MeshOverrides[mesh] != nullptr) {
+        Lara_Mesh_Set(mesh, m_MeshOverrides[mesh]);
+        return;
+    }
+
     const int32_t mesh_idx = M_GetMeshIdx(mesh, outfit);
     if (mesh_idx != M_NO_MESH) {
         Lara_Mesh_Set(mesh, Object_GetMesh(mesh_idx));
@@ -235,13 +244,17 @@ static void M_SetEquipment(
     case EQUIPMENT_TYPE_WEAPON:
         const OBJECT *const gun_swap_obj = Object_Get(O_LARA_SKIN_SWAP_GUNS);
         equipment->mesh = Object_GetMesh(gun_swap_obj->mesh_idx + offset);
+        equipment->offset = (XYZ_16) {};
         break;
     case EQUIPMENT_TYPE_EXTRA:
         const OBJECT *const extra_obj = Object_Get(O_LARA_SKIN_SWAP_EXTRA);
         equipment->mesh = Object_GetMesh(extra_obj->mesh_idx + offset);
+        const LARA_SKIN_OUTFIT *const outfit = M_GetCurrentOutfit();
+        equipment->offset = outfit->extra_mesh_positions[data];
         break;
     default:
         equipment->mesh = nullptr;
+        equipment->offset = (XYZ_16) {};
         break;
     }
 }
@@ -311,14 +324,21 @@ static void M_UpdateSunglasses(void)
     Lara_Skin_SetExtraEquipment(LM_HEAD, mesh);
 }
 
+// Whether an outfit has this level's meshes to bind to. A title level running
+// behind the menu is dressed like any other, so this asks what is loaded
+// rather than whether a game is under way.
+static bool M_CanDress(void)
+{
+    return GF_GetCurrentLevel() != nullptr && !FMV_IsPlaying()
+        && Object_Get(O_LARA)->loaded
+        && Object_Get(O_LARA_SKIN_SWAP_EXTRA)->loaded
+        && Object_Get(O_LARA_SKIN_SWAP_GUNS)->loaded;
+}
+
 void Lara_Skin_Initialise(void)
 {
-    const OBJECT *const extra_obj = Object_Get(O_LARA_SKIN_SWAP_EXTRA);
-    ASSERT(extra_obj->loaded);
-
-    const OBJECT *const gun_swap_obj = Object_Get(O_LARA_SKIN_SWAP_GUNS);
-    ASSERT(gun_swap_obj->loaded);
-
+    // Before the bail below, so a level that cannot dress her does not inherit
+    // the outgoing level's outfit - the meshes it names are not loaded here.
     m_SkinType = M_NO_OUTFIT;
     m_HolsterType_L = LGT_UNARMED;
     m_HolsterType_R = LGT_UNARMED;
@@ -327,8 +347,23 @@ void Lara_Skin_Initialise(void)
     m_HolstersVisible = true;
     for (int32_t i = 0; i < LM_NUMBER_OF; i++) {
         m_Equipment[i].visible = true;
+        // Before the clear, which applies a mesh and would read it.
+        m_MeshOverrides[i] = nullptr;
         Lara_Skin_ClearEquipment(i);
     }
+
+    // A level need not carry the swap objects: a title that never shows her
+    // has no use for them. No outfit is applied then, and she keeps the meshes
+    // the level loaded for her. A level that does hold her and not them
+    // used to fail an assertion here, and is still an incomplete install.
+    if (!M_CanDress()) {
+        if (GF_GetCurrentLevel() != nullptr && Object_Get(O_LARA)->loaded) {
+            LOG_WARNING("No skin swap objects here; no outfit applied");
+        }
+        return;
+    }
+    const OBJECT *const extra_obj = Object_Get(O_LARA_SKIN_SWAP_EXTRA);
+    const OBJECT *const gun_swap_obj = Object_Get(O_LARA_SKIN_SWAP_GUNS);
 
     const int32_t hair_segment_count = Lara_Hair_GetSegmentCount();
     const int32_t outfit_count = Lara_Skin_GetOutfitCount();
@@ -338,7 +373,7 @@ void Lara_Skin_Initialise(void)
             continue;
         }
 
-        const OBJECT *const skin_obj = Object_Get(outfit->obj_id);
+        const OBJECT *const skin_obj = Object_Get(outfit->mesh_obj_id);
         ASSERT(skin_obj->loaded);
         ASSERT(skin_obj->mesh_count == LM_NUMBER_OF);
         if (!outfit->is_reflective) {
@@ -365,13 +400,26 @@ void Lara_Skin_Initialise(void)
             }
         }
 
-        if (!outfit->braid.enabled || outfit->braid.gold_offset == M_NO_MESH) {
+        if (outfit->joints_obj_id != NO_OBJECT) {
+            const OBJECT *const joints_obj = Object_Get(outfit->joints_obj_id);
+            if (joints_obj->loaded) {
+                Object_SetReflective(outfit->joints_obj_id, true);
+            }
+        }
+
+        if (!outfit->braid.enabled) {
             continue;
         }
 
-        for (int32_t j = 0; j < hair_segment_count; j++) {
-            Object_SetMeshReflectiveEx(
-                extra_obj->mesh_idx + outfit->braid.gold_offset + j, true);
+        for (int32_t j = 0; j < outfit->braid.count; j++) {
+            const int32_t gold_offset = outfit->braid.setup[j].gold_offset;
+            if (gold_offset == M_NO_MESH) {
+                continue;
+            }
+            for (int32_t k = 0; k < hair_segment_count; k++) {
+                Object_SetMeshReflectiveEx(
+                    extra_obj->mesh_idx + gold_offset + k, true);
+            }
         }
     }
 
@@ -380,7 +428,7 @@ void Lara_Skin_Initialise(void)
 
 void Lara_Skin_ApplyOutfitFromConfig(void)
 {
-    if (!Game_IsLoaded()) {
+    if (!M_CanDress()) {
         return;
     }
 
@@ -408,7 +456,9 @@ void Lara_Skin_CycleOutfit(const int32_t dir)
         return;
     }
 
-    if (Config_IsOptionEnforced(&g_Config.visuals.lara_outfit)) {
+    const CONFIG_OPTION *const option =
+        Config_FindOptionByMirror(&g_Config.visuals.lara_outfit);
+    if (option != nullptr && Config_Option_IsHeld(option)) {
         return;
     }
 
@@ -480,12 +530,45 @@ void Lara_Skin_ApplyOutfit(void)
     M_SetGunEquipment(LM_THIGH_R, m_HolsterType_R, outfit);
     M_SetCombatFace(m_UseCombatFace);
     M_UpdateSunglasses();
+    Lara_Joints_Initialise(outfit);
+    Lara_Hair_InitJoints(outfit);
+}
+
+void Lara_Skin_SetMeshOverride(
+    const LARA_MESH mesh, OBJECT_MESH *const mesh_ptr)
+{
+    m_MeshOverrides[mesh] = mesh_ptr;
+    // A level script runs before she has been dressed, and an outfit that is
+    // not applied yet names meshes that are not loaded. Applying an outfit
+    // reads the override, so the one set here still reaches her.
+    if (M_CanDress()) {
+        M_ApplyMeshIfValid(mesh, M_GetCurrentOutfit());
+    }
+}
+
+OBJECT_MESH *Lara_Skin_GetMeshOverride(const LARA_MESH mesh)
+{
+    return m_MeshOverrides[mesh];
 }
 
 void Lara_Skin_SetCombatFace(const bool enabled)
 {
     if (m_UseCombatFace != enabled) {
         M_SetCombatFace(enabled);
+    }
+}
+
+void Lara_Skin_SetSpeechFace(const int32_t index)
+{
+    const LARA_SKIN_OUTFIT *const outfit = M_GetCurrentOutfit();
+    if (outfit->speech_face_offset == M_NO_MESH) {
+        return;
+    }
+
+    const OBJECT *const extra_obj = Object_Get(O_LARA_SKIN_SWAP_EXTRA);
+    const int32_t offset = outfit->speech_face_offset + index;
+    if (offset >= 0 && offset < extra_obj->mesh_count) {
+        Lara_Mesh_Set(LM_HEAD, Object_GetMesh(extra_obj->mesh_idx + offset));
     }
 }
 
@@ -513,6 +596,7 @@ void Lara_Skin_SwapSingleExtra(
     }
 
     M_ApplyMeshIfValid(mesh, outfit);
+    Lara_Joints_SwapSingle(mesh, outfit);
 
     if (mesh == LM_THIGH_L) {
         M_SetGunEquipment(LM_THIGH_L, m_HolsterType_L, outfit);
@@ -524,24 +608,24 @@ void Lara_Skin_SwapSingleExtra(
 const ANIM_BONE *Lara_Skin_GetBoneBase(void)
 {
     const LARA_SKIN_OUTFIT *const outfit = M_GetCurrentOutfit();
-    const OBJECT *const skin_obj = Object_Get(outfit->obj_id);
+    const OBJECT *const skin_obj = Object_Get(outfit->mesh_obj_id);
     return Object_TryGetBone(skin_obj, 0);
 }
 
 bool Lara_Skin_IsBraidSupported(void)
 {
-    return Lara_Skin_GetBraidMeshIdx() != M_NO_MESH;
+    return Lara_Skin_GetBraidMeshIdx(0) != M_NO_MESH;
 }
 
-XYZ_32 Lara_Skin_GetBraidOffset(void)
+const LARA_SKIN_BRAID *Lara_Skin_GetBraid(void)
 {
     const LARA_SKIN_OUTFIT *const outfit = M_GetCurrentOutfit();
-    return outfit->braid.hair_pos;
+    return &outfit->braid;
 }
 
-int32_t Lara_Skin_GetBraidMeshIdx(void)
+int32_t Lara_Skin_GetBraidMeshIdx(const int32_t braid_idx)
 {
-    const int32_t offset = M_GetRelativeBraidOffset();
+    const int32_t offset = M_GetRelativeBraidOffset(braid_idx);
     if (offset == M_NO_MESH) {
         return offset;
     }
@@ -550,9 +634,9 @@ int32_t Lara_Skin_GetBraidMeshIdx(void)
     return obj->mesh_idx + offset;
 }
 
-const ANIM_BONE *Lara_Skin_GetBraidBoneBase(void)
+const ANIM_BONE *Lara_Skin_GetBraidBoneBase(const int32_t braid_idx)
 {
-    const int32_t offset = M_GetRelativeBraidOffset();
+    const int32_t offset = M_GetRelativeBraidOffset(braid_idx);
     if (offset == M_NO_MESH) {
         return nullptr;
     }
@@ -592,7 +676,9 @@ void Lara_Skin_SetExtraEquipment(
 void Lara_Skin_SetGunEquipment(
     const LARA_MESH mesh, const LARA_GUN_TYPE gun_type)
 {
-    if (gun_type < 0 || gun_type >= NUM_WEAPONS) {
+    // The armed meshes live in the swap object, and a level need not carry it.
+    if (gun_type < 0 || gun_type >= NUM_WEAPONS
+        || !Object_Get(O_LARA_SKIN_SWAP_GUNS)->loaded) {
         return;
     }
     M_SetGunEquipment(mesh, gun_type, M_GetCurrentOutfit());

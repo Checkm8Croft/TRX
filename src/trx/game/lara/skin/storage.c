@@ -1,11 +1,14 @@
 #include <trx/game/lara/skin/storage.h>
 
 #include <trx/config.h>
+#include <trx/config/registry.h>
+#include <trx/core/dynamic_enum.h>
 #include <trx/core/enum_map.h>
 #include <trx/core/json/util/file.h>
 #include <trx/core/json/util/read_io.h>
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/vector.h>
 #include <trx/debug.h>
 #include <trx/game/catalog/manager.h>
@@ -44,16 +47,19 @@ static void M_ExitWithJSONError(
 static void M_SeedDynamicEnumValues(void)
 {
     const CONFIG_OPTION *const option =
-        Config_GetOption(&g_Config.visuals.lara_outfit);
-    Config_DynamicEnum_ResetValues(option);
-    Config_DynamicEnum_AddValue(
-        option, nullptr, GS_ID("dynamic/enums/lara_outfit/default"));
+        Config_FindOptionByMirror(&g_Config.visuals.lara_outfit);
+    if (option == nullptr) {
+        return;
+    }
+    const void *const token = Config_Option_GetEnumKey(option);
+    DynamicEnum_ResetValues(token);
+    DynamicEnum_AddValue(
+        token, nullptr, GS_ID("dynamic/enums/lara_outfit/default"));
     for (int32_t i = 0; i < m_OutfitCount; i++) {
         if (!m_Outfits[i].outfit.is_selectable) {
             continue;
         }
-        Config_DynamicEnum_AddValue(
-            option, m_Outfits[i].name, m_Outfits[i].name_gs);
+        DynamicEnum_AddValue(token, m_Outfits[i].name, m_Outfits[i].name_gs);
     }
 }
 
@@ -77,26 +83,6 @@ static void M_ResetOutfits(void)
 
     m_OutfitCount = 0;
     m_OutfitLookup = nullptr;
-}
-
-LARA_SKIN_TYPE Lara_Skin_FindOutfitByName(const char *const name)
-{
-    if (name == nullptr) {
-        return LARA_SKIN_TYPE_DEFAULT;
-    }
-
-    M_OUTFIT_LOOKUP *entry = nullptr;
-    HASH_FIND_STR(m_OutfitLookup, name, entry);
-    if (entry == nullptr) {
-        return -1;
-    }
-
-    return entry->index;
-}
-
-LARA_SKIN_TYPE Lara_Skin_GetDefaultType(void)
-{
-    return m_OutfitCount > 0 ? 0 : LARA_SKIN_TYPE_DEFAULT;
 }
 
 static bool M_ReadGunMaps(JSON_READ_IO *const io)
@@ -172,9 +158,47 @@ static bool M_ReadExtraMeshes(JSON_READ_IO *const io)
     JSON_FINISH();
 }
 
+static bool M_LoadBraidHeadSeam(
+    JSON_READ_IO *const io, LARA_SKIN_BRAID_HEAD_SEAM *const seam)
+{
+    if (!JSON_OPTIONAL(JSON_PUSH(io, "head_seam"))) {
+        return true;
+    }
+
+    const int32_t pairs = MIN(JSON_ARRAY_LEN(io), SEAM_MAX_VERTEX_PAIRS);
+    for (int32_t i = 0; i < pairs; i++) {
+        JSON_MUST(JSON_PUSH_INDEX(io, i));
+        int32_t seg_vertex = 0;
+        int32_t head_vertex = 0;
+        JSON_MUST(JSON_READ_A(io, 0, &seg_vertex));
+        JSON_MUST(JSON_READ_A(io, 1, &head_vertex));
+        seam->pairs[seam->count].vertex_a = seg_vertex;
+        seam->pairs[seam->count].vertex_b = head_vertex;
+        seam->count++;
+        JSON_MUST(JSON_POP(io));
+    }
+
+    JSON_MUST(JSON_POP(io));
+    JSON_FINISH();
+}
+
 static bool M_LoadBraid(JSON_READ_IO *const io, LARA_SKIN_OUTFIT *const outfit)
 {
-    if (JSON_OPTIONAL(JSON_PUSH(io, "braid"))) {
+    if (!JSON_OPTIONAL(JSON_PUSH(io, "braid"))) {
+        outfit->braid.enabled = false;
+        return true;
+    }
+
+    const int32_t count = JSON_ARRAY_LEN(io);
+    if (count == 0) {
+        outfit->braid.enabled = false;
+        return true;
+    }
+
+    outfit->braid.count = MIN(count, Lara_Hair_GetBraidCount());
+    for (int32_t i = 0; i < outfit->braid.count; ++i) {
+        JSON_MUST(JSON_PUSH_INDEX(io, i));
+
         const char *braid_mode_name = nullptr;
         if (JSON_OPTIONAL(JSON_READ(io, "mode", &braid_mode_name))) {
             const int32_t mode =
@@ -188,14 +212,17 @@ static bool M_LoadBraid(JSON_READ_IO *const io, LARA_SKIN_OUTFIT *const outfit)
             outfit->braid.mode = mode;
         }
 
-        JSON_READ_D(io, "mesh_offset", &outfit->braid.mesh_offset, 0);
-        JSON_READ_D(io, "gold_offset", &outfit->braid.gold_offset, 0);
-        JSON_READ_D(io, "hair_pos", &outfit->braid.hair_pos, (XYZ_32) {});
-        outfit->braid.enabled = true;
+        JSON_READ_D(io, "mesh_offset", &outfit->braid.setup[i].mesh_offset, 0);
+        JSON_READ_D(io, "gold_offset", &outfit->braid.setup[i].gold_offset, 0);
+        JSON_READ_D(
+            io, "position", &outfit->braid.setup[i].position, (XYZ_32) {});
+        M_LoadBraidHeadSeam(io, &outfit->braid.setup[i].head_seam);
+
         JSON_MUST(JSON_POP(io));
-    } else {
-        outfit->braid.enabled = false;
     }
+
+    outfit->braid.enabled = true;
+    JSON_MUST(JSON_POP(io));
 
     JSON_FINISH();
 }
@@ -265,25 +292,64 @@ static bool M_LoadExtras(JSON_READ_IO *const io, LARA_SKIN_OUTFIT *const outfit)
         JSON_MUST(JSON_POP(io));
     }
 
+    if (JSON_OPTIONAL(JSON_PUSH(io, "extra_mesh_positions"))) {
+        JSON_OBJECT *const extra_obj = JSON_ReadIO_GetCurrentObject(io);
+        if (extra_obj == nullptr) {
+            JSON_ReadIO_SetError(
+                io, "'extra_mesh_positions' must be an object");
+            JSON_MUST(JSON_POP(io));
+            JSON_FAIL();
+        }
+
+        for (JSON_OBJECT_ELEMENT *elem = extra_obj->start; elem != nullptr;
+             elem = elem->next) {
+            const char *const name = elem->name->string;
+            const int32_t type = ENUM_MAP_GET(LARA_SKIN_EXTRA_MESH, name, -1);
+            if (type < 0 || type >= NUM_EXTRA_MESHES) {
+                JSON_ReadIO_SetError(io, "unknown extra mesh type '%s'", name);
+                JSON_MUST(JSON_POP(io));
+                JSON_FAIL();
+            }
+
+            JSON_MUST(JSON_READ(io, name, &outfit->extra_mesh_positions[type]));
+        }
+        JSON_MUST(JSON_POP(io));
+    }
+
+    JSON_FINISH();
+}
+
+static bool M_LoadObjectID(
+    JSON_READ_IO *const io, const char *const key, OBJECT_ID *const out_obj_id)
+{
+    *out_obj_id = NO_OBJECT;
+
+    const char *obj_name = nullptr;
+    if (!JSON_READ(io, key, &obj_name)) {
+        JSON_FAIL();
+    }
+
+    CATALOG_ID object_id;
+    if (!Catalog_NameToEnum(CATALOG_OBJECTS, obj_name, &object_id)) {
+        JSON_ReadIO_SetError(io, "unknown outfit object_id '%s'", obj_name);
+        JSON_FAIL();
+    }
+    *out_obj_id = object_id;
+
     JSON_FINISH();
 }
 
 static bool M_LoadOutfit(JSON_READ_IO *const io, LARA_SKIN_OUTFIT *const outfit)
 {
-    const char *mesh_obj_name = nullptr;
-    JSON_MUST(JSON_READ(io, "mesh_object", &mesh_obj_name));
-
-    CATALOG_ID mesh_object_id;
-    if (!Catalog_NameToEnum(CATALOG_OBJECTS, mesh_obj_name, &mesh_object_id)) {
-        JSON_ReadIO_SetError(
-            io, "unknown outfit object_id '%s'", mesh_obj_name);
+    if (!M_LoadObjectID(io, "mesh_object", &outfit->mesh_obj_id)) {
         JSON_FAIL();
     }
-    outfit->obj_id = mesh_object_id;
+    M_LoadObjectID(io, "joints_object", &outfit->joints_obj_id);
 
     JSON_READ_D(io, "is_reflective", &outfit->is_reflective, false);
     JSON_READ_D(io, "is_selectable", &outfit->is_selectable, true);
     JSON_READ_D(io, "combat_face_offset", &outfit->combat_face_offset, -1);
+    JSON_READ_D(io, "speech_face_offset", &outfit->speech_face_offset, -1);
     JSON_READ_D(io, "supports_sunglasses", &outfit->supports_sunglasses, true);
     JSON_READ_D(io, "is_barefoot", &outfit->is_barefoot, false);
 
@@ -378,9 +444,20 @@ static bool M_LoadFile(JSON_READ_IO *const io)
     JSON_FINISH();
 }
 
-void Lara_Skin_LoadFromFile(const char *const path)
+static void M_Shutdown(void)
 {
-    char *source_path = Memory_DupStr(path);
+    if (m_GunMaps != nullptr) {
+        Vector_Free(m_GunMaps);
+        m_GunMaps = nullptr;
+    }
+
+    M_ResetOutfits();
+}
+
+static void M_Load(void)
+{
+    char *source_path = Memory_DupStr(
+        TRXPath_Resolve(TRX_DYNAMIC_PATH_COMMON_CONFIG, "outfits.json5"));
     JSON_READ_IO *io = nullptr;
 
     if (m_GunMaps != nullptr) {
@@ -418,14 +495,24 @@ cleanup:
     Memory_FreePointer(&source_path);
 }
 
-void Lara_Skin_Shutdown(void)
+LARA_SKIN_TYPE Lara_Skin_FindOutfitByName(const char *const name)
 {
-    if (m_GunMaps != nullptr) {
-        Vector_Free(m_GunMaps);
-        m_GunMaps = nullptr;
+    if (name == nullptr) {
+        return LARA_SKIN_TYPE_DEFAULT;
     }
 
-    M_ResetOutfits();
+    M_OUTFIT_LOOKUP *entry = nullptr;
+    HASH_FIND_STR(m_OutfitLookup, name, entry);
+    if (entry == nullptr) {
+        return -1;
+    }
+
+    return entry->index;
+}
+
+LARA_SKIN_TYPE Lara_Skin_GetDefaultType(void)
+{
+    return m_OutfitCount > 0 ? 0 : LARA_SKIN_TYPE_DEFAULT;
 }
 
 int32_t Lara_Skin_GetOutfitCount(void)
@@ -458,3 +545,5 @@ int32_t Lara_Skin_GetExtraMeshOffset(const LARA_SKIN_EXTRA_MESH mesh)
     ASSERT(mesh >= 0 && mesh < NUM_EXTRA_MESHES);
     return m_ExtraMeshOffsets[mesh];
 }
+
+REGISTER_SUBSYSTEM(.load = M_Load, .shutdown = M_Shutdown)

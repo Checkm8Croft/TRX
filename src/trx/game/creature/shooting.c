@@ -92,6 +92,11 @@ bool Creature_Shoot(
     const ITEM *const lara_item = Lara_GetItem();
     const CREATURE *const creature = item->creature_data;
     ITEM *const target_item = creature->enemy;
+    if (target_item == nullptr) {
+        // Allies lose their target once the last hostile is gone; callers
+        // treat a false return as a cue to stop shooting.
+        return false;
+    }
 
     if (g_TRVersion == 3) {
         M_TriggerTR3GunShell(item, gun);
@@ -166,7 +171,7 @@ bool Creature_Shoot(
 
     if (FX_GunFlash_Spawn(item, gun) && effect_num != NO_EFFECT) {
         // Kill the old-style flash effect just spawned from previous chunk
-        Effect_Kill(effect_num);
+        Effect_Destroy(effect_num);
         effect_num = NO_EFFECT;
     }
 

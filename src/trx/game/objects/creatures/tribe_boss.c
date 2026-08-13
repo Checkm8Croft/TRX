@@ -62,6 +62,7 @@ typedef struct {
 } M_LIZARD_SUMMON_COORDS;
 
 typedef struct {
+    int32_t head_beam_damage;
     uint8_t dead;
     int16_t attack_count;
     int16_t death_count;
@@ -106,17 +107,6 @@ static int32_t m_DeathDist[5] = {};
 static int32_t m_DeathHeights[5] = {};
 
 static M_SHARED_PRIV m_SharedPriv = {};
-
-static int32_t M_GetDamage(
-    const ITEM *const item, const char *const key, const int32_t default_value)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, key, &damage)) {
-        return damage.as_int;
-    }
-
-    return default_value;
-}
 
 static int16_t M_FindLizard(const int16_t room_num)
 {
@@ -219,11 +209,11 @@ static void M_Explode(ITEM *const item)
 static void M_Die(int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
-    item->collidable = 0;
+    item->is_collidable = 0;
     item->hit_points = 0;
-    Item_Kill(item_num);
+    Item_Destroy(item_num);
     LOT_DisableBaddieAI(item_num);
-    item->flags |= IF_INVISIBLE;
+    item->trigger.spent = true;
 }
 
 static bool M_CanBeExploded(const ITEM *const item)
@@ -292,7 +282,7 @@ static bool M_CanDropItems(const ITEM *const item)
     if (item->hit_points > 0) {
         return false;
     }
-    if ((item->flags & IF_KILLED) != 0) {
+    if (item->is_destroyed) {
         return true;
     }
     return item->current_anim_state == M_STATE_DEATH
@@ -331,26 +321,18 @@ static bool M_TriggerLizard(M_PRIV *const p)
 
     item->rot.z = 0;
     item->timer = 0;
-    item->flags = 0;
+    item->trigger = (ITEM_TRIGGER_STATE) { 0 };
     item->creature_data = nullptr;
     item->mesh_bits = -1;
     item->hit_points = item->max_hit_points;
-    item->active = false;
-    item->status = IS_ACTIVE;
-    item->collidable = true;
-    item->flags &= ~(IF_KILLED | IF_ONE_SHOT);
+    item->is_collidable = true;
+    item->is_destroyed = false;
+    item->trigger.spent = false;
     item->include_in_kill_stats = false;
 
-    // Item_Kill removes it from room item chains; reinsert even when room is
-    // unchanged.
-    Item_UpdateRoom(p->lizard_item_num, NO_ROOM);
-    Item_UpdateRoom(p->lizard_item_num, room_num);
-
-    Item_AddActive(p->lizard_item_num);
-    LOT_EnableBaddieAI(p->lizard_item_num, true);
+    Item_Respawn(p->lizard_item_num, room_num);
 
     Room_GetSector(item->pos, &room_num);
-
     if (item->room_num != room_num) {
         Item_UpdateRoom(p->lizard_item_num, room_num);
     }
@@ -554,9 +536,7 @@ static void M_TriggerElectricBeam(
             && M_LaraOnLOS(src, &target)
             && !g_Config.debug.enable_invulnerability
             && lara_info->water_status != LWS_CHEAT) {
-            Lara_TakeDamage(
-                M_GetDamage(item, "head_beam_damage", M_HEAD_BEAM_DAMAGE),
-                true);
+            Lara_TakeDamage(p->head_beam_damage, true);
             if (lara_item->hit_points <= 0) {
                 lara_info->electric = 1;
             }
@@ -1480,11 +1460,9 @@ static void M_Setup(OBJECT *const obj)
     Object_GetBone(obj, 7)->rot.y = true;
     Object_GetBone(obj, 7)->rot.x = true;
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."),
-        OBJECT_PROPERTY_INT(
-            "head_beam_damage", M_HEAD_BEAM_DAMAGE,
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS),
+        OBJECT_PROPERTY(
+            M_PRIV, head_beam_damage, M_HEAD_BEAM_DAMAGE,
             "Damage dealt by the head electric beam."));
 }
 

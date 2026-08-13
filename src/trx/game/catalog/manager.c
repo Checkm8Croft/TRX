@@ -4,6 +4,7 @@
 #include <trx/core/filesystem.h>
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/utils.h>
 #include <trx/game/items/actions/ids.h>
 #include <trx/game/lara/enum.h>
@@ -21,6 +22,20 @@ typedef struct {
     CATALOG_ID id;
     const char *name_str;
 } M_ENTRY;
+
+// Internal map from name to CATALOG_ID
+typedef struct {
+    const char *name_str;
+    int32_t enum_value;
+    UT_hash_handle hh;
+} M_NAME_ENTRY;
+
+// Internal map from game ID to CATALOG_ID
+typedef struct {
+    int32_t game_id;
+    int32_t enum_value;
+    UT_hash_handle hh;
+} M_GAME_ID_ENTRY;
 
 static const M_ENTRY m_CatalogEntryDefs[] = {
 #define X_CATALOG_ID(enum_value) { CATALOG_MUSIC, enum_value, #enum_value },
@@ -49,20 +64,8 @@ static const M_ENTRY m_CatalogEntryDefs[] = {
 // Number of catalog entries
 static const size_t m_CatalogEntryCount = ARRAY_SIZE(m_CatalogEntryDefs);
 
-// Internal map from name to CATALOG_ID
-typedef struct {
-    const char *name_str;
-    int32_t enum_value;
-    UT_hash_handle hh;
-} M_NAME_ENTRY;
 static M_NAME_ENTRY *m_Name2EnumMap[CATALOG_CONTEXT_MAX] = { nullptr };
 
-// Internal map from game ID to CATALOG_ID
-typedef struct {
-    int32_t game_id;
-    int32_t enum_value;
-    UT_hash_handle hh;
-} M_GAME_ID_ENTRY;
 static M_GAME_ID_ENTRY *m_GameID2EnumMap[CATALOG_CONTEXT_MAX] = { nullptr };
 
 // Parsed game IDs arrays (dynamically sized)
@@ -115,6 +118,21 @@ static void M_Initialize(void)
             (uint32_t)strlen(entry->name_str), entry);
     }
     m_Initialized = true;
+}
+
+static void M_Shutdown(void)
+{
+    if (!m_Initialized) {
+        return;
+    }
+    for (size_t ctx = 0; ctx < CATALOG_CONTEXT_MAX; ctx++) {
+        M_ClearGameIDMap(&m_GameID2EnumMap[ctx]);
+        M_ClearNameMap(&m_Name2EnumMap[ctx]);
+        Memory_Free(m_CatalogGameIDs[ctx]);
+    }
+    Memory_Free(m_CatalogGameIDs);
+    m_CatalogGameIDs = nullptr;
+    m_Initialized = false;
 }
 
 bool Catalog_Load(
@@ -218,17 +236,4 @@ bool Catalog_GameIDToEnum(
     return false;
 }
 
-void Catalog_Shutdown(void)
-{
-    if (!m_Initialized) {
-        return;
-    }
-    for (size_t ctx = 0; ctx < CATALOG_CONTEXT_MAX; ctx++) {
-        M_ClearGameIDMap(&m_GameID2EnumMap[ctx]);
-        M_ClearNameMap(&m_Name2EnumMap[ctx]);
-        Memory_Free(m_CatalogGameIDs[ctx]);
-    }
-    Memory_Free(m_CatalogGameIDs);
-    m_CatalogGameIDs = nullptr;
-    m_Initialized = false;
-}
+REGISTER_BASE_SUBSYSTEM(.shutdown = M_Shutdown)

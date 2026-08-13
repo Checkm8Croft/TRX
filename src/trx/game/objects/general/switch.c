@@ -46,7 +46,38 @@ static const OBJECT_BOUNDS m_SwitchBoundsUW = {
     },
 };
 
-static const XYZ_32 m_SwitchUWPosition = { .x = 0, .y = 0, .z = 108 };
+static const OBJECT_BOUNDS m_SwitchBoundsUWCeiling = {
+    .shift = {
+        .min = { .x = -STEP_L, .y = -STEP_L * 5, .z = -STEP_L * 2, },
+        .max = { .x = +STEP_L, .y = -STEP_L * 2, .z = +0, },
+    },
+    .rot = {
+        .min = { .x = -80 * DEG_1, .y = -80 * DEG_1, .z = -80 * DEG_1, },
+        .max = { .x = +80 * DEG_1, .y = +80 * DEG_1, .z = +80 * DEG_1, },
+    },
+};
+
+static const OBJECT_BOUNDS m_SwitchBoundsJump = {
+    .shift = {
+        .min = { .x = -STEP_L / 2, .y = -STEP_L, .z = +STEP_L * 3 / 2, },
+        .max = { .x = +STEP_L / 2, .y = +STEP_L, .z = +STEP_L * 2, },
+    },
+    .rot = {
+        .min = { .x = -10 * DEG_1, .y = -30 * DEG_1, .z = -10 * DEG_1, },
+        .max = { .x = +10 * DEG_1, .y = +30 * DEG_1, .z = +10 * DEG_1, },
+    },
+};
+
+static const XYZ_32 m_SwitchUWPosition = {
+    .x = 0,
+    .y = 0,
+    .z = 108,
+};
+static const XYZ_32 m_SwitchUWPositionCeiling = {
+    .x = 0,
+    .y = -736,
+    .z = -416,
+};
 
 static const M_SWITCH_POS m_SmallSwitchPosition = {
     .normal = { .x = 0, .y = 0, .z = 362 },
@@ -68,6 +99,11 @@ static const M_SWITCH_POS m_AirlockPosition = {
     .controlled = { .x = 0, .y = 0, .z = 106 },
 };
 
+static const M_SWITCH_POS m_JumpSwitchPosition = {
+    .normal = { .x = 0, .y = -208, .z = 256 },
+    .controlled = {},
+};
+
 static const OBJECT_BOUNDS *M_Bounds(void)
 {
     return g_Config.gameplay.enable_walk_to_items ? &m_SwitchBoundsControlled
@@ -79,19 +115,38 @@ static const OBJECT_BOUNDS *M_BoundsUW(void)
     return &m_SwitchBoundsUW;
 }
 
+static const OBJECT_BOUNDS *M_BoundsUWCeiling(void)
+{
+    return &m_SwitchBoundsUWCeiling;
+}
+
+static const OBJECT_BOUNDS *M_BoundsJump(void)
+{
+    return &m_SwitchBoundsJump;
+}
+
+static int16_t M_TranslateState(
+    const ITEM *const item, const SWITCH_STATE state)
+{
+    if (item->object_id != O_SWITCH_TYPE_JUMP || state == SWITCH_STATE_LINK) {
+        return state;
+    }
+    return state == SWITCH_STATE_OFF ? SWITCH_STATE_ON : SWITCH_STATE_OFF;
+}
+
 static void M_Control(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
-    item->flags |= IF_CODE_BITS;
+    item->trigger.mask = TRIGGER_MASK_ALL;
     if (!Item_IsTriggerActive(item)) {
-        item->goal_anim_state = SWITCH_STATE_OFF;
+        item->goal_anim_state = M_TranslateState(item, SWITCH_STATE_OFF);
         item->timer = 0;
     }
     Item_Animate(item);
 
-    if (g_TRVersion >= 3 && (item->flags & IF_ONE_SHOT_SWITCH) != 0) {
-        item->flags &= ~IF_ONE_SHOT_SWITCH;
-        item->flags |= IF_ONE_SHOT;
+    if (g_TRVersion >= 3 && item->trigger.switch_spent) {
+        item->trigger.switch_spent = false;
+        item->trigger.spent = true;
     }
 }
 
@@ -220,8 +275,7 @@ static void M_CollisionControlled(
                     M_TurnSwitchOff(item, lara_item);
                 }
                 Lara_Interact_FinishControl(LARA_INTERACT_SWITCH);
-                Item_AddActive(item_num);
-                item->status = IS_ACTIVE;
+                Item_AddSimulated(item_num);
                 Item_Animate(item);
             } else {
                 lara->interact_target.item_num = item_num;
@@ -241,7 +295,7 @@ static void M_Collision(
     const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
 {
     ITEM *const item = Item_Get(item_num);
-    if (g_TRVersion >= 3 && (item->flags & IF_ONE_SHOT) != 0) {
+    if (g_TRVersion >= 3 && item->trigger.spent) {
         return;
     }
 
@@ -253,7 +307,7 @@ static void M_Collision(
     LARA_INFO *const lara = Lara_GetLaraInfo();
     const OBJECT *const obj = Object_Get(item->object_id);
 
-    if (!g_Input.action || item->status != IS_INACTIVE
+    if (!g_Input.action || !Item_IsInactive(item)
         || lara->gun_status != LGS_ARMLESS || lara_item->gravity
         || !Lara_Interact_CanBegin(LARA_INTERACT_SWITCH)
         || !Lara_TestPosition(item, obj->bounds_func())) {
@@ -278,8 +332,7 @@ static void M_Collision(
     }
     lara->gun_status = LGS_HANDS_BUSY;
 
-    item->status = IS_ACTIVE;
-    Item_AddActive(item_num);
+    Item_AddSimulated(item_num);
     Item_Animate(item);
 }
 
@@ -290,7 +343,7 @@ static void M_CollisionUW(
     LARA_INFO *const lara = Lara_GetLaraInfo();
     const OBJECT *const obj = Object_Get(item->object_id);
 
-    if (!g_Input.action || item->status != IS_INACTIVE
+    if (!g_Input.action || !Item_IsInactive(item)
         || (lara->water_status != LWS_UNDERWATER
             && lara->water_status != LWS_CHEAT)
         || lara->gun_status != LGS_ARMLESS
@@ -321,9 +374,93 @@ static void M_CollisionUW(
     } else {
         item->goal_anim_state = SWITCH_STATE_OFF;
     }
-    item->status = IS_ACTIVE;
-    Item_AddActive(item_num);
+    Item_AddSimulated(item_num);
     Item_Animate(item);
+}
+
+static void M_CollisionUWCeiling(
+    const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
+{
+    ITEM *const item = Item_Get(item_num);
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    const OBJECT *const obj = Object_Get(item->object_id);
+
+    if (!g_Input.action || !Item_IsInactive(item)
+        || item->current_anim_state != SWITCH_STATE_ON
+        || (lara->water_status != LWS_UNDERWATER
+            && lara->water_status != LWS_CHEAT)
+        || lara->gun_status != LGS_ARMLESS
+        || lara_item->current_anim_state != LS(LS_TREAD)) {
+        return;
+    }
+
+    OBJECT_BOUNDS bounds = *obj->bounds_func();
+    XYZ_32 position = m_SwitchUWPositionCeiling;
+    if (Lara_TestPosition(item, &bounds)) {
+        if (!Lara_MovePosition(item, &position)) {
+            return;
+        }
+    } else {
+        SWAP(bounds.shift.min.z, bounds.shift.max.z);
+        bounds.shift.min.z *= -1;
+        bounds.shift.max.z *= -1;
+        position.z *= -1;
+        lara_item->rot.y -= DEG_180;
+        const bool flip_result = Lara_TestPosition(item, &bounds)
+            && Lara_MovePosition(item, &position);
+        lara_item->rot.y -= DEG_180;
+        if (!flip_result) {
+            return;
+        }
+    }
+
+    Item_SwitchToAnim(lara_item, LA(LA_UNDERWATER_PULLEY), 0);
+    lara_item->current_anim_state = LS(LS_SWITCH_ON);
+    lara_item->fall_speed = 0;
+    lara->gun_status = LGS_HANDS_BUSY;
+
+    if (item->current_anim_state == SWITCH_STATE_OFF) {
+        item->goal_anim_state = SWITCH_STATE_ON;
+    } else {
+        item->goal_anim_state = SWITCH_STATE_OFF;
+    }
+    Item_AddSimulated(item_num);
+    Item_Animate(item);
+}
+
+static void M_CollisionJump(
+    const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
+{
+    ITEM *const item = Item_Get(item_num);
+    if (item->current_anim_state != M_TranslateState(item, SWITCH_STATE_OFF)) {
+        return;
+    }
+
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (!g_Input.action || lara->gun_status != LGS_ARMLESS
+        || !lara_item->gravity || lara_item->fall_speed <= 0) {
+        return;
+    }
+
+    if (lara_item->current_anim_state != LS(LS_REACH)
+        && lara_item->current_anim_state != LS(LS_JUMP_UP)) {
+        return;
+    }
+
+    const OBJECT *const obj = Object_Get(item->object_id);
+    if (!Lara_TestPosition(item, obj->bounds_func())) {
+        return;
+    }
+
+    Lara_AlignPosition(item, &m_JumpSwitchPosition.normal);
+    Item_SwitchToAnim(lara_item, LA(LA_JUMPSWITCH), 0);
+    lara_item->current_anim_state = LS(LS_SWITCH_ON);
+    lara_item->fall_speed = 0;
+    lara_item->gravity = false;
+    lara->gun_status = LGS_HANDS_BUSY;
+
+    item->goal_anim_state = M_TranslateState(item, SWITCH_STATE_ON);
+    Item_AddSimulated(item_num);
 }
 
 static void M_SetupBase(OBJECT *const obj)
@@ -354,10 +491,24 @@ static void M_SetupUW(OBJECT *const obj)
     obj->bounds_func = M_BoundsUW;
 }
 
+static void M_SetupUWCeiling(OBJECT *const obj)
+{
+    M_SetupBase(obj);
+    obj->collision_func = M_CollisionUWCeiling;
+    obj->bounds_func = M_BoundsUWCeiling;
+}
+
 static void M_SetupAirlock(OBJECT *const obj)
 {
     M_SetupCommon(obj);
     obj->draw_func = Object_DrawUnclippedItem;
+}
+
+static void M_SetupJump(OBJECT *const obj)
+{
+    M_SetupCommon(obj);
+    obj->collision_func = M_CollisionJump;
+    obj->bounds_func = M_BoundsJump;
 }
 
 bool Switch_Trigger(const int16_t item_num, const int16_t timer)
@@ -365,17 +516,17 @@ bool Switch_Trigger(const int16_t item_num, const int16_t timer)
     ITEM *const item = Item_Get(item_num);
 
     if (item->object_id == O_SWITCH_TYPE_AIRLOCK) {
-        if (item->status == IS_DEACTIVATED) {
-            Item_RemoveActive(item_num);
-            item->status = IS_INACTIVE;
+        if (item->is_finished) {
+            Item_RemoveSimulated(item_num);
+            Item_SetFinished(item, false);
             return false;
         } else if (
-            (item->flags & IF_ONE_SHOT) != 0
+            item->trigger.spent
             || item->current_anim_state == SWITCH_STATE_ON) {
             return false;
         }
 
-        item->flags |= IF_ONE_SHOT;
+        item->trigger.spent = true;
         return true;
     }
 
@@ -384,29 +535,30 @@ bool Switch_Trigger(const int16_t item_num, const int16_t timer)
         // death; the following addition is a safer approach for such, rather
         // than altering item status and timer as though they were regular
         // switch objects.
-        if (item->status != IS_DEACTIVATED && (item->flags & IF_KILLED) == 0) {
+        if (!item->is_finished && !item->is_destroyed) {
             return false;
         }
-        if ((item->flags & IF_ONE_SHOT_SWITCH) != 0) {
+        if (item->trigger.switch_spent) {
             return false;
         }
-        item->flags |= IF_ONE_SHOT_SWITCH;
+        item->trigger.switch_spent = true;
         return true;
     }
 
-    if (item->status != IS_DEACTIVATED) {
+    if (!item->is_finished) {
         return false;
     }
 
-    if (item->current_anim_state == SWITCH_STATE_ON && timer > 0) {
+    if (item->current_anim_state == M_TranslateState(item, SWITCH_STATE_ON)
+        && timer > 0) {
         item->timer = timer;
         if (timer != 1) {
             item->timer *= LOGIC_FPS;
         }
-        item->status = IS_ACTIVE;
+        Item_SetFinished(item, false);
     } else {
-        Item_RemoveActive(item_num);
-        item->status = IS_INACTIVE;
+        Item_RemoveSimulated(item_num);
+        Item_SetFinished(item, false);
     }
     return true;
 }
@@ -417,3 +569,5 @@ REGISTER_OBJECT(O_SWITCH_TYPE_NORMAL, M_SetupCommon)
 REGISTER_OBJECT(O_SWITCH_TYPE_SMALL, M_SetupCommon)
 REGISTER_OBJECT(O_SWITCH_TYPE_UW, M_SetupUW)
 REGISTER_OBJECT(O_SWITCH_TYPE_WHEEL, M_SetupCommon)
+REGISTER_OBJECT(O_SWITCH_TYPE_JUMP, M_SetupJump)
+REGISTER_OBJECT(O_SWITCH_TYPE_UW_CEILING, M_SetupUWCeiling)

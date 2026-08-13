@@ -3,13 +3,15 @@
 #include <trx/debug.h>
 #include <trx/game/console/common.h>
 #include <trx/game/input/common.h>
+#include <trx/game/input/sdl.h>
+#include <trx/game/lua/guard.h>
 #include <trx/game/replay/test_recorder.h>
 #include <trx/game/replay/test_replay.h>
 #include <trx/game/screenshot.h>
 #include <trx/game/shell.h>
 #include <trx/game/shell/config.h>
 #include <trx/game/ui.h>
-#include <trx/gl/context.h>
+#include <trx/game/ui/keys.h>
 
 // If true, next SDL_TEXT* event should be zeroed out.
 static bool m_ConsoleJustOpened = false;
@@ -21,9 +23,9 @@ static void M_HandleQuit(void)
 
 static void M_HandleKeyDown(const SDL_Event *const event)
 {
-    // NOTE: Opening the console normally would get handled by Input_Update,
-    // but by the time Input_Update gets ran, we may already have lost some
-    // keypresses if the player types really fast, so we need to react sooner.
+    // NOTE: Opening the console normally would get handled by Input_Update, but
+    // by the time Input_Update gets ran, we may already have lost some
+    // keypresses if the player types fast, so we need to react sooner.
     if (g_Config.gameplay.enable_console && !Console_IsOpened()
         && !Input_IsInListenMode()
         && Input_IsPressedEx(
@@ -33,6 +35,12 @@ static void M_HandleKeyDown(const SDL_Event *const event)
         // Zero out the next text event so the console-open glyph never
         // shows up.
         m_ConsoleJustOpened = true;
+    } else if (
+        event->key.keysym.sym == SDLK_v
+        && (event->key.keysym.mod & KMOD_CTRL) != 0) {
+        // SDL does not emit a SDL_TEXTINPUT event for Ctrl+V, so paste
+        // is handled explicitly.
+        UI_HandlePaste();
     } else {
         UI_HandleKeyDown(event->key.keysym.sym);
     }
@@ -186,6 +194,8 @@ bool Shell_ProcessEvent(const SDL_Event *const event)
 
 void Shell_ProcessEvents(void)
 {
+    LUA_Guard_Heartbeat();
+
     SDL_Event event;
     if (TestReplay_IsOpened()) {
         TestReplay_RunFrame();

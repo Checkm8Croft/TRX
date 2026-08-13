@@ -1,17 +1,19 @@
 #include <trx/game/ui/dialogs/settings_editor.h>
 
 #include <trx/config.h>
-#include <trx/config/dynamic_enum.h>
+#include <trx/config/registry.h>
+#include <trx/core/dynamic_enum.h>
 #include <trx/core/enum_map.h>
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
 #include <trx/core/utils.h>
+#include <trx/core/vector.h>
 #include <trx/debug.h>
 #include <trx/game/input.h>
 #include <trx/game/ui.h>
 #include <trx/game/ui/dialogs/color_editor.h>
-#include <trx/game/ui/dialogs/setting_helpers/enums.h>
 #include <trx/game/ui/dialogs/text.h>
+#include <trx/game/ui/scaler.h>
 #include <trx/version.h>
 
 #include <math.h>
@@ -25,8 +27,22 @@ typedef struct {
 } M_ENUM_LOOKUP;
 
 typedef struct UI_SETTINGS_EDITOR_STATE {
-    const UI_SETTINGS_OPTION *options;
+    CONFIG_TAB tab;
     int32_t visible_rows;
+    // The rows the tab shows, in the order they are drawn: the tab's own less
+    // the ones it hides. Holds `const UI_SETTINGS_ROW *`, so a row index is a
+    // position on the screen.
+    //
+    // Whether a row is hidden is a question about the settings - what another
+    // one is at, which of them the game flow took away - so it is settled when
+    // the tab is opened and whenever a setting moves, rather than asked again
+    // for every row above every row.
+    VECTOR *rows;
+    // What the rows were arranged against: the options and the handlers, which
+    // are made anew when the game changes and announce nothing when they are.
+    int32_t config_generation;
+    int32_t handler_generation;
+    int32_t change_listener;
     UI_SCROLLABLE scroll;
     struct {
         bool show;
@@ -35,190 +51,237 @@ typedef struct UI_SETTINGS_EDITOR_STATE {
     UI_COLOR_EDITOR_DIALOG_STATE *color_editor;
 } UI_SETTINGS_EDITOR_STATE;
 
-static const CONFIG_OPTION *M_GetConfigOption(
-    const UI_SETTINGS_OPTION *const option)
+// What the option accepts, in the units a row steps in: whole numbers for an
+// integer setting, hundredths for a float one. False where the option takes
+// anything its storage can hold.
+static bool M_GetBounds(
+    const UI_SETTINGS_ROW *const row, double *const min, double *const max)
 {
-    ASSERT(option != nullptr);
-    ASSERT(option->target != nullptr);
-    const CONFIG_OPTION *const result = Config_GetOption(option->target);
-    ASSERT(result != nullptr);
-    return result;
+    if (row->option->bounds == nullptr) {
+        return false;
+    }
+    const TRX_VALUE_TYPE type = row->option->value.type;
+    const double scale = type == TVT_FLOAT || type == TVT_DOUBLE ? 100.0 : 1.0;
+    *min = row->option->bounds->min * scale;
+    *max = row->option->bounds->max * scale;
+    return true;
 }
 
-static const char *M_GetOptionDescription(
-    const UI_SETTINGS_OPTION *const option)
+// Whether the row may be changed at all. A held setting is not the player's to
+// change, whoever is holding it.
+static bool M_IsOptionHeld(const UI_SETTINGS_ROW *const row)
 {
-    if (option == nullptr || option->target == nullptr) {
+    return row != nullptr && Config_Option_IsHeld(row->option);
+}
+
+static const char *M_GetOptionDescription(const UI_SETTINGS_ROW *const row)
+{
+    if (row == nullptr) {
         return nullptr;
     }
-    return Config_GetOptionDescription(M_GetConfigOption(option));
+    return Config_Option_GetDescription(row->option);
 }
 
-static const char *M_GetOptionTitle(const UI_SETTINGS_OPTION *const option)
+static const char *M_GetOptionTitle(const UI_SETTINGS_ROW *const row)
 {
-    if (option == nullptr || option->target == nullptr) {
+    if (row == nullptr) {
         return "";
     }
-    const char *const result = Config_GetOptionTitle(M_GetConfigOption(option));
+    const char *const result = Config_Option_GetTitle(row->option);
     return result != nullptr ? result : "";
 }
 
-static bool M_IsEnumEntryAvailable(
-    const UI_SETTINGS_OPTION *const option,
-    const UI_SETTINGS_ENUM_ENTRY *const entry)
+// How many values an enum row offers, in the order it cycles them. A handler
+// may name that order; otherwise it is the order the enum was defined in.
+static int32_t M_GetEnumValueCount(const UI_SETTINGS_ROW *const row)
 {
-    if (entry == nullptr || entry->value == -1) {
-        return false;
-    }
-    if (option->custom_handler.is_enum_value_available == nullptr) {
-        return true;
-    }
-    return option->custom_handler.is_enum_value_available(option, entry->value);
-}
-
-static UI_BAR_TYPE M_GetBarType(const UI_SETTINGS_OPTION *const option)
-{
-    if (option->target == &g_Config.ui.lara_health_bar.color
-        || option->target == &g_Config.ui.lara_health_bar.color_ps1) {
-        return UI_BAR_LARA_HP;
-    } else if (
-        option->target == &g_Config.ui.lara_health_bar.poison_color
-        || option->target == &g_Config.ui.lara_health_bar.poison_color_ps1) {
-        return UI_BAR_LARA_HP_POISON;
-    } else if (
-        option->target == &g_Config.ui.lara_air_bar.color
-        || option->target == &g_Config.ui.lara_air_bar.color_ps1) {
-        return UI_BAR_LARA_AIR;
-    } else if (
-        option->target == &g_Config.ui.lara_sprint_bar.color
-        || option->target == &g_Config.ui.lara_sprint_bar.color_ps1) {
-        return UI_BAR_LARA_STAMINA;
-    } else if (
-        option->target == &g_Config.ui.lara_exposure_bar.color
-        || option->target == &g_Config.ui.lara_exposure_bar.color_ps1) {
-        return UI_BAR_LARA_EXPOSURE;
-    } else if (
-        option->target == &g_Config.ui.enemy_health_bar.color
-        || option->target == &g_Config.ui.enemy_health_bar.color_ps1) {
-        return UI_BAR_ENEMY_HP;
-    } else if (
-        option->target == &g_Config.ui.enemy_health_bar.color_allies
-        || option->target == &g_Config.ui.enemy_health_bar.color_allies_ps1) {
-        return UI_BAR_ALLY_HP;
-    } else {
-        return (UI_BAR_TYPE)-1;
-    }
-}
-
-static bool M_IsBarColorEnum(const UI_SETTINGS_OPTION *const option)
-{
-    return M_GetBarType(option) != (UI_BAR_TYPE)-1;
-}
-
-static bool M_IsColorEditorOption(const UI_SETTINGS_OPTION *const option)
-{
-    return option != nullptr && M_GetConfigOption(option)->type == COT_RGB888;
-}
-
-static bool M_HasAvailableEnumValue(const UI_SETTINGS_OPTION *const option)
-{
-    const UI_SETTINGS_ENUM_ENTRY *entry =
-        (UI_SETTINGS_ENUM_ENTRY *)option->misc;
-    if (entry == nullptr) {
-        return false;
-    }
-    while (entry->value != -1) {
-        if (M_IsEnumEntryAvailable(option, entry)) {
-            return true;
-        }
-        entry++;
-    }
-    return false;
-}
-
-static bool M_IsOptionHidden(const UI_SETTINGS_OPTION *const option)
-{
-    if (option->custom_handler.is_visible != nullptr
-        && !option->custom_handler.is_visible(option)) {
-        return true;
-    }
-    if (Config_IsOptionHidden(option->target)) {
-        return true;
-    }
-    if (M_GetConfigOption(option)->type == COT_ENUM && option->misc != nullptr
-        && !M_HasAvailableEnumValue(option)) {
-        return true;
-    }
-    return false;
-}
-
-static const UI_SETTINGS_OPTION *M_GetOptionByRow(
-    const UI_SETTINGS_EDITOR_STATE *const s, const int32_t row_idx)
-{
-    if (s->options == nullptr) {
-        return nullptr;
+    const int32_t *const order = row->handler->enum_order;
+    if (order == nullptr) {
+        return EnumMap_GetValueCount(row->option->enum_map);
     }
     int32_t count = 0;
-    for (int32_t i = 0; s->options[i].target != nullptr; i++) {
-        const UI_SETTINGS_OPTION *const opt = &s->options[i];
-        if (M_IsOptionHidden(opt)) {
-            continue;
-        }
-        if (count == row_idx) {
-            return opt;
-        }
+    while (order[count] != -1) {
         count++;
-    }
-    return nullptr;
-}
-
-static int32_t M_GetRowCount(const UI_SETTINGS_EDITOR_STATE *const s)
-{
-    if (s->options == nullptr) {
-        return 0;
-    }
-    int32_t count = 0;
-    for (int32_t i = 0; s->options[i].target != nullptr; i++) {
-        if (!M_IsOptionHidden(&s->options[i])) {
-            count++;
-        }
     }
     return count;
 }
 
-static M_ENUM_LOOKUP M_GetEnumEntry(const UI_SETTINGS_OPTION *const option)
+// The value at a position in that order, or -1 where there is none.
+static int32_t M_GetEnumValueAt(
+    const UI_SETTINGS_ROW *const row, const int32_t index)
+{
+    if (index < 0 || index >= M_GetEnumValueCount(row)) {
+        return -1;
+    }
+    const int32_t *const order = row->handler->enum_order;
+    if (order == nullptr) {
+        return EnumMap_GetValueAt(row->option->enum_map, index);
+    }
+    return order[index];
+}
+
+static bool M_IsEnumValueAvailable(
+    const UI_SETTINGS_ROW *const row, const int32_t value)
+{
+    if (value == -1) {
+        return false;
+    }
+    const UI_SETTING_HANDLER *const handler = row->handler;
+    if (handler->is_enum_value_available == nullptr) {
+        return true;
+    }
+    return handler->is_enum_value_available(
+        row->option, value, handler->user_data);
+}
+
+static UI_BAR_TYPE M_GetBarType(const UI_SETTINGS_ROW *const row)
+{
+    // The PC and PS1 colours of one bar are two options, and both dress the
+    // same bar. Named by where g_Config keeps them, so a setting that moves or
+    // goes away is a compile error rather than a bar that stops previewing.
+    static const struct {
+        const void *mirror;
+        UI_BAR_TYPE type;
+    } m_BarMirrors[] = {
+        { &g_Config.ui.lara_health_bar.color, UI_BAR_LARA_HP },
+        { &g_Config.ui.lara_health_bar.color_ps1, UI_BAR_LARA_HP },
+        { &g_Config.ui.lara_health_bar.poison_color, UI_BAR_LARA_HP_POISON },
+        { &g_Config.ui.lara_health_bar.poison_color_ps1,
+          UI_BAR_LARA_HP_POISON },
+        { &g_Config.ui.lara_air_bar.color, UI_BAR_LARA_AIR },
+        { &g_Config.ui.lara_air_bar.color_ps1, UI_BAR_LARA_AIR },
+        { &g_Config.ui.lara_sprint_bar.color, UI_BAR_LARA_STAMINA },
+        { &g_Config.ui.lara_sprint_bar.color_ps1, UI_BAR_LARA_STAMINA },
+        { &g_Config.ui.lara_exposure_bar.color, UI_BAR_LARA_EXPOSURE },
+        { &g_Config.ui.lara_exposure_bar.color_ps1, UI_BAR_LARA_EXPOSURE },
+        { &g_Config.ui.enemy_health_bar.color, UI_BAR_ENEMY_HP },
+        { &g_Config.ui.enemy_health_bar.color_ps1, UI_BAR_ENEMY_HP },
+        { &g_Config.ui.enemy_health_bar.color_allies, UI_BAR_ALLY_HP },
+        { &g_Config.ui.enemy_health_bar.color_allies_ps1, UI_BAR_ALLY_HP },
+    };
+
+    if (row == nullptr) {
+        return (UI_BAR_TYPE)-1;
+    }
+    for (size_t i = 0; i < ARRAY_SIZE(m_BarMirrors); i++) {
+        if (row->option->mirror == m_BarMirrors[i].mirror) {
+            return m_BarMirrors[i].type;
+        }
+    }
+    return (UI_BAR_TYPE)-1;
+}
+
+static bool M_IsBarColorEnum(const UI_SETTINGS_ROW *const row)
+{
+    return M_GetBarType(row) != (UI_BAR_TYPE)-1;
+}
+
+static bool M_IsColorEditorOption(const UI_SETTINGS_ROW *const row)
+{
+    return row != nullptr && row->option->value.type == TVT_RGB_888;
+}
+
+static bool M_HasAvailableEnumValue(const UI_SETTINGS_ROW *const row)
+{
+    const int32_t count = M_GetEnumValueCount(row);
+    for (int32_t i = 0; i < count; i++) {
+        if (M_IsEnumValueAvailable(row, M_GetEnumValueAt(row, i))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static bool M_IsOptionHidden(const UI_SETTINGS_ROW *const row)
+{
+    const UI_SETTING_HANDLER *const handler = row->handler;
+    if (handler->is_visible != nullptr
+        && !handler->is_visible(row->option, handler->user_data)) {
+        return true;
+    }
+    if (Config_Option_IsHidden(row->option)) {
+        return true;
+    }
+    if (row->option->value.type == TVT_ENUM && !M_HasAvailableEnumValue(row)) {
+        return true;
+    }
+    return false;
+}
+
+static void M_ArrangeRows(UI_SETTINGS_EDITOR_STATE *const s)
+{
+    s->config_generation = Config_GetGeneration();
+    s->handler_generation = UI_Settings_GetHandlerGeneration();
+    if (s->rows == nullptr) {
+        s->rows = Vector_Create(sizeof(const UI_SETTINGS_ROW *));
+    }
+    Vector_Clear(s->rows);
+    const int32_t row_count = UI_Settings_GetRowCount(s->tab);
+    for (int32_t i = 0; i < row_count; i++) {
+        const UI_SETTINGS_ROW *const row = UI_Settings_GetRow(s->tab, i);
+        if (!M_IsOptionHidden(row)) {
+            Vector_Add(s->rows, &row);
+        }
+    }
+}
+
+static void M_EnsureRows(UI_SETTINGS_EDITOR_STATE *const s)
+{
+    if (s->config_generation != Config_GetGeneration()
+        || s->handler_generation != UI_Settings_GetHandlerGeneration()) {
+        M_ArrangeRows(s);
+    }
+}
+
+static void M_HandleConfigChange(
+    const EVENT *const event, void *const user_data)
+{
+    M_ArrangeRows(user_data);
+}
+
+static const UI_SETTINGS_ROW *M_GetOptionByRow(
+    UI_SETTINGS_EDITOR_STATE *const s, const int32_t row_idx)
+{
+    M_EnsureRows(s);
+    if (row_idx < 0 || row_idx >= s->rows->count) {
+        return nullptr;
+    }
+    return *(const UI_SETTINGS_ROW **)Vector_Get(s->rows, row_idx);
+}
+
+static int32_t M_GetRowCount(UI_SETTINGS_EDITOR_STATE *const s)
+{
+    M_EnsureRows(s);
+    return s->rows->count;
+}
+
+static M_ENUM_LOOKUP M_GetEnumEntry(const UI_SETTINGS_ROW *const row)
 {
     M_ENUM_LOOKUP result = {
         .position = -1,
         .count = 0,
     };
-    int32_t current_pos = 0;
-    const UI_SETTINGS_ENUM_ENTRY *entry =
-        &((UI_SETTINGS_ENUM_ENTRY *)option->misc)[0];
-    while (entry->value != -1) {
-        if (entry->value == *(int32_t *)option->target) {
-            result.position = current_pos;
+    result.count = M_GetEnumValueCount(row);
+    for (int32_t i = 0; i < result.count; i++) {
+        if (M_GetEnumValueAt(row, i) == row->option->value.as_int) {
+            result.position = i;
         }
-        entry++;
-        current_pos++;
-        result.count++;
     }
     return result;
 }
 
 static int32_t M_FindNextAvailableEnumPosition(
-    const UI_SETTINGS_OPTION *const option,
-    const M_ENUM_LOOKUP *const enum_lookup, const int32_t dir)
+    const UI_SETTINGS_ROW *const row, const M_ENUM_LOOKUP *const enum_lookup,
+    const int32_t dir)
 {
     if (enum_lookup->position < 0 || enum_lookup->count <= 0 || dir == 0) {
         return -1;
     }
-    const UI_SETTINGS_ENUM_ENTRY *const entries = option->misc;
     const int32_t step = dir < 0 ? -1 : 1;
 
     for (int32_t pos = enum_lookup->position + step;
          pos >= 0 && pos < enum_lookup->count; pos += step) {
-        if (M_IsEnumEntryAvailable(option, &entries[pos])) {
+        if (M_IsEnumValueAvailable(row, M_GetEnumValueAt(row, pos))) {
             return pos;
         }
     }
@@ -227,228 +290,238 @@ static int32_t M_FindNextAvailableEnumPosition(
 }
 
 static const char *M_FormatRowValue(
-    const UI_SETTINGS_EDITOR_STATE *const s, const int32_t row_idx)
+    UI_SETTINGS_EDITOR_STATE *const s, const int32_t row_idx)
 {
-    const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row_idx);
-    if (option == nullptr) {
+    const UI_SETTINGS_ROW *const row = M_GetOptionByRow(s, row_idx);
+    if (row == nullptr) {
         return nullptr;
     }
-    if (option->custom_handler.format_value != nullptr) {
-        return option->custom_handler.format_value(option);
+    const UI_SETTING_HANDLER *const handler = row->handler;
+    if (handler->format_value != nullptr) {
+        return handler->format_value(row->option, handler->user_data);
     }
-
-    const CONFIG_OPTION *const cfg_opt = M_GetConfigOption(option);
-    return Config_GetOptionValueAsString(cfg_opt, true);
+    return Config_Option_GetValueAsString(row->option, true);
 }
 
-static float M_MeasureMaxValueWidth(const UI_SETTINGS_OPTION *const option)
+static float M_MeasureMaxValueWidth(const UI_SETTINGS_ROW *const row)
 {
-    if (option->custom_handler.format_value != nullptr) {
-        const char *const value = option->custom_handler.format_value(option);
-        const float result = UI_Label_MeasureW(value);
-        return result;
+    const UI_SETTING_HANDLER *const handler = row->handler;
+    if (handler->format_value != nullptr) {
+        return UI_Label_MeasureW(
+            handler->format_value(row->option, handler->user_data));
     }
 
-    if (M_IsBarColorEnum(option)) {
-        return M_BAR_WIDTH * g_Config.ui.text_scale;
+    if (M_IsBarColorEnum(row)) {
+        return M_BAR_WIDTH * UI_Scaler_GetTextScale();
     }
 
-    switch (M_GetConfigOption(option)->type) {
-    case COT_BOOL: {
+    switch (row->option->value.type) {
+    case TVT_BOOL: {
         const float min_value_w = UI_Label_MeasureW(GS("general/misc/off"));
         const float max_value_w = UI_Label_MeasureW(GS("general/misc/on"));
         return MAX(min_value_w, max_value_w);
     }
-    case COT_INT32: {
-        const char *const min_value_s =
-            String_FormatStatic("%d", option->min_value);
-        const float min_value_w = UI_Label_MeasureW(min_value_s);
-        const char *const max_value_s =
-            String_FormatStatic("%d", option->max_value);
-        const float max_value_w = UI_Label_MeasureW(max_value_s);
+
+    case TVT_S8:
+    case TVT_U8:
+    case TVT_S16:
+    case TVT_U16:
+    case TVT_S32:
+    case TVT_U32: {
+        double min_value = 0.0;
+        double max_value = 0.0;
+        M_GetBounds(row, &min_value, &max_value);
+        const float min_value_w =
+            UI_Label_MeasureW(String_FormatStatic("%d", (int32_t)min_value));
+        const float max_value_w =
+            UI_Label_MeasureW(String_FormatStatic("%d", (int32_t)max_value));
         return MAX(min_value_w, max_value_w);
     }
-    case COT_DOUBLE:
-    case COT_FLOAT: {
-        const char *const min_value_s =
-            String_FormatStatic("%.2f", (double)option->min_value / 100.0);
-        const float min_value_w = UI_Label_MeasureW(min_value_s);
-        const char *const max_value_s =
-            String_FormatStatic("%.2f", (double)option->max_value / 100.0);
-        const float max_value_w = UI_Label_MeasureW(max_value_s);
+
+    case TVT_DOUBLE:
+    case TVT_FLOAT: {
+        const bool percent = (row->option->flags & CONFIG_OPTION_PERCENT) != 0;
+        const char *const fmt = percent ? "%.00f%%" : "%.2f";
+        const double scale = percent ? 1.0 : 100.0;
+        double min_value = 0.0;
+        double max_value = 0.0;
+        M_GetBounds(row, &min_value, &max_value);
+        const float min_value_w =
+            UI_Label_MeasureW(String_FormatStatic(fmt, min_value / scale));
+        const float max_value_w =
+            UI_Label_MeasureW(String_FormatStatic(fmt, max_value / scale));
         return MAX(min_value_w, max_value_w);
     }
-    case COT_FLOAT_PERCENT: {
-        const char *const min_value_s =
-            String_FormatStatic("%.00f%%", (double)option->min_value);
-        const float min_value_w = UI_Label_MeasureW(min_value_s);
-        const char *const max_value_s =
-            String_FormatStatic("%.00f%%", (double)option->max_value);
-        const float max_value_w = UI_Label_MeasureW(max_value_s);
-        return MAX(min_value_w, max_value_w);
-    }
-    case COT_RGB888:
-        return UI_Label_MeasureW("#FFFFFF") + 8.0f * g_Config.ui.text_scale
-            + 32.0f * g_Config.ui.text_scale;
-    case COT_STRING:
-        return UI_Label_MeasureW(*(char **)option->target);
-    case COT_DYNAMIC_ENUM: {
-        const CONFIG_OPTION *const cfg_opt = M_GetConfigOption(option);
+
+    case TVT_RGB_888:
+        return UI_Label_MeasureW("#FFFFFF") + 8.0f * UI_Scaler_GetTextScale()
+            + 32.0f * UI_Scaler_GetTextScale();
+
+    case TVT_STRING:
+        return UI_Label_MeasureW(row->option->value.as_str);
+
+    case TVT_DYNAMIC_ENUM: {
         float result = 0.0f;
-        const int32_t count = Config_DynamicEnum_GetValueCount(cfg_opt);
+        const void *const token = Config_Option_GetEnumKey(row->option);
+        const int32_t count = DynamicEnum_GetValueCount(token);
         for (int32_t i = 0; i < count; i++) {
-            const char *const label = Config_DynamicEnum_GetLabelAt(cfg_opt, i);
+            const char *const label = DynamicEnum_GetLabelAt(token, i);
             result = MAX(result, UI_Label_MeasureW(label));
         }
         return result;
     }
-    case COT_ENUM: {
-        const CONFIG_OPTION *const cfg_opt = M_GetConfigOption(option);
+
+    case TVT_ENUM: {
         float result = 0.0f;
-        const UI_SETTINGS_ENUM_ENTRY *entry = option->misc;
-        const int32_t current_value = *(int32_t *)option->target;
-        while (entry->value != -1) {
-            const bool is_current = entry->value == current_value;
-            if (!is_current && !M_IsEnumEntryAvailable(option, entry)) {
-                entry++;
+        const int32_t current_value = row->option->value.as_int;
+        const int32_t count = M_GetEnumValueCount(row);
+        for (int32_t i = 0; i < count; i++) {
+            const int32_t enum_value = M_GetEnumValueAt(row, i);
+            const bool is_current = enum_value == current_value;
+            if (!is_current && !M_IsEnumValueAvailable(row, enum_value)) {
                 continue;
             }
             const char *const value =
-                EnumMap_GetLabel(cfg_opt->param, entry->value);
+                EnumMap_GetLabel(row->option->enum_map, enum_value);
             ASSERT(value != nullptr);
             const float value_w = UI_Label_MeasureW(value);
             result = MAX(result, value_w);
-            entry++;
         }
         return result;
     }
-    default:
+
+    case TVT_XYZ_16:
+    case TVT_XYZ_32:
+        // Config options are never vectors.
         break;
     }
+
     return 0.0f;
 }
 
-static bool M_CanChangeValue(
-    const UI_SETTINGS_EDITOR_STATE *const s, const int32_t row_idx,
-    const int32_t dir)
+// A float or double config option is edited in hundredths: the stored value
+// times 100 is a whole-number position, and min_value/max_value bound that
+// position. Both widths ride in as_num, so one set of helpers serves them.
+static double M_ReadDecimal(const UI_SETTINGS_ROW *const row)
 {
-    const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row_idx);
-    if (option == nullptr || Config_IsOptionEnforced(option->target)) {
+    return row->option->value.as_num;
+}
+
+static void M_WriteDecimal(CONFIG_OPTION *const option, const double value)
+{
+    // Fold -0.0, which round() can produce, into 0.0.
+    const TRX_VALUE v = {
+        .type = option->value.type,
+        .as_num = value == 0.0 ? 0.0 : value,
+    };
+    Config_Option_Write(option, &v);
+}
+
+// The stored value after stepping its hundredths position by `step`.
+static double M_SteppedDecimal(
+    const UI_SETTINGS_ROW *const row, const int32_t step)
+{
+    return (round(M_ReadDecimal(row) * 100) + step) / 100.0;
+}
+
+static bool M_CanChangeValue(
+    UI_SETTINGS_EDITOR_STATE *const s, const int32_t row_idx, const int32_t dir)
+{
+    const UI_SETTINGS_ROW *const row = M_GetOptionByRow(s, row_idx);
+    if (row == nullptr || M_IsOptionHeld(row)) {
         return false;
     }
-    if (option->custom_handler.can_change_value != nullptr) {
-        return option->custom_handler.can_change_value(option, dir);
+    const UI_SETTING_HANDLER *const handler = row->handler;
+    if (handler->can_change_value != nullptr) {
+        return handler->can_change_value(row->option, dir, handler->user_data);
     }
 
-    switch (M_GetConfigOption(option)->type) {
-    case COT_BOOL:
+    switch (row->option->value.type) {
+    case TVT_BOOL:
         return true;
 
-    case COT_INT32:
+    case TVT_S8:
+    case TVT_U8:
+    case TVT_S16:
+    case TVT_U16:
+    case TVT_S32:
+    case TVT_U32: {
+        double min_value = 0.0;
+        double max_value = 0.0;
+        if (!M_GetBounds(row, &min_value, &max_value)) {
+            return true;
+        }
+        const int64_t value = row->option->value.as_int;
         if (dir < 0) {
-            return *(int32_t *)option->target > option->min_value;
+            return value > (int64_t)min_value;
         } else if (dir > 0) {
-            return *(int32_t *)option->target < option->max_value;
+            return value < (int64_t)max_value;
         }
         break;
-
-    case COT_DOUBLE: {
-        const double target_value =
-            (round(*(double *)option->target * 100) + dir) / 100.0;
-        return target_value >= (double)option->min_value / 100.0
-            && target_value <= (double)option->max_value / 100.0;
     }
 
-    case COT_FLOAT:
-    case COT_FLOAT_PERCENT: {
-        const float target_value =
-            (round(*(float *)option->target * 100) + dir) / 100.0f;
-        return target_value >= (float)option->min_value / 100.0f
-            && target_value <= (float)option->max_value / 100.0f;
+    case TVT_DOUBLE:
+    case TVT_FLOAT: {
+        double min_value = 0.0;
+        double max_value = 0.0;
+        if (!M_GetBounds(row, &min_value, &max_value)) {
+            return true;
+        }
+        const double target_value = M_SteppedDecimal(row, dir);
+        return target_value >= min_value / 100.0
+            && target_value <= max_value / 100.0;
     }
 
-    case COT_RGB888:
-        return false;
-
-    case COT_STRING:
-        return false;
-
-    case COT_DYNAMIC_ENUM: {
-        const CONFIG_OPTION *const cfg_opt = M_GetConfigOption(option);
-        return Config_DynamicEnum_CanCycle(
-            cfg_opt, *(char **)option->target, dir);
+    case TVT_DYNAMIC_ENUM: {
+        return DynamicEnum_CanCycle(
+            Config_Option_GetEnumKey(row->option), row->option->value.as_str,
+            dir);
     }
 
-    case COT_ENUM: {
-        const M_ENUM_LOOKUP enum_lookup = M_GetEnumEntry(option);
+    case TVT_ENUM: {
+        const M_ENUM_LOOKUP enum_lookup = M_GetEnumEntry(row);
         ASSERT(enum_lookup.position >= 0);
-        return M_FindNextAvailableEnumPosition(option, &enum_lookup, dir) >= 0;
+        return M_FindNextAvailableEnumPosition(row, &enum_lookup, dir) >= 0;
     }
 
-    default:
-        break;
+    case TVT_RGB_888:
+    case TVT_STRING:
+    case TVT_XYZ_16:
+    case TVT_XYZ_32:
+        return false;
     }
     return false;
 }
 
 static bool M_RequestChangeValue(
-    const UI_SETTINGS_EDITOR_STATE *const s, const int32_t row_idx,
-    const int32_t dir)
+    UI_SETTINGS_EDITOR_STATE *const s, const int32_t row_idx, const int32_t dir)
 {
     if (!M_CanChangeValue(s, row_idx, dir)) {
         return false;
     }
 
-    const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row_idx);
-    if (option->custom_handler.request_change_value != nullptr) {
-        if (option->custom_handler.request_change_value(option, dir)) {
-            goto changed;
+    const UI_SETTINGS_ROW *const row = M_GetOptionByRow(s, row_idx);
+    const UI_SETTING_HANDLER *const handler = row->handler;
+    if (handler->request_change_value != nullptr) {
+        if (!handler->request_change_value(
+                row->option, dir, handler->user_data)) {
+            return false;
         }
-        return false;
+    } else {
+        UI_SettingsEditor_RequestChange(row->option, dir);
     }
-
-    UI_SettingsEditor_RequestChange(option, dir);
-changed:
     Config_Update();
     return true;
-}
-
-UI_SETTINGS_EDITOR_STATE *UI_SettingsEditor_Init(
-    const UI_SETTINGS_OPTION *const options)
-{
-    UI_SETTINGS_EDITOR_STATE *const s = Memory_Alloc(sizeof(*s));
-    s->options = options;
-    s->scroll = (UI_SCROLLABLE) {
-        .first_item = 0,
-        .sel_item = -1,
-        .max_items = 0,
-        .vis_items = 0,
-    };
-    s->color_editor = UI_ColorEditorDialog_Init();
-    return s;
-}
-
-void UI_SettingsEditor_Free(UI_SETTINGS_EDITOR_STATE *const s)
-{
-    if (s->description.show) {
-        UI_TextDialog_Free(s->description.state);
-        s->description.state = nullptr;
-        s->description.show = false;
-    }
-    UI_ColorEditorDialog_Free(s->color_editor);
-    s->color_editor = nullptr;
-    Memory_Free(s);
 }
 
 static float M_GetMaxLabelWidth(const UI_SETTINGS_EDITOR_STATE *const s)
 {
     float result = -1.0f;
-    if (s->options != nullptr) {
-        for (int32_t i = 0; s->options[i].target != nullptr; i++) {
-            const UI_SETTINGS_OPTION *const option = &s->options[i];
-            const float label_w = UI_Label_MeasureW(M_GetOptionTitle(option));
-            result = MAX(label_w, result);
-        }
+    const int32_t row_count = UI_Settings_GetRowCount(s->tab);
+    for (int32_t i = 0; i < row_count; i++) {
+        const float label_w =
+            UI_Label_MeasureW(M_GetOptionTitle(UI_Settings_GetRow(s->tab, i)));
+        result = MAX(label_w, result);
     }
     return result;
 }
@@ -456,12 +529,11 @@ static float M_GetMaxLabelWidth(const UI_SETTINGS_EDITOR_STATE *const s)
 static float M_GetMaxValueWidth(const UI_SETTINGS_EDITOR_STATE *const s)
 {
     float result = -1.0f;
-    if (s->options != nullptr) {
-        for (int32_t i = 0; s->options[i].target != nullptr; i++) {
-            const UI_SETTINGS_OPTION *const option = &s->options[i];
-            const float value_w = M_MeasureMaxValueWidth(option);
-            result = MAX(value_w, result);
-        }
+    const int32_t row_count = UI_Settings_GetRowCount(s->tab);
+    for (int32_t i = 0; i < row_count; i++) {
+        const float value_w =
+            M_MeasureMaxValueWidth(UI_Settings_GetRow(s->tab, i));
+        result = MAX(value_w, result);
     }
 
     result += UI_Label_MeasureW("\\{button left}");
@@ -470,9 +542,68 @@ static float M_GetMaxValueWidth(const UI_SETTINGS_EDITOR_STATE *const s)
     return result;
 }
 
+static void M_OptionLabel(
+    const UI_SETTINGS_ROW *const row, const char *const text,
+    const bool star_if_enforced)
+{
+    const UI_SETTING_HANDLER *const handler =
+        row != nullptr ? row->handler : nullptr;
+    const bool is_held = M_IsOptionHeld(row);
+    // A held row is not the player's to move, so it reads as one they cannot
+    // move rather than only carrying the star that says who took it.
+    const bool is_available = !is_held
+        && (handler == nullptr || handler->is_available == nullptr
+            || handler->is_available(row->option, handler->user_data));
+    const bool is_enforced = star_if_enforced && is_held;
+    const char *const suffix = is_enforced ? "*" : "";
+
+    if (!is_available) {
+        UI_LabelFmt("\\{dim}%s%s\\{/dim}", text, suffix);
+    } else if (is_enforced) {
+        UI_LabelFmt("%s%s", text, suffix);
+    } else {
+        UI_Label(text);
+    }
+}
+
+UI_SETTINGS_EDITOR_STATE *UI_SettingsEditor_Init(const CONFIG_TAB tab)
+{
+    UI_SETTINGS_EDITOR_STATE *const s = Memory_Alloc(sizeof(*s));
+    s->tab = tab;
+    s->scroll = (UI_SCROLLABLE) {
+        .first_item = 0,
+        .sel_item = -1,
+        .max_items = 0,
+        .vis_items = 0,
+    };
+    s->color_editor = UI_ColorEditorDialog_Init();
+    M_ArrangeRows(s);
+    // A setting moving is what takes a row away or gives one back, so the
+    // arrangement follows the same report the rest of the game does.
+    s->change_listener = Config_SubscribeChanges(M_HandleConfigChange, s);
+    return s;
+}
+
+void UI_SettingsEditor_Free(UI_SETTINGS_EDITOR_STATE *const s)
+{
+    Config_UnsubscribeChanges(s->change_listener);
+    if (s->description.show) {
+        UI_TextDialog_Free(s->description.state);
+        s->description.state = nullptr;
+        s->description.show = false;
+    }
+    UI_ColorEditorDialog_Free(s->color_editor);
+    s->color_editor = nullptr;
+    if (s->rows != nullptr) {
+        Vector_Free(s->rows);
+        s->rows = nullptr;
+    }
+    Memory_Free(s);
+}
+
 float UI_SettingsEditor_GetContentWidth(const UI_SETTINGS_EDITOR_STATE *const s)
 {
-    return M_GetMaxLabelWidth(s) + 20.0f * g_Config.ui.text_scale
+    return M_GetMaxLabelWidth(s) + 20.0f * UI_Scaler_GetTextScale()
         + M_GetMaxValueWidth(s);
 }
 
@@ -491,82 +622,82 @@ float UI_SettingsEditor_GetContentHeight(
     return rows * UI_TEXT_HEIGHT;
 }
 
-int32_t UI_SettingsEditor_GetItemCount(const UI_SETTINGS_EDITOR_STATE *const s)
+int32_t UI_SettingsEditor_GetItemCount(UI_SETTINGS_EDITOR_STATE *const s)
 {
     return M_GetRowCount(s);
 }
 
 void UI_SettingsEditor_RequestChange(
-    const UI_SETTINGS_OPTION *const option, const int32_t dir)
+    CONFIG_OPTION *const option, const int32_t dir)
 {
-    int32_t delta =
-        g_Input.menu_fine_adjust ? option->delta_slow : option->delta_fast;
+    // Reached from a handler, which has the option and not the row it is shown
+    // on, so the pair the helpers want is made here. One lookup per press.
+    const UI_SETTINGS_ROW row_storage = { option,
+                                          UI_Settings_GetHandler(option) };
+    const UI_SETTINGS_ROW *const row = &row_storage;
+    int32_t delta = g_Input.menu_fine_adjust ? row->handler->delta_slow
+                                             : row->handler->delta_fast;
     if (delta == 0) {
         delta = 1;
     }
     delta *= dir;
 
-    switch (M_GetConfigOption(option)->type) {
-    case COT_BOOL:
-        *(bool *)option->target = !*(bool *)option->target;
+    switch (option->value.type) {
+    case TVT_BOOL: {
+        const TRX_VALUE v = {
+            .type = TVT_BOOL,
+            .as_bool = !option->value.as_bool,
+        };
+        Config_Option_Write(option, &v);
         break;
-    case COT_INT32:
-        *(int32_t *)option->target += delta;
+    }
+
+    case TVT_S8:
+    case TVT_U8:
+    case TVT_S16:
+    case TVT_U16:
+    case TVT_S32:
+    case TVT_U32: {
+        TRX_VALUE v = option->value;
+        v.as_int += delta;
+        Config_Option_Write(option, &v);
         break;
-    case COT_DOUBLE:
-        *(double *)option->target =
-            (round(*(double *)option->target * 100) + delta) / 100.0f;
-        if (*(double *)option->target == -0.0) {
-            *(double *)option->target = 0.0;
-        }
+    }
+
+    case TVT_DOUBLE:
+    case TVT_FLOAT:
+        M_WriteDecimal(option, M_SteppedDecimal(row, delta));
         break;
-    case COT_FLOAT:
-    case COT_FLOAT_PERCENT:
-        *(float *)option->target =
-            (round(*(float *)option->target * 100) + delta) / 100.0f;
-        if (*(float *)option->target == -0.0f) {
-            *(float *)option->target = 0.0f;
-        }
-        break;
-    case COT_RGB888:
-        break;
-    case COT_ENUM: {
-        const UI_SETTINGS_ENUM_ENTRY *const entries = option->misc;
-        int32_t position = -1;
-        int32_t count = 0;
-        for (; entries[count].value != -1; count++) {
-            if (entries[count].value == *(int32_t *)option->target) {
-                position = count;
-            }
-        }
-        if (position < 0 || count <= 0 || delta == 0) {
+
+    case TVT_ENUM: {
+        const M_ENUM_LOOKUP enum_lookup = M_GetEnumEntry(row);
+        const int32_t pos =
+            M_FindNextAvailableEnumPosition(row, &enum_lookup, delta);
+        if (pos < 0) {
             break;
         }
-        const int32_t step = delta < 0 ? -1 : 1;
-        for (int32_t pos = position + step; pos >= 0 && pos < count;
-             pos += step) {
-            const bool can_use =
-                option->custom_handler.is_enum_value_available == nullptr
-                || option->custom_handler.is_enum_value_available(
-                    option, entries[pos].value);
-            if (can_use) {
-                *(int32_t *)option->target = entries[pos].value;
-                break;
-            }
+        const TRX_VALUE v = {
+            .type = TVT_ENUM,
+            .as_int = M_GetEnumValueAt(row, pos),
+        };
+        Config_Option_Write(option, &v);
+        break;
+    }
+
+    case TVT_DYNAMIC_ENUM: {
+        const void *const token = Config_Option_GetEnumKey(option);
+        const char *const next =
+            DynamicEnum_GetNext(token, option->value.as_str, delta);
+        if (next != nullptr || DynamicEnum_IsValidValue(token, nullptr)) {
+            Config_Option_SetFromString(option, next, false);
         }
         break;
     }
-    case COT_DYNAMIC_ENUM: {
-        const CONFIG_OPTION *const cfg_opt = M_GetConfigOption(option);
-        const char *const next = Config_DynamicEnum_GetNext(
-            cfg_opt, *(char **)option->target, delta);
-        if (next != nullptr
-            || Config_DynamicEnum_IsValidValue(cfg_opt, nullptr)) {
-            Config_SetOptionValueFromString(cfg_opt, next);
-        }
-        break;
-    }
-    case COT_STRING:
+
+    case TVT_RGB_888:
+    case TVT_STRING:
+    case TVT_XYZ_16:
+    case TVT_XYZ_32:
         break;
     }
 }
@@ -633,17 +764,16 @@ bool UI_SettingsEditor_Control(
         return true;
     }
     if (g_InputDB.menu_confirm && sel_row >= 0) {
-        const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, sel_row);
-        if (M_IsColorEditorOption(option)
-            && !Config_IsOptionEnforced(option->target)) {
-            UI_ColorEditorDialog_Open(s->color_editor, option);
+        const UI_SETTINGS_ROW *const row = M_GetOptionByRow(s, sel_row);
+        if (M_IsColorEditorOption(row) && !M_IsOptionHeld(row)) {
+            UI_ColorEditorDialog_Open(s->color_editor, row->option);
             return true;
         }
     }
     if (g_InputDB.menu_show_info && sel_row >= 0) {
-        const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, sel_row);
-        const char *const title = M_GetOptionTitle(option);
-        const char *const text = M_GetOptionDescription(option);
+        const UI_SETTINGS_ROW *const row = M_GetOptionByRow(s, sel_row);
+        const char *const title = M_GetOptionTitle(row);
+        const char *const text = M_GetOptionDescription(row);
         if (title != nullptr && text != nullptr) {
             s->description.show = true;
             s->description.state = UI_TextDialog_Init(
@@ -653,11 +783,10 @@ bool UI_SettingsEditor_Control(
         }
     }
     if (g_InputDB.unbind_key && sel_row >= 0) {
-        const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, sel_row);
-        if (option != nullptr && option->target != nullptr
-            && !Config_IsOptionEnforced(option->target)
-            && !Config_IsOptionAtDefault(option->target)) {
-            Config_RestoreOptionDefault(option->target);
+        const UI_SETTINGS_ROW *const row = M_GetOptionByRow(s, sel_row);
+        if (row != nullptr && !M_IsOptionHeld(row)
+            && !Config_Option_IsAtDefault(row->option)) {
+            Config_Option_RestoreDefault(row->option, false);
             Config_Update();
             return true;
         }
@@ -671,13 +800,13 @@ void UI_SettingsEditor_DrawOverlay(UI_SETTINGS_EDITOR_STATE *const s)
     UI_ColorEditorDialog(s->color_editor);
 
     if (s->description.show) {
-        const int32_t row = UI_Scrollable_GetSelectedItem(&s->scroll);
-        const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row);
-        if (option != nullptr) {
-            const char *title = M_GetOptionTitle(option);
-            const char *text = M_GetOptionDescription(option);
+        const int32_t row_idx = UI_Scrollable_GetSelectedItem(&s->scroll);
+        const UI_SETTINGS_ROW *const row = M_GetOptionByRow(s, row_idx);
+        if (row != nullptr) {
+            const char *title = M_GetOptionTitle(row);
+            const char *text = M_GetOptionDescription(row);
             if (title != nullptr && text != nullptr) {
-                if (Config_IsOptionEnforced(option->target)) {
+                if (M_IsOptionHeld(row)) {
                     title = String_FormatStatic("%s*", title);
                     text = String_FormatStatic(
                         "* %s\n\n%s",
@@ -691,32 +820,12 @@ void UI_SettingsEditor_DrawOverlay(UI_SETTINGS_EDITOR_STATE *const s)
     }
 }
 
-static void M_OptionLabel(
-    const UI_SETTINGS_OPTION *const option, const char *const text,
-    const bool star_if_enforced)
-{
-    const bool is_available = option == nullptr
-        || option->custom_handler.is_available == nullptr
-        || option->custom_handler.is_available(option);
-    const bool is_enforced = star_if_enforced && option != nullptr
-        && Config_IsOptionEnforced(option->target);
-    const char *const suffix = is_enforced ? "*" : "";
-
-    if (!is_available) {
-        UI_LabelFmt("\\{dim}%s%s\\{/dim}", text, suffix);
-    } else if (is_enforced) {
-        UI_LabelFmt("%s%s", text, suffix);
-    } else {
-        UI_Label(text);
-    }
-}
-
 void UI_SettingsEditor_Draw(
     UI_SETTINGS_EDITOR_STATE *const s, const UI_SCROLLABLE *const dialog_scroll,
     const UI_SETTINGS_PHASE dialog_phase, const float row_width)
 {
-    const float max_label_w = M_GetMaxLabelWidth(s) / g_Config.ui.text_scale;
-    const float max_value_w = M_GetMaxValueWidth(s) / g_Config.ui.text_scale;
+    const float max_label_w = M_GetMaxLabelWidth(s) / UI_Scaler_GetTextScale();
+    const float max_value_w = M_GetMaxValueWidth(s) / UI_Scaler_GetTextScale();
     float label_w = max_label_w;
     const float total_w = max_label_w + 20.0f + max_value_w;
     if (row_width > total_w) {
@@ -731,15 +840,16 @@ void UI_SettingsEditor_Draw(
 
     UI_BeginStack(UI_STACK_VERTICAL);
     for (int32_t i = 0; i < dialog_scroll->vis_items; i++) {
-        const int32_t row = dialog_scroll->first_item + i;
-        if (row >= dialog_scroll->max_items) {
+        const int32_t row_idx = dialog_scroll->first_item + i;
+        if (row_idx >= dialog_scroll->max_items) {
             UI_Spacer(0.0f, UI_TEXT_HEIGHT);
             continue;
         }
 
         const bool is_row_focused =
-            dialog_phase == UI_SETTINGS_PHASE_EDIT_SETTINGS && row == sel_row;
-        if (!UI_Scrollable_IsItemVisible(dialog_scroll, row)) {
+            dialog_phase == UI_SETTINGS_PHASE_EDIT_SETTINGS
+            && row_idx == sel_row;
+        if (!UI_Scrollable_IsItemVisible(dialog_scroll, row_idx)) {
             UI_BeginResize(-1.0f, 0.0f);
         } else {
             UI_BeginResize(-1.0f, -1.0f);
@@ -758,10 +868,10 @@ void UI_SettingsEditor_Draw(
         });
         UI_BeginResize(label_w, -1.0f);
         {
-            const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row);
+            const UI_SETTINGS_ROW *const row = M_GetOptionByRow(s, row_idx);
             const char *const name =
-                option != nullptr ? M_GetOptionTitle(option) : "";
-            M_OptionLabel(option, name, true);
+                row != nullptr ? M_GetOptionTitle(row) : "";
+            M_OptionLabel(row, name, true);
         }
         UI_EndResize();
         UI_Spacer(20.0f, 0.0f);
@@ -770,29 +880,29 @@ void UI_SettingsEditor_Draw(
         UI_BeginAnchor(1.0f, 0.5f);
 
         UI_BeginRowArrows(
-            is_row_focused && M_CanChangeValue(s, row, -1),
-            is_row_focused && M_CanChangeValue(s, row, +1),
+            is_row_focused && M_CanChangeValue(s, row_idx, -1),
+            is_row_focused && M_CanChangeValue(s, row_idx, +1),
             UI_ROW_ARROWS_MEDIUM);
         {
-            const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row);
-            if (M_IsBarColorEnum(option)) {
+            const UI_SETTINGS_ROW *const row = M_GetOptionByRow(s, row_idx);
+            if (M_IsBarColorEnum(row)) {
                 UI_Bar((UI_BAR_SETTINGS) {
                     .w = M_BAR_WIDTH,
                     .h = M_BAR_HEIGHT,
                     .value = 100,
                     .max_value = 100,
-                    .type = M_GetBarType(option),
+                    .type = M_GetBarType(row),
                     .preview = true,
                 });
-            } else if (M_IsColorEditorOption(option)) {
-                const char *const value = M_FormatRowValue(s, row);
-                const RGB_888 *const color = option->target;
+            } else if (M_IsColorEditorOption(row)) {
+                const char *const value = M_FormatRowValue(s, row_idx);
+                const RGB_888 *const color = &row->option->value.as_rgb;
                 UI_BeginStackEx((UI_STACK_SETTINGS) {
                     .orientation = UI_STACK_HORIZONTAL,
                     .align = { .v = UI_STACK_V_ALIGN_CENTER },
                     .spacing = { .h = 4.0f },
                 });
-                M_OptionLabel(option, value, false);
+                M_OptionLabel(row, value, false);
                 UI_ColorSwatch((UI_COLOR_SWATCH_SETTINGS) {
                     .color = *color,
                     .w = UI_TEXT_HEIGHT - 2.0f,
@@ -800,8 +910,8 @@ void UI_SettingsEditor_Draw(
                 });
                 UI_EndStack();
             } else {
-                const char *const value = M_FormatRowValue(s, row);
-                M_OptionLabel(option, value, false);
+                const char *const value = M_FormatRowValue(s, row_idx);
+                M_OptionLabel(row, value, false);
             }
         }
         UI_EndRowArrows();
@@ -826,21 +936,19 @@ void UI_SettingsEditor_DrawFooter(
     UI_SETTINGS_EDITOR_STATE *const s, const UI_SETTINGS_PHASE dialog_phase)
 {
     const int32_t row_idx = UI_Scrollable_GetSelectedItem(&s->scroll);
-    const UI_SETTINGS_OPTION *const option = M_GetOptionByRow(s, row_idx);
+    const UI_SETTINGS_ROW *const row = M_GetOptionByRow(s, row_idx);
 
     const bool can_edit_value = dialog_phase == UI_SETTINGS_PHASE_EDIT_SETTINGS
-        && row_idx >= 0 && option != nullptr
-        && M_GetConfigOption(option)->type == COT_RGB888
-        && !Config_IsOptionEnforced(option->target);
+        && row_idx >= 0 && row != nullptr
+        && row->option->value.type == TVT_RGB_888 && !M_IsOptionHeld(row);
     const bool can_examine = dialog_phase == UI_SETTINGS_PHASE_EDIT_SETTINGS
-        && row_idx >= 0 && option != nullptr
-        && M_GetOptionDescription(option) != nullptr
-        && M_GetOptionTitle(option) != nullptr;
+        && row_idx >= 0 && row != nullptr
+        && M_GetOptionDescription(row) != nullptr
+        && M_GetOptionTitle(row) != nullptr;
     const bool can_restore_default =
         dialog_phase == UI_SETTINGS_PHASE_EDIT_SETTINGS && row_idx >= 0
-        && option != nullptr && option->target != nullptr
-        && !Config_IsOptionEnforced(option->target)
-        && !Config_IsOptionAtDefault(option->target);
+        && row != nullptr && !M_IsOptionHeld(row)
+        && !Config_Option_IsAtDefault(row->option);
 
     UI_BeginStackEx((UI_STACK_SETTINGS) {
         .orientation = UI_STACK_HORIZONTAL,

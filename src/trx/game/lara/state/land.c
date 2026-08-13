@@ -2,6 +2,7 @@
 #include <trx/game/camera.h>
 #include <trx/game/gun.h>
 #include <trx/game/input.h>
+#include <trx/game/interpolation.h>
 #include <trx/game/lara.h>
 #include <trx/game/lara/util.h>
 #include <trx/game/random.h>
@@ -38,6 +39,7 @@
 #define M_CAM_SPECIAL_DISTANCE     (2 * WALL_L)                   // = 2048
 #define M_CAM_POSE_RIGHT_ANGLE     M_CAM_SPECIAL_ANGLE            // = 30940
 #define M_CAM_POSE_LEFT_ANGLE     -M_CAM_SPECIAL_ANGLE            // = -30940
+#define M_CAM_QUICK_TURN_STEP      (5 * DEG_1)                    // = 910
 // clang-format on
 
 static bool m_JumpPermitted = true;
@@ -91,6 +93,10 @@ static void M_Walk(ITEM *const item, COLL_INFO *const coll)
     }
 
     LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (lara->interact_target.is_moving) {
+        return;
+    }
+
     if (g_Input.left) {
         lara->turn_rate -= LARA_TURN_RATE;
         CLAMPL(lara->turn_rate, -LARA_SLOW_TURN);
@@ -299,6 +305,10 @@ static void M_WalkBack(ITEM *const item, COLL_INFO *const coll)
     }
 
     LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (lara->interact_target.is_moving) {
+        return;
+    }
+
     if (g_Input.back && (g_Input.slow || lara->water_status == LWS_WADE)) {
         item->goal_anim_state = LS(LS_WALK_BACK);
     } else {
@@ -312,6 +322,21 @@ static void M_WalkBack(ITEM *const item, COLL_INFO *const coll)
         lara->turn_rate += LARA_TURN_RATE;
         CLAMPG(lara->turn_rate, LARA_SLOW_TURN);
     }
+}
+
+static bool M_CanQuickTurn(const LARA_INFO *const lara, const ITEM *const item)
+{
+    if (!g_Config.gameplay.enable_alternative_turns || !g_Input.roll
+        || !g_Input.slow) {
+        return false;
+    }
+
+    if (lara->water_status == LWS_WADE || lara->gun_status != LGS_ARMLESS) {
+        return false;
+    }
+
+    const ANIM *const anim = Item_GetAnim(item);
+    return Anim_HasChange(anim, LS(LS_QUICK_TURN));
 }
 
 static void M_Stop(ITEM *const item, COLL_INFO *const coll)
@@ -340,19 +365,26 @@ static void M_Stop(ITEM *const item, COLL_INFO *const coll)
         return;
     }
 
+    if (M_CanQuickTurn(lara, item)) {
+        Lara_AnimateUntil(item, LS(LS_QUICK_TURN));
+        item->goal_anim_state = LS(LS_STOP);
+        lara->gun_status = LGS_HANDS_BUSY;
+        return;
+    }
+
     if (g_Input.roll && lara->water_status != LWS_WADE) {
-        if (g_Input.jump && g_Config.gameplay.enable_neutral_twists
+        if (g_Input.jump && g_Config.gameplay.enable_alternative_turns
             && Item_TestAnimEqual(item, LA(LA_STAND_IDLE))
             && Lara_State_IsResponsive(LA_STAND_TO_JUMP)) {
             item->current_anim_state = LS(LS_NEUTRAL_ROLL);
-            item->goal_anim_state = LS(LS_STOP);
             Item_SwitchToAnim(item, LA(LA_JUMP_NEUTRAL_ROLL), 0);
-        } else if (!g_Input.jump || !g_Config.gameplay.enable_neutral_twists) {
+        } else if (
+            !g_Input.jump || !g_Config.gameplay.enable_alternative_turns) {
             Lara_Col_WadeSplash(item);
             item->current_anim_state = LS(LS_ROLL);
-            item->goal_anim_state = LS(LS_STOP);
             Item_SwitchToAnim(item, LA(LA_ROLL_START), M_LF_ROLL);
         }
+        item->goal_anim_state = LS(LS_STOP);
         return;
     }
 
@@ -609,6 +641,10 @@ static void M_SideStep(ITEM *const item, COLL_INFO *const coll)
         return;
     }
 
+    if (lara->interact_target.is_moving) {
+        return;
+    }
+
     const bool step_input = item->current_anim_state == LS(LS_STEP_LEFT)
         ? g_Input.step_left
         : g_Input.step_right;
@@ -683,10 +719,12 @@ static void M_Pickup(ITEM *const item, COLL_INFO *const coll)
     g_Camera.target_elevation = M_CAM_PICKUP_ELEVATION;
     g_Camera.target_distance = M_CAM_PICKUP_DISTANCE;
 
-    if (item->current_anim_state == LS(LS_FLARE_PICKUP)
-        && Item_TestFrameEqual(item, -1)) {
+    if (Item_TestFrameEqual(item, -1)) {
         LARA_INFO *const lara = Lara_GetLaraInfo();
-        lara->gun_status = LGS_ARMLESS;
+        lara->interact_target.item_num = NO_ITEM;
+        if (item->current_anim_state == LS(LS_FLARE_PICKUP)) {
+            lara->gun_status = LGS_ARMLESS;
+        }
     }
 }
 
@@ -705,6 +743,15 @@ static void M_UseKey(ITEM *const item, COLL_INFO *const coll)
     g_Camera.target_angle = M_CAM_USE_KEY_ANGLE;
     g_Camera.target_elevation = M_CAM_USE_KEY_ELEVATION;
     g_Camera.target_distance = M_CAM_USE_KEY_DISTANCE;
+}
+
+static void M_UsePulley(ITEM *const item, COLL_INFO *const coll)
+{
+    M_Default(item, coll);
+    if (Item_TestAnimEqual(item, LA(LA_PULLEY_UNGRAB))) {
+        LARA_INFO *const lara = Lara_GetLaraInfo();
+        lara->interact_target.item_num = NO_ITEM;
+    }
 }
 
 static void M_Special(ITEM *const item, COLL_INFO *const coll)
@@ -793,6 +840,18 @@ static void M_SprintRoll(ITEM *const item, COLL_INFO *const coll)
     }
 }
 
+static void M_QuickTurn(ITEM *const item, COLL_INFO *const coll)
+{
+    coll->enable_hit = 0;
+    if (Item_TestFrameEqual(item, -1)) {
+        item->rot.y += DEG_180;
+        Interpolation_RememberItem(item);
+    } else {
+        g_Camera.target_angle =
+            Item_GetRelativeFrame(item) * M_CAM_QUICK_TURN_STEP;
+    }
+}
+
 // clang-format off
 REGISTER_LARA_STATE(LS_GYMNAST,       M_Default)
 REGISTER_LARA_STATE(LS_PULL_UP,       M_PullUp)
@@ -822,7 +881,9 @@ REGISTER_LARA_STATE(LS_SWITCH_ON,     M_SwitchOn)
 REGISTER_LARA_STATE(LS_SWITCH_OFF,    M_SwitchOn)
 REGISTER_LARA_STATE(LS_USE_KEY,       M_UseKey)
 REGISTER_LARA_STATE(LS_USE_PUZZLE,    M_UseKey)
+REGISTER_LARA_STATE(LS_PULLEY,        M_UsePulley)
 REGISTER_LARA_STATE(LS_SPECIAL,       M_Special)
+REGISTER_LARA_STATE(LS_LIFT_DEATH,    M_Special)
 REGISTER_LARA_STATE(LS_WADE,          M_Wade)
 REGISTER_LARA_STATE(LS_SPRINT,        M_Sprint)
 REGISTER_LARA_STATE(LS_SPRINT_ROLL,   M_SprintRoll)
@@ -832,4 +893,6 @@ REGISTER_LARA_STATE(LS_PUSH_DOORS,    M_Default)
 REGISTER_LARA_STATE(LS_LIFT_TRAPDOOR, M_Default)
 REGISTER_LARA_STATE(LS_PULL_TRAPDOOR, M_Default)
 REGISTER_LARA_STATE(LS_FLARE_PICKUP,  M_Pickup)
+REGISTER_LARA_STATE(LS_HIDDEN_PICKUP, M_Pickup)
+REGISTER_LARA_STATE(LS_QUICK_TURN,    M_QuickTurn)
 // clang-format on

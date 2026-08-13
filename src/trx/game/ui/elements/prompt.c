@@ -11,6 +11,7 @@
 #include <trx/game/ui/elements/label.h>
 #include <trx/game/ui/events.h>
 #include <trx/game/ui/helpers.h>
+#include <trx/game/ui/keys.h>
 #include <trx/game/ui/text.h>
 
 #include <string.h>
@@ -36,7 +37,67 @@ static void M_Layout(
     UI_Label_Measure(s->current_text, &caret_pos, nullptr);
     s->current_text[s->caret_pos] = old;
 
+    // The caret sits over the end of the typed text.
     caret->ops.layout(caret, x + caret_pos, y, w, h);
+}
+
+static void M_ResetCompletionSession(UI_PROMPT_STATE *const s)
+{
+    UI_PROMPT_COMPLETION *const c = &s->completion;
+    Completion_Clear(&c->result);
+    Memory_FreePointer(&c->original);
+    c->index = -1;
+}
+
+// Splices `replacement` over the session's run, adopting the new line and
+// moving the caret to its end. The run then holds what was spliced in, so the
+// next cycle replaces it whole.
+static void M_Apply(UI_PROMPT_STATE *const s, const char *const replacement)
+{
+    UI_PROMPT_COMPLETION *const c = &s->completion;
+    int32_t caret;
+    char *const line =
+        Completion_Apply(s->current_text, &c->result, replacement, &caret);
+    Memory_FreePointer(&s->current_text);
+    s->current_text = line;
+    s->current_text_capacity = (int32_t)strlen(line) + 1;
+    s->caret_pos = caret;
+    c->result.end = c->result.start + strlen(replacement);
+}
+
+static void M_CycleCompletion(UI_PROMPT_STATE *const s, const int32_t dir)
+{
+    UI_PROMPT_COMPLETION *const c = &s->completion;
+    if (c->provider == nullptr) {
+        return;
+    }
+    if (c->index < 0) {
+        M_ResetCompletionSession(s);
+        const COMPLETER e = c->provider(s->current_text, s->caret_pos);
+        if (e.fn == nullptr) {
+            return;
+        }
+        e.fn(e.ctx, s->current_text, s->caret_pos, &c->result);
+        const int32_t n = c->result.suggestions->count;
+        if (n == 0) {
+            return;
+        }
+        // Keep a copy of the typed run so the cycle can return to it.
+        const size_t len = c->result.end - c->result.start;
+        c->original = Memory_Alloc(len + 1);
+        memcpy(c->original, s->current_text + c->result.start, len);
+        c->original[len] = '\0';
+        c->index = dir > 0 ? 0 : n - 1;
+    } else {
+        // One slot past the suggestions holds the original input.
+        const int32_t n = c->result.suggestions->count + 1;
+        c->index = (c->index + dir + n) % n;
+    }
+    const int32_t n = c->result.suggestions->count;
+    const char *const replacement = c->index < n
+        ? ((SUGGESTION *)Vector_Get(c->result.suggestions, c->index))->text
+        : c->original;
+    M_Apply(s, replacement);
 }
 
 static int32_t M_GetPrevCaretPos(
@@ -153,16 +214,21 @@ static void M_HandleKeyDown(const EVENT *const event, void *const user_data)
 
     // clang-format off
     switch (key) {
-    case UI_KEY_LEFT:   M_MoveCaretLeft(s); break;
-    case UI_KEY_RIGHT:  M_MoveCaretRight(s); break;
-    case UI_KEY_HOME:   M_MoveCaretStart(s); break;
-    case UI_KEY_END:    M_MoveCaretEnd(s); break;
-    case UI_KEY_BACK:   M_DeleteCharBack(s); break;
-    case UI_KEY_RETURN: M_Confirm(s); break;
-    case UI_KEY_ESCAPE: M_Cancel(s); break;
-    default:            break;
+    case UI_KEY_TAB:       M_CycleCompletion(s, +1); return;
+    case UI_KEY_SHIFT_TAB: M_CycleCompletion(s, -1); return;
+    case UI_KEY_LEFT:      M_MoveCaretLeft(s); break;
+    case UI_KEY_RIGHT:     M_MoveCaretRight(s); break;
+    case UI_KEY_HOME:      M_MoveCaretStart(s); break;
+    case UI_KEY_END:       M_MoveCaretEnd(s); break;
+    case UI_KEY_BACK:      M_DeleteCharBack(s); break;
+    case UI_KEY_RETURN:    M_Confirm(s); break;
+    case UI_KEY_ESCAPE:    M_Cancel(s); break;
+    default:               return;
     }
     // clang-format on
+
+    // Any edit or caret move ends the Tab cycle.
+    M_ResetCompletionSession(s);
 }
 
 static void M_HandleTextEdit(const EVENT *const event, void *const user_data)
@@ -178,24 +244,27 @@ static void M_HandleTextEdit(const EVENT *const event, void *const user_data)
         return;
     }
     const char *insert_string = filtered;
-    const size_t insert_length = strlen(insert_string);
+    const int32_t insert_length = strlen(insert_string);
 
-    const size_t available_space =
-        s->current_text_capacity - strlen(s->current_text);
-    if (insert_length >= available_space) {
-        s->current_text_capacity *= 2;
+    const int32_t old_length = strlen(s->current_text);
+    const int32_t required_size = old_length + insert_length + 1;
+    if (required_size > s->current_text_capacity) {
+        while (s->current_text_capacity < required_size) {
+            s->current_text_capacity *= 2;
+        }
         s->current_text =
             Memory_Realloc(s->current_text, s->current_text_capacity);
     }
 
     memmove(
         s->current_text + s->caret_pos + insert_length,
-        s->current_text + s->caret_pos,
-        strlen(s->current_text) + 1 - s->caret_pos);
+        s->current_text + s->caret_pos, old_length + 1 - s->caret_pos);
     memcpy(s->current_text + s->caret_pos, insert_string, insert_length);
 
     s->caret_pos += insert_length;
     Memory_FreePointer(&filtered);
+
+    M_ResetCompletionSession(s);
 }
 
 void UI_Prompt_Init(UI_PROMPT_STATE *const s)
@@ -206,6 +275,11 @@ void UI_Prompt_Init(UI_PROMPT_STATE *const s)
     s->listener1 = UI_Subscribe("key_down", nullptr, M_HandleKeyDown, s);
     s->listener2 = UI_Subscribe("text_edit", nullptr, M_HandleTextEdit, s);
     UI_Flash_Init(&s->flash, LOGIC_FPS * 2 / 3);
+
+    s->completion.provider = nullptr;
+    s->completion.original = nullptr;
+    s->completion.index = -1;
+    Completion_Init(&s->completion.result);
 }
 
 void UI_Prompt_Free(UI_PROMPT_STATE *const s)
@@ -213,6 +287,8 @@ void UI_Prompt_Free(UI_PROMPT_STATE *const s)
     UI_Unsubscribe(s->listener1);
     UI_Unsubscribe(s->listener2);
     UI_Flash_Free(&s->flash);
+    Memory_FreePointer(&s->completion.original);
+    Completion_Free(&s->completion.result);
     Memory_FreePointer(&s->current_text);
 }
 
@@ -265,6 +341,7 @@ void UI_Prompt_SetFocus(UI_PROMPT_STATE *const s, const bool is_focused)
 void UI_Prompt_Clear(UI_PROMPT_STATE *const s)
 {
     M_Clear(s);
+    M_ResetCompletionSession(s);
 }
 
 void UI_Prompt_ChangeText(UI_PROMPT_STATE *const s, const char *const new_text)
@@ -273,4 +350,11 @@ void UI_Prompt_ChangeText(UI_PROMPT_STATE *const s, const char *const new_text)
     s->current_text = Memory_DupStr(new_text);
     s->current_text_capacity = strlen(new_text) + 1;
     s->caret_pos = strlen(new_text);
+    M_ResetCompletionSession(s);
+}
+
+void UI_Prompt_SetCompletionProvider(
+    UI_PROMPT_STATE *const s, const COMPLETER_PROVIDER provider)
+{
+    s->completion.provider = provider;
 }

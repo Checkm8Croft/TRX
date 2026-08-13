@@ -60,6 +60,10 @@ typedef enum {
     M_ALLIGATOR_STATE_DEATH = 3,
 } M_ALLIGATOR_STATE;
 
+typedef struct {
+    int32_t damage;
+} M_PRIV;
+
 static BITE m_CrocodileBite = {
     .pos = { 5, -21, 467 },
     .mesh_num = 9,
@@ -75,16 +79,6 @@ static const HYBRID_INFO m_CrocodileInfo = {
     .water.death_anim = M_ALLIGATOR_DIE_ANIM,
     .water.death_state = M_ALLIGATOR_STATE_DEATH,
 };
-
-static int32_t M_GetDamage(const ITEM *const item, const int32_t default_value)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, "damage", &damage)) {
-        return damage.as_int;
-    }
-
-    return default_value;
-}
 
 static void M_UpdateCreatureLOT(const ITEM *const item)
 {
@@ -114,6 +108,7 @@ static void M_ControlCrocodile(const int16_t item_num)
     }
 
     ITEM *const item = Item_Get(item_num);
+    const M_PRIV *const p = item->priv;
     CREATURE *const croc = item->creature_data;
     int16_t head = 0;
     int16_t angle = 0;
@@ -194,8 +189,7 @@ static void M_ControlCrocodile(const int16_t item_num)
         case M_CROCODILE_STATE_ATTACK_1:
             if (item->required_anim_state == M_CROCODILE_STATE_EMPTY) {
                 Creature_Effect(item, &m_CrocodileBite, Spawn_Blood);
-                Lara_TakeDamage(
-                    M_GetDamage(item, M_CROCODILE_BITE_DAMAGE), true);
+                Lara_TakeDamage(p->damage, true);
                 item->required_anim_state = M_CROCODILE_STATE_STOP;
             }
             break;
@@ -225,6 +219,7 @@ static void M_ControlAlligator(const int16_t item_num)
     }
 
     ITEM *const item = Item_Get(item_num);
+    const M_PRIV *const p = item->priv;
     CREATURE *const gator = item->creature_data;
     int16_t head = 0;
     int16_t angle = 0;
@@ -286,8 +281,7 @@ static void M_ControlAlligator(const int16_t item_num)
         if (info.bite && item->touch_bits) {
             if (item->required_anim_state == M_ALLIGATOR_STATE_EMPTY) {
                 Creature_Effect(item, &m_CrocodileBite, Spawn_Blood);
-                Lara_TakeDamage(
-                    M_GetDamage(item, M_ALLIGATOR_BITE_DAMAGE), true);
+                Lara_TakeDamage(p->damage, true);
                 item->required_anim_state = M_ALLIGATOR_STATE_SWIM;
             }
             if (g_Config.gameplay.fix_alligator_ai) {
@@ -316,6 +310,7 @@ static void M_ControlAlligator(const int16_t item_num)
 
 static void M_SetupBase(OBJECT *const obj)
 {
+    obj->priv_size = sizeof(M_PRIV);
     obj->initialise_func = Creature_Initialise;
     obj->collision_func = Creature_Collision;
     obj->shadow_size = M_SHADOW_SIZE;
@@ -340,11 +335,9 @@ static void M_SetupCrocodile(OBJECT *const obj)
     obj->radius = M_CROCODILE_RADIUS;
     obj->smartness = M_CROCODILE_SMARTNESS;
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_CROCODILE_HITPOINTS, "Maximum hit points."),
-        OBJECT_PROPERTY_INT(
-            "damage", M_CROCODILE_BITE_DAMAGE,
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_CROCODILE_HITPOINTS),
+        OBJECT_PROPERTY(
+            M_PRIV, damage, M_CROCODILE_BITE_DAMAGE,
             "Damage dealt by the crocodile bite."));
 }
 
@@ -360,11 +353,9 @@ static void M_SetupAlligator(OBJECT *const obj)
     obj->smartness = M_ALLIGATOR_SMARTNESS;
     obj->lot_setup = LOT_Setup(LOT_SETUP_FLYER);
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_ALLIGATOR_HITPOINTS, "Maximum hit points."),
-        OBJECT_PROPERTY_INT(
-            "damage", M_ALLIGATOR_BITE_DAMAGE,
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_ALLIGATOR_HITPOINTS),
+        OBJECT_PROPERTY(
+            M_PRIV, damage, M_ALLIGATOR_BITE_DAMAGE,
             "Damage dealt by the alligator bite."));
 }
 

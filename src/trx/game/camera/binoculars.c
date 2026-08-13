@@ -7,6 +7,7 @@
 #include <trx/game/lara.h>
 #include <trx/game/output.h>
 #include <trx/game/rooms.h>
+#include <trx/game/sound.h>
 #include <trx/game/viewport.h>
 
 #define M_MIN_RANGE 128
@@ -65,12 +66,23 @@ static void M_Enter(void)
     g_Camera.type = CAM_BINOCULARS;
 }
 
+static void M_RefuseRequest(void)
+{
+    const ITEM *const lara_item = Lara_GetItem();
+    const LARA_INFO *const lara = Lara_GetLaraInfo();
+    if (lara_item->hit_points > 0 && Lara_IsControllable()
+        && !lara->extra_anim) {
+        Sound_Effect(SFX_LARA_NO, &lara_item->pos, SPM_ALWAYS);
+    }
+}
+
 static bool M_ShouldExit(void)
 {
     const ITEM *const lara_item = Lara_GetItem();
     return g_InputDB.draw || g_InputDB.look || g_Input.option || g_Input.save
         || g_Input.load || g_InputDB.quick_save || g_InputDB.quick_load
-        || lara_item->hit_points <= 0 || Lara_Vehicle_GetItem() != nullptr;
+        || g_InputDB.use_binoculars || lara_item->hit_points <= 0
+        || Lara_Vehicle_GetItem() != nullptr;
 }
 
 static void M_HandleLookInput(void)
@@ -181,22 +193,6 @@ static void M_EmitTorch(const XYZ_32 start, const XYZ_32 end)
     }
 }
 
-void Camera_Binoculars_Reset(void)
-{
-    m_Active = false;
-    m_Pending = false;
-    m_TorchActive = false;
-#define M_RESET_SUPPRESS_FLAG(name, field) m_Suppress##name = false;
-    M_FOR_EACH_EXIT_INPUT(M_RESET_SUPPRESS_FLAG)
-#undef M_RESET_SUPPRESS_FLAG
-    m_Range = M_MIN_RANGE;
-}
-
-void Camera_Binoculars_Request(void)
-{
-    m_Pending = true;
-}
-
 // Swallow the key that closed the binoculars until it is released, so that
 // it does not trigger an immediate action (e.g. drawing a weapon, entering
 // look mode, or opening the inventory ring).
@@ -215,6 +211,22 @@ static void M_SuppressExitInputs(void)
 #undef M_SUPPRESS_EXIT_INPUT
 }
 
+void Camera_Binoculars_Reset(void)
+{
+    m_Active = false;
+    m_Pending = false;
+    m_TorchActive = false;
+#define M_RESET_SUPPRESS_FLAG(name, field) m_Suppress##name = false;
+    M_FOR_EACH_EXIT_INPUT(M_RESET_SUPPRESS_FLAG)
+#undef M_RESET_SUPPRESS_FLAG
+    m_Range = M_MIN_RANGE;
+}
+
+void Camera_Binoculars_Request(void)
+{
+    m_Pending = true;
+}
+
 void Camera_Binoculars_Control(void)
 {
     if (!m_Active) {
@@ -223,6 +235,8 @@ void Camera_Binoculars_Control(void)
             m_Pending = false;
             if (M_CanEnter()) {
                 M_Enter();
+            } else {
+                M_RefuseRequest();
             }
         }
         return;
@@ -308,6 +322,7 @@ void Camera_Binoculars_Exit(void)
     LARA_INFO *const lara_info = Lara_GetLaraInfo();
 
     m_Active = false;
+    m_Pending = false;
     m_TorchActive = false;
     lara_item->mesh_bits = 0xFFFFFFFF;
     lara_info->gun_status = LGS_ARMLESS;

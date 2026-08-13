@@ -23,7 +23,7 @@ typedef struct {
 
 static int32_t M_GetDamage(const char *const key, const int32_t default_value)
 {
-    OBJECT_PROPERTY_VALUE damage = {};
+    TRX_VALUE damage = {};
     const OBJECT *const obj = Object_Get(O_SOPHIA);
     if (ObjectProperty_GetObjectValue(obj, key, &damage)) {
         return damage.as_int;
@@ -52,7 +52,7 @@ static void M_Control(const int16_t item_num)
         p->summon_lifetime++;
 
         if (p->summon_lifetime >= 16) {
-            Item_Kill(item_num);
+            Item_Destroy(item_num);
             return;
         }
     }
@@ -115,7 +115,7 @@ static void M_Control(const int16_t item_num)
                 }
             }
 
-            Item_Kill(item_num);
+            Item_Destroy(item_num);
             return;
         }
     }
@@ -310,8 +310,7 @@ void Sophia_TriggerLaserBolt(
         }
     }
 
-    Item_AddActive(item_num);
-    bolt->status = IS_ACTIVE;
+    Item_AddSimulated(item_num);
 }
 
 REGISTER_OBJECT(O_SOPHIA_LASER_BOLT, M_Setup)

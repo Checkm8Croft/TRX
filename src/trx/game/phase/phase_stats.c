@@ -65,7 +65,7 @@ static PHASE_CONTROL M_Start(PHASE *const phase)
                                             : UI_STATS_DIALOG_STYLE_BORDERED,
             .level_num = p->args.level_num != -1 ? p->args.level_num
                                                  : Game_GetCurrentLevel()->num,
-            .display_level_num = Savegame_GetCompletedLevelCount() + 1,
+            .display_level_num = SG_Resume_CountCompletedLevels() + 1,
         });
         if (p->args.show_final_stats
             && !UI_StatsDialog_HasVisibleRows(p->ui_state)) {
@@ -195,6 +195,7 @@ static void M_Draw(PHASE *const phase)
     if (top_opacity > 0.0f) {
         Output_Overlay_DrawSnapshot(1.0f);
         Output_Overlay_DrawBlackRectangle(top_opacity, false);
+        Output_Flush();
         return;
     }
 
@@ -203,6 +204,7 @@ static void M_Draw(PHASE *const phase)
         : p->back_fader.args.target;
     Output_Overlay_DrawBackground(
         p->args.background_type, progress, p->args.background_path);
+    Output_Flush();
 
     if (p->ui_active) {
         UI_StatsDialog(p->ui_state);

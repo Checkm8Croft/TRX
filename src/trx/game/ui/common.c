@@ -1,7 +1,10 @@
 #include <trx/game/ui/common.h>
 
 #include <trx/config.h>
+#include <trx/config/registry.h>
 #include <trx/core/memory.h>
+#include <trx/core/subsystem.h>
+#include <trx/core/utils.h>
 #include <trx/debug.h>
 #include <trx/game/console/common.h>
 #include <trx/game/game_strings/entries.h>
@@ -12,13 +15,13 @@
 #include <trx/game/ui/text.h>
 #include <trx/game/viewport.h>
 
-#include <SDL2/SDL.h>
 #include <string.h>
 
 static struct {
     MEMORY_ARENA_ALLOCATOR alloc;
     UI_NODE *root; // The top-level container
     UI_NODE *current; // The current container into which we attach nodes
+    UI_NODE *scene_root; // The tree the last UI_EndScene laid out
 } m_Priv = {
     .alloc = {
         .default_chunk_size = 1024 * 4,
@@ -26,24 +29,6 @@ static struct {
 };
 
 extern void UI_ClearDraw(void);
-
-static UI_INPUT M_TranslateInput(const uint32_t system_keycode)
-{
-    // clang-format off
-    switch (system_keycode) {
-    case SDLK_UP:        return UI_KEY_UP;
-    case SDLK_DOWN:      return UI_KEY_DOWN;
-    case SDLK_LEFT:      return UI_KEY_LEFT;
-    case SDLK_RIGHT:     return UI_KEY_RIGHT;
-    case SDLK_HOME:      return UI_KEY_HOME;
-    case SDLK_END:       return UI_KEY_END;
-    case SDLK_BACKSPACE: return UI_KEY_BACK;
-    case SDLK_RETURN:    return UI_KEY_RETURN;
-    case SDLK_ESCAPE:    return UI_KEY_ESCAPE;
-    }
-    // clang-format on
-    return -1;
-}
 
 // Depth-first measure pass
 static void M_MeasureNode(UI_NODE *const node)
@@ -84,6 +69,21 @@ static void M_DrawNode(const UI_NODE *const node)
 
     node->ops.draw(node);
     // Recursing to children is a responsibility of the draw function.
+}
+
+static void M_Init(void)
+{
+    UI_InitEvents();
+    UI_InitText();
+    UI_InitDraw();
+}
+
+static void M_Shutdown(void)
+{
+    UI_ShutdownDraw();
+    UI_ShutdownText();
+    Memory_ArenaFree(&m_Priv.alloc);
+    UI_ShutdownEvents();
 }
 
 // Allocate a new node
@@ -140,6 +140,11 @@ const UI_NODE *UI_GetCurrent(void)
     return m_Priv.current;
 }
 
+const UI_NODE *UI_GetSceneRoot(void)
+{
+    return m_Priv.scene_root;
+}
+
 // Scene management
 void UI_BeginScene(void)
 {
@@ -150,6 +155,7 @@ void UI_BeginScene(void)
 
 void UI_EndScene(void)
 {
+    m_Priv.scene_root = m_Priv.root;
     M_MeasureNode(m_Priv.root);
     M_LayoutNode(m_Priv.root, 0, 0, UI_GetCanvasWidth(), UI_GetCanvasHeight());
     M_DrawNode(m_Priv.root);
@@ -157,51 +163,17 @@ void UI_EndScene(void)
     ASSERT(m_Priv.root == nullptr);
 }
 
-void UI_Init(void)
+void UI_ToggleState(const bool *const config_setting)
 {
-    UI_InitEvents();
-    UI_InitText();
-    UI_InitDraw();
-}
-
-void UI_Shutdown(void)
-{
-    UI_ShutdownDraw();
-    UI_ShutdownText();
-    Memory_ArenaFree(&m_Priv.alloc);
-    UI_ShutdownEvents();
-}
-
-void UI_ToggleState(bool *const config_setting)
-{
-    *config_setting ^= true;
+    CONFIG_OPTION *const option = Config_FindOptionByMirror(config_setting);
+    const TRX_VALUE value = {
+        .type = TVT_BOOL,
+        .as_bool = !*config_setting,
+    };
+    Config_Option_Write(option, &value);
     Config_Update();
     Console_Log(
         *config_setting ? GS("general/osd/ui_on") : GS("general/osd/ui_off"));
-}
-
-void UI_HandleKeyDown(const uint32_t key)
-{
-    UI_FireEvent((EVENT) {
-        .name = "key_down",
-        .sender = nullptr,
-        .data = (void *)M_TranslateInput(key),
-    });
-}
-
-void UI_HandleKeyUp(const uint32_t key)
-{
-    UI_FireEvent((EVENT) {
-        .name = "key_up",
-        .sender = nullptr,
-        .data = (void *)M_TranslateInput(key),
-    });
-}
-
-void UI_HandleTextEdit(const char *const text)
-{
-    UI_FireEvent((EVENT) {
-        .name = "text_edit", .sender = nullptr, .data = (void *)text });
 }
 
 int32_t UI_GetCanvasWidth(void)
@@ -216,6 +188,11 @@ int32_t UI_GetCanvasHeight(void)
         Viewport_GetHeight(VIEWPORT_UI), UI_SCALER_TARGET_GENERIC);
 }
 
+float UI_GetSafeCanvasWidth(void)
+{
+    return MAX(0.0f, UI_GetCanvasWidth() - 2.0f * UI_SCREEN_MARGIN);
+}
+
 float UI_ScaleX(const float x)
 {
     return UI_Scaler_Calc(x * 0x10000, UI_SCALER_TARGET_GENERIC) / 0x10000.p0;
@@ -225,3 +202,5 @@ float UI_ScaleY(const float y)
 {
     return UI_Scaler_Calc(y * 0x10000, UI_SCALER_TARGET_GENERIC) / 0x10000.p0;
 }
+
+REGISTER_SUBSYSTEM(.init = M_Init, .shutdown = M_Shutdown)

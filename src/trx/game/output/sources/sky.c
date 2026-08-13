@@ -113,7 +113,7 @@ static void M_RenderFogGradient(M_PRIV *const p)
         OUTPUT_MESH_ATTR_FLAGS,
         VERT_FLAT_SHADED | VERT_NO_LIGHTING | VERT_NO_WIBBLE
             | VERT_NO_ALPHA_DISCARD);
-    Output_MeshShader_UploadTint(p->shader, COLOR_RGB_F_WHITE);
+    Output_MeshShader_UploadTint(p->shader, COLOR_RGBA_F_WHITE);
     Output_MeshShader_UploadModelMatrix(p->shader, &p->gradient_wmatrix);
     // Like OG, the skybox is drawn without backface culling.
     glDisable(GL_CULL_FACE);
@@ -163,7 +163,7 @@ static void M_RenderPass(
         flags |= VERT_FLAT_SHADED;
     }
     glVertexAttribI1ui(OUTPUT_MESH_ATTR_FLAGS, flags);
-    Output_MeshShader_UploadTint(p->shader, COLOR_RGB_F_WHITE);
+    Output_MeshShader_UploadTint(p->shader, COLOR_RGBA_F_WHITE);
 
     for (int32_t i = 0; i < p->layer_count; i++) {
         const M_LAYER *const layer = &p->layers[i];
@@ -195,6 +195,52 @@ static bool M_IsDirty(const SCENE_SOURCE *const source, const SCENE_PASS pass)
     const M_PRIV *const p = &m_Priv;
     return (pass == SCENE_PASS_BACKGROUND && p->layer_count > 0)
         || (pass == SCENE_PASS_TRANSPARENT && p->gradient_staged);
+}
+
+// The gradient geometry only depends on the mesh and the fog color, both
+// fixed for the level's duration - rebuild the buffer only when they change.
+static void M_UploadFogGradient(
+    M_PRIV *const p, const OBJECT_MESH *const mesh, const RGBA_F color)
+{
+    M_GRADIENT_VERTEX vertices[M_GRADIENT_MAX_QUADS * OUTPUT_QUAD_VERTICES];
+    const int32_t quad_count =
+        MIN(mesh->tex_face4s.count, M_GRADIENT_MAX_QUADS);
+    int32_t v = 0;
+    for (int32_t i = 0; i < quad_count; i++) {
+        const FACE *const face = &mesh->tex_face4s.data[i];
+        for (int32_t j = 0; j < OUTPUT_QUAD_VERTICES; j++) {
+            const int32_t k = OUTPUT_QUAD_TO_FAN(j);
+            const XYZ_16 pos = mesh->vertices[face->vertices[k]];
+            // OG paints half fog on each quad's first two vertices and full
+            // fog on the last two (the mesh's bottom edge). OG's values
+            // *replace* the mesh's distance fog, but this overlay composites
+            // on top of it - the shader fog stays active on the skybox mesh
+            // and already contributes about that much at the top edge - so
+            // start from zero to avoid a visible half-fogged seam.
+            const float fog = k < 2 ? 0.0f : 1.0f;
+            vertices[v++] = (M_GRADIENT_VERTEX) {
+                .pos = {
+                    .x = pos.x,
+                    .y = pos.y,
+                    .z = pos.z,
+                    .w = M_GRADIENT_DEPTH_ADJUSTMENT,
+                },
+                .color = {
+                    .r = color.r,
+                    .g = color.g,
+                    .b = color.b,
+                    .a = color.a * fog,
+                },
+            };
+        }
+    }
+    glBindBuffer(GL_ARRAY_BUFFER, p->gradient_vbo);
+    TRX_GL_TRACK_DATA(
+        glBufferData, GL_ARRAY_BUFFER, v * sizeof(M_GRADIENT_VERTEX), vertices,
+        GL_STATIC_DRAW);
+    p->gradient_mesh = mesh;
+    p->gradient_color = color;
+    p->gradient_vertex_count = v;
 }
 
 void OutputSource_Sky_Init(void)
@@ -282,52 +328,6 @@ void OutputSource_Sky_StageLayer(
         .color = color,
         .additive = additive,
     };
-}
-
-// The gradient geometry only depends on the mesh and the fog color, both
-// fixed for the level's duration - rebuild the buffer only when they change.
-static void M_UploadFogGradient(
-    M_PRIV *const p, const OBJECT_MESH *const mesh, const RGBA_F color)
-{
-    M_GRADIENT_VERTEX vertices[M_GRADIENT_MAX_QUADS * OUTPUT_QUAD_VERTICES];
-    const int32_t quad_count =
-        MIN(mesh->tex_face4s.count, M_GRADIENT_MAX_QUADS);
-    int32_t v = 0;
-    for (int32_t i = 0; i < quad_count; i++) {
-        const FACE *const face = &mesh->tex_face4s.data[i];
-        for (int32_t j = 0; j < OUTPUT_QUAD_VERTICES; j++) {
-            const int32_t k = OUTPUT_QUAD_TO_FAN(j);
-            const XYZ_16 pos = mesh->vertices[face->vertices[k]];
-            // OG paints half fog on each quad's first two vertices and full
-            // fog on the last two (the mesh's bottom edge). OG's values
-            // *replace* the mesh's distance fog, but this overlay composites
-            // on top of it - the shader fog stays active on the skybox mesh
-            // and already contributes about that much at the top edge - so
-            // start from zero to avoid a visible half-fogged seam.
-            const float fog = k < 2 ? 0.0f : 1.0f;
-            vertices[v++] = (M_GRADIENT_VERTEX) {
-                .pos = {
-                    .x = pos.x,
-                    .y = pos.y,
-                    .z = pos.z,
-                    .w = M_GRADIENT_DEPTH_ADJUSTMENT,
-                },
-                .color = {
-                    .r = color.r,
-                    .g = color.g,
-                    .b = color.b,
-                    .a = color.a * fog,
-                },
-            };
-        }
-    }
-    glBindBuffer(GL_ARRAY_BUFFER, p->gradient_vbo);
-    TRX_GL_TRACK_DATA(
-        glBufferData, GL_ARRAY_BUFFER, v * sizeof(M_GRADIENT_VERTEX), vertices,
-        GL_STATIC_DRAW);
-    p->gradient_mesh = mesh;
-    p->gradient_color = color;
-    p->gradient_vertex_count = v;
 }
 
 void OutputSource_Sky_InvalidateFogGradient(void)

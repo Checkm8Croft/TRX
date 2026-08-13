@@ -1,3 +1,4 @@
+#include <trx/game/const.h>
 #include <trx/game/objects.h>
 #include <trx/game/rooms.h>
 
@@ -15,19 +16,11 @@ typedef struct {
     int32_t flip_slot;
 } M_PRIV;
 
-static void M_Initialise(const int16_t item_num)
+// -1 stands for no flip map at all; anything below it names nothing.
+static const char *M_CheckFlipSlot(const TRX_VALUE *const in)
 {
-    ITEM *const item = Item_Get(item_num);
-    M_PRIV *const p = item->priv;
-    p->flip_slot = M_DEFAULT_FLIP_SLOT;
-
-    OBJECT_PROPERTY_VALUE value = {};
-    if (ObjectProperty_GetItemValue(item, "flip_slot", &value)
-        && value.as_int < MAX_FLIP_MAPS) {
-        p->flip_slot = value.as_int;
-    }
-
-    CLAMPL(p->flip_slot, -1);
+    return in->as_int < -1 || in->as_int >= MAX_FLIP_MAPS ? "no such flip map"
+                                                          : nullptr;
 }
 
 static bool M_ShouldFlipMap(const ITEM *const item)
@@ -38,7 +31,9 @@ static bool M_ShouldFlipMap(const ITEM *const item)
 
 static void M_FlipMap(const M_PRIV *const p)
 {
-    Room_SetFlipSlotFlags(p->flip_slot, IF_CODE_BITS | IF_ONE_SHOT);
+    FLIP_SLOT *const slot = Room_GetFlipSlot(p->flip_slot);
+    slot->mask = TRIGGER_MASK_ALL;
+    slot->is_one_shot = true;
     Room_FlipMap();
 }
 
@@ -47,7 +42,7 @@ static void M_Control(const int16_t item_num)
     ITEM *const item = Item_Get(item_num);
     const M_PRIV *const p = item->priv;
 
-    if ((item->flags & IF_CODE_BITS) == IF_CODE_BITS) {
+    if (item->trigger.mask == TRIGGER_MASK_ALL) {
         switch (item->current_anim_state) {
         case M_STATE_START:
             item->goal_anim_state = M_STATE_DROP_1;
@@ -59,14 +54,14 @@ static void M_Control(const int16_t item_num)
             item->goal_anim_state = M_STATE_DROP_3;
             break;
         }
-        item->flags = 0;
+        item->trigger = (ITEM_TRIGGER_STATE) { 0 };
     }
 
     if (item->current_anim_state == M_STATE_FINISH) {
         if (M_ShouldFlipMap(item)) {
             M_FlipMap(p);
         }
-        Item_Kill(item_num);
+        Item_Destroy(item_num);
     }
 
     Item_Animate(item);
@@ -74,7 +69,6 @@ static void M_Control(const int16_t item_num)
 
 static void M_Setup(OBJECT *const obj)
 {
-    obj->initialise_func = M_Initialise;
     obj->control_func = M_Control;
     obj->draw_func = Object_DrawUnclippedItem;
     obj->collision_func = Object_Collision;
@@ -83,10 +77,10 @@ static void M_Setup(OBJECT *const obj)
     obj->priv_size = sizeof(M_PRIV);
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_INT(
-            "flip_slot", M_DEFAULT_FLIP_SLOT,
+        OBJECT_PROPERTY_CHECKED(
+            M_PRIV, flip_slot, M_DEFAULT_FLIP_SLOT, M_CheckFlipSlot,
             "The flip map slot to alter once the cabin has landed. -1 = "
-            "no flipmap is performed. Value range: minimum -1; maximum 10."));
+            "no flipmap is performed. Value range: minimum -1; maximum 9."));
 }
 
 REGISTER_OBJECT(O_PORTACABIN, M_Setup)

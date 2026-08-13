@@ -33,6 +33,12 @@ typedef enum {
     M_STATE_DEATH,
 } M_STATE;
 
+typedef struct {
+    // The turn Natla is holding while she flies, taken off her rotation for
+    // the walk and put back after it.
+    int16_t facing;
+} M_PRIV;
+
 static BITE m_NatlaGun = {
     .pos = { 5, 220, 7 },
     .mesh_num = 4,
@@ -58,7 +64,7 @@ static bool M_GunHit(
 
 static bool M_IsTargetable(const ITEM *const item)
 {
-    return item->hit_points > 0 && item->status == IS_ACTIVE
+    return item->hit_points > 0 && Item_IsInPlay(item)
         && item->current_anim_state != M_STATE_SEMIDEATH;
 }
 
@@ -75,7 +81,8 @@ static void M_Control(const int16_t item_num)
     int16_t tilt = 0;
     int16_t gun = natla->head_rotation * 7 / 8;
     int16_t timer = natla->flags & M_TIMER;
-    int16_t facing = (int16_t)(intptr_t)item->priv;
+    M_PRIV *const p = item->priv;
+    int16_t facing = p->facing;
 
     if (item->hit_points <= 0
         && item->current_anim_state != M_STATE_SEMIDEATH) {
@@ -168,7 +175,11 @@ static void M_Control(const int16_t item_num)
                     LARA_INFO *const lara = Lara_GetLaraInfo();
                     lara->target = nullptr;
                 }
-                item->hit_points = 0;
+                // She plays dead on what is left of the first stage rather
+                // than on a fatal blow, and the tally waits for the second.
+                Item_TakeDamage(
+                    item, item->hit_points,
+                    IDF_NO_HIT_STATUS | IDF_NO_KILL_STATS, nullptr);
             }
             break;
 
@@ -181,7 +192,7 @@ static void M_Control(const int16_t item_num)
         case M_STATE_AIM:
         case M_STATE_SHOOT:
             item->goal_anim_state = M_STATE_SEMIDEATH;
-            item->flags = 0;
+            item->trigger = (ITEM_TRIGGER_STATE) { 0 };
             timer = 0;
             break;
         }
@@ -315,7 +326,7 @@ static void M_Control(const int16_t item_num)
     Creature_Animate(item_num, angle, 0);
     item->rot.y += facing;
 
-    item->priv = (void *)(intptr_t)facing;
+    p->facing = facing;
 }
 
 static void M_Setup(OBJECT *const obj)
@@ -323,6 +334,7 @@ static void M_Setup(OBJECT *const obj)
     if (!obj->loaded) {
         return;
     }
+    obj->priv_size = sizeof(M_PRIV);
     obj->collision_func = Creature_Collision;
     obj->initialise_func = Creature_Initialise;
     obj->control_func = M_Control;
@@ -342,10 +354,7 @@ static void M_Setup(OBJECT *const obj)
 
     Object_GetBone(obj, 2)->rot.x = true;
     Object_GetBone(obj, 2)->rot.z = true;
-    OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."));
+    OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS));
 }
 
 REGISTER_OBJECT(O_NATLA, M_Setup)

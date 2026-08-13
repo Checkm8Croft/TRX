@@ -51,7 +51,6 @@
         {
             "type": "gym",
             "path": "assault.tr2",
-            "script": "assault.lua",
             "music_track": -1,
             "lara_outfit": "tr2_gym",
             "sequence": [
@@ -278,6 +277,7 @@
                 "fathoms_textures.bin",
                 "lara_guns.bin",
                 "scuba_sfx.bin",
+                "wall_switch_sfx.bin",
                 "fathoms_crystals.bin",
             ],
         },
@@ -308,6 +308,7 @@
                 "wreck_plants.bin",
                 "wreck_secret_fd.bin",
                 "wreck_textures.bin",
+                "wall_switch_sfx.bin",
                 "wreck_crystals.bin",
             ],
             "unobtainable_kills": 1,
@@ -338,6 +339,7 @@
                 "living_textures.bin",
                 "seaweed_collision.bin",
                 "scuba_sfx.bin",
+                "wall_switch_sfx.bin",
                 "living_crystals.bin",
             ],
         },
@@ -369,6 +371,7 @@
                 "lara_guns.bin",
                 "living_deck_goon_sfx.bin",
                 "scuba_sfx.bin",
+                "wall_switch_sfx.bin",
                 "deck_crystals.bin",
             ],
         },
@@ -396,6 +399,7 @@
                 "tibet_itemrots.bin",
                 "tibet_music_tracks.bin",
                 "tibet_textures.bin",
+                "wall_switch_sfx.bin",
                 "tibet_crystals.bin",
             ],
         },
@@ -403,7 +407,6 @@
         // 12. Barkhang Monastery
         {
             "path": "monastry.tr2",
-            "script": "monastry.lua",
             "music_track": -1,
             "lara_outfit": "tr2_bomber_jacket",
             "sequence": [
@@ -519,7 +522,6 @@
         // 16. Floating Islands
         {
             "path": "floating.tr2",
-            "script": "floating.lua",
             "music_track": 55,
             "lara_outfit": "tr2_classic",
             "sequence": [
@@ -570,7 +572,6 @@
         // 18. Home Sweet Home
         {
             "path": "house.tr2",
-            "script": "house.lua",
             "music_track": -1,
             "lara_outfit": "tr2_robe",
             "sequence": [
@@ -651,6 +652,7 @@
                 "wreck_pickup_meshes.bin",
                 "wreck_plants.bin",
                 "wreck_textures.bin",
+                "wall_switch_sfx.bin",
                 "wreck_crystals.bin",
             ],
         },
@@ -674,6 +676,7 @@
                 "tibet_itemrots.bin",
                 "tibet_music_tracks.bin",
                 "tibet_textures.bin",
+                "wall_switch_sfx.bin",
                 "tibet_crystals.bin",
             ],
         },
@@ -712,7 +715,6 @@
         },
         {
             "path": "cut3.tr2",
-            "script": "cut3.lua",
             "music_track": 4,
             "lara_outfit": "tr2_classic",
             "sequence": [{"type": "loop_game"}],

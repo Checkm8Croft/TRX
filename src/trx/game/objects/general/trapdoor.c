@@ -185,12 +185,6 @@ static void M_Initialise(const int16_t item_num)
     ITEM *const item = Item_Get(item_num);
     M_PRIV *const p = item->priv;
 
-    p->auto_open = true;
-    OBJECT_PROPERTY_VALUE value = {};
-    if (ObjectProperty_GetItemValue(item, "auto_open", &value)) {
-        p->auto_open = value.as_bool;
-    }
-
     VECTOR *const positions = Vector_Create(sizeof(XYZ_32));
     M_GetSectorPositions(item, positions);
     Walkable_AllocateNodes(item, positions->count);
@@ -241,10 +235,9 @@ static void M_Control(const int16_t item_num)
 static void M_OpenManually(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
-    Item_AddActive(item_num);
-    item->flags |= IF_CODE_BITS;
+    Item_AddSimulated(item_num);
+    item->trigger.mask = TRIGGER_MASK_ALL;
     item->goal_anim_state = TRAPDOOR_STATE_OPEN;
-    item->status = IS_ACTIVE;
 }
 
 static void M_AssertCamera(
@@ -268,7 +261,7 @@ static void M_FloorCollision(
     LARA_INFO *const lara = Lara_GetLaraInfo();
 
     if (Lara_Interact_CanControl(LARA_INTERACT_DOOR, item_num)
-        && item->status != IS_ACTIVE) {
+        && !Item_IsInPlay(item)) {
         if (Lara_TestPosition(item, &m_FloorTrapdoorBounds)) {
             if (Lara_MovePosition(item, &m_FloorTrapdoorPosition)) {
                 Item_SwitchToAnim(lara_item, LA(LA_FLOOR_TRAPDOOR_OPEN), 0);
@@ -285,7 +278,7 @@ static void M_FloorCollision(
     }
 
     if (lara_item->current_anim_state == LS(LS_LIFT_TRAPDOOR)
-        && item->status == IS_ACTIVE
+        && Item_IsInPlay(item)
         && item->current_anim_state != TRAPDOOR_STATE_OPEN) {
         M_AssertCamera(item, WALL_L * 2, -WALL_L * 2, true);
     }
@@ -297,7 +290,7 @@ static void M_CeilingCollision(
     ITEM *const item = Item_Get(item_num);
     LARA_INFO *const lara = Lara_GetLaraInfo();
 
-    if (g_Input.action && item->status != IS_ACTIVE
+    if (g_Input.action && !Item_IsInPlay(item)
         && lara_item->current_anim_state == LS(LS_JUMP_UP) && lara_item->gravity
         && lara->gun_status == LGS_ARMLESS
         && Lara_TestPosition(item, &m_CeilingTrapdoorBounds)) {
@@ -311,7 +304,7 @@ static void M_CeilingCollision(
     }
 
     if (lara_item->current_anim_state == LS(LS_PULL_TRAPDOOR)
-        && item->status == IS_ACTIVE
+        && Item_IsInPlay(item)
         && item->current_anim_state != TRAPDOOR_STATE_OPEN) {
         M_AssertCamera(item, WALL_L, WALL_L, false);
     }
@@ -329,8 +322,8 @@ static void M_SetupBase(OBJECT *const obj)
     obj->add_walkable_func = M_AddWalkable;
     OBJECT_PROPERTIES(
         obj,
-        OBJECT_PROPERTY_BOOL(
-            "auto_open", true,
+        OBJECT_PROPERTY(
+            M_PRIV, auto_open, true,
             "Whether the trapdoor opens automatically when triggered."));
 }
 

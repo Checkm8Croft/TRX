@@ -1,6 +1,7 @@
 #include <trx/game/replay/test_recorder.h>
 
 #include <trx/config.h>
+#include <trx/config/registry.h>
 #include <trx/core/enum_map.h>
 #include <trx/core/filesystem.h>
 #include <trx/core/memory.h>
@@ -11,6 +12,7 @@
 #include <trx/game/input/backends/controller.h>
 #include <trx/game/input/backends/keyboard.h>
 #include <trx/game/input/common.h>
+#include <trx/game/input/sdl.h>
 #include <trx/game/lara.h>
 #include <trx/game/random.h>
 #include <trx/game/shell/common.h>
@@ -227,14 +229,12 @@ static void M_DumpArguments(MYFILE *const fp, VECTOR *const original_args)
 static void M_DumpConfig(MYFILE *const fp)
 {
     // Record any non-default config options for later replay
-    const CONFIG_OPTION *const map = Config_GetOptionMap();
     VECTOR *opts = Vector_Create(sizeof(CONFIG_OPTION *));
-
-    for (const CONFIG_OPTION *opt = map; opt->name != nullptr; opt++) {
-        if (Config_IsOptionAtDefault(opt->target)) {
-            continue;
+    for (CONFIG_OPTION *const *opt = Config_GetOptions(); *opt != nullptr;
+         opt++) {
+        if (!Config_Option_IsAtDefault(*opt)) {
+            Vector_Add(opts, opt);
         }
-        Vector_Add(opts, &opt);
     }
 
     CONFIG_OPTION **raw_opts = Vector_GetData(opts);
@@ -242,12 +242,17 @@ static void M_DumpConfig(MYFILE *const fp)
         raw_opts, opts->count, sizeof(CONFIG_OPTION *), M_CompareConfigOption);
     for (int32_t i = 0; i < opts->count; i++) {
         const CONFIG_OPTION *opt = raw_opts[i];
-        const char *const fmt = opt->type == COT_ENUM || opt->type == COT_STRING
-                || opt->type == COT_DYNAMIC_ENUM
-            ? "config %s \"%s\"\n"
-            : "config %s %s\n";
+        // A value that is spelled rather than counted is quoted: what the
+        // spelling carries - a hex color, the spaces in a vector - is not for
+        // the parser to read as the next field.
+        const TRX_VALUE_TYPE type = opt->value.type;
+        const bool is_spelled = type == TVT_ENUM || type == TVT_STRING
+            || type == TVT_DYNAMIC_ENUM || type == TVT_RGB_888
+            || type == TVT_XYZ_16 || type == TVT_XYZ_32;
+        const char *const fmt =
+            is_spelled ? "config %s \"%s\"\n" : "config %s %s\n";
         File_WriteString(
-            fp, fmt, opt->name, Config_GetOptionValueAsString(opt, false));
+            fp, fmt, opt->name, Config_Option_GetValueAsString(opt, false));
     }
     Vector_Free(opts);
 }
@@ -315,8 +320,6 @@ void TestRecorder_Open(const char *path, VECTOR *const original_args)
     M_DumpHeader(p->file);
     M_DumpStartup(p->file);
     M_DumpArguments(p->file, original_args);
-    M_DumpConfig(p->file);
-    M_DumpBindings(p->file);
 
     p->listeners[0] = GameEvent_Subscribe(
         GAME_EVENT_SCREENSHOT, nullptr, M_HandleGameEvent, nullptr);
@@ -324,6 +327,20 @@ void TestRecorder_Open(const char *path, VECTOR *const original_args)
         GAME_EVENT_COMMAND, nullptr, M_HandleGameEvent, nullptr);
 
     LOG_INFO("Starting recording");
+}
+
+// What the settings were as the game started. A game declares settings of its
+// own as its script runs, so this waits for that: an option nothing knows
+// about yet is one the recording would not carry, and its default is not
+// there to compare against either.
+void TestRecorder_WriteConfig(void)
+{
+    M_PRIV *const p = &m_Priv;
+    if (p->file == nullptr) {
+        return;
+    }
+    M_DumpConfig(p->file);
+    M_DumpBindings(p->file);
 }
 
 bool TestRecorder_IsOpened(void)

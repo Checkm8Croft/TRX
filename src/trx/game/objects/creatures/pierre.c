@@ -37,6 +37,10 @@ typedef enum {
     M_ANIM_DEATH = 12,
 } M_ANIM;
 
+typedef struct {
+    int32_t damage;
+} M_PRIV;
+
 static const CREATURE_GUN m_PierreGun1 = {
     .muzzle = { .pos = { 60, 200, 0 }, .mesh_num = 11, },
 };
@@ -45,29 +49,17 @@ static const CREATURE_GUN m_PierreGun2 = {
 };
 static int16_t m_PierreItemNum = NO_ITEM;
 
-static int32_t M_GetShotDamage(const ITEM *const item)
-{
-    OBJECT_PROPERTY_VALUE damage = {};
-    if (ObjectProperty_GetItemValue(item, "damage", &damage)) {
-        return damage.as_int;
-    }
-
-    return M_SHOT_DAMAGE;
-}
-
 static bool M_CanDropItems(const ITEM *const item)
 {
-    return item->hit_points <= 0 && (item->flags & IF_ONE_SHOT) != 0;
+    return item->hit_points <= 0 && item->trigger.spent;
 }
 
 static void M_HandleSave(ITEM *const item, const SAVEGAME_STAGE stage)
 {
     if (stage == SAVEGAME_STAGE_AFTER_LOAD) {
-        if (item->hit_points <= 0 && (item->flags & IF_ONE_SHOT)) {
-            const uint16_t flags =
-                Music_GetTrackFlags(Music_ToGameID(MX_PIERRE_SPEECH));
-            Music_SetTrackFlags(
-                Music_ToGameID(MX_PIERRE_SPEECH), flags | IF_ONE_SHOT);
+        if (item->hit_points <= 0 && item->trigger.spent) {
+            Music_GetTrackState(Music_ToGameID(MX_PIERRE_SPEECH))->is_one_shot =
+                true;
         }
     }
 }
@@ -75,18 +67,19 @@ static void M_HandleSave(ITEM *const item, const SAVEGAME_STAGE stage)
 static void M_Control(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
+    const M_PRIV *const p = item->priv;
 
     if (g_Config.gameplay.change_pierre_spawn) {
         if (m_PierreItemNum == NO_ITEM) {
             m_PierreItemNum = item_num;
         } else if (m_PierreItemNum != item_num) {
             ITEM *old_pierre = Item_Get(m_PierreItemNum);
-            if (old_pierre->flags & IF_ONE_SHOT) {
-                if (!(item->flags & IF_ONE_SHOT)) {
-                    Item_Kill(item_num);
+            if (old_pierre->trigger.spent) {
+                if (!item->trigger.spent) {
+                    Item_Destroy(item_num);
                 }
             } else {
-                Item_Kill(m_PierreItemNum);
+                Item_Destroy(m_PierreItemNum);
                 m_PierreItemNum = item_num;
             }
         }
@@ -94,10 +87,10 @@ static void M_Control(const int16_t item_num)
         if (m_PierreItemNum == NO_ITEM) {
             m_PierreItemNum = item_num;
         } else if (m_PierreItemNum != item_num) {
-            if (item->flags & IF_ONE_SHOT) {
-                Item_Kill(m_PierreItemNum);
+            if (item->trigger.spent) {
+                Item_Destroy(m_PierreItemNum);
             } else {
-                Item_Kill(item_num);
+                Item_Destroy(item_num);
             }
         }
     }
@@ -111,7 +104,7 @@ static void M_Control(const int16_t item_num)
     int16_t angle = 0;
     int16_t tilt = 0;
 
-    if (item->hit_points <= M_RUN_HITPOINTS && !(item->flags & IF_ONE_SHOT)) {
+    if (item->hit_points <= M_RUN_HITPOINTS && !item->trigger.spent) {
         item->hit_points = M_RUN_HITPOINTS;
         pierre->flags++;
     }
@@ -207,12 +200,8 @@ static void M_Control(const int16_t item_num)
 
         case M_STATE_SHOOT:
             if (!item->required_anim_state) {
-                Creature_Shoot(
-                    item, &info, &m_PierreGun1, head,
-                    M_GetShotDamage(item) / 2);
-                Creature_Shoot(
-                    item, &info, &m_PierreGun2, head,
-                    M_GetShotDamage(item) / 2);
+                Creature_Shoot(item, &info, &m_PierreGun1, head, p->damage / 2);
+                Creature_Shoot(item, &info, &m_PierreGun2, head, p->damage / 2);
                 item->required_anim_state = M_STATE_AIM;
             }
             if (pierre->mood == MOOD_ESCAPE
@@ -244,7 +233,7 @@ static void M_Control(const int16_t item_num)
         } else if (pierre->flags > M_DISAPPEAR) {
             item->hit_points = 0;
             LOT_DisableBaddieAI(item_num);
-            Item_Kill(item_num);
+            Item_Destroy(item_num);
             m_PierreItemNum = NO_ITEM;
         }
     }
@@ -253,7 +242,7 @@ static void M_Control(const int16_t item_num)
     if (wh != NO_HEIGHT) {
         item->hit_points = 0;
         LOT_DisableBaddieAI(item_num);
-        Item_Kill(item_num);
+        Item_Destroy(item_num);
         m_PierreItemNum = NO_ITEM;
     }
 }
@@ -264,6 +253,7 @@ static void M_Setup(OBJECT *const obj)
         return;
     }
 
+    obj->priv_size = sizeof(M_PRIV);
     obj->initialise_func = Creature_Initialise;
     obj->handle_save_func = M_HandleSave;
     obj->control_func = M_Control;
@@ -285,10 +275,9 @@ static void M_Setup(OBJECT *const obj)
 
     Object_GetBone(obj, 6)->rot.y = true;
     OBJECT_PROPERTIES(
-        obj,
-        OBJECT_PROPERTY_INT(
-            "max_hit_points", M_HIT_POINTS, "Maximum hit points."),
-        OBJECT_PROPERTY_INT("damage", M_SHOT_DAMAGE, "Damage dealt by shots."));
+        obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS),
+        OBJECT_PROPERTY(
+            M_PRIV, damage, M_SHOT_DAMAGE, "Damage dealt by shots."));
 }
 
 REGISTER_OBJECT(O_PIERRE, M_Setup)

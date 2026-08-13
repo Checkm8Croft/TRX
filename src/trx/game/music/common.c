@@ -1,28 +1,27 @@
 #include <trx/game/music/common.h>
 
 #include <trx/av/audio.h>
+#include <trx/av/audio_decoder.h>
 #include <trx/config.h>
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
+#include <trx/core/subsystem.h>
 #include <trx/core/vector.h>
+#include <trx/game/const.h>
+#include <trx/game/game.h>
 #include <trx/game/game_flow.h>
+#include <trx/game/gym.h>
 #include <trx/game/level.h>
 #include <trx/game/music.h>
 #include <trx/game/music/backend_cdaudio.h>
 #include <trx/game/music/backend_cdaudio_wad.h>
 #include <trx/game/music/backend_files.h>
+#include <trx/game/rules.h>
+#include <trx/game/shell/common.h>
 #include <trx/game/shell/paths.h>
 #include <trx/version.h>
 
-static bool m_Initialised = false;
-static uint16_t m_MusicTrackFlags[MAX_MUSIC_TRACKS] = {};
-static MUSIC_ID m_TrackCurrent = MX_INACTIVE;
-static MUSIC_ID m_TrackDelayed = MX_INACTIVE;
-static MUSIC_ID m_TrackLooped = MX_INACTIVE;
-// Remember the last played track, whether normal or looped, to prevent
-// immediately restarting it if Lara remains on the same trigger.
-static MUSIC_ID m_TrackLastPlayed = MX_INACTIVE;
-static MUSIC_ID m_TrackLastLooped = MX_INACTIVE;
+#include <string.h>
 
 typedef struct {
     int32_t audio_stream_id;
@@ -31,6 +30,19 @@ typedef struct {
     bool active;
 } M_MUSIC_STREAM;
 
+static bool m_Initialised = false;
+static MUSIC_TRACK_STATE m_TrackStates[MAX_MUSIC_TRACKS] = {};
+static MUSIC_ID m_TrackCurrent = MX_INACTIVE;
+static MUSIC_ID m_TrackDelayed = MX_INACTIVE;
+static MUSIC_ID m_TrackLooped = MX_INACTIVE;
+// Remember the last played track, whether normal or looped, to prevent
+// immediately restarting it if Lara remains on the same trigger.
+static MUSIC_ID m_TrackLastPlayed = MX_INACTIVE;
+static MUSIC_ID m_TrackLastLooped = MX_INACTIVE;
+
+// How long each track runs, in seconds, as its file says. Zero where nothing
+// has asked yet, and a negative value where the answer was that nothing knows.
+static double m_TrackDurations[MAX_MUSIC_TRACKS] = {};
 static float m_MusicVolume = 0.0f;
 static MUSIC_BACKEND *m_Backend = nullptr;
 static M_MUSIC_STREAM m_MainStream = {
@@ -236,13 +248,20 @@ static int32_t M_GetFreeOverlaySlot(void)
     return -1;
 }
 
-static bool M_PlayOverlayTrack(const MUSIC_ID track_id)
+// Returns the stream slot the overlay plays in - an overlay is slots 1.. - or
+// -1 when it does not play.
+static int32_t M_PlayOverlayTrack(
+    const MUSIC_ID track_id, const double timestamp)
 {
+    if (Shell_GetArgs()->headless) {
+        LOG_INFO("Not playing overlay track %d out loud", track_id);
+        return -1;
+    }
     if (m_Backend == nullptr) {
         LOG_WARNING(
             "Not playing overlay track %d because no backend is available",
             track_id);
-        return false;
+        return -1;
     }
 
     const int32_t slot = M_GetFreeOverlaySlot();
@@ -251,13 +270,13 @@ static bool M_PlayOverlayTrack(const MUSIC_ID track_id)
             "Not playing overlay track %d because all %d overlay slots are in "
             "use",
             track_id, MUSIC_MAX_OVERLAY_TRACKS);
-        return false;
+        return -1;
     }
 
     const int32_t stream_id = m_Backend->play(m_Backend, track_id);
     if (stream_id < 0) {
         LOG_ERROR("Failed to create overlay stream for track %d", track_id);
-        return false;
+        return -1;
     }
 
     m_OverlayStreams[slot].audio_stream_id = stream_id;
@@ -268,7 +287,11 @@ static bool M_PlayOverlayTrack(const MUSIC_ID track_id)
     Audio_Stream_SetIsLooped(stream_id, false);
     Audio_Stream_SetFinishCallback(
         stream_id, M_StreamFinished, &m_OverlayStreams[slot]);
-    return true;
+    if (timestamp > 0.0) {
+        Audio_Stream_SeekTimestamp(stream_id, timestamp);
+    }
+    Audio_Stream_Unpause(stream_id);
+    return slot + 1;
 }
 
 static bool M_GetMainTrackState(MUSIC_STREAM_STATE *const state)
@@ -293,9 +316,157 @@ static bool M_GetMainTrackState(MUSIC_STREAM_STATE *const state)
     return false;
 }
 
+static void M_SeekMainStream(const double timestamp)
+{
+    if (timestamp > 0.0) {
+        Music_SeekTimestamp(timestamp);
+    }
+}
+
+// Slot 0 is the main stream; slots 1.. are the overlays.
+static M_MUSIC_STREAM *M_GetStreamBySlot(const int32_t slot)
+{
+    if (slot == 0) {
+        return &m_MainStream;
+    }
+    if (slot >= 1 && slot <= MUSIC_MAX_OVERLAY_TRACKS) {
+        return &m_OverlayStreams[slot - 1];
+    }
+    return nullptr;
+}
+
+static bool M_IsSpeechTrack(const MUSIC_ID track_id)
+{
+    switch (Music_FromGameID(track_id)) {
+    case MX_BALDY_SPEECH:
+    case MX_COWBOY_SPEECH:
+    case MX_LARSON_SPEECH:
+    case MX_NATLA_SPEECH:
+    case MX_PIERRE_SPEECH:
+    case MX_SKATEKID_SPEECH:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static void M_Shutdown(void)
+{
+    m_Initialised = false;
+    memset(m_TrackDurations, 0, sizeof(m_TrackDurations));
+    M_StopMainStream();
+    M_StopOverlayStreams();
+    M_ResetStreamState();
+    if (m_Backend != nullptr) {
+        m_Backend->shutdown(m_Backend);
+        m_Backend = nullptr;
+    }
+    Audio_Shutdown();
+}
+
+static void M_ApplyConfig(void)
+{
+    Music_Init();
+    Music_SetVolume(g_Config.audio.music_volume);
+}
+
+// Returns the stream slot the track plays in - the main stream is slot 0, the
+// overlays are slots 1.. - or -1 when the track does not play, which includes a
+// track marked for later (delay) or a deferred ambient.
+static int32_t M_Play(
+    const MUSIC_ID track_id, const MUSIC_PLAY_MODE mode, const double timestamp)
+{
+    if (!m_Initialised) {
+        return -1;
+    }
+
+    if (M_IsBrokenTrack(track_id)) {
+        return -1;
+    }
+
+    if (mode == MPM_OVERLAY) {
+        LOG_INFO("Playing overlay track %d", track_id);
+        return M_PlayOverlayTrack(track_id, timestamp);
+    }
+
+    // Already on the main stream, so slot 0 carries it.
+    if (track_id == m_TrackCurrent) {
+        M_SeekMainStream(timestamp);
+        return 0;
+    }
+
+    if (mode == MPM_NO_REPEAT && track_id == m_TrackLastPlayed) {
+        return -1;
+    }
+
+    const bool is_looped = mode == MPM_LOOP || M_IsAmbientTrack(track_id);
+    if (is_looped && track_id == m_TrackLastLooped) {
+        M_SeekMainStream(timestamp);
+        return 0;
+    }
+
+    if (mode == MPM_DELAY) {
+        m_TrackDelayed = track_id;
+        return -1;
+    }
+
+    if (is_looped && m_TrackCurrent != MX_INACTIVE) {
+        // OG TR3 behaviour: do not interrupt a regular track when the ambient
+        // changes; remember the new ambient and restore it when the track ends.
+        m_TrackDelayed = MX_INACTIVE;
+        m_TrackLooped = track_id;
+        m_TrackLastLooped = track_id;
+        return -1;
+    }
+
+    bool played = false;
+    M_StopMainStream();
+    if (Shell_GetArgs()->headless) {
+        LOG_INFO("Not playing track %d out loud", track_id);
+    } else if (m_Backend == nullptr) {
+        LOG_WARNING(
+            "Not playing track %d because no backend is available", track_id);
+    } else {
+        LOG_INFO("Playing track %d, mode: %d", track_id, mode);
+        const int32_t stream_id = m_Backend->play(m_Backend, track_id);
+        if (stream_id < 0) {
+            LOG_ERROR("Failed to create music stream for track %d", track_id);
+        } else {
+            m_MainStream.audio_stream_id = stream_id;
+            m_MainStream.track_id = track_id;
+            m_MainStream.mode = is_looped ? MPM_LOOP : MPM_ONCE;
+            m_MainStream.active = true;
+            M_SyncVolume(&m_MainStream);
+            Audio_Stream_SetIsLooped(stream_id, is_looped);
+            Audio_Stream_SetFinishCallback(
+                stream_id, M_StreamFinished, &m_MainStream);
+            if (timestamp > 0.0) {
+                Audio_Stream_SeekTimestamp(stream_id, timestamp);
+            }
+            Audio_Stream_Unpause(stream_id);
+            played = true;
+        }
+    }
+
+    m_TrackDelayed = MX_INACTIVE;
+    if (is_looped) {
+        // Reset the regular track outside of M_StreamFinished so that
+        // Music_GetCurrentPlayingTrack returns the looped track; otherwise, the
+        // stopped track could be stored in the savegame despite being inactive.
+        m_TrackCurrent = MX_INACTIVE;
+        m_TrackLooped = track_id;
+        m_TrackLastLooped = track_id;
+    } else {
+        m_TrackCurrent = track_id;
+        m_TrackLastPlayed = track_id;
+    }
+    return played ? 0 : -1;
+}
+
 bool Music_Init(void)
 {
     m_Initialised = true;
+    memset(m_TrackDurations, 0, sizeof(m_TrackDurations));
     if (m_Backend != nullptr) {
         m_Backend->shutdown(m_Backend);
         m_Backend = nullptr;
@@ -316,105 +487,27 @@ finish:
     m_TrackLooped = MX_INACTIVE;
     m_TrackLastLooped = MX_INACTIVE;
     M_ResetStreamState();
+    // A run that draws nothing comes up with a backend all the same, so the
+    // game still knows which track is playing and what a track resolves to.
+    // What such a run has no use for is the audio device.
+    if (Shell_GetArgs()->headless) {
+        return true;
+    }
     return Audio_Init();
 }
 
-void Music_Shutdown(void)
+int32_t Music_Play_Direct(const MUSIC_ID track_id, const MUSIC_PLAY_MODE mode)
 {
-    m_Initialised = false;
-    M_StopMainStream();
-    M_StopOverlayStreams();
-    M_ResetStreamState();
-    if (m_Backend != nullptr) {
-        m_Backend->shutdown(m_Backend);
-        m_Backend = nullptr;
-    }
-    Audio_Shutdown();
+    return M_Play(track_id, mode, -1.0);
 }
 
-bool Music_Play_Direct(const MUSIC_ID track_id, const MUSIC_PLAY_MODE mode)
+int32_t Music_Play_DirectAt(
+    const MUSIC_ID track_id, const MUSIC_PLAY_MODE mode, const double timestamp)
 {
-    if (!m_Initialised) {
-        return false;
-    }
-
-    if (M_IsBrokenTrack(track_id)) {
-        return false;
-    }
-
-    if (mode == MPM_OVERLAY) {
-        LOG_INFO("Playing overlay track %d", track_id);
-        return M_PlayOverlayTrack(track_id);
-    }
-
-    if (track_id == m_TrackCurrent) {
-        return true;
-    }
-
-    if (mode == MPM_NO_REPEAT && track_id == m_TrackLastPlayed) {
-        return true;
-    }
-
-    const bool is_looped = mode == MPM_LOOP || M_IsAmbientTrack(track_id);
-    if (is_looped && track_id == m_TrackLastLooped) {
-        return true;
-    }
-
-    if (mode == MPM_DELAY) {
-        m_TrackDelayed = track_id;
-        return true;
-    }
-
-    if (is_looped && m_TrackCurrent != MX_INACTIVE) {
-        // OG TR3 behaviour: do not interrupt a regular track when the ambient
-        // changes; remember the new ambient and restore it when the track ends.
-        m_TrackDelayed = MX_INACTIVE;
-        m_TrackLooped = track_id;
-        m_TrackLastLooped = track_id;
-        return true;
-    }
-
-    M_StopMainStream();
-
-    if (m_Backend == nullptr) {
-        LOG_WARNING(
-            "Not playing track %d because no backend is available", track_id);
-        goto finish;
-    }
-
-    LOG_INFO("Playing track %d, mode: %d", track_id, mode);
-
-    const int32_t stream_id = m_Backend->play(m_Backend, track_id);
-    if (stream_id < 0) {
-        LOG_ERROR("Failed to create music stream for track %d", track_id);
-        goto finish;
-    }
-
-    m_MainStream.audio_stream_id = stream_id;
-    m_MainStream.track_id = track_id;
-    m_MainStream.mode = is_looped ? MPM_LOOP : MPM_ONCE;
-    m_MainStream.active = true;
-    M_SyncVolume(&m_MainStream);
-    Audio_Stream_SetIsLooped(stream_id, is_looped);
-    Audio_Stream_SetFinishCallback(stream_id, M_StreamFinished, &m_MainStream);
-
-finish:
-    m_TrackDelayed = MX_INACTIVE;
-    if (is_looped) {
-        // Reset the regular track outside of M_StreamFinished so that
-        // Music_GetCurrentPlayingTrack returns the looped track; otherwise, the
-        // stopped track could be stored in the savegame despite being inactive.
-        m_TrackCurrent = MX_INACTIVE;
-        m_TrackLooped = track_id;
-        m_TrackLastLooped = track_id;
-    } else {
-        m_TrackCurrent = track_id;
-        m_TrackLastPlayed = track_id;
-    }
-    return true;
+    return M_Play(track_id, mode, timestamp);
 }
 
-bool Music_Play(const MUSIC_TRX_ID track, const MUSIC_PLAY_MODE mode)
+int32_t Music_Play(const MUSIC_TRX_ID track, const MUSIC_PLAY_MODE mode)
 {
     return Music_Play_Direct(Music_ToGameID(track), mode);
 }
@@ -435,6 +528,39 @@ int32_t Music_GetTrackLimit(void)
         return 0;
     }
     return m_Backend->get_track_limit(m_Backend);
+}
+
+char *Music_GetTrackPath(const MUSIC_ID track)
+{
+    if (!m_Initialised || m_Backend == nullptr
+        || m_Backend->get_track_path == nullptr) {
+        return nullptr;
+    }
+    return m_Backend->get_track_path(m_Backend, track);
+}
+
+double Music_GetTrackDuration(const MUSIC_ID track)
+{
+    if (track < 0 || track >= MAX_MUSIC_TRACKS) {
+        return -1.0;
+    }
+    if (m_TrackDurations[track] != 0.0) {
+        return m_TrackDurations[track];
+    }
+
+    double duration = -1.0;
+    char *const path = Music_GetTrackPath(track);
+    if (path != nullptr) {
+        AUDIO_DECODER *decoder = AudioDecoder_CreateFromPath(path, 2);
+        if (decoder != nullptr) {
+            duration = AudioDecoder_GetDuration(decoder);
+            AudioDecoder_Free(&decoder);
+        }
+        Memory_Free(path);
+    }
+
+    m_TrackDurations[track] = duration > 0.0 ? duration : -1.0;
+    return m_TrackDurations[track];
 }
 
 void Music_Stop(void)
@@ -504,6 +630,14 @@ bool Music_SeekTimestamp(const double timestamp)
     return Audio_Stream_SeekTimestamp(m_MainStream.audio_stream_id, timestamp);
 }
 
+bool Music_SetSpeed(const double speed)
+{
+    if (!m_MainStream.active || m_MainStream.audio_stream_id < 0) {
+        return false;
+    }
+    return Audio_Stream_SetSpeed(m_MainStream.audio_stream_id, speed);
+}
+
 bool Music_SyncTimestamp(const double timestamp)
 {
     if (!m_MainStream.active || m_MainStream.audio_stream_id < 0) {
@@ -559,6 +693,78 @@ bool Music_GetStreamState(
     return false;
 }
 
+int32_t Music_GetStreamSlotCount(void)
+{
+    return 1 + MUSIC_MAX_OVERLAY_TRACKS;
+}
+
+bool Music_GetStreamSlotState(
+    const int32_t slot, MUSIC_STREAM_STATE *const out_state)
+{
+    if (out_state == nullptr) {
+        return false;
+    }
+    if (slot == 0) {
+        return M_GetMainTrackState(out_state);
+    }
+    const M_MUSIC_STREAM *const stream = M_GetStreamBySlot(slot);
+    if (stream == nullptr || !stream->active) {
+        return false;
+    }
+    out_state->track_id = stream->track_id;
+    out_state->mode = stream->mode;
+    out_state->timestamp = Audio_Stream_GetTimestamp(stream->audio_stream_id);
+    return true;
+}
+
+void Music_StopStream(const int32_t slot)
+{
+    if (slot == 0) {
+        // Stopping the main one-shot lets the deferred ambient loop resume;
+        // when the ambient loop is what plays, there is nothing to resume, so
+        // it ends.
+        const bool had_current = m_TrackCurrent != MX_INACTIVE;
+        const MUSIC_ID looped = m_TrackLooped;
+        M_StopMainStream();
+        m_TrackCurrent = MX_INACTIVE;
+        if (had_current && looped >= 0) {
+            Music_Play_Direct(looped, MPM_LOOP);
+        } else {
+            m_TrackLooped = MX_INACTIVE;
+        }
+        return;
+    }
+    M_MUSIC_STREAM *const stream = M_GetStreamBySlot(slot);
+    if (stream != nullptr) {
+        M_StreamClose(stream);
+    }
+}
+
+void Music_PauseStream(const int32_t slot)
+{
+    const M_MUSIC_STREAM *const stream = M_GetStreamBySlot(slot);
+    if (stream != nullptr && stream->active && stream->audio_stream_id >= 0) {
+        Audio_Stream_Pause(stream->audio_stream_id);
+    }
+}
+
+void Music_UnpauseStream(const int32_t slot)
+{
+    const M_MUSIC_STREAM *const stream = M_GetStreamBySlot(slot);
+    if (stream != nullptr && stream->active && stream->audio_stream_id >= 0) {
+        Audio_Stream_Unpause(stream->audio_stream_id);
+    }
+}
+
+bool Music_SeekStream(const int32_t slot, const double timestamp)
+{
+    const M_MUSIC_STREAM *const stream = M_GetStreamBySlot(slot);
+    if (stream == nullptr || !stream->active || stream->audio_stream_id < 0) {
+        return false;
+    }
+    return Audio_Stream_SeekTimestamp(stream->audio_stream_id, timestamp);
+}
+
 bool Music_SeekTrackTimestamp(
     const MUSIC_ID track_id, const MUSIC_PLAY_MODE mode, const double timestamp)
 {
@@ -608,19 +814,126 @@ void Music_SetVolume(float volume)
     }
 }
 
-void Music_ResetTrackFlags(void)
+void Music_ResetTrackStates(void)
 {
     for (int32_t i = 0; i < MAX_MUSIC_TRACKS; i++) {
-        m_MusicTrackFlags[i] = 0;
+        m_TrackStates[i] = (MUSIC_TRACK_STATE) {};
     }
 }
 
-uint16_t Music_GetTrackFlags(const MUSIC_ID track_id)
+MUSIC_TRACK_STATE *Music_GetTrackState(const MUSIC_ID track_id)
 {
-    return m_MusicTrackFlags[track_id];
+    return &m_TrackStates[track_id];
 }
 
-void Music_SetTrackFlags(const MUSIC_ID track_id, const uint16_t flags)
+void Music_Trigger(MUSIC_ID track_id, const MUSIC_TRIGGER *const trigger)
 {
-    m_MusicTrackFlags[track_id] = flags;
+    // An antitrigger aimed at track 0 silences the track that is playing.
+    if (track_id == (MUSIC_ID)0 && trigger->kind == MUSIC_TRIGGER_ANTI) {
+        Music_Stop();
+        return;
+    }
+
+    if (track_id <= Music_ToGameID(MX_UNUSED_1) || track_id >= MAX_MUSIC_TRACKS
+        || (Game_IsInGym() && !Gym_CanPlayMusicTrack(&track_id))) {
+        return;
+    }
+
+    if (M_IsAmbientTrack(track_id)) {
+        Music_Play_Direct(track_id, MPM_LOOP);
+        return;
+    }
+
+    MUSIC_PLAY_MODE play_mode = MPM_NO_REPEAT;
+    if (g_Config.audio.fix_speeches_killing_music
+        && M_IsSpeechTrack(track_id)) {
+        play_mode = MPM_OVERLAY;
+    }
+
+    MUSIC_TRACK_STATE *const track = &m_TrackStates[track_id];
+
+    if (g_TRVersion == 1) {
+        if (track->is_one_shot) {
+            return;
+        }
+
+        if (trigger->kind == MUSIC_TRIGGER_SWITCH) {
+            track->mask ^= trigger->mask;
+        } else if (trigger->kind == MUSIC_TRIGGER_ANTI) {
+            track->mask &= ~trigger->mask;
+        } else {
+            track->mask |= trigger->mask;
+        }
+
+        if (track->mask == TRIGGER_MASK_ALL) {
+            if (trigger->one_shot) {
+                track->is_one_shot = true;
+            }
+            Music_Play_Direct(track_id, play_mode);
+        } else {
+            Music_StopTrack_Direct(track_id);
+        }
+        return;
+    }
+
+    if (g_TRVersion == 2) {
+        if ((track->mask & trigger->mask) != 0) {
+            return;
+        }
+
+        if (trigger->one_shot) {
+            track->mask |= trigger->mask;
+        }
+
+        if (trigger->timer == 0) {
+            Music_Play_Direct(track_id, play_mode);
+            return;
+        }
+
+        if (track_id != Music_GetDelayedTrack()) {
+            Music_Play_Direct(track_id, MPM_DELAY);
+            track->delay = LOGIC_FPS * trigger->timer;
+            return;
+        }
+
+        if (track->delay == 0) {
+            return;
+        }
+
+        track->delay--;
+        if (track->delay == 0) {
+            Music_Play_Direct(track_id, play_mode);
+        }
+
+        return;
+    }
+
+    {
+        if (!Game_IsInGym()) {
+            // TR3+ used one-shot as an extra bit together with the other five
+            // usual trigger bits. This is used to allow triggering the same
+            // track multiple times in a level, but keeping one-shot to mean per
+            // unique trigger setup.
+            uint8_t trigger_mask = trigger->mask;
+            if (trigger->one_shot) {
+                trigger_mask |= 1 << 6;
+            }
+
+            uint8_t track_mask = track->mask;
+            if (track->is_one_shot) {
+                track_mask |= 1 << 6;
+            }
+
+            if ((track_mask & trigger_mask) == trigger_mask) {
+                return;
+            }
+
+            track->mask |= trigger->mask;
+            track->is_one_shot |= trigger->one_shot;
+        }
+
+        Music_Play_Direct(track_id, play_mode);
+    }
 }
+
+REGISTER_SUBSYSTEM(.apply_config = M_ApplyConfig, .shutdown = M_Shutdown)

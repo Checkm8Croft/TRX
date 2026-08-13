@@ -125,8 +125,11 @@ typedef struct {
     int32_t num;
     GF_LEVEL_TYPE type;
     char *path;
+    // The stem of path, lower-cased; nullptr for a level that loads no file.
+    char *key;
     char *title;
-    // Path to a Lua script executed when this level loads
+    // Path to the Lua script executed when this level loads: scripts/<key>.lua
+    // where the game ships one, nullptr where it does not.
     char *script_path;
 
     MUSIC_ID music_track;
@@ -199,7 +202,13 @@ typedef struct {
 
     // global settings
     struct {
+        // The title screen's picture, or nullptr when the gameflow named none
+        // or the file it named is missing.
         char *main_menu_background_path;
+        // Whether the title runs its level live behind the menu instead of
+        // showing a picture. Set from the gameflow naming no picture at all,
+        // which a picture it named and could not find is not.
+        bool main_menu_use_live_scene;
         bool enable_tr2_item_drops;
         bool convert_dropped_guns;
         GF_AMBIENT_DATA ambient_tracks;
@@ -214,7 +223,4 @@ typedef struct {
         int32_t count;
         GF_GLOBE_ENTRY *entries;
     } globe;
-
-    // Path to a global Lua script executed after game initialization
-    char *main_script_path;
 } GAME_FLOW;

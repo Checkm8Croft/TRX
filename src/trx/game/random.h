@@ -2,7 +2,9 @@
 
 #include <stdint.h>
 
-void Random_Seed(void);
+// How wide one draw is: a draw returns 0 to RANDOM_SPAN - 1.
+#define RANDOM_SPAN 0x8000
+
 void Random_SeedControl(int32_t seed);
 void Random_SeedDraw(int32_t seed);
 
