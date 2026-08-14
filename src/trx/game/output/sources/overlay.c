@@ -253,7 +253,6 @@ static void M_CopyFboToTexture(
     glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read_fbo);
     TRX_GL_CheckError();
 }
-
 static void M_EnsureSolidBlackTexture(void)
 {
     if (m_Priv.solid_black_texture.initialized) {

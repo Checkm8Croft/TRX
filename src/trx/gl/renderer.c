@@ -61,7 +61,11 @@ static void M_Blit(const M_CONTEXT *const p, const TRX_GL_FBO *const fbo)
 
 static void M_BindQuadState(M_CONTEXT *const p)
 {
+#if !defined(TRX_TARGET_IOS)
+    // GLES has no polygon mode concept -- GL_FILL is the only mode it
+    // ever renders in, so there's nothing to (re)set here.
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+#endif
     TRX_GL_Program_Bind(&p->program);
     TRX_GL_Buffer_Bind(&p->buffer);
     TRX_GL_VertexArray_Bind(&p->vertex_array);
@@ -272,8 +276,13 @@ static RESULT M_Init(
 
     p->config = config;
 
+#if !defined(TRX_TARGET_IOS)
+    // GL_MULTISAMPLE doesn't exist in GLES -- multisample resolve is
+    // implicit/always-on there when a multisample renderbuffer is used
+    // (see gl/fbo.c, where multisampling is disabled entirely on iOS).
     glEnable(GL_MULTISAMPLE);
     TRX_GL_CheckError();
+#endif
 
     TRX_GL_Buffer_Init(&p->buffer, GL_ARRAY_BUFFER);
     TRX_GL_Buffer_Bind(&p->buffer);
