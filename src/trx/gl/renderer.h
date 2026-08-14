@@ -10,7 +10,7 @@
 #include <OpenGL/gl3ext.h>
 #endif
 #endif
-
+#include <trx/gl/texture.h>
 #include <trx/gl/gl_platform.h>
 
 typedef struct TRX_GL_Renderer {

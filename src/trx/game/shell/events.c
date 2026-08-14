@@ -12,6 +12,7 @@
 #include <trx/game/shell/config.h>
 #include <trx/game/ui.h>
 #include <trx/game/ui/keys.h>
+#include <trx/gl/context.h>
 
 // If true, next SDL_TEXT* event should be zeroed out.
 static bool m_ConsoleJustOpened = false;

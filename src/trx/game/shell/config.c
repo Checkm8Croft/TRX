@@ -52,6 +52,7 @@ void Shell_SyncToWindow(void)
     // MaximizeWindow) are meaningless on iOS and were observed to
     // destabilize the CAEAGLLayer-backed renderbuffer, producing a
     // GL_INVALID_OPERATION loop at present time. Skip them entirely.
+    g_ConfigStorage.window.is_fullscreen = true;
     SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 #else
     if (g_Config.window.is_fullscreen) {

@@ -15,9 +15,17 @@
 
 static int32_t M_ClampSamples(const int32_t samples)
 {
+#if defined(TRX_TARGET_IOS)
+    // Core GLES 3.0 has no GL_TEXTURE_2D_MULTISAMPLE / glTexImage2DMultisample
+    // (that's an ES 3.1+/desktop-only texture target); our FBOs use texture
+    // attachments rather than renderbuffers, so there's no equivalent
+    // multisample path wired up for iOS yet. Force single-sample.
+    return 1;
+#else
     GLint max_samples = 1;
     glGetIntegerv(GL_MAX_SAMPLES, &max_samples);
     return MAX(1, MIN(samples, (int32_t)max_samples));
+#endif
 }
 
 void TRX_GL_FBO_Init(
@@ -35,20 +43,28 @@ void TRX_GL_FBO_Init(
     ASSERT(width > 0);
     ASSERT(height > 0);
 
+#if defined(TRX_TARGET_IOS)
+    const bool is_multisample = false;
+    const GLenum target = GL_TEXTURE_2D;
+#else
     const bool is_multisample = fbo->samples > 1;
     const GLenum target =
         is_multisample ? GL_TEXTURE_2D_MULTISAMPLE : GL_TEXTURE_2D;
+#endif
 
     // Allocate color texture (no mipmaps for FBO attachments).
     TRX_GL_Texture_Init(&fbo->texture, target);
     glBindTexture(target, fbo->texture.id);
     TRX_GL_CheckError();
+#if !defined(TRX_TARGET_IOS)
     if (is_multisample) {
         // Filtering and wrapping mean nothing to a multisample texture; it is
         // resolved rather than sampled.
         glTexImage2DMultisample(
             target, fbo->samples, internal_format, width, height, GL_TRUE);
-    } else {
+    } else
+#endif
+    {
         glTexParameteri(target, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
         glTexParameteri(target, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glTexParameteri(target, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);

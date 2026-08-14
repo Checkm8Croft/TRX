@@ -5,7 +5,11 @@
 // everything that reads sprite geometry would otherwise pull the whole of GLEW
 // in for the sake of these two.
 
-#include <GL/glew.h>
+#if defined(TRX_TARGET_IOS)
+#  include <OpenGLES/ES3/gl.h>
+#else
+#  include <GL/glew.h>
+#endif
 
 GLuint Output_Textures_GetAtlasTexture(void);
 GLuint Output_Textures_GetEnvMapTexture(void);

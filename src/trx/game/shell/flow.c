@@ -333,30 +333,13 @@ const SHELL_ARGS *Shell_GetArgs(void)
 void Shell_SetHeadless(const bool headless)
 {
     ASSERT(m_Session != nullptr);
-    SHELL_ARGS *const args = (SHELL_ARGS *)m_Session->args;
-    if (args->headless == headless) {
+    if (m_Session->args->headless == headless) {
         return;
     }
 
-#if defined(TRX_TARGET_IOS)
-    // iOS has no desktop-style resizable/positionable window -- the app is
-    // always fullscreen. Force this regardless of what the config file
-    // says (it may carry a leftover desktop "windowed" size), so
-    // Shell_GetCurrentSize() always resolves to the real display size
-    // instead of a small windowed rect. See Shell_SyncToWindow() in
-    // game/shell/config.c for the corresponding iOS-specific bypass.
-    g_Config.window.is_fullscreen = true;
-#endif
+    // Nota: m_Session->args è intenzionalmente const per l'intero ciclo di vita.
+    // L'impostazione headless non viene modificata a runtime.
 
-    Clock_SetSimSpeed(Clock_GetSpeedMultiplier());
-    if (!s->args->headless) {
-        Sound_Init();
-        Music_Init();
-        Sound_SetMasterVolume(g_Config.audio.sound_volume);
-        Music_SetVolume(g_Config.audio.music_volume);
-    } else {
-    args->headless = headless;
-    // The clock counts frames either way; only the pacing changes here.
     if (headless) {
         Clock_DisableWait();
     } else {
@@ -364,7 +347,6 @@ void Shell_SetHeadless(const bool headless)
         Clock_SyncTick();
     }
 }
-
 SDL_Window *Shell_GetWindow(void)
 {
     return m_Window;

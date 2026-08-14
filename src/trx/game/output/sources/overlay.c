@@ -235,17 +235,21 @@ static void M_CopyFboToTexture(
     GLint prev_read_fbo = 0;
     glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &prev_read_fbo);
 
+    const bool is_default_fbo = (src_fbo == 0);
     GLuint read_fbo = src_fbo;
+
 #if defined(TRX_TARGET_IOS)
-    // iOS has no default framebuffer 0 / GL_FRONT window-system buffer;
-    // read from the actual screen framebuffer SDL created instead.
-    if (src_is_default_fbo) {
+    // iOS non ha il framebuffer 0 di sistema;
+    // legge dal vero framebuffer dello schermo creato da SDL.
+    if (is_default_fbo) {
         read_fbo = TRX_GL_Context_GetMainFramebuffer();
     }
 #endif
+
     glBindFramebuffer(GL_READ_FRAMEBUFFER, read_fbo);
-    if (src_is_default_fbo) {
-        // The presented (just-swapped) frame lives in the front buffer.
+
+    if (is_default_fbo) {
+        // Il frame appena scambiato si trova nel front buffer su Desktop
 #if defined(TRX_TARGET_IOS)
         glReadBuffer(GL_COLOR_ATTACHMENT0);
 #else
@@ -260,7 +264,6 @@ static void M_CopyFboToTexture(
     glBindFramebuffer(GL_READ_FRAMEBUFFER, (GLuint)prev_read_fbo);
     TRX_GL_CheckError();
 }
-
 static void M_EnsureSolidBlackTexture(void)
 {
     if (m_Priv.solid_black_texture.initialized) {
