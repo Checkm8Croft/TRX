@@ -1,5 +1,6 @@
 ## [Unreleased](https://github.com/LostArtefacts/TRX/compare/trx-1.10.2...develop) - ××××-××-××
 
+![Movement](changelog/Lara.jpg)
 **Lara's movement**
 - Added an option to allow Lara to sidestep in swamps (Gameplay → Controls → Swamp sidesteps) (#6250 / TRX1117)
 - Added an option to allow Lara to turn while shimmying along monkey bars, similarly to how she can while sidestepping or swimming sideways on water surfaces (#6386)
@@ -25,6 +26,7 @@
 - Fixed Lara being able to crouch/crawl into spaces with very low ceilings where she can become clamped, such as RX-Tech Mines room 159 (OG bug) (#6477 / TRX1331)
 - Fixed Lara attempting to continue to descend a ladder despite being at the bottom of it (OG bug) (#6461 / TRX1315)
 
+![UI](changelog/UI.png)
 **UI**
 - Added a fullscreen setting, so the window mode can be switched from the menu rather than only with Alt+Enter (Graphic Options → Rendering) (#6187 / TRX1036)
 - Added a flat yellow color to the PS1 bar palettes (Graphic Options → UI → Bars) (#5227 / TRX1135)
@@ -54,6 +56,7 @@
 - Fixed the icons beside the volume settings, which now show a note for the music and a speaker for the sound effects (TRX1040)
 - Fixed the statistics overlapping inventory text at large text sizes (#6295 / TRX1156)
 
+![Camera](changelog/Camera.jpg)
 **Camera**
 - Added an option to have the photo mode camera collide with level geometry (Graphic Options → Visuals → Photo mode collision) (#5719 / TRX540)
 - Added cinematic bars to flyby sequences, as the original game does (TRX522)
@@ -66,6 +69,7 @@
 - Fixed the TR3 and TR4 look cameras not updating when holding look during the transition from standing to crouching and vice-versa (OG bug) (TRX1325)
 - Fixed the binoculars camera being positioned behind Lara if the look input is held while selecting them (TRX1378, regression from 1.9)
 
+![Console](changelog/Console.png)
 **Developer console**
 - Added the `/outfit` console command, which shows or changes what Lara is wearing (TRX1070)
 - Added the `/golden` console command, which casts Lara in gold (TRX1070)
@@ -80,6 +84,7 @@
 - Fixed TR1's moored boat sharing its name with TR2's speedboat, so a command that took `boat` could act on either
 - Fixed the TR3 SWAT 2 and SWAT 3 enemies being named as SWAT 1, so a command that took either of them acted on the wrong enemy
 
+![Weapons](changelog/Weapons.jpg)
 **Weapons and ammunition**
 - Added an option to keep Lara firing the M16/MP5 from her hip while the action key is held, rather than shouldering the gun the moment she stops moving (Gameplay → Controls → M16/MP5 aiming variants) (#3861 / TRX1048)
 - Fixed Lara taking out a two-handed weapon in wading-depth water only to put it away at once (OG bug) (#6253 / TRX1120)
@@ -87,6 +92,7 @@
 - Fixed Lara's back staying empty in a level that takes her weapons away and gives her a rocket launcher
 - Fixed the automatic pistols smoking undimmed, unlike the magnums and the uzis
 
+![Levels](changelog/Levels.png)
 **Level and game data**
 - Added Natla as an outfit for Lara, selectable in every game (Graphic Options → Visuals → Lara's outfit) (TRX1050)
 - Added injection support for putting a room in a flip group, which only TR4 levels carry themselves (#5336 / TRX173)
@@ -125,6 +131,7 @@
 - Fixed propellers not being collidable if they are deactivated and then later reactivated (OG bug) (#6494 / TRX1351)
 - Fixed crashes in custom levels with incomplete object sets
 
+![Saves](changelog/Saves.png)
 **Saves and settings**
 - Added smoke, sparks, mist and bubbles to saves (Gameplay → General → Save effects)
 - Changed the names a settings file gives to accept `-`, `:` and `_` as the same separator, with scripts always reading them back with `_`
@@ -134,12 +141,14 @@
 - Fixed not being able to load saves with overflowed values for Lara's distance travelled (TRX1368)
 - Fixed the distance travelled statistic to ignore when Lara is out of bounds to avoid skewing the value (OG bug) (TRX1368)
 
+![Music](changelog/Music.jpg)
 **Music and sound**
 - Added an option to have Lara's sliding SFX stop as soon as she leaves a slope (#6294 / TRX1155)
 - Fixed crystal sound effects not playing if Lara collects one underwater (OG bug) (TRX1111)
 - Fixed looped sound effects, such as rolling boulders and the seaplane, clicking and crackling while they play (#6491 / TRX1348)
 - Fixed sound effects going silent after switching from TR4 to another game (TRX1335)
 
+![Rendering](changelog/Rendering.png)
 **Rendering**
 - Added affine texture mapping, the uncorrected texturing of the PlayStation, so textures warp across large surfaces as the camera moves; the PlayStation presets turn it on (Graphic Options → Rendering → Affine texture mapping)
 - Added PlayStation RGB555 dithering and changed Dithering to offer Disabled, Software Renderer and PS1 (Graphic Options → Rendering → Dithering)
@@ -165,16 +174,19 @@
 - Fixed missing reflections on transparent TR4 surfaces, such as Werner's glasses (TRX1294)
 - Fixed TR3 colored light objects appearing white in TR1 and TR2 levels (#6517 / TRX1377, regression from 1.10)
 
+![TR1](changelog/TR1.jpg)
 **TR1**
 - Added the ability for Lara to burn in swamp rooms marked with death sectors (#6539 / TRX1395)
 - Changed Lara to retain her equipment when turning to gold on the Midas Hand, with the equipment also turning to gold (TRX1073)
 - Fixed Lara's arm remaining in the flare pose if holding one on the Midas Hand (TRX1073)
 - Fixed a rare chance of exploded body parts getting stuck indefinitely at ceiling height (OG bug) (TRX1301)
 
+![TR2](changelog/TR2.jpg)
 **TR2**
 - Added the ability for Lara to burn in swamp rooms marked with death sectors (#6539 / TRX1395)
 - Fixed the Tibetan Foothills demo becoming out of sync when breeze mode is set to TR3 (TRX1388, regression from 1.10)
 
+![TR3](changelog/TR3.jpg)
 **TR3**
 - Added crystals to each of the levels in The Lost Artefact, and made the crystal mode option visible (Gameplay → General → Crystal mode) (TRX1111)
 - Added an option to render black smoke emitters as white, as per the PC release (Gameplay → Fixes → Fix smoke emitters) (#6411 / TRX1288)
@@ -204,6 +216,7 @@
 - Fixed incorrect UVs on some injected textures (TRX1366, regression from 1.9)
 - Fixed the grinders in RX-Tech Mines being clipped out of view at certain angles (OG bug) (TRX1347)
 
+![TR4](changelog/TR4.jpg)
 **TR4**
 - Added the ability to skip in-game cutscenes (TRX1051)
 - Added the game's logo to the title screen, with a setting for which language's logo to show (Graphic Options → UI → Title logo)
@@ -251,6 +264,7 @@
 - Fixed faulty portals between rooms 60 and 64 in Angkor Wat, and a missing texture in room 64 (TRX698 / TRX1372)
 - Fixed missing and incorrect textures in Race for the Iris rooms 4, 31, 99 and 103 (TRX1372)
 
+![Misc](changelog/Misc.jpg)
 **Miscellaneous**
 - Added an option to cast Lara in gold whatever she is wearing (Graphic Options → Visuals → Golden Lara) (TRX1070)
 - Added a `/version` command, which shows the version this build reports
@@ -270,6 +284,8 @@
 - Fixed the rocket launcher's animation object having no name
 - Fixed the game stuttering while it writes its log
 
+
+![Lua](changelog/Lua.png)
 **Lua**
 - Added `trx.rooms.flip_groups()`, so a level script can move some flip pairs while the rest stay where they are
 - Added `trx.lara.signals`, `trx.game.signals` and `trx.cutscenes.signals`, so a script hears when Lara's state, the game's or a cutscene's changes rather than asking after it
