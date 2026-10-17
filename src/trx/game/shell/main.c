@@ -53,8 +53,8 @@ static void M_SetupIOSDirs(void)
     for (size_t i = 0; i < sizeof(dirs) / sizeof(dirs[0]); i++) {
         char *const full_path =
             String_Format("%s/Documents/%s", home, dirs[i].subdir);
-        if (!File_DirExists(full_path)) {
-            File_CreateDirectory(full_path);
+        if (!FS_DirExists(full_path)) {
+            FS_CreateDirectory(full_path);
         }
         setenv(dirs[i].env_name, full_path, 1);
         Memory_FreePointer(&full_path);

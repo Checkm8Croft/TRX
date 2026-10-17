@@ -53,6 +53,39 @@ uniform vec4 uAmbientSpanFrom;
     #define MESH_VS_BLOCK GeomData
 #endif
 
+#ifdef GL_ES
+// GLSL ES 3.00 (all iOS offers) has neither interface blocks nor geometry
+// stages. So the interface is flattened: plain varyings between the stages,
+// mirrored to and from a global struct named gOut / gIn, so the code below
+// reads the same as with a block.
+//
+// This is deliberately plain, repeated text rather than a macro that takes
+// the member list: Apple's GLSL ES preprocessor does not expand a macro name
+// passed as an argument, which breaks that approach on device (while a
+// conforming preprocessor accepts it).
+//
+// KEEP IN SYNC WITH MESH_VARYINGS above, in the five places marked "ES
+// varyings". tools/shared/ios/check_mesh_varyings.py checks this. There is no
+// 'noperspective' in GLSL ES, so affineUV gets perspective correction here.
+struct MeshVaryings { // ES varyings (1/5: members)
+    vec4 eyePos;
+    vec3 normal;
+    uint flags;
+    int texLayer;
+    vec2 texUV;
+    vec4 atlasSize;
+    vec2 trapezoidRatios;
+    vec4 color;
+    vec3 add;
+    float tintWeight;
+    float worldY;
+    vec3 colorSub;
+    vec3 addSub;
+    float reflectivity;
+    vec4 affineUV;
+};
+#endif
+
 #ifdef VERTEX
 
 uniform mat4 uMatModel;
@@ -73,9 +106,32 @@ layout(location = 8) in float inReflectivity;
 layout(location = 9) in vec2 inUVScroll; // x = V per game frame, y = wrap
 layout(location = 10) in float inTintFactor;
 
+#ifdef GL_ES
+    // ES varyings (2/5: vertex outputs)
+    out vec4 vEyePos;
+    out vec3 vNormal;
+    flat out uint vFlags;
+    flat out int vTexLayer;
+    out vec2 vTexUV;
+    flat out vec4 vAtlasSize;
+    out vec2 vTrapRatios;
+    out vec4 vColor;
+    out vec3 vAdd;
+    out float vTintWeight;
+    out float vWorldY;
+    out vec3 vColorSub;
+    out vec3 vAddSub;
+    flat out float vReflectivity;
+    out vec4 vAffineUV;
+    MeshVaryings gOut;
+    // The shader's own main() below runs against gOut; a wrapper at the end of
+    // this stage copies it to the varyings.
+    #define main trx_mesh_vertex_main
+#else
 out MESH_VS_BLOCK {
     MESH_VARYINGS
 } gOut;
+#endif
 
 vec3 gammaCurve(vec3 rgb, float gamma_exp)
 {
@@ -403,6 +459,30 @@ void main(void) {
     }
 }
 
+#ifdef GL_ES
+    #undef main
+    void main(void)
+    {
+        trx_mesh_vertex_main();
+        // ES varyings (3/5: copy to the outputs)
+        vEyePos = gOut.eyePos;
+        vNormal = gOut.normal;
+        vFlags = gOut.flags;
+        vTexLayer = gOut.texLayer;
+        vTexUV = gOut.texUV;
+        vAtlasSize = gOut.atlasSize;
+        vTrapRatios = gOut.trapezoidRatios;
+        vColor = gOut.color;
+        vAdd = gOut.add;
+        vTintWeight = gOut.tintWeight;
+        vWorldY = gOut.worldY;
+        vColorSub = gOut.colorSub;
+        vAddSub = gOut.addSub;
+        vReflectivity = gOut.reflectivity;
+        vAffineUV = gOut.affineUV;
+    }
+#endif
+
 #elif defined(GEOMETRY)
 
 layout(triangles) in;
@@ -538,9 +618,29 @@ uniform vec2 uEnvMapUV1;
 uniform int uEnvMapLayer;
 #endif
 
+#ifdef GL_ES
+    // ES varyings (4/5: fragment inputs)
+    in vec4 vEyePos;
+    in vec3 vNormal;
+    flat in uint vFlags;
+    flat in int vTexLayer;
+    in vec2 vTexUV;
+    flat in vec4 vAtlasSize;
+    in vec2 vTrapRatios;
+    in vec4 vColor;
+    in vec3 vAdd;
+    in float vTintWeight;
+    in float vWorldY;
+    in vec3 vColorSub;
+    in vec3 vAddSub;
+    flat in float vReflectivity;
+    in vec4 vAffineUV;
+    MeshVaryings gIn;
+#else
 in GeomData {
     MESH_VARYINGS
 } gIn;
+#endif
 out vec4 outColor;
 
 vec4 applyFog(vec4 color, float dist)
@@ -626,6 +726,9 @@ vec4 applyFogBulbs(vec4 color)
     return color;
 }
 
+#ifdef GL_ES
+    #define main trx_mesh_fragment_main
+#endif
 void main(void) {
     // How much of the fragment lies under the water surface, from 0 above it
     // to 1 below it. Y grows downwards, so a fragment past the line is the
@@ -764,5 +867,29 @@ void main(void) {
 
     outColor = texColor;
 }
+
+#ifdef GL_ES
+    #undef main
+    void main(void)
+    {
+        // ES varyings (5/5: copy from the inputs)
+        gIn.eyePos = vEyePos;
+        gIn.normal = vNormal;
+        gIn.flags = vFlags;
+        gIn.texLayer = vTexLayer;
+        gIn.texUV = vTexUV;
+        gIn.atlasSize = vAtlasSize;
+        gIn.trapezoidRatios = vTrapRatios;
+        gIn.color = vColor;
+        gIn.add = vAdd;
+        gIn.tintWeight = vTintWeight;
+        gIn.worldY = vWorldY;
+        gIn.colorSub = vColorSub;
+        gIn.addSub = vAddSub;
+        gIn.reflectivity = vReflectivity;
+        gIn.affineUV = vAffineUV;
+        trx_mesh_fragment_main();
+    }
+#endif
 
 #endif

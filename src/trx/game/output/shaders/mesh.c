@@ -52,7 +52,16 @@ static bool m_SubdivisionSuspended;
 
 static bool M_VariantSubdivides(const int32_t variant_idx)
 {
+#if defined(TRX_TARGET_IOS)
+    // Core GLES 3.0 has no geometry shader stage, so the face-splitting
+    // variants can't exist here. They fall back to the same program as the
+    // non-subdividing ones: affine mapping still applies, just without the
+    // split of near faces.
+    (void)variant_idx;
+    return false;
+#else
     return variant_idx >= M_LIGHTING_VARIANT_COUNT;
+#endif
 }
 
 static int32_t M_GetVariantIndex(void)

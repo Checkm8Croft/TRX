@@ -171,10 +171,18 @@ static char *M_Preprocess(
     // to avoid a "uniform type mismatch" link error some Apple GLES
     // drivers report when a shared uniform block's members resolve their
     // precision implicitly in one stage but explicitly in the other.
-    const char *const precision_line = "precision highp float;\n"
-                                        "precision highp int;\n"
-                                        "precision highp sampler2D;\n"
-                                        "precision highp sampler2DArray;\n";
+    const char *const precision_line =
+        "precision highp float;\n"
+        "precision highp int;\n"
+        "precision highp sampler2D;\n"
+        "precision highp sampler2DArray;\n"
+        // sampler3D has no default precision in a GLSL ES fragment shader
+        // (the palette lookup table is a 3D texture).
+        "precision highp sampler3D;\n"
+        // GLSL ES 3.00 has no 'noperspective' interpolation qualifier, so the
+        // affine texture mapping varying is interpolated with perspective
+        // correction instead: that feature is simply inactive on iOS.
+        "#define noperspective\n";
 #else
     const char *const version_line = "#version 330 core\n";
     const char *const precision_line = "";

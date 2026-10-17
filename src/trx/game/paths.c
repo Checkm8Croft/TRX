@@ -369,7 +369,7 @@ static char *M_ResolveCasePathCached(const char *const path)
     // so that walk silently fails there. Case-insensitive matching isn't
     // needed on iOS anyway -- the user controls the exact filenames they
     // copy in -- so just check the path as given.
-    if (File_Exists(path) || File_DirExists(path)) {
+    if (FS_Exists(path) || FS_DirExists(path)) {
         return Memory_DupStr(path);
     }
     return nullptr;

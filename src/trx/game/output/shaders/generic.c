@@ -90,15 +90,22 @@ RESULT Output_Shader_CreateEx(
     const bool has_geometry_stage, OUTPUT_SHADER **const out_shader)
 {
     *out_shader = nullptr;
+#if defined(TRX_TARGET_IOS)
+    // GL_GEOMETRY_SHADER isn't declared by the iOS SDK headers: core GLES 3.0
+    // has no geometry stage. Callers must not ask for one on this platform.
+    FAIL_IF(has_geometry_stage, "Geometry shaders are unavailable on GLES 3.0");
+#endif
     OUTPUT_SHADER *const shader = Memory_Alloc(sizeof(OUTPUT_SHADER));
 
     MUST(TRX_GL_Program_Init(&shader->program));
     MUST(TRX_GL_Program_AttachShader(
         &shader->program, GL_VERTEX_SHADER, path, defines));
+#if !defined(TRX_TARGET_IOS)
     if (has_geometry_stage) {
         MUST(TRX_GL_Program_AttachShader(
             &shader->program, GL_GEOMETRY_SHADER, path, defines));
     }
+#endif
     MUST(TRX_GL_Program_AttachShader(
         &shader->program, GL_FRAGMENT_SHADER, path, defines));
     TRX_GL_Program_FragmentData(&shader->program, "outColor");

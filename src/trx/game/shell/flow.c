@@ -340,7 +340,10 @@ static RESULT M_PrepareSystem(void)
     // game/shell/config.c for the corresponding iOS-specific bypass. Must
     // happen before Subsystem_ApplyConfigAll(), which is what actually
     // applies window/fullscreen state.
-    g_Config.window.is_fullscreen = true;
+    // g_Config is const now; write the backing storage directly (as
+    // Shell_SyncToWindow() does) rather than through CONFIG_SET, whose change
+    // events could reach the window before it exists.
+    g_ConfigStorage.window.is_fullscreen = true;
 #endif
 
     Subsystem_ApplyConfigAll();
