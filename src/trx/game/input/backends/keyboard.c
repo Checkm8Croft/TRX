@@ -20,6 +20,7 @@ typedef struct {
 
 typedef struct {
     INPUT_ROLE role;
+    int32_t slot;
     KEYBOARD_BINDING bind;
 } BUILTIN_KEYBOARD_LAYOUT;
 
@@ -33,11 +34,15 @@ static bool m_Conflicts[INPUT_LAYOUT_NUMBER_OF][INPUT_ROLE_NUMBER_OF] = {};
 static const BUILTIN_KEYBOARD_LAYOUT m_BuiltinLayoutBase[] = {
 // clang-format off
 #define INPUT_KEYBOARD_ASSIGN(role, key) \
-    { role, { (key) != SDL_SCANCODE_UNKNOWN ? 1 : 0, { key } } },
+    { role, -1, { (key) != SDL_SCANCODE_UNKNOWN ? 1 : 0, { key } } },
+#define INPUT_KEYBOARD_ASSIGN_SLOT(role, slot, key) \
+    { role, slot, { (key) != SDL_SCANCODE_UNKNOWN ? 1 : 0, { key } } },
 #define INPUT_KEYBOARD_ASSIGN_COMBO(role, key1, key2) \
-    { role, { 2, { key1, key2 } } },
+    { role, -1, { 2, { key1, key2 } } },
+#define INPUT_KEYBOARD_ASSIGN_COMBO_SLOT(role, slot, key1, key2) \
+    { role, slot, { 2, { key1, key2 } } },
 #include <trx/game/input/backends/keyboard.def>
-    { -1, {} },
+    { (INPUT_ROLE)-1, 0, {} },
     // clang-format on
 };
 
@@ -611,12 +616,19 @@ static void M_ResetLayout(const INPUT_LAYOUT layout)
     M_CheckConflicts(layout);
 }
 
-static BUILTIN_KEYBOARD_LAYOUT *M_GetBuiltInLayout(const INPUT_ROLE role)
+static BUILTIN_KEYBOARD_LAYOUT *M_GetBuiltInLayout(
+    const INPUT_ROLE role, const int32_t slot)
 {
+    int32_t current_slot = 0;
     for (int32_t i = 0; m_BuiltinLayout[i].role != (INPUT_ROLE)-1; i++) {
         BUILTIN_KEYBOARD_LAYOUT *const builtin = &m_BuiltinLayout[i];
         if (builtin->role == role) {
-            return builtin;
+            const int32_t entry_slot =
+                builtin->slot >= 0 ? builtin->slot : current_slot;
+            if (entry_slot == slot) {
+                return builtin;
+            }
+            current_slot++;
         }
     }
     return nullptr;
@@ -626,10 +638,13 @@ static void M_HandleBuiltInDefaults(void)
 {
 #define L_BIND(role, code)                                                     \
     do {                                                                       \
-        M_GetBuiltInLayout(role)->bind = (KEYBOARD_BINDING) {                  \
-            .key_count = (code) != SDL_SCANCODE_UNKNOWN ? 1 : 0,               \
-            .keys = { code },                                                  \
-        };                                                                     \
+        BUILTIN_KEYBOARD_LAYOUT *const layout = M_GetBuiltInLayout(role, 0);   \
+        if (layout != nullptr) {                                               \
+            layout->bind = (KEYBOARD_BINDING) {                                \
+                .key_count = (code) != SDL_SCANCODE_UNKNOWN ? 1 : 0,           \
+                .keys = { code },                                              \
+            };                                                                 \
+        }                                                                      \
     } while (0)
 
     if (g_TRVersion == 2) {
@@ -662,10 +677,24 @@ static void M_Init(void)
     }
     // allow specific engines to re-assign default bindings
     M_HandleBuiltInDefaults();
-    // then load the defined default bindings into slot 0
+    // then load the defined default bindings into slots
+    bool slot_assigned[INPUT_ROLE_NUMBER_OF][INPUT_BINDING_SLOTS] = {};
     for (int32_t i = 0; m_BuiltinLayout[i].role != (INPUT_ROLE)-1; i++) {
         const BUILTIN_KEYBOARD_LAYOUT *const builtin = &m_BuiltinLayout[i];
-        m_Layout[INPUT_LAYOUT_DEFAULT][builtin->role].slots[0] = builtin->bind;
+        int32_t slot = builtin->slot;
+        if (slot < 0) {
+            for (int32_t s = 0; s < INPUT_BINDING_SLOTS; s++) {
+                if (!slot_assigned[builtin->role][s]) {
+                    slot = s;
+                    break;
+                }
+            }
+        }
+        if (slot >= 0 && slot < INPUT_BINDING_SLOTS) {
+            m_Layout[INPUT_LAYOUT_DEFAULT][builtin->role].slots[slot] =
+                builtin->bind;
+            slot_assigned[builtin->role][slot] = true;
+        }
     }
     M_CheckConflicts(INPUT_LAYOUT_DEFAULT);
 
