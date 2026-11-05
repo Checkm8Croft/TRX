@@ -19,6 +19,18 @@
 #include <SDL2/SDL_video.h>
 #include <stdint.h>
 
+// Diagnostic only: set to 1 (or pass -DTRX_PERF_PROBE=1) to log a CPU vs GPU
+// breakdown of the presented frames. Off by default; no effect on any
+// platform while it is 0.
+#ifndef TRX_PERF_PROBE
+    #define TRX_PERF_PROBE 0
+#endif
+
+#if TRX_PERF_PROBE
+    #include <SDL2/SDL_timer.h>
+    #include <time.h>
+#endif
+
 // How many buffers the driver may be rotating through. Three covers the
 // deepest chain a driver puts behind a window.
 #define M_SWAPCHAIN_DEPTH 3
@@ -51,6 +63,137 @@ typedef struct {
     int32_t palette_lut_size;
     GLuint composite_fbo;
 } M_CONTEXT;
+
+#if TRX_PERF_PROBE
+// Frames per report line.
+    #define M_PROBE_REPORT_FRAMES 120
+// One frame in this many is followed by glFinish() to measure how much GPU
+// work is still pending once the CPU has submitted everything. Kept sparse
+// because glFinish() itself stalls the pipeline.
+    #define M_PROBE_FINISH_EVERY 15
+// A frame longer than this missed a 60 Hz refresh.
+    #define M_PROBE_SLOW_MS 17.5
+
+typedef struct {
+    bool primed;
+    double last_end_ms;
+    double last_cpu_ms;
+    int32_t total_frames;
+    int32_t frames;
+    int32_t slow_frames;
+    int32_t finish_samples;
+    double interval_ms;
+    double worst_ms;
+    double cpu_ms;
+    double composite_ms;
+    double swap_ms;
+    double finish_ms;
+} M_PROBE;
+
+static M_PROBE m_Probe;
+
+static double M_ProbeNowMs(void)
+{
+    return (double)SDL_GetPerformanceCounter() * 1000.0
+        / (double)SDL_GetPerformanceFrequency();
+}
+
+// CPU time actually burnt by the render thread, excluding any time it spent
+// asleep or blocked (SDL_Delay, vsync, waiting on the GPU). Returns -1 where
+// the platform offers no per-thread clock.
+static double M_ProbeThreadCpuMs(void)
+{
+    #if defined(CLOCK_THREAD_CPUTIME_ID)
+    struct timespec ts;
+    if (clock_gettime(CLOCK_THREAD_CPUTIME_ID, &ts) == 0) {
+        return (double)ts.tv_sec * 1000.0 + (double)ts.tv_nsec / 1e6;
+    }
+    #endif
+    return -1.0;
+}
+
+static void M_ProbeReport(const M_CONTEXT *const p)
+{
+    const double n = (double)m_Probe.frames;
+    const double interval = m_Probe.interval_ms / n;
+    const double cpu = m_Probe.cpu_ms / n;
+    const double composite = m_Probe.composite_ms / n;
+    const double swap = m_Probe.swap_ms / n;
+    const double finish = m_Probe.finish_samples > 0
+        ? m_Probe.finish_ms / (double)m_Probe.finish_samples
+        : -1.0;
+    const double cpu_ratio = cpu > 0.0 ? cpu / interval : -1.0;
+
+    const char *hint;
+    if (cpu_ratio > 0.85) {
+        hint = "CPU-bound (render thread saturated)";
+    } else if (finish > 0.3 * interval) {
+        hint = "GPU-bound (GPU still busy after all work was submitted)";
+    } else if (m_Probe.slow_frames * 10 > m_Probe.frames) {
+        hint = "stalls without saturation (pacing/vsync/driver sync)";
+    } else {
+        hint = "not saturated (frame pacing is the limit)";
+    }
+
+    // Logged as a warning because the iOS log drops INFO and below.
+    LOG_WARNING(
+        "PERF %dx%d | frame %.2f ms (worst %.1f, slow %d/%d) | cpu %.2f ms "
+        "(%.0f%%) | composite %.2f | swap %.2f | gpu-tail %.2f (n=%d) | "
+        "hint: %s",
+        p->geometry_fbo.width, p->geometry_fbo.height, interval,
+        m_Probe.worst_ms, m_Probe.slow_frames, m_Probe.frames, cpu,
+        cpu_ratio * 100.0, composite, swap, finish, m_Probe.finish_samples,
+        hint);
+
+    m_Probe.frames = 0;
+    m_Probe.slow_frames = 0;
+    m_Probe.finish_samples = 0;
+    m_Probe.interval_ms = 0.0;
+    m_Probe.worst_ms = 0.0;
+    m_Probe.cpu_ms = 0.0;
+    m_Probe.composite_ms = 0.0;
+    m_Probe.swap_ms = 0.0;
+    m_Probe.finish_ms = 0.0;
+}
+
+static void M_ProbeFrameDone(
+    const M_CONTEXT *const p, const double composite_start,
+    const double composite_end, const double finish_ms,
+    const double swap_start)
+{
+    const double swap_end = M_ProbeNowMs();
+    const double cpu_now = M_ProbeThreadCpuMs();
+
+    if (m_Probe.primed) {
+        const double interval = swap_end - m_Probe.last_end_ms;
+        m_Probe.interval_ms += interval;
+        if (interval > m_Probe.worst_ms) {
+            m_Probe.worst_ms = interval;
+        }
+        if (interval > M_PROBE_SLOW_MS) {
+            m_Probe.slow_frames++;
+        }
+        if (cpu_now >= 0.0 && m_Probe.last_cpu_ms >= 0.0) {
+            m_Probe.cpu_ms += cpu_now - m_Probe.last_cpu_ms;
+        }
+        m_Probe.composite_ms += composite_end - composite_start;
+        m_Probe.swap_ms += swap_end - swap_start;
+        if (finish_ms >= 0.0) {
+            m_Probe.finish_ms += finish_ms;
+            m_Probe.finish_samples++;
+        }
+        m_Probe.frames++;
+    }
+
+    m_Probe.primed = true;
+    m_Probe.last_end_ms = swap_end;
+    m_Probe.last_cpu_ms = cpu_now;
+
+    if (m_Probe.frames >= M_PROBE_REPORT_FRAMES) {
+        M_ProbeReport(p);
+    }
+}
+#endif
 
 static void M_Blit(const M_CONTEXT *const p, const TRX_GL_FBO *const fbo)
 {
@@ -231,7 +374,18 @@ static void M_SwapBuffers(TRX_GL_RENDERER *const renderer)
 {
     M_CONTEXT *const p = renderer->priv;
 
+#if TRX_PERF_PROBE
+    const double probe_composite_start = M_ProbeNowMs();
+#endif
     M_Render(renderer);
+#if TRX_PERF_PROBE
+    const double probe_composite_end = M_ProbeNowMs();
+    double probe_finish_ms = -1.0;
+    if (m_Probe.total_frames++ % M_PROBE_FINISH_EVERY == 0) {
+        glFinish();
+        probe_finish_ms = M_ProbeNowMs() - probe_composite_end;
+    }
+#endif
 #if defined(TRX_TARGET_IOS)
     // Per Apple/SDL's iOS requirements (see SDL2/README-ios), the drawable
     // Renderbuffer must be bound to the GL_RENDERBUFFER binding point at
@@ -246,8 +400,16 @@ static void M_SwapBuffers(TRX_GL_RENDERER *const renderer)
     glBindRenderbuffer(
         GL_RENDERBUFFER, TRX_GL_Context_GetMainColorRenderbuffer());
 #endif
+#if TRX_PERF_PROBE
+    const double probe_swap_start = M_ProbeNowMs();
+#endif
     SDL_ClearError();
     SDL_GL_SwapWindow(TRX_GL_Context_GetWindowHandle());
+#if TRX_PERF_PROBE
+    M_ProbeFrameDone(
+        p, probe_composite_start, probe_composite_end, probe_finish_ms,
+        probe_swap_start);
+#endif
 #if defined(TRX_TARGET_IOS)
     // SDL_GL_SwapWindow() returns void but may internally call
     // SDL_SetError(); surface it directly instead of guessing.
