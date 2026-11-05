@@ -13,6 +13,9 @@
 
 #include <trx/gl/gl_platform.h>
 #include <SDL2/SDL_video.h>
+#if defined(TRX_TARGET_IOS)
+    #include <SDL2/SDL_syswm.h>
+#endif
 #include <stdint.h>
 #include <string.h>
 #ifdef __APPLE__
@@ -118,6 +121,59 @@ static GLvoid GLAPIENTRY M_GLDebug(
 }
 #endif
 
+#if defined(TRX_TARGET_IOS)
+// Records the framebuffer object and color renderbuffer that SDL created for
+// the window. They are asked from SDL itself rather than sampled from
+// GL_FRAMEBUFFER_BINDING: that binding is the screen framebuffer only while
+// nothing of ours is bound. From an event handler, or at any point after the
+// first frame, it is one of the renderer's texture-backed FBOs, and storing
+// that as "the screen" makes the final composite and the present target the
+// wrong objects (GL_INVALID_OPERATION on every SDL_GL_SwapWindow, black
+// screen).
+static void M_CaptureMainFramebuffer(void)
+{
+    GLuint main_fbo = 0;
+    GLuint color_rb = 0;
+
+    SDL_SysWMinfo info;
+    SDL_VERSION(&info.version);
+    if (m_Context.window_handle != nullptr
+        && SDL_GetWindowWMInfo(m_Context.window_handle, &info)
+        && info.subsystem == SDL_SYSWM_UIKIT) {
+        main_fbo = info.info.uikit.framebuffer;
+        color_rb = info.info.uikit.colorbuffer;
+    }
+
+    GLint bound_fbo = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &bound_fbo);
+
+    if (main_fbo == 0 || color_rb == 0) {
+        // SDL did not expose them; fall back to the GL state, which is only
+        // right while the screen framebuffer is the bound one.
+        main_fbo = (GLuint)bound_fbo;
+        GLint rb = 0;
+        glGetFramebufferAttachmentParameteriv(
+            GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+            GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &rb);
+        color_rb = (GLuint)rb;
+        while (glGetError() != GL_NO_ERROR) {
+            // The query raises an error when no FBO is bound.
+        }
+        LOG_WARNING(
+            "SDL did not report the screen framebuffer; using the GL "
+            "binding (fbo=%u, renderbuffer=%u)",
+            main_fbo, color_rb);
+    } else if ((GLuint)bound_fbo != main_fbo) {
+        LOG_WARNING(
+            "screen framebuffer is %u (renderbuffer %u) but %d is bound",
+            main_fbo, color_rb, bound_fbo);
+    }
+
+    m_Context.main_framebuffer = main_fbo;
+    m_Context.main_color_renderbuffer = color_rb;
+}
+#endif
+
 void TRX_GL_Context_SwitchToViewport(const VIEWPORT_SPACE space)
 {
     const VIEWPORT_RECT rect = Viewport_GetRect(space);
@@ -178,21 +234,9 @@ RESULT TRX_GL_Context_Attach(void *window_handle)
         "the OpenGL context could not be activated: %s", SDL_GetError());
 
 #if defined(TRX_TARGET_IOS)
-    // SDL's iOS backend creates its own screen framebuffer here and keeps
-    // it bound; this is the only point where we're guaranteed it's still
-    // the active one, so capture its id now for later use (see
-    // TRX_GL_Context_GetMainFramebuffer).
-    {
-        GLint main_fbo = 0;
-        glGetIntegerv(GL_FRAMEBUFFER_BINDING, &main_fbo);
-        m_Context.main_framebuffer = (GLuint)main_fbo;
-
-        GLint color_rb = 0;
-        glGetFramebufferAttachmentParameteriv(
-            GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-            GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &color_rb);
-        m_Context.main_color_renderbuffer = (GLuint)color_rb;
-    }
+    // SDL's iOS backend creates its own screen framebuffer for the window;
+    // remember its ids for later use (see TRX_GL_Context_GetMainFramebuffer).
+    M_CaptureMainFramebuffer();
 #endif
 
 #if !defined(TRX_TARGET_IOS)
@@ -361,15 +405,7 @@ GLuint TRX_GL_Context_GetMainColorRenderbuffer(void)
 void TRX_GL_Context_RefreshMainFramebuffer(void)
 {
 #if defined(TRX_TARGET_IOS)
-    GLint main_fbo = 0;
-    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &main_fbo);
-    m_Context.main_framebuffer = (GLuint)main_fbo;
-
-    GLint color_rb = 0;
-    glGetFramebufferAttachmentParameteriv(
-        GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-        GL_FRAMEBUFFER_ATTACHMENT_OBJECT_NAME, &color_rb);
-    m_Context.main_color_renderbuffer = (GLuint)color_rb;
+    M_CaptureMainFramebuffer();
 #endif
 }
 
