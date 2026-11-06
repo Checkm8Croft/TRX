@@ -2,7 +2,8 @@
 #include <trx/game/const.h>
 #include <trx/game/lua/common.h>
 #include <trx/game/lua/registry.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/args.h>
+#include <trx/game/lua/utils/module.h>
 
 #include <lauxlib.h>
 
@@ -11,7 +12,8 @@
 // degrees) and the engine uses lookup tables; going through the real functions
 // guarantees a script places things exactly where C would.
 
-// trxc.math.sin(angle) -> number in [-1, 1]
+// trxc.math.sin(angle: trx.math.Angle): number
+// Returns a value in [-1, 1].
 static int M_L_Sin(lua_State *const L)
 {
     const int32_t angle = luaL_checkinteger(L, 1);
@@ -19,7 +21,8 @@ static int M_L_Sin(lua_State *const L)
     return 1;
 }
 
-// trxc.math.cos(angle) -> number in [-1, 1]
+// trxc.math.cos(angle: trx.math.Angle): number
+// Returns a value in [-1, 1].
 static int M_L_Cos(lua_State *const L)
 {
     const int32_t angle = luaL_checkinteger(L, 1);
@@ -27,7 +30,7 @@ static int M_L_Cos(lua_State *const L)
     return 1;
 }
 
-// trxc.math.atan(z, x) -> angle
+// trxc.math.atan(z: trx.math.Distance, x: trx.math.Distance): trx.math.Angle
 static int M_L_Atan(lua_State *const L)
 {
     const int32_t z = luaL_checkinteger(L, 1);
@@ -36,11 +39,26 @@ static int M_L_Atan(lua_State *const L)
     return 1;
 }
 
+// trxc.math.rotate(vec: trx.math.Vec3, rot: trx.math.Rot): trx.math.Vec3
+static int M_L_Rotate(lua_State *const L)
+{
+    const XYZ_32 vec = LUA_CheckXYZ(L, 1);
+    const XYZ_32 rot = LUA_CheckXYZ(L, 2);
+    LUA_PushXYZ(
+        L,
+        XYZ_32_Rotate(
+            vec,
+            (XYZ_16) {
+                .x = (int16_t)rot.x,
+                .y = (int16_t)rot.y,
+                .z = (int16_t)rot.z,
+            }));
+    return 1;
+}
+
 static const luaL_Reg m_Module[] = {
-    { "sin", M_L_Sin },
-    { "cos", M_L_Cos },
-    { "atan", M_L_Atan },
-    { nullptr, nullptr },
+    { "sin", M_L_Sin },       { "cos", M_L_Cos },   { "atan", M_L_Atan },
+    { "rotate", M_L_Rotate }, { nullptr, nullptr },
 };
 
 static void M_Create(lua_State *const L)
@@ -49,12 +67,16 @@ static void M_Create(lua_State *const L)
 
     // The angle units are numbers, not functions.
     LUA_GetModule(L, "math");
+    // trxc.math.DEG_1: trx.math.Angle
     lua_pushinteger(L, DEG_1);
     lua_setfield(L, -2, "DEG_1");
+    // trxc.math.DEG_45: trx.math.Angle
     lua_pushinteger(L, DEG_45);
     lua_setfield(L, -2, "DEG_45");
+    // trxc.math.DEG_90: trx.math.Angle
     lua_pushinteger(L, DEG_90);
     lua_setfield(L, -2, "DEG_90");
+    // trxc.math.WALL_L: trx.math.Distance
     lua_pushinteger(L, WALL_L);
     lua_setfield(L, -2, "WALL_L");
     lua_pop(L, 1);

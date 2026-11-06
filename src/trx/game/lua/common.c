@@ -16,7 +16,7 @@
 #include <trx/game/lua/registry.h>
 #include <trx/game/lua/sandbox.h>
 #include <trx/game/lua/startup.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/caller.h>
 #include <trx/game/paths.h>
 
 #include <lauxlib.h>
@@ -37,7 +37,6 @@ typedef struct {
     // of every level load, the first one included, where there is nothing to
     // let go of and nobody to tell about it. A probe run counts as one, because
     // it leaves the same state behind as a level being played.
-    bool level_script_live;
 } M_PRIV;
 
 static M_PRIV m_Priv = {
@@ -156,8 +155,7 @@ static RESULT M_RequireTRXModule(lua_State *const L, const char *name)
 static RESULT M_SealPublicAPI(lua_State *const L)
 {
     FAIL_IF(
-        !LUA_API_PushEntrypoint(L, "seal"),
-        "the Lua API registry handed over no sealer");
+        !LUA_API_PushEntrypoint(L, "seal"), "api.lua handed over no sealer");
     FAIL_IF(
         lua_pcall(L, 0, 0, 0) != LUA_OK, "the Lua API would not seal: %s",
         lua_tostring(L, -1));
@@ -194,8 +192,7 @@ static RESULT M_LoadTRXModules(lua_State *const L)
 }
 
 // Run after M_SealPublicAPI, so a script reaches all of trx.* without naming
-// the parts it wants, and api.define raises by then: it cannot extend the API
-// it consumes.
+// the parts it wants.
 static RESULT M_RunTRXRuntimeScripts(lua_State *const L)
 {
     for (const LUA_EMBEDDED_SCRIPT *script = g_LUA_EmbeddedRuntimeScripts;
@@ -495,7 +492,6 @@ void LUA_Shutdown(void)
 {
     M_PRIV *const p = &m_Priv;
     LUA_Registry_ShutdownAll();
-    p->level_script_live = false;
     if (p->state != nullptr) {
         lua_close(p->state);
         p->state = nullptr;
@@ -536,79 +532,13 @@ void LUA_InstallModRequire(lua_State *const L)
     lua_setglobal(L, "require");
 }
 
-void LUA_DropLevelModules(lua_State *const L)
+void LUA_DropLevelModules(void)
 {
+    lua_State *const L = m_Priv.state;
     if (L == nullptr) {
         return;
     }
     M_ClearRequired(L, LUA_CONTEXT_LEVEL);
-}
-
-RESULT LUA_RunGameScript(void)
-{
-    // An expansion with nothing of its own to set up runs the script of the
-    // game it extends, so it ships a file only to replace one. What it wants
-    // to keep from the game it extends it requires by name.
-    const char *const path =
-        GamePath_PeekResolve(GAME_DYNAMIC_PATH_GAME_SCRIPT_FILE, "_game.lua");
-    if (path == nullptr) {
-        return OK;
-    }
-
-    LOG_INFO("Loading game script: %s", path);
-    RESULT result = OK;
-    LUA_RESULT res = LUA_EvalFile(path);
-    if (res.code != LUA_OK) {
-        result = FAIL("%s", res.message);
-    }
-    LUA_FreeResult(&res);
-    return result;
-}
-
-void LUA_DropLevelScript(void)
-{
-    M_PRIV *const p = &m_Priv;
-    if (p->level_script_live) {
-        p->level_script_live = false;
-
-        // Before the listeners go, so a module holding state the level set up
-        // hears about it while its own handlers still answer and can take them
-        // down itself.
-        LUA_FireEvent(LUA_EVENT_LEVEL_UNLOAD);
-    }
-
-    LUA_ClearLevelListeners();
-    LUA_Config_ClearLevelWatchers();
-    LUA_Rooms_ClearFlipGroups();
-    LUA_DropLevelModules(p->state);
-}
-
-void LUA_RunLevelScript(const GF_LEVEL *const level)
-{
-    m_Priv.level_script_live = true;
-    LUA_SetScriptContext(LUA_CONTEXT_LEVEL);
-
-    if (level->script_path != nullptr) {
-        LUA_RESULT res = LUA_EvalFile(level->script_path);
-        if (res.code != LUA_OK) {
-            Console_ShowError("Lua level script error: %s", res.message);
-        }
-        LUA_FreeResult(&res);
-    }
-
-    LUA_SetScriptContext(LUA_CONTEXT_GLOBAL);
-}
-
-void LUA_ReloadLevelScript(void)
-{
-    const GF_LEVEL *const level = GF_GetCurrentLevel();
-    if (level == nullptr) {
-        return;
-    }
-    // The level stays where it is, so the unload that would otherwise let go of
-    // the last run is not coming.
-    LUA_DropLevelScript();
-    LUA_RunLevelScript(level);
 }
 
 void LUA_FreeResult(LUA_RESULT *const result)
@@ -616,28 +546,4 @@ void LUA_FreeResult(LUA_RESULT *const result)
     if (result != nullptr) {
         Memory_FreePointer(&result->message);
     }
-}
-
-void LUA_DumpAPI(void)
-{
-    lua_State *const L = m_Priv.state;
-    if (L == nullptr) {
-        LOG_ERROR("--dump-lua-api: Lua is not initialised");
-        return;
-    }
-    // Sealing has already run by now, so the dumper is no longer on trx.api.
-    if (!LUA_API_PushEntrypoint(L, "to_json")) {
-        LOG_ERROR("--dump-lua-api: the Lua API registry handed over no dumper");
-        return;
-    }
-    if (lua_pcall(L, 0, 1, 0) != LUA_OK) {
-        LOG_ERROR("--dump-lua-api failed: %s", lua_tostring(L, -1));
-        lua_pop(L, 1);
-        return;
-    }
-    const char *const json = lua_tostring(L, -1);
-    if (json != nullptr) {
-        puts(json);
-    }
-    lua_pop(L, 1);
 }

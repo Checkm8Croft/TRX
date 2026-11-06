@@ -1,22 +1,29 @@
 ---
 title: Catalog
-order: 8
+order: 9
 ---
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/catalog.lua. Edit it there.
+  src/lua/trx/catalog.lua. Edit it there.
 -->
 
 ## <a id="catalog" name="catalog"></a>Catalog module
 
 The names TRX knows things by.
 
-Each catalog is an enum of every object, sample, music track, Lara state, Lara animation or item action the engine has a name for. The names are the C ones with their prefix taken off - `O_WOLF` is [`trx.catalog.objects.WOLF`](#catalog.objects) - and a catalog answers to a name in any case, so [`trx.catalog.objects.wolf`](#catalog.objects) is the same constant.
+Each catalog is an enum of every object, sample, music track, Lara state,
+Lara animation or item action the engine has a name for. The names are the C
+ones with their prefix taken off - `O_WOLF` is [`trx.catalog.objects.WOLF`](#catalog.objects) -
+and a catalog answers to a name in any case, so [`trx.catalog.objects.wolf`](#catalog.objects)
+is the same constant.
 
-The ids in a catalog are TRX's own, and they are the same in all four games. The number a builder reads off Tomb Editor is not: that is the slot the game's own files use. [`trx.catalog.to_slot`](#catalog.to_slot) and [`trx.catalog.from_slot`](#catalog.from_slot) convert between the two.
+The ids in a catalog are TRX's own, and they are the same in all four games.
+The number a builder reads off Tomb Editor is not: that is the slot the
+game's own files use. [`trx.catalog.to_slot`](#catalog.to_slot) and [`trx.catalog.from_slot`](#catalog.from_slot)
+convert between the two.
 
 ### Enums
 
@@ -24,24 +31,24 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
 
     Which catalog a slot belongs to.
 
-    - `trx.catalog.Context.OBJECTS` = `0`  
+    - `trx.catalog.Context.OBJECTS`  
         Objects.
-    - `trx.catalog.Context.MUSIC` = `1`  
+    - `trx.catalog.Context.MUSIC`  
         Music tracks.
-    - `trx.catalog.Context.SAMPLES` = `2`  
+    - `trx.catalog.Context.SAMPLES`  
         Sound samples.
-    - `trx.catalog.Context.LARA_STATES` = `3`  
+    - `trx.catalog.Context.LARA_STATES`  
         Lara's states.
-    - `trx.catalog.Context.LARA_ANIMS` = `4`  
+    - `trx.catalog.Context.LARA_ANIMS`  
         Lara's animations.
-    - `trx.catalog.Context.ITEM_ACTIONS` = `5`  
+    - `trx.catalog.Context.ITEM_ACTIONS`  
         Item actions, which the flip effects trigger.
-    - `trx.catalog.Context.WEAPONS` = `6`  
+    - `trx.catalog.Context.WEAPONS`  
         Weapons Lara can hold.
-    - `trx.catalog.Context.FAMILIES` = `7`  
+    - `trx.catalog.Context.FAMILIES`  
         The families an object can belong to.
 
-- <a id="catalog.objects" name="catalog.objects"></a>[lua]`trx.catalog.objects` - 821 names
+- <a id="catalog.objects" name="catalog.objects"></a>[lua]`trx.catalog.objects` - 856 names
 
     Every object TRX has a name for.
 
@@ -71,29 +78,30 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
     `BEAR`, `BELL`, `BIG_BOWL`, `BIG_EEL`, `BIG_POD`, `BIG_SPIDER`,
     `BINOCULARS_ITEM`, `BINOCULARS_OPTION`, `BINOCULAR_GFX`, `BIRD_GUARDIAN`,
     `BIRD_TWEETER_1`, `BIRD_TWEETER_2`, `BLADE`, `BLOOD`, `BLOOD_PINK`,
-    `BLUE_LIGHT`, `BOAR`, `BOAT`, `BOAT_BITS`, `BODY_PART`, `BRIDGE_FLAT`,
-    `BRIDGE_TILT_1`, `BRIDGE_TILT_2`, `BUBBLE_1`, `BUBBLE_2`, `BUBBLE_EMITTER`,
-    `CAMERA_TARGET`, `CARCASS`, `CEILING_SPIKES`, `CEILING_TRAPDOOR_1`,
-    `CEILING_TRAPDOOR_2`, `CENTAUR`, `CENTAUR_STATUE`, `CIVILIAN`,
-    `CLAW_MUTANT`, `CLAW_MUTANT_PLASMA_BALL`, `CLIMBING_POLE`, `CLOCK_CHIMES`,
-    `COBRA`, `COG_1`, `COG_2`, `COG_3`, `COG_SWITCH`, `COMBAT_END`,
-    `COMPASS_OPTION`, `COMPY`, `CONTROLS_OPTION`, `COPTER`, `COWBOY`,
-    `CRAWLER_MUTANT`, `CROCODILE`, `CROSSBOW_AMMO_1_ITEM`,
-    `CROSSBOW_AMMO_2_ITEM`, `CROSSBOW_AMMO_3_ITEM`, `CROSSBOW_AMMO_OPTION`,
-    `CROSSBOW_BOLT`, `CROSSBOW_ITEM`, `CROSSBOW_OPTION`, `CROW`, `CROWBAR_ANIM`,
-    `CROWBAR_ITEM`, `CROWBAR_OPTION`, `CULT_1`, `CULT_1A`, `CULT_1B`, `CULT_2`,
-    `CULT_3`, `CUT_SHOTGUN`, `DAMOCLES_SWORD`, `DART`, `DART_EFFECT`,
-    `DART_EMITTER`, `DESERT_EAGLE_AMMO_ITEM`, `DESERT_EAGLE_AMMO_OPTION`,
-    `DESERT_EAGLE_ITEM`, `DESERT_EAGLE_OPTION`, `DETONATOR_BOX`, `DING_DONG`,
-    `DINO_MUTANT`, `DISC`, `DISC_EMITTER`, `DIVER`, `DOG`, `DOLPHIN`, `DOOR_1`,
-    `DOOR_2`, `DOOR_3`, `DOOR_4`, `DOOR_5`, `DOOR_6`, `DOOR_7`, `DOOR_8`,
-    `DOUBLE_DOORS`, `DRAGON_BACK`, `DRAGON_BONES_1`, `DRAGON_BONES_2`,
-    `DRAGON_BONES_3`, `DRAGON_FRONT`, `DRAWBRIDGE`, `DUST`, `DYING_MONK`,
-    `DYING_MUTANT`, `EAGLE`, `EARTHQUAKE`, `EEL`, `ELECTRICAL_LIGHT`,
-    `ELECTRIC_CLEANER`, `ELECTRIC_FENCE`, `EMBER`, `EMBER_EMITTER`,
-    `EXAMINE_ITEM_1`, `EXAMINE_ITEM_2`, `EXAMINE_ITEM_3`, `EXAMINE_OPTION_1`,
-    `EXAMINE_OPTION_2`, `EXAMINE_OPTION_3`, `EXPLOSION_1`, `EXPLOSION_2`,
-    `FALLING_BLOCK_1`, `FALLING_BLOCK_2`, `FALLING_BLOCK_3`,
+    `BLUE_LIGHT`, `BOAR`, `BOAT`, `BOAT_BITS`, `BODY_PART`, `BOUNCING_BOULDER`,
+    `BRIDGE_FLAT`, `BRIDGE_TILT_1`, `BRIDGE_TILT_2`, `BUBBLE_1`, `BUBBLE_2`,
+    `BUBBLE_EMITTER`, `CAMERA_TARGET`, `CARCASS`, `CEILING_SPIKES`,
+    `CEILING_TRAPDOOR_1`, `CEILING_TRAPDOOR_2`, `CENTAUR`, `CENTAUR_STATUE`,
+    `CIVILIAN`, `CLAW_MUTANT`, `CLAW_MUTANT_PLASMA_BALL`, `CLIMBING_POLE`,
+    `CLOCK_CHIMES`, `COBRA`, `COG_1`, `COG_2`, `COG_3`, `COG_SWITCH`,
+    `COMBAT_END`, `COMPASS_OPTION`, `COMPY`, `CONTROLS_OPTION`, `COPTER`,
+    `COWBOY`, `CRAWLER_MUTANT`, `CROCODILE`, `CROSSBOW_AMMO_1_ITEM`,
+    `CROSSBOW_AMMO_2_ITEM`, `CROSSBOW_AMMO_2_OPTION`, `CROSSBOW_AMMO_3_ITEM`,
+    `CROSSBOW_AMMO_3_OPTION`, `CROSSBOW_AMMO_OPTION`, `CROSSBOW_BOLT`,
+    `CROSSBOW_ITEM`, `CROSSBOW_OPTION`, `CROW`, `CROWBAR_ANIM`, `CROWBAR_ITEM`,
+    `CROWBAR_OPTION`, `CULT_1`, `CULT_1A`, `CULT_1B`, `CULT_2`, `CULT_3`,
+    `CUT_SHOTGUN`, `DAMOCLES_SWORD`, `DART`, `DART_EFFECT`, `DART_EMITTER`,
+    `DESERT_EAGLE_AMMO_ITEM`, `DESERT_EAGLE_AMMO_OPTION`, `DESERT_EAGLE_ITEM`,
+    `DESERT_EAGLE_OPTION`, `DETONATOR_BOX`, `DING_DONG`, `DINO_MUTANT`, `DISC`,
+    `DISC_EMITTER`, `DIVER`, `DOG`, `DOLPHIN`, `DOOR_1`, `DOOR_2`, `DOOR_3`,
+    `DOOR_4`, `DOOR_5`, `DOOR_6`, `DOOR_7`, `DOOR_8`, `DOUBLE_DOORS`,
+    `DRAGON_BACK`, `DRAGON_BONES_1`, `DRAGON_BONES_2`, `DRAGON_BONES_3`,
+    `DRAGON_FRONT`, `DRAWBRIDGE`, `DUST`, `DYING_MONK`, `DYING_MUTANT`, `EAGLE`,
+    `EARTHQUAKE`, `EEL`, `ELECTRICAL_LIGHT`, `ELECTRIC_CLEANER`,
+    `ELECTRIC_FENCE`, `EMBER`, `EMBER_EMITTER`, `ENEMY_JEEP`, `EXAMINE_ITEM_1`,
+    `EXAMINE_ITEM_2`, `EXAMINE_ITEM_3`, `EXAMINE_OPTION_1`, `EXAMINE_OPTION_2`,
+    `EXAMINE_OPTION_3`, `EXPANDING_BLOCK`, `EXPLOSION_1`, `EXPLOSION_2`,
+    `FALLING_BLADE`, `FALLING_BLOCK_1`, `FALLING_BLOCK_2`, `FALLING_BLOCK_3`,
     `FALLING_CEILING_1`, `FALLING_CEILING_2`, `FIRE_HEAD`, `FISH_MUTANT`,
     `FLAME`, `FLAME_EMITTER`, `FLAME_EMITTER_BIG`, `FLAME_EMITTER_JET`,
     `FLAME_EMITTER_SIDE`, `FLAME_EMITTER_SMALL`, `FLAME_EMITTER_TR4_GROUND`,
@@ -105,16 +113,18 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
     `GENERIC_TRAP_6`, `GENERIC_TRAP_7`, `GENERIC_TRAP_8`, `GENERIC_TRAP_9`,
     `GLOBE_OPTION`, `GLOW`, `GLOW_RESERVED`, `GONDOLA`, `GONG`, `GONG_BONGER`,
     `GRAPHICS_OPTION`, `GREEN_LIGHT`, `GRENADE`, `GRENADE_AMMO_2_ITEM`,
-    `GRENADE_AMMO_3_ITEM`, `GRENADE_AMMO_ITEM`, `GRENADE_AMMO_OPTION`,
-    `GRENADE_GUN_ITEM`, `GRENADE_GUN_OPTION`, `GUN_FLASH`, `GUN_SHELL`,
-    `HARPOON_BOLT`, `HARPOON_GUN_AMMO_ITEM`, `HARPOON_GUN_AMMO_OPTION`,
-    `HARPOON_GUN_ITEM`, `HARPOON_GUN_OPTION`, `HEAVY_ROCKET`, `HOOK`,
-    `HOT_LIQUID`, `HUSKIE`, `HYBRID_MUTANT`, `ICICLE`, `INV_BACKGROUND`,
-    `JELLY`, `KAYAK`, `KEY_HOLE_1`, `KEY_HOLE_10`, `KEY_HOLE_11`, `KEY_HOLE_12`,
-    `KEY_HOLE_2`, `KEY_HOLE_3`, `KEY_HOLE_4`, `KEY_HOLE_5`, `KEY_HOLE_6`,
-    `KEY_HOLE_7`, `KEY_HOLE_8`, `KEY_HOLE_9`, `KEY_ITEM_1`, `KEY_ITEM_10`,
-    `KEY_ITEM_11`, `KEY_ITEM_12`, `KEY_ITEM_1_COMBO_1`, `KEY_ITEM_1_COMBO_2`,
-    `KEY_ITEM_2`, `KEY_ITEM_2_COMBO_1`, `KEY_ITEM_2_COMBO_2`, `KEY_ITEM_3`,
+    `GRENADE_AMMO_2_OPTION`, `GRENADE_AMMO_3_ITEM`, `GRENADE_AMMO_3_OPTION`,
+    `GRENADE_AMMO_ITEM`, `GRENADE_AMMO_OPTION`, `GRENADE_GUN_ITEM`,
+    `GRENADE_GUN_OPTION`, `GUIDE`, `GUN_FLASH`, `GUN_SHELL`, `HARPOON_BOLT`,
+    `HARPOON_GUN_AMMO_ITEM`, `HARPOON_GUN_AMMO_OPTION`, `HARPOON_GUN_ITEM`,
+    `HARPOON_GUN_OPTION`, `HEAVY_ROCKET`, `HENCHMAN_1`, `HENCHMAN_2`,
+    `HENCHMAN_JEEP`, `HOOK`, `HOT_LIQUID`, `HUSKIE`, `HYBRID_MUTANT`, `ICICLE`,
+    `INV_BACKGROUND`, `JACKAL`, `JEEP`, `JELLY`, `KAYAK`, `KEY_HOLE_1`,
+    `KEY_HOLE_10`, `KEY_HOLE_11`, `KEY_HOLE_12`, `KEY_HOLE_2`, `KEY_HOLE_3`,
+    `KEY_HOLE_4`, `KEY_HOLE_5`, `KEY_HOLE_6`, `KEY_HOLE_7`, `KEY_HOLE_8`,
+    `KEY_HOLE_9`, `KEY_ITEM_1`, `KEY_ITEM_10`, `KEY_ITEM_11`, `KEY_ITEM_12`,
+    `KEY_ITEM_1_COMBO_1`, `KEY_ITEM_1_COMBO_2`, `KEY_ITEM_2`,
+    `KEY_ITEM_2_COMBO_1`, `KEY_ITEM_2_COMBO_2`, `KEY_ITEM_3`,
     `KEY_ITEM_3_COMBO_1`, `KEY_ITEM_3_COMBO_2`, `KEY_ITEM_4`,
     `KEY_ITEM_4_COMBO_1`, `KEY_ITEM_4_COMBO_2`, `KEY_ITEM_5`,
     `KEY_ITEM_5_COMBO_1`, `KEY_ITEM_5_COMBO_2`, `KEY_ITEM_6`,
@@ -131,39 +141,40 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
     `KEY_OPTION_7_COMBO_2`, `KEY_OPTION_8`, `KEY_OPTION_8_COMBO_1`,
     `KEY_OPTION_8_COMBO_2`, `KEY_OPTION_9`, `KICK_DOOR_1`, `KICK_DOOR_2`,
     `KILLER_STATUE`, `KILL_ALL_TRIGGERED`, `LARA`, `LARA_ALARM`, `LARA_AUTOS`,
-    `LARA_BOAT`, `LARA_CROSSBOW`, `LARA_DESERT_EAGLE`, `LARA_EXTRA`,
-    `LARA_FLARE`, `LARA_GRENADE_GUN`, `LARA_HAIR`, `LARA_HARPOON_GUN`,
-    `LARA_KAYAK`, `LARA_M16`, `LARA_MAGNUMS`, `LARA_MINE_CART`,
-    `LARA_MOUNTED_GUN`, `LARA_MP5`, `LARA_PISTOLS`, `LARA_QUAD_BIKE`,
-    `LARA_REVOLVER`, `LARA_RIB`, `LARA_ROCKET_GUN`, `LARA_SHOTGUN`,
-    `LARA_SKIDOO`, `LARA_SKIN`, `LARA_SKIN_JOINTS_1`, `LARA_SKIN_JOINTS_10`,
-    `LARA_SKIN_JOINTS_11`, `LARA_SKIN_JOINTS_12`, `LARA_SKIN_JOINTS_13`,
-    `LARA_SKIN_JOINTS_14`, `LARA_SKIN_JOINTS_15`, `LARA_SKIN_JOINTS_16`,
-    `LARA_SKIN_JOINTS_17`, `LARA_SKIN_JOINTS_18`, `LARA_SKIN_JOINTS_19`,
-    `LARA_SKIN_JOINTS_2`, `LARA_SKIN_JOINTS_20`, `LARA_SKIN_JOINTS_21`,
-    `LARA_SKIN_JOINTS_22`, `LARA_SKIN_JOINTS_23`, `LARA_SKIN_JOINTS_24`,
-    `LARA_SKIN_JOINTS_25`, `LARA_SKIN_JOINTS_26`, `LARA_SKIN_JOINTS_27`,
-    `LARA_SKIN_JOINTS_28`, `LARA_SKIN_JOINTS_29`, `LARA_SKIN_JOINTS_3`,
-    `LARA_SKIN_JOINTS_30`, `LARA_SKIN_JOINTS_31`, `LARA_SKIN_JOINTS_32`,
-    `LARA_SKIN_JOINTS_4`, `LARA_SKIN_JOINTS_5`, `LARA_SKIN_JOINTS_6`,
-    `LARA_SKIN_JOINTS_7`, `LARA_SKIN_JOINTS_8`, `LARA_SKIN_JOINTS_9`,
-    `LARA_SKIN_SWAP_1`, `LARA_SKIN_SWAP_10`, `LARA_SKIN_SWAP_11`,
-    `LARA_SKIN_SWAP_12`, `LARA_SKIN_SWAP_13`, `LARA_SKIN_SWAP_14`,
-    `LARA_SKIN_SWAP_15`, `LARA_SKIN_SWAP_16`, `LARA_SKIN_SWAP_17`,
-    `LARA_SKIN_SWAP_18`, `LARA_SKIN_SWAP_19`, `LARA_SKIN_SWAP_2`,
-    `LARA_SKIN_SWAP_20`, `LARA_SKIN_SWAP_21`, `LARA_SKIN_SWAP_22`,
-    `LARA_SKIN_SWAP_23`, `LARA_SKIN_SWAP_24`, `LARA_SKIN_SWAP_25`,
-    `LARA_SKIN_SWAP_26`, `LARA_SKIN_SWAP_27`, `LARA_SKIN_SWAP_28`,
-    `LARA_SKIN_SWAP_29`, `LARA_SKIN_SWAP_3`, `LARA_SKIN_SWAP_30`,
-    `LARA_SKIN_SWAP_31`, `LARA_SKIN_SWAP_32`, `LARA_SKIN_SWAP_4`,
-    `LARA_SKIN_SWAP_5`, `LARA_SKIN_SWAP_6`, `LARA_SKIN_SWAP_7`,
-    `LARA_SKIN_SWAP_8`, `LARA_SKIN_SWAP_9`, `LARA_SKIN_SWAP_EXTRA`,
-    `LARA_SKIN_SWAP_GUNS`, `LARA_SKIN_SWAP_LEGS`, `LARA_SPEECH_HEAD_1`,
-    `LARA_SPEECH_HEAD_2`, `LARA_SPEECH_HEAD_3`, `LARA_SPEECH_HEAD_4`,
-    `LARA_START_POS`, `LARA_UPV`, `LARA_UZIS`, `LARA_VEHICLE_ANIM`,
-    `LARGE_MEDIPACK_ITEM`, `LARGE_MEDIPACK_OPTION`, `LARSON`, `LASERSIGHT_ITEM`,
-    `LASERSIGHT_OPTION`, `LAVA_WEDGE`, `LEAD_BAR_ITEM`, `LEAD_BAR_OPTION`,
-    `LENS_FLARE`, `LIFT`, `LIGHTNING_EMITTER`, `LION`, `LIONESS`, `LIZARD`,
+    `LARA_BOAT`, `LARA_CROSSBOW`, `LARA_CROSSBOW_LASER`, `LARA_DESERT_EAGLE`,
+    `LARA_EXTRA`, `LARA_FLARE`, `LARA_GRENADE_GUN`, `LARA_HAIR`,
+    `LARA_HARPOON_GUN`, `LARA_JEEP`, `LARA_KAYAK`, `LARA_M16`, `LARA_MAGNUMS`,
+    `LARA_MINE_CART`, `LARA_MOUNTED_GUN`, `LARA_MP5`, `LARA_PISTOLS`,
+    `LARA_QUAD_BIKE`, `LARA_REVOLVER`, `LARA_REVOLVER_LASER`, `LARA_RIB`,
+    `LARA_ROCKET_GUN`, `LARA_SHOTGUN`, `LARA_SKIDOO`, `LARA_SKIN`,
+    `LARA_SKIN_JOINTS_1`, `LARA_SKIN_JOINTS_10`, `LARA_SKIN_JOINTS_11`,
+    `LARA_SKIN_JOINTS_12`, `LARA_SKIN_JOINTS_13`, `LARA_SKIN_JOINTS_14`,
+    `LARA_SKIN_JOINTS_15`, `LARA_SKIN_JOINTS_16`, `LARA_SKIN_JOINTS_17`,
+    `LARA_SKIN_JOINTS_18`, `LARA_SKIN_JOINTS_19`, `LARA_SKIN_JOINTS_2`,
+    `LARA_SKIN_JOINTS_20`, `LARA_SKIN_JOINTS_21`, `LARA_SKIN_JOINTS_22`,
+    `LARA_SKIN_JOINTS_23`, `LARA_SKIN_JOINTS_24`, `LARA_SKIN_JOINTS_25`,
+    `LARA_SKIN_JOINTS_26`, `LARA_SKIN_JOINTS_27`, `LARA_SKIN_JOINTS_28`,
+    `LARA_SKIN_JOINTS_29`, `LARA_SKIN_JOINTS_3`, `LARA_SKIN_JOINTS_30`,
+    `LARA_SKIN_JOINTS_31`, `LARA_SKIN_JOINTS_32`, `LARA_SKIN_JOINTS_4`,
+    `LARA_SKIN_JOINTS_5`, `LARA_SKIN_JOINTS_6`, `LARA_SKIN_JOINTS_7`,
+    `LARA_SKIN_JOINTS_8`, `LARA_SKIN_JOINTS_9`, `LARA_SKIN_SWAP_1`,
+    `LARA_SKIN_SWAP_10`, `LARA_SKIN_SWAP_11`, `LARA_SKIN_SWAP_12`,
+    `LARA_SKIN_SWAP_13`, `LARA_SKIN_SWAP_14`, `LARA_SKIN_SWAP_15`,
+    `LARA_SKIN_SWAP_16`, `LARA_SKIN_SWAP_17`, `LARA_SKIN_SWAP_18`,
+    `LARA_SKIN_SWAP_19`, `LARA_SKIN_SWAP_2`, `LARA_SKIN_SWAP_20`,
+    `LARA_SKIN_SWAP_21`, `LARA_SKIN_SWAP_22`, `LARA_SKIN_SWAP_23`,
+    `LARA_SKIN_SWAP_24`, `LARA_SKIN_SWAP_25`, `LARA_SKIN_SWAP_26`,
+    `LARA_SKIN_SWAP_27`, `LARA_SKIN_SWAP_28`, `LARA_SKIN_SWAP_29`,
+    `LARA_SKIN_SWAP_3`, `LARA_SKIN_SWAP_30`, `LARA_SKIN_SWAP_31`,
+    `LARA_SKIN_SWAP_32`, `LARA_SKIN_SWAP_4`, `LARA_SKIN_SWAP_5`,
+    `LARA_SKIN_SWAP_6`, `LARA_SKIN_SWAP_7`, `LARA_SKIN_SWAP_8`,
+    `LARA_SKIN_SWAP_9`, `LARA_SKIN_SWAP_EXTRA`, `LARA_SKIN_SWAP_GUNS`,
+    `LARA_SKIN_SWAP_LEGS`, `LARA_SPEECH_HEAD_1`, `LARA_SPEECH_HEAD_2`,
+    `LARA_SPEECH_HEAD_3`, `LARA_SPEECH_HEAD_4`, `LARA_START_POS`, `LARA_UPV`,
+    `LARA_UZIS`, `LARA_VEHICLE_ANIM`, `LARGE_MEDIPACK_ITEM`,
+    `LARGE_MEDIPACK_OPTION`, `LARSON`, `LASERSIGHT_ITEM`, `LASERSIGHT_OPTION`,
+    `LAVA_WEDGE`, `LEAD_BAR_ITEM`, `LEAD_BAR_OPTION`, `LENS_FLARE`, `LIFT`,
+    `LIGHTNING_EMITTER`, `LION`, `LIONESS`, `LIZARD`, `LOAD_OPTION`,
     `M16_AMMO_ITEM`, `M16_AMMO_OPTION`, `M16_FLASH`, `M16_ITEM`, `M16_OPTION`,
     `MAGNUMS_AMMO_ITEM`, `MAGNUMS_AMMO_OPTION`, `MAGNUMS_ITEM`,
     `MAGNUMS_OPTION`, `MESH_SWAP_1`, `MESH_SWAP_2`, `MESH_SWAP_3`,
@@ -171,32 +182,34 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
     `MISSILE_ATLANTEAN_SHARD`, `MISSILE_FLAME`, `MISSILE_HARPOON`,
     `MISSILE_KNIFE`, `MISSILE_POISON`, `MONKEY`, `MONK_1`, `MONK_2`, `MONK_3`,
     `MOORED_BOAT`, `MOUNTED_GUN`, `MOUSE`, `MOVABLE_BLOCK_1`, `MOVABLE_BLOCK_2`,
-    `MOVABLE_BLOCK_3`, `MOVABLE_BLOCK_4`, `MOVING_BAR`, `MP5_AMMO_ITEM`,
-    `MP5_AMMO_OPTION`, `MP5_ITEM`, `MP5_OPTION`, `MP_1`, `MP_2`, `MUMMY`,
-    `NATLA`, `NATLA_GUN`, `ON_OFF_LIGHT`, `ORCA`, `PASSPORT_CLOSED`,
-    `PASSPORT_OPTION`, `PATROL_DOG`, `PDA_OPTION`, `PENDULUM_1`, `PENDULUM_2`,
-    `PHOTO_OPTION`, `PICKUP_AID`, `PICKUP_ITEM_1`, `PICKUP_ITEM_1_COMBO_1`,
-    `PICKUP_ITEM_1_COMBO_2`, `PICKUP_ITEM_2`, `PICKUP_ITEM_2_COMBO_1`,
-    `PICKUP_ITEM_2_COMBO_2`, `PICKUP_ITEM_3`, `PICKUP_ITEM_3_COMBO_1`,
-    `PICKUP_ITEM_3_COMBO_2`, `PICKUP_ITEM_4`, `PICKUP_ITEM_4_COMBO_1`,
-    `PICKUP_ITEM_4_COMBO_2`, `PICKUP_OPTION_1`, `PICKUP_OPTION_1_COMBO_1`,
-    `PICKUP_OPTION_1_COMBO_2`, `PICKUP_OPTION_2`, `PICKUP_OPTION_2_COMBO_1`,
-    `PICKUP_OPTION_2_COMBO_2`, `PICKUP_OPTION_3`, `PICKUP_OPTION_3_COMBO_1`,
-    `PICKUP_OPTION_3_COMBO_2`, `PICKUP_OPTION_4`, `PICKUP_OPTION_4_COMBO_1`,
-    `PICKUP_OPTION_4_COMBO_2`, `PIERRE`, `PIRANHAS`, `PIRANHA_GFX`,
-    `PISTOLS_AMMO_ITEM`, `PISTOLS_AMMO_OPTION`, `PISTOLS_ITEM`,
+    `MOVABLE_BLOCK_3`, `MOVABLE_BLOCK_4`, `MOVING_BAR`, `MOVING_FLOOR`,
+    `MP5_AMMO_ITEM`, `MP5_AMMO_OPTION`, `MP5_ITEM`, `MP5_OPTION`, `MP_1`,
+    `MP_2`, `MUMMY`, `NATLA`, `NATLA_GUN`, `ON_OFF_LIGHT`, `ORCA`,
+    `PASSPORT_CLOSED`, `PASSPORT_OPTION`, `PATROL_DOG`, `PDA_OPTION`,
+    `PENDULUM_1`, `PENDULUM_2`, `PHOTO_OPTION`, `PICKUP_AID`, `PICKUP_ITEM_1`,
+    `PICKUP_ITEM_1_COMBO_1`, `PICKUP_ITEM_1_COMBO_2`, `PICKUP_ITEM_2`,
+    `PICKUP_ITEM_2_COMBO_1`, `PICKUP_ITEM_2_COMBO_2`, `PICKUP_ITEM_3`,
+    `PICKUP_ITEM_3_COMBO_1`, `PICKUP_ITEM_3_COMBO_2`, `PICKUP_ITEM_4`,
+    `PICKUP_ITEM_4_COMBO_1`, `PICKUP_ITEM_4_COMBO_2`, `PICKUP_OPTION_1`,
+    `PICKUP_OPTION_1_COMBO_1`, `PICKUP_OPTION_1_COMBO_2`, `PICKUP_OPTION_2`,
+    `PICKUP_OPTION_2_COMBO_1`, `PICKUP_OPTION_2_COMBO_2`, `PICKUP_OPTION_3`,
+    `PICKUP_OPTION_3_COMBO_1`, `PICKUP_OPTION_3_COMBO_2`, `PICKUP_OPTION_4`,
+    `PICKUP_OPTION_4_COMBO_1`, `PICKUP_OPTION_4_COMBO_2`, `PIERRE`, `PIRANHAS`,
+    `PIRANHA_GFX`, `PISTOLS_AMMO_ITEM`, `PISTOLS_AMMO_OPTION`, `PISTOLS_ITEM`,
     `PISTOLS_OPTION`, `PLAYER_1`, `PLAYER_10`, `PLAYER_2`, `PLAYER_3`,
     `PLAYER_4`, `PLAYER_5`, `PLAYER_6`, `PLAYER_7`, `PLAYER_8`, `PLAYER_9`,
-    `PODS`, `POISON_DART`, `POISON_DART_EMITTER`, `PORTACABIN`, `POWER_SAW`,
-    `PRISONER`, `PROPELLER_1`, `PROPELLER_2`, `PROPELLER_3`, `PULSE_LIGHT`,
-    `PUMA`, `PUNK_1`, `PUNK_2`, `PUSHPULL_DOOR_1`, `PUSHPULL_DOOR_2`,
-    `PUZZLE_DONE_1`, `PUZZLE_DONE_10`, `PUZZLE_DONE_11`, `PUZZLE_DONE_12`,
-    `PUZZLE_DONE_2`, `PUZZLE_DONE_3`, `PUZZLE_DONE_4`, `PUZZLE_DONE_5`,
-    `PUZZLE_DONE_6`, `PUZZLE_DONE_7`, `PUZZLE_DONE_8`, `PUZZLE_DONE_9`,
-    `PUZZLE_HOLE_1`, `PUZZLE_HOLE_10`, `PUZZLE_HOLE_11`, `PUZZLE_HOLE_12`,
-    `PUZZLE_HOLE_2`, `PUZZLE_HOLE_3`, `PUZZLE_HOLE_4`, `PUZZLE_HOLE_5`,
-    `PUZZLE_HOLE_6`, `PUZZLE_HOLE_7`, `PUZZLE_HOLE_8`, `PUZZLE_HOLE_9`,
-    `PUZZLE_ITEM_1`, `PUZZLE_ITEM_10`, `PUZZLE_ITEM_11`, `PUZZLE_ITEM_12`,
+    `PLOUGH`, `PODS`, `POISON_DART`, `POISON_DART_EMITTER`, `PORTACABIN`,
+    `POWER_SAW`, `PRISONER`, `PROPELLER_1`, `PROPELLER_2`, `PROPELLER_3`,
+    `PULSE_LIGHT`, `PUMA`, `PUNK_1`, `PUNK_2`, `PUSHABLE_OBJECT_1`,
+    `PUSHABLE_OBJECT_2`, `PUSHABLE_OBJECT_3`, `PUSHABLE_OBJECT_4`,
+    `PUSHABLE_OBJECT_5`, `PUSHPULL_DOOR_1`, `PUSHPULL_DOOR_2`, `PUZZLE_DONE_1`,
+    `PUZZLE_DONE_10`, `PUZZLE_DONE_11`, `PUZZLE_DONE_12`, `PUZZLE_DONE_2`,
+    `PUZZLE_DONE_3`, `PUZZLE_DONE_4`, `PUZZLE_DONE_5`, `PUZZLE_DONE_6`,
+    `PUZZLE_DONE_7`, `PUZZLE_DONE_8`, `PUZZLE_DONE_9`, `PUZZLE_HOLE_1`,
+    `PUZZLE_HOLE_10`, `PUZZLE_HOLE_11`, `PUZZLE_HOLE_12`, `PUZZLE_HOLE_2`,
+    `PUZZLE_HOLE_3`, `PUZZLE_HOLE_4`, `PUZZLE_HOLE_5`, `PUZZLE_HOLE_6`,
+    `PUZZLE_HOLE_7`, `PUZZLE_HOLE_8`, `PUZZLE_HOLE_9`, `PUZZLE_ITEM_1`,
+    `PUZZLE_ITEM_10`, `PUZZLE_ITEM_11`, `PUZZLE_ITEM_12`,
     `PUZZLE_ITEM_1_COMBO_1`, `PUZZLE_ITEM_1_COMBO_2`, `PUZZLE_ITEM_2`,
     `PUZZLE_ITEM_2_COMBO_1`, `PUZZLE_ITEM_2_COMBO_2`, `PUZZLE_ITEM_3`,
     `PUZZLE_ITEM_3_COMBO_1`, `PUZZLE_ITEM_3_COMBO_2`, `PUZZLE_ITEM_4`,
@@ -217,27 +230,30 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
     `PUZZLE_OPTION_9`, `QUAD_BIKE`, `QUEST_ITEM_1`, `QUEST_ITEM_2`,
     `QUEST_ITEM_3`, `QUEST_ITEM_4`, `QUEST_ITEM_5`, `QUEST_ITEM_6`,
     `QUEST_OPTION_1`, `QUEST_OPTION_2`, `QUEST_OPTION_3`, `QUEST_OPTION_4`,
-    `QUEST_OPTION_5`, `QUEST_OPTION_6`, `RAPTOR`, `RAPTOR_EMITTER`, `RAT`,
-    `RED_LIGHT`, `REVOLVER_AMMO_ITEM`, `REVOLVER_AMMO_OPTION`, `REVOLVER_ITEM`,
-    `REVOLVER_OPTION`, `RIB`, `RICOCHET`, `ROCKET`, `ROCKET_AMMO_ITEM`,
-    `ROCKET_AMMO_OPTION`, `ROCKET_GUN_ITEM`, `ROCKET_GUN_OPTION`,
-    `ROLLING_BALL_1`, `ROLLING_BALL_2`, `ROLLING_BALL_3`, `ROLLING_BALL_4`,
-    `ROPE`, `ROTATING_LASER`, `RX_WORKER_1`, `RX_WORKER_2`, `RX_WORKER_3`,
-    `SARCOPHAGUS`, `SAVE_CRYSTAL_ITEM`, `SAVE_CRYSTAL_OPTION`, `SCALED_SPIKES`,
-    `SCION_HOLDER`, `SCION_ITEM_1`, `SCION_ITEM_2`, `SCION_ITEM_3`,
-    `SCION_ITEM_4`, `SCION_OPTION`, `SECRET_1`, `SECRET_1_OPTION`, `SECRET_2`,
-    `SECRET_2_OPTION`, `SECRET_3`, `SECRET_3_OPTION`, `SECURITY_GUARD`,
-    `SECURITY_LASER_ALARM`, `SECURITY_LASER_DEADLY`, `SECURITY_LASER_KILLER`,
-    `SENTRY_GUN`, `SHADOW`, `SHARK`, `SHIVA`, `SHOTGUN_AMMO_2_ITEM`,
-    `SHOTGUN_AMMO_ITEM`, `SHOTGUN_AMMO_OPTION`, `SHOTGUN_ITEM`,
-    `SHOTGUN_OPTION`, `SHOTGUN_SHELL`, `SKATEBOARD`, `SKATE_KID`,
-    `SKIDOO_ARMED`, `SKIDOO_DRIVER`, `SKIDOO_FAST`, `SKIDOO_TRACK`, `SKYBOX`,
-    `SLIDING_PILLAR`, `SMALL_MEDIPACK_ITEM`, `SMALL_MEDIPACK_OPTION`,
-    `SMASHABLE_1`, `SMASHABLE_2`, `SMASHABLE_3`, `SMASHABLE_4`,
-    `SMOKE_EMITTER_BLACK`, `SMOKE_EMITTER_WHITE`, `SNOWFLAKE`, `SNOW_SPRITE`,
-    `SOPHIA`, `SOPHIA_LASER_BOLT`, `SOPHIA_PLASMA_BALL`, `SOUND_OPTION`,
-    `SPARKS_GFX`, `SPHERE_OF_DOOM_1`, `SPHERE_OF_DOOM_2`, `SPHERE_OF_DOOM_3`,
-    `SPIDER`, `SPIKES`, `SPIKE_WALL`, `SPINNING_BLADE`, `SPLASH_1`, `SPLASH_2`,
+    `QUEST_OPTION_5`, `QUEST_OPTION_6`, `RAISING_BLOCK_1`, `RAISING_BLOCK_2`,
+    `RAPTOR`, `RAPTOR_EMITTER`, `RAT`, `RED_LIGHT`, `REVOLVER_AMMO_ITEM`,
+    `REVOLVER_AMMO_OPTION`, `REVOLVER_ITEM`, `REVOLVER_OPTION`, `RIB`,
+    `RICOCHET`, `ROCKET`, `ROCKET_AMMO_ITEM`, `ROCKET_AMMO_OPTION`,
+    `ROCKET_GUN_ITEM`, `ROCKET_GUN_OPTION`, `ROLLING_BALL_1`, `ROLLING_BALL_2`,
+    `ROLLING_BALL_3`, `ROLLING_BALL_4`, `ROLLING_SPIKES`, `ROPE`,
+    `ROTATING_LASER`, `RX_WORKER_1`, `RX_WORKER_2`, `RX_WORKER_3`,
+    `SARCOPHAGUS`, `SAVE_CRYSTAL_ITEM`, `SAVE_CRYSTAL_OPTION`, `SAVE_OPTION`,
+    `SCALED_SPIKES`, `SCION_HOLDER`, `SCION_ITEM_1`, `SCION_ITEM_2`,
+    `SCION_ITEM_3`, `SCION_ITEM_4`, `SCION_OPTION`, `SECRET_1`,
+    `SECRET_1_OPTION`, `SECRET_2`, `SECRET_2_OPTION`, `SECRET_3`,
+    `SECRET_3_OPTION`, `SECURITY_GUARD`, `SECURITY_LASER_ALARM`,
+    `SECURITY_LASER_DEADLY`, `SECURITY_LASER_KILLER`, `SENTRY_GUN`,
+    `SETH_SARCOPHAGUS`, `SHADOW`, `SHARK`, `SHIVA`, `SHOTGUN_AMMO_2_ITEM`,
+    `SHOTGUN_AMMO_2_OPTION`, `SHOTGUN_AMMO_ITEM`, `SHOTGUN_AMMO_OPTION`,
+    `SHOTGUN_ITEM`, `SHOTGUN_OPTION`, `SHOTGUN_SHELL`, `SKATEBOARD`,
+    `SKATE_KID`, `SKIDOO_ARMED`, `SKIDOO_DRIVER`, `SKIDOO_FAST`, `SKIDOO_TRACK`,
+    `SKYBOX`, `SLIDING_PILLAR`, `SMALL_MEDIPACK_ITEM`, `SMALL_MEDIPACK_OPTION`,
+    `SMALL_SCORPION`, `SMASHABLE_1`, `SMASHABLE_2`, `SMASHABLE_3`,
+    `SMASHABLE_4`, `SMASHABLE_VEHICLE_WALL`, `SMOKE_EMITTER_BLACK`,
+    `SMOKE_EMITTER_WHITE`, `SNOWFLAKE`, `SNOW_SPRITE`, `SOPHIA`,
+    `SOPHIA_LASER_BOLT`, `SOPHIA_PLASMA_BALL`, `SOUND_OPTION`, `SPARKS_GFX`,
+    `SPHERE_OF_DOOM_1`, `SPHERE_OF_DOOM_2`, `SPHERE_OF_DOOM_3`, `SPIDER`,
+    `SPIKES`, `SPIKE_WALL`, `SPINNING_BLADE`, `SPLASH_1`, `SPLASH_2`,
     `SPRINGBOARD`, `STEAM_EMITTER`, `STHPAC_MERCENARY`, `STOPWATCH_OPTION`,
     `STROBE_LIGHT`, `SWAT_1`, `SWAT_2`, `SWAT_3`, `SWINGING_AXE`,
     `SWITCH_TYPE_AIRLOCK`, `SWITCH_TYPE_BUTTON`, `SWITCH_TYPE_CROWBAR`,
@@ -245,13 +261,14 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
     `SWITCH_TYPE_GENERIC_3`, `SWITCH_TYPE_GENERIC_4`, `SWITCH_TYPE_GENERIC_5`,
     `SWITCH_TYPE_GENERIC_6`, `SWITCH_TYPE_JUMP`, `SWITCH_TYPE_NORMAL`,
     `SWITCH_TYPE_PULLEY`, `SWITCH_TYPE_SMALL`, `SWITCH_TYPE_UW`,
-    `SWITCH_TYPE_UW_CEILING`, `SWITCH_TYPE_WHEEL`, `TEETH_TRAP`, `TELEPORTER`,
-    `TEXT_BOX`, `THORS_HANDLE`, `THORS_HEAD`, `TIGER`, `TONY`, `TONY_FIRE_BALL`,
-    `TORSO`, `TRAIN`, `TRAPDOOR_1`, `TRAPDOOR_2`, `TRAPDOOR_3`, `TREX`,
-    `TREX_ALPHA`, `TRIBE_AXEMAN`, `TRIBE_BOSS`, `TRIBE_PIPEMAN`, `TRIGGER_GATE`,
-    `TROPICAL_FISH`, `TROPICAL_FISH_GFX`, `TWINKLE`, `UNDERWATER_DOOR`, `UPV`,
-    `UZIS_AMMO_ITEM`, `UZIS_AMMO_OPTION`, `UZIS_ITEM`, `UZIS_OPTION`, `VOLE`,
-    `VON_CROY`, `VULTURE`, `WASP_MUTANT`, `WASP_MUTANT_EMITTER`, `WATERFALL_1`,
+    `SWITCH_TYPE_UW_CEILING`, `SWITCH_TYPE_WHEEL`, `TARGET_GFX`, `TEETH_TRAP`,
+    `TELEPORTER`, `TEXT_BOX`, `THORS_HANDLE`, `THORS_HEAD`, `TIGER`, `TONY`,
+    `TONY_FIRE_BALL`, `TORSO`, `TRAIN`, `TRAPDOOR_1`, `TRAPDOOR_2`,
+    `TRAPDOOR_3`, `TREX`, `TREX_ALPHA`, `TRIBE_AXEMAN`, `TRIBE_BOSS`,
+    `TRIBE_PIPEMAN`, `TRIGGER_GATE`, `TROPICAL_FISH`, `TROPICAL_FISH_GFX`,
+    `TWINKLE`, `UNDEAD_MUMMY`, `UNDERWATER_DOOR`, `UPV`, `UZIS_AMMO_ITEM`,
+    `UZIS_AMMO_OPTION`, `UZIS_ITEM`, `UZIS_OPTION`, `VOLE`, `VON_CROY`,
+    `VULTURE`, `WASP_MUTANT`, `WASP_MUTANT_EMITTER`, `WATERFALL_1`,
     `WATERFALL_2`, `WATERFALL_3`, `WATERFALL_MIST`, `WATERSKIN_1_1`,
     `WATERSKIN_1_2`, `WATERSKIN_1_3`, `WATERSKIN_1_EMPTY`, `WATERSKIN_1_OPTION`,
     `WATERSKIN_2_1`, `WATERSKIN_2_2`, `WATERSKIN_2_3`, `WATERSKIN_2_4`,
@@ -263,7 +280,7 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
 
     </details>
 
-- <a id="catalog.samples" name="catalog.samples"></a>[lua]`trx.catalog.samples` - 209 names
+- <a id="catalog.samples" name="catalog.samples"></a>[lua]`trx.catalog.samples` - 222 names
 
     Every sound sample TRX has a name for.
 
@@ -289,11 +306,12 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
     `EXPLOSION_FX`, `FLAME_THROWER_LOOP`, `FLOOD`, `FOOTSTEPS_GRAVEL`,
     `FOOTSTEPS_ICE`, `FOOTSTEPS_METAL`, `FOOTSTEPS_MUD`,
     `FOOTSTEPS_SAND_OR_GRASS`, `FOOTSTEPS_SNOW`, `FOOTSTEPS_WOOD`,
-    `GLASS_BREAK`, `GUN_FIRE_EXPLOSION`, `HELICOPTER_LOOP`, `HUGE_ROCKET_LOOP`,
-    `ICICLE`, `LARA_AUTOS`, `LARA_BAREFOOT`, `LARA_BAREFOOT_LAND`,
-    `LARA_BODYSL`, `LARA_BREATH`, `LARA_BUBBLES`, `LARA_BULLETHIT`,
-    `LARA_CLIMB_3`, `LARA_DESERT_EAGLE`, `LARA_DRAW`, `LARA_EMPTY`, `LARA_FALL`,
-    `LARA_FALL_DEATH`, `LARA_FLARE_BURN`, `LARA_FLARE_IGNITE`,
+    `GLASS_BREAK`, `GUIDE_SCARE`, `GUN_FIRE_EXPLOSION`, `HELICOPTER_LOOP`,
+    `HIT_ROCK`, `HUGE_ROCKET_LOOP`, `ICICLE`, `JEEP_IDLE`, `JEEP_MOVE`,
+    `LARA_AUTOS`, `LARA_BAREFOOT`, `LARA_BAREFOOT_LAND`, `LARA_BODYSL`,
+    `LARA_BREATH`, `LARA_BUBBLES`, `LARA_BULLETHIT`, `LARA_CLIMB_3`,
+    `LARA_CROSSBOW`, `LARA_DESERT_EAGLE`, `LARA_DRAW`, `LARA_EMPTY`,
+    `LARA_FALL`, `LARA_FALL_DEATH`, `LARA_FLARE_BURN`, `LARA_FLARE_IGNITE`,
     `LARA_FLESH_WOUND`, `LARA_FOOTSTEP`, `LARA_GENERAL_DEATH`, `LARA_GET_OUT`,
     `LARA_HOLSTER`, `LARA_INJURY`, `LARA_KEY`, `LARA_LAND`, `LARA_MAGNUMS`,
     `LARA_NO`, `LARA_PISTOLS`, `LARA_POLE_LOOP`, `LARA_RELOAD`, `LARA_RICOCHET`,
@@ -304,32 +322,34 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
     `MACAQUE_ROLL`, `MARCO_BARTOLLI_TRANSFORM`, `MASSIVE_CRASH`, `MENU_CHOOSE`,
     `MENU_COMPASS`, `MENU_GAMEBOY`, `MENU_GUNS`, `MENU_LARA_HOME`, `MENU_MEDI`,
     `MENU_PASSPORT`, `MENU_ROTATE`, `MENU_SPININ`, `MENU_SPINOUT`,
-    `MENU_STOPWATCH`, `MINE_CART_CLUNK_START`, `MINE_CART_PULLY_LOOP`,
-    `MINE_CART_SREECH_BRAKE`, `MINE_CART_TRACK_LOOP`, `MONK_CRUNCH`, `MP5_FIRE`,
-    `NATLA_SPEECH`, `PIERRE_SPEECH`, `PLATFORM_ALARM`, `POWERUP_FX`,
-    `PROJECTILE_HIT`, `PULLEY_CRANE`, `PUSHBLOCK_LAND`, `QUAD_FRONT_IMPACT`,
-    `QUAD_IDLE`, `QUAD_MOVE`, `RAISINGBLOCK_FX`, `RAT_CHIRP`, `RIB_IDLE`,
-    `RIB_MOVING`, `ROCKET_FIRE`, `ROCK_FALL_CRUMBLE`, `ROCK_FALL_LAND`,
-    `ROLLING_BALL_1_ROLL`, `ROLLING_BALL_1_STOP`, `ROLLING_BALL_2_ROLL`,
-    `ROLLING_BALL_2_STOP`, `ROLLING_BALL_3_ROLL`, `ROLLING_BALL_3_STOP`,
-    `ROLLING_BALL_4_ROLL`, `ROLLING_BALL_4_STOP`, `ROLLING_BLADE`,
-    `SANDBAG_HIT`, `SAND_FX`, `SAND_LOOP`, `SAVE_CRYSTAL`, `SAW_REVVING`,
-    `SAW_STOP`, `SECRET`, `SECURITY_GUARD_FIRE`, `SHIVA_SWORD_1`,
-    `SHIVA_SWORD_2`, `SHUTTERS_BREAK`, `SKATEBOARD_HIT`, `SKATEKID_SPEECH`,
-    `SKIDOO_IDLE`, `SKIDOO_MOVING`, `SMALL_FAN_ON`, `SOPHIA_SUMMON`,
-    `SOPHIA_SUMMON_NOT`, `SOPHIA_TAKE_HIT`, `SPANNER_CLUNK`, `SPIDER_EXPLODE`,
-    `SPIKES`, `SPIKE_WALL`, `STAGE_BACKDROP`, `STAIRS_2_SLOPE_FX`,
-    `STONE_DOOR_SLIDE`, `TARGET_HITS`, `TARGET_SMASH`, `THUNDER`, `TORSO_HIT`,
-    `TRAIN_LOOP`, `TRAPDOOR_OPEN`, `TRIBOSS_TAKE_HIT`, `TRIBOSS_TURN_CHAIR`,
-    `UNDERWATER`, `UNDERWATER_FAN_OFF`, `UNDERWATER_FAN_ON`, `UPV_HARPOON`,
-    `UPV_LOOP`, `UPV_START`, `UPV_STOP`, `WARRIOR_HOVER`, `WATERFALL_2`,
-    `WATERFALL_BIG`, `WATERFALL_LOOP`, `WINSTON_CUPS`, `WINSTON_GRUNT_1`,
-    `WINSTON_GRUNT_2`, `WINSTON_GRUNT_3`, `WOLF_HURT`, `ZIPLINE_GO`,
-    `ZIPLINE_STOP`
+    `MENU_STOPWATCH`, `METAL_SCRAPE_LOOP_1`, `METAL_SCRAPE_LOOP_2`,
+    `MINE_CART_CLUNK_START`, `MINE_CART_PULLY_LOOP`, `MINE_CART_SREECH_BRAKE`,
+    `MINE_CART_TRACK_LOOP`, `MONK_CRUNCH`, `MP5_FIRE`, `NATLA_SPEECH`,
+    `PIERRE_SPEECH`, `PLATFORM_ALARM`, `POWERUP_FX`, `PROJECTILE_HIT`,
+    `PULLEY_CRANE`, `PUSHABLE_MOVE`, `PUSHABLE_STOP`, `PUSHBLOCK_LAND`,
+    `QUAD_FRONT_IMPACT`, `QUAD_IDLE`, `QUAD_MOVE`, `RAISINGBLOCK_FX`,
+    `RAT_CHIRP`, `RIB_IDLE`, `RIB_MOVING`, `ROCKET_FIRE`, `ROCK_FALL_CRUMBLE`,
+    `ROCK_FALL_LAND`, `ROLLING_BALL_1_ROLL`, `ROLLING_BALL_1_STOP`,
+    `ROLLING_BALL_2_ROLL`, `ROLLING_BALL_2_STOP`, `ROLLING_BALL_3_ROLL`,
+    `ROLLING_BALL_3_STOP`, `ROLLING_BALL_4_ROLL`, `ROLLING_BALL_4_STOP`,
+    `ROLLING_BALL_FALL`, `ROLLING_BLADE`, `SANDBAG_HIT`, `SAND_FX`, `SAND_LOOP`,
+    `SAVE_CRYSTAL`, `SAW_REVVING`, `SAW_STOP`, `SECRET`, `SECURITY_GUARD_FIRE`,
+    `SHIVA_SWORD_1`, `SHIVA_SWORD_2`, `SHOCKWAVE`, `SHUTTERS_BREAK`,
+    `SKATEBOARD_HIT`, `SKATEKID_SPEECH`, `SKIDOO_IDLE`, `SKIDOO_MOVING`,
+    `SMALL_FAN_ON`, `SOPHIA_SUMMON`, `SOPHIA_SUMMON_NOT`, `SOPHIA_TAKE_HIT`,
+    `SPANNER_CLUNK`, `SPIDER_EXPLODE`, `SPIKES`, `SPIKE_WALL`, `STAGE_BACKDROP`,
+    `STAIRS_2_SLOPE_FX`, `STONE_DOOR_SLIDE`, `SWORD_RICOCHET`, `TARGET_HITS`,
+    `TARGET_SMASH`, `THUNDER`, `TORSO_HIT`, `TRAIN_LOOP`, `TRAPDOOR_OPEN`,
+    `TRIBOSS_TAKE_HIT`, `TRIBOSS_TURN_CHAIR`, `UNDERWATER`,
+    `UNDERWATER_FAN_OFF`, `UNDERWATER_FAN_ON`, `UPV_HARPOON`, `UPV_LOOP`,
+    `UPV_START`, `UPV_STOP`, `VEHICLE_HIT_OBJECT`, `WARRIOR_HOVER`,
+    `WATERFALL_2`, `WATERFALL_BIG`, `WATERFALL_LOOP`, `WINSTON_CUPS`,
+    `WINSTON_GRUNT_1`, `WINSTON_GRUNT_2`, `WINSTON_GRUNT_3`, `WOLF_HURT`,
+    `ZIPLINE_GO`, `ZIPLINE_STOP`
 
     </details>
 
-- <a id="catalog.music" name="catalog.music"></a>[lua]`trx.catalog.music` - 52 names
+- <a id="catalog.music" name="catalog.music"></a>[lua]`trx.catalog.music` - 53 names
 
     Every music track TRX has a name for.
 
@@ -342,20 +362,20 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
     <details><summary>Click here to see a list of all symbols.</summary>
 
     `BALDY_SPEECH`, `BATTLE_THEME`, `COWBOY_SPEECH`, `CUTSCENE_BATH`,
-    `DAGGER_PULL`, `LARSON_SPEECH`, `MINE_CART_THEME`, `NATLA_SPEECH`,
-    `PIERRE_SPEECH`, `REVEAL_1`, `REVEAL_2`, `RIB_THEME`, `SECRET`,
-    `SKATEKID_SPEECH`, `SKIDOO_THEME`, `TR1_GYM_HINT_03`, `TR1_GYM_HINT_04`,
-    `TR1_GYM_HINT_12`, `TR1_GYM_HINT_14`, `TR1_GYM_HINT_15`, `TR1_GYM_HINT_16`,
-    `TR1_GYM_HINT_17`, `TR1_GYM_HINT_18`, `TR1_GYM_HINT_24`, `TR1_GYM_HINT_25`,
-    `TR2_GYM_HINT_14`, `TR2_GYM_HINT_15`, `TR2_GYM_HINT_16`, `TR2_GYM_HINT_17`,
-    `TR3_GYM_EXERCISE_01`, `TR3_GYM_EXERCISE_02`, `TR3_GYM_EXERCISE_03`,
-    `TR3_GYM_EXERCISE_04`, `TR3_GYM_EXERCISE_05`, `TR3_GYM_EXERCISE_06`,
-    `TR3_GYM_EXERCISE_07`, `TR3_GYM_EXERCISE_08`, `TR3_GYM_EXERCISE_09`,
-    `TR3_GYM_EXERCISE_10`, `TR3_GYM_EXERCISE_11`, `TR3_GYM_EXERCISE_12`,
-    `TR3_GYM_EXERCISE_13`, `TR3_GYM_EXERCISE_14`, `TR3_GYM_EXERCISE_15`,
-    `TR3_GYM_EXERCISE_16`, `TR3_GYM_EXERCISE_17`, `TR3_GYM_EXERCISE_18`,
-    `TR3_GYM_EXERCISE_19`, `TR3_GYM_HINT_FAST_TIME`, `UNUSED_0`, `UNUSED_1`,
-    `UNUSED_2`
+    `DAGGER_PULL`, `JEEP_THEME`, `LARSON_SPEECH`, `MINE_CART_THEME`,
+    `NATLA_SPEECH`, `PIERRE_SPEECH`, `REVEAL_1`, `REVEAL_2`, `RIB_THEME`,
+    `SECRET`, `SKATEKID_SPEECH`, `SKIDOO_THEME`, `TR1_GYM_HINT_03`,
+    `TR1_GYM_HINT_04`, `TR1_GYM_HINT_12`, `TR1_GYM_HINT_14`, `TR1_GYM_HINT_15`,
+    `TR1_GYM_HINT_16`, `TR1_GYM_HINT_17`, `TR1_GYM_HINT_18`, `TR1_GYM_HINT_24`,
+    `TR1_GYM_HINT_25`, `TR2_GYM_HINT_14`, `TR2_GYM_HINT_15`, `TR2_GYM_HINT_16`,
+    `TR2_GYM_HINT_17`, `TR3_GYM_EXERCISE_01`, `TR3_GYM_EXERCISE_02`,
+    `TR3_GYM_EXERCISE_03`, `TR3_GYM_EXERCISE_04`, `TR3_GYM_EXERCISE_05`,
+    `TR3_GYM_EXERCISE_06`, `TR3_GYM_EXERCISE_07`, `TR3_GYM_EXERCISE_08`,
+    `TR3_GYM_EXERCISE_09`, `TR3_GYM_EXERCISE_10`, `TR3_GYM_EXERCISE_11`,
+    `TR3_GYM_EXERCISE_12`, `TR3_GYM_EXERCISE_13`, `TR3_GYM_EXERCISE_14`,
+    `TR3_GYM_EXERCISE_15`, `TR3_GYM_EXERCISE_16`, `TR3_GYM_EXERCISE_17`,
+    `TR3_GYM_EXERCISE_18`, `TR3_GYM_EXERCISE_19`, `TR3_GYM_HINT_FAST_TIME`,
+    `UNUSED_0`, `UNUSED_1`, `UNUSED_2`
 
     </details>
 
@@ -631,20 +651,27 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
 
 - <a id="catalog.Id" name="catalog.Id"></a>[lua]`trx.catalog.Id`
 
-    A TRX id, in the catalog the context names. It is the same number in every game TRX ships, which is what lets a script name a thing once.
+    A TRX id, in the catalog the context names. It is the same number in every
+    game TRX ships, which is what lets a script name a thing once.
 
 - <a id="catalog.Slot" name="catalog.Slot"></a>[lua]`trx.catalog.Slot`
 
-    A slot in this game's own files, which is the number a builder reads off Tomb Editor. It differs from game to game.
+    A slot in this game's own files, which is the number a builder reads off
+    Tomb Editor. It differs from game to game.
 
 ### Functions
 
 - <a id="catalog.mint" name="catalog.mint"></a>[lua]`trx.catalog.mint(context, name)`  
-  Declares an identity the engine has no constant for, and gives back its id. This is how a mod that ships only a script introduces an object of its own, without touching the catalog the game owns.
+  Declares an identity the engine has no constant for, and gives back its id.
+  This is how a mod that ships only a script introduces an object of its own,
+  without touching the catalog the game owns.
 
-  The identity carries no slot, because nothing in the game's own files refers to it. It lasts until the mod is unloaded.
+  The identity carries no slot, because nothing in the game's own files
+  refers to it. It lasts until the mod is unloaded.
 
-  A savegame records an object by the slot this game's files use, so an item of a minted object is not written to one and does not come back on load. Spawn it from a script until savegames record a name.
+  A savegame records an object by the slot this game's files use, so an item
+  of a minted object is not written to one and does not come back on load.
+  Spawn it from a script until savegames record a name.
 
   Parameters:
   - <a id="catalog.mint.context" name="catalog.mint.context"></a>**`context`** ([trx.catalog.Context](#catalog.Context)). Which catalog.
@@ -658,7 +685,9 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
   ```
 
 - <a id="catalog.key" name="catalog.key"></a>[lua]`trx.catalog.key(context, id)`  
-  Gives back the name an id answers to, which is the name a savegame stores and the name a mod writes. An id a script read out of the engine is a number, and this is what says which thing it names.
+  Gives back the name an id answers to, which is the name a savegame stores
+  and the name a mod writes. An id a script read out of the engine is a
+  number, and this is what says which thing it names.
 
   Parameters:
   - <a id="catalog.key.context" name="catalog.key.context"></a>**`context`** ([trx.catalog.Context](#catalog.Context)). Which catalog.
@@ -672,7 +701,8 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
   ```
 
 - <a id="catalog.to_slot" name="catalog.to_slot"></a>[lua]`trx.catalog.to_slot(context, id)`  
-  Converts a [`trx.catalog.Id`](#catalog.Id) into the [`trx.catalog.Slot`](#catalog.Slot) this game's own files use for it.
+  Converts a [`trx.catalog.Id`](#catalog.Id) into the [`trx.catalog.Slot`](#catalog.Slot) this game's own
+  files use for it.
 
   Parameters:
   - <a id="catalog.to_slot.context" name="catalog.to_slot.context"></a>**`context`** ([trx.catalog.Context](#catalog.Context)). Which catalog.
@@ -686,7 +716,8 @@ The ids in a catalog are TRX's own, and they are the same in all four games. The
   ```
 
 - <a id="catalog.from_slot" name="catalog.from_slot"></a>[lua]`trx.catalog.from_slot(context, slot)`  
-  Converts a [`trx.catalog.Slot`](#catalog.Slot) from this game's own files into the [`trx.catalog.Id`](#catalog.Id) for it.
+  Converts a [`trx.catalog.Slot`](#catalog.Slot) from this game's own files into the
+  [`trx.catalog.Id`](#catalog.Id) for it.
 
   Parameters:
   - <a id="catalog.from_slot.context" name="catalog.from_slot.context"></a>**`context`** ([trx.catalog.Context](#catalog.Context)). Which catalog.

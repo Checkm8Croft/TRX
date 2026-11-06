@@ -27,7 +27,9 @@
 #include <trx/game/output/textures.h>
 #include <trx/game/shell.h>
 #include <trx/gl/context.h>
+#include <trx/gl/renderer.h>
 #include <trx/gl/track.h>
+#include <trx/version.h>
 
 static MESH_BATCHER *m_Batcher = nullptr;
 static OUTPUT_UNIFORMS *m_Uniforms = nullptr;
@@ -38,6 +40,19 @@ static OUTPUT_UI_SHADER *m_ShaderUI = nullptr;
 static int32_t m_DrawnFrames = 0;
 static int32_t m_FPS = 0;
 static CLOCK_TIMER m_FPSTimer = { .type = CLOCK_TIMER_REAL };
+
+// Holds back the clear of the game viewport until something draws into it, so
+// that the room drawing can keep the previous frame behind the scene instead.
+static bool m_IsClearPending = false;
+
+static void M_ClearGameViewport(void)
+{
+    if (g_Config.rendering.enable_hall_of_mirrors) {
+        m_IsClearPending = true;
+    } else {
+        TRX_GL_Context_Clear();
+    }
+}
 
 static void M_Shutdown(void)
 {
@@ -123,6 +138,24 @@ OUTPUT_UI_SHADER *Output_GetUIShader(void)
     return m_ShaderUI;
 }
 
+void Output_ApplyPendingClear(void)
+{
+    if (!m_IsClearPending) {
+        return;
+    }
+    m_IsClearPending = false;
+    TRX_GL_Renderer_BindGeometryFbo();
+    TRX_GL_Context_SwitchToViewport(VIEWPORT_GAME);
+    TRX_GL_Context_Clear();
+}
+
+void Output_KeepPreviousFrame(void)
+{
+    if (!g_Config.rendering.enable_wireframe) {
+        m_IsClearPending = false;
+    }
+}
+
 void Output_BeginScene(void)
 {
     Output_ApplyFOV();
@@ -132,10 +165,9 @@ void Output_BeginScene(void)
     // point, so that a snapshot can be composited from it between frames.
     TRX_GL_Renderer_BindGeometryFbo();
     TRX_GL_Context_SwitchToViewport(VIEWPORT_GAME);
-    TRX_GL_Context_Clear();
+    M_ClearGameViewport();
     TRX_GL_Track_Reset();
     TRX_GL_Context_SetWireframeMode(g_Config.rendering.enable_wireframe);
-    Output_Overlay_BeginFrame();
     SceneCompositor_BeginScene();
     Output_Lights_BeginScene();
 }
@@ -143,6 +175,7 @@ void Output_BeginScene(void)
 void Output_EndScene(void)
 {
     SceneCompositor_EndScene();
+    Output_ApplyPendingClear();
     m_DrawnFrames++;
     if (ClockTimer_CheckElapsedAndTake(&m_FPSTimer, 1.0)) {
         m_FPS = m_DrawnFrames;
@@ -169,16 +202,30 @@ void Output_SwitchViewport(const VIEWPORT_SPACE space)
 {
     if (space == VIEWPORT_GAME) {
         TRX_GL_Renderer_BindGeometryFbo();
-    } else if (space == VIEWPORT_UI) {
-        TRX_GL_Renderer_BindUiFbo();
+    } else {
+        Output_ApplyPendingClear();
+        if (space == VIEWPORT_UI) {
+            TRX_GL_Renderer_BindUiFbo();
+        }
     }
     TRX_GL_Context_SwitchToViewport(space);
-    TRX_GL_Context_Clear();
+    if (space == VIEWPORT_GAME) {
+        M_ClearGameViewport();
+    } else {
+        TRX_GL_Context_Clear();
+    }
     glClear(GL_DEPTH_BUFFER_BIT);
 }
 
 void Output_SetSupersamplingEnabled(const bool enabled)
 {
+    // Sizes the supersampled framebuffers before they are suspended. After a
+    // mod switch, they still have the size the previous mod's settings gave
+    // them, and they would otherwise be rebuilt only when supersampling
+    // resumes.
+    if (!enabled) {
+        TRX_GL_Renderer_SyncFboSizes();
+    }
     Viewport_SetSupersamplingEnabled(enabled);
     TRX_GL_Renderer_SyncFboSizes();
 }
@@ -246,10 +293,34 @@ void Output_RefreshObjectMeshes(void)
     MeshBatcher_Seal(m_Batcher);
 }
 
+void Output_RefreshRoomMeshes(void)
+{
+    if (!OutputSource_Rooms_HasMeshes()) {
+        return;
+    }
+    OutputSource_Rooms_ObserveLevelLoad();
+    MeshBatcher_Seal(m_Batcher);
+}
+
+bool Output_IsFaceSemiTransparent(const FACE *const face)
+{
+    return face->ps1_semi_transparent && g_Config.rendering.enable_ps1_blending;
+}
+
+DRAW_TYPE Output_GetSpriteDrawType(const OBJECT *const obj)
+{
+    if (g_TRVersion <= 2 && obj->semi_transparent
+        && g_Config.rendering.enable_ps1_blending) {
+        return DRAW_BLEND;
+    }
+    return DRAW_OPAQUE;
+}
+
 void Output_DispatchRoomFlip(const ROOM *room)
 {
     OutputSource_Rooms_ObserveRoomFlip(room);
     OutputSource_RoomsDebug_ObserveRoomFlip(room);
+    Output_Lights_ObserveRoomFlip(room);
 }
 
 void Output_DispatchObjectMeshSwap(

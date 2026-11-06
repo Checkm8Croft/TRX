@@ -6,6 +6,8 @@
 #include <trx/game/input.h>
 #include <trx/game/lara.h>
 
+#define M_RESET_ROT_SMOOTHING 8
+
 static const LARA_STATE_ID m_StopStates[] = {
     LS_STOP,
     LS_SURF_TREAD,
@@ -48,24 +50,8 @@ static void M_Reset(void)
     }
 
     LARA_INFO *const lara = Lara_GetLaraInfo();
-    const CAMERA_LOOK_SETTINGS *const look = Camera_GetLookSettings(false);
-
-    if (lara->head_rot.x <= -look->head_turn
-        || lara->head_rot.x >= look->head_turn) {
-        lara->head_rot.x -= lara->head_rot.x / 8;
-    } else {
-        lara->head_rot.x = 0;
-    }
-
-    if (lara->head_rot.y <= -look->head_turn
-        || lara->head_rot.y >= look->head_turn) {
-        lara->head_rot.y += lara->head_rot.y / -8;
-    } else {
-        lara->head_rot.y = 0;
-    }
-
-    lara->torso_rot.x = lara->head_rot.x;
-    lara->torso_rot.y = lara->head_rot.y;
+    Lara_SmoothlyRotateMeshTo(&lara->head_rot, 0, 0, M_RESET_ROT_SMOOTHING);
+    Lara_SmoothlyRotateMeshTo(&lara->torso_rot, 0, 0, M_RESET_ROT_SMOOTHING);
 }
 
 static bool M_IsLaraIdle(void)
@@ -94,6 +80,13 @@ static bool M_IsStatePermitted(void)
         || !Lara_HasState(m_BlockingStates);
 }
 
+static bool M_IsTorsoLocked(void)
+{
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    return lara->gun_status == LGS_HANDS_BUSY || Lara_Vehicle_IsMounted()
+        || lara->is_crouched;
+}
+
 void Lara_Look_LeftRight(void)
 {
     g_Camera.type = CAM_LOOK;
@@ -102,20 +95,33 @@ void Lara_Look_LeftRight(void)
     const CAMERA_LOOK_SETTINGS *const look =
         Camera_GetLookSettings(lara->water_status == LWS_SURFACE);
 
-    if (g_Input.left) {
-        g_Input.left = 0;
+    const bool turn_left = g_Input.left && !g_Input.right;
+    const bool turn_right = g_Input.right && !g_Input.left;
+    g_Input.left = 0;
+    g_Input.right = 0;
+
+    if (turn_left) {
         if (lara->head_rot.y > look->min_head_rotation) {
             lara->head_rot.y -= look->head_turn;
         }
-    } else if (g_Input.right) {
-        g_Input.right = 0;
+    } else if (turn_right) {
         if (lara->head_rot.y < look->max_head_rotation) {
             lara->head_rot.y += look->head_turn;
         }
     }
 
-    if (lara->gun_status != LGS_HANDS_BUSY && !Lara_Vehicle_IsMounted()) {
-        lara->torso_rot.y = lara->head_rot.y * look->torso_head_rot_y;
+    if (!M_IsTorsoLocked()) {
+        const int16_t target_torso_y =
+            lara->head_rot.y * look->torso_head_rot_y;
+        const int16_t delta = target_torso_y - lara->torso_rot.y;
+
+        if (ABS(delta) <= look->head_turn) {
+            lara->torso_rot.y = target_torso_y;
+        } else {
+            Lara_SmoothlyRotateMeshTo(
+                &lara->torso_rot, lara->torso_rot.x, target_torso_y,
+                LARA_TORSO_SMOOTHING);
+        }
     }
 }
 
@@ -132,20 +138,33 @@ void Lara_Look_UpDown(void)
     const CAMERA_LOOK_SETTINGS *const look =
         Camera_GetLookSettings(lara->water_status == LWS_SURFACE);
 
-    if (g_Input.forward) {
-        g_Input.forward = 0;
+    const bool tilt_up = g_Input.forward && !g_Input.back;
+    const bool tilt_down = g_Input.back && !g_Input.forward;
+    g_Input.forward = 0;
+    g_Input.back = 0;
+
+    if (tilt_up) {
         if (lara->head_rot.x > look->min_head_tilt) {
             lara->head_rot.x -= look->head_turn;
         }
-    } else if (g_Input.back) {
-        g_Input.back = 0;
+    } else if (tilt_down) {
         if (lara->head_rot.x < look->max_head_tilt) {
             lara->head_rot.x += look->head_turn;
         }
     }
 
-    if (lara->gun_status != LGS_HANDS_BUSY) {
-        lara->torso_rot.x = lara->head_rot.x * look->torso_head_rot_x;
+    if (!M_IsTorsoLocked()) {
+        const int16_t target_torso_x =
+            lara->head_rot.x * look->torso_head_rot_x;
+        const int16_t delta = target_torso_x - lara->torso_rot.x;
+
+        if (ABS(delta) <= look->head_turn) {
+            lara->torso_rot.x = target_torso_x;
+        } else {
+            Lara_SmoothlyRotateMeshTo(
+                &lara->torso_rot, target_torso_x, lara->torso_rot.y,
+                LARA_TORSO_SMOOTHING);
+        }
     }
 }
 

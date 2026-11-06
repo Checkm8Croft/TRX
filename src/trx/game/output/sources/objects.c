@@ -110,7 +110,7 @@ static SCENE_PASS M_GetScenePass(
     const M_POLICY_SET *const policies)
 {
     // Half-opacity faces draw depth-sorted, like the PSX half blend mode.
-    if (face->semi_transparent) {
+    if (Output_IsFaceSemiTransparent(face)) {
         return SCENE_PASS_TRANSPARENT;
     }
     if ((flags & VERT_FLAT_SHADED) != 0) {
@@ -145,7 +145,8 @@ static float M_GetReflectivity(const FACE *const face)
 static bool M_IsReflectiveFace(
     const OBJECT_MESH *const obj_mesh, const FACE *const face)
 {
-    return obj_mesh->enable_reflections || face->enable_reflections;
+    return !obj_mesh->suppress_reflections
+        && (obj_mesh->enable_reflections || face->enable_reflections);
 }
 
 static void M_AddObjectFace(
@@ -187,7 +188,7 @@ static void M_AddObjectFace(
         flags |= VERT_USE_OBJECT_LIGHT;
     }
 
-    if (face->semi_transparent) {
+    if (Output_IsFaceSemiTransparent(face)) {
         // The transparent pass blends premultiplied alpha; the shader only
         // premultiplies flat colors, so textured faces additionally need the
         // color scaled here for the face to render at half opacity.
@@ -252,7 +253,7 @@ static void M_AddObjectFace(
     // effects drawn at the same spot (e.g. the gun flash glow).
     MeshBuilder_AddFan(
         builder, M_GetScenePass(face, flags, policies), face->double_sided,
-        !face->semi_transparent);
+        !Output_IsFaceSemiTransparent(face));
 }
 
 // Build one mesh and store the result.
@@ -263,7 +264,7 @@ static void M_BuildMesh(
     const OBJECT_MESH *const obj_mesh = Object_GetMesh(mesh_idx);
 
     uint16_t flags = 0;
-    if (obj_mesh->enable_reflections) {
+    if (obj_mesh->enable_reflections && !obj_mesh->suppress_reflections) {
         flags |= VERT_REFLECTIVE;
     }
 
@@ -449,7 +450,7 @@ static void M_Stage(const OBJECT_MESH *const mesh)
             policy->adjust_light_info(&light_info);
         }
     }
-    Output_Lights_FillInstanceLight(&light_info, g_WMatrixPtr);
+    Output_Lights_FillInstanceLight(&light_info);
 
     const VIEWPORT_RECT *const scissor = Output_GetObjectScissor();
     OUTPUT_WATER_LINE water_line = {};

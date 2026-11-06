@@ -7,7 +7,7 @@
         <property category="TRX" defaultValue="true" description="Whether or not this vehicle can activate heavy triggers." displayName="Is Heavy" internalName="is_heavy" type="Bool" />
     </moveable>
     <moveable id="15">
-        <property category="TRX" defaultValue="12" description="Random music track pool, slot 1. -1 = disabled." displayName="Track 1" internalName="track_1" minValue="0" type="Int" />
+        <property category="TRX" defaultValue="12" description="Random music track pool, slot 1. -1 = disabled." displayName="Track 1" internalName="track_1" minValue="-1" type="Int" />
         <property category="TRX" defaultValue="-1" description="Random music track pool, slot 2. -1 = disabled." displayName="Track 2" internalName="track_2" minValue="-1" type="Int" />
         <property category="TRX" defaultValue="-1" description="Random music track pool, slot 3. -1 = disabled." displayName="Track 3" internalName="track_3" minValue="-1" type="Int" />
         <property category="TRX" defaultValue="-1" description="Random music track pool, slot 4. -1 = disabled." displayName="Track 4" internalName="track_4" minValue="-1" type="Int" />
@@ -22,7 +22,7 @@
         <property category="TRX" defaultValue="false" description="Whether or not this vehicle can collide with static meshes." displayName="Test Static Collision" internalName="test_static_collision" type="Bool" />
     </moveable>
     <moveable id="17">
-        <property category="TRX" defaultValue="12" description="Random music track pool, slot 1. -1 = disabled." displayName="Track 1" internalName="track_1" minValue="0" type="Int" />
+        <property category="TRX" defaultValue="12" description="Random music track pool, slot 1. -1 = disabled." displayName="Track 1" internalName="track_1" minValue="-1" type="Int" />
         <property category="TRX" defaultValue="-1" description="Random music track pool, slot 2. -1 = disabled." displayName="Track 2" internalName="track_2" minValue="-1" type="Int" />
         <property category="TRX" defaultValue="-1" description="Random music track pool, slot 3. -1 = disabled." displayName="Track 3" internalName="track_3" minValue="-1" type="Int" />
         <property category="TRX" defaultValue="-1" description="Random music track pool, slot 4. -1 = disabled." displayName="Track 4" internalName="track_4" minValue="-1" type="Int" />
@@ -92,6 +92,7 @@
     <moveable id="39">
         <property category="TRX" defaultValue="34" description="Maximum hit points." displayName="Max Hit Points" internalName="max_hit_points" minValue="0" type="Int" />
         <property category="TRX" defaultValue="35" description="Damage dealt by shots." displayName="Damage" internalName="damage" minValue="0" type="Int" />
+        <property category="TRX" defaultValue="105" description="Damage dealt by the death-state final shot." displayName="Final Shot Damage" internalName="final_shot_damage" minValue="0" type="Int" />
     </moveable>
     <moveable id="40">
         <property category="TRX" defaultValue="30" description="Maximum hit points." displayName="Max Hit Points" internalName="max_hit_points" minValue="0" type="Int" />
@@ -159,6 +160,7 @@
     <moveable id="61">
         <property category="TRX" defaultValue="28" description="Maximum hit points." displayName="Max Hit Points" internalName="max_hit_points" minValue="0" type="Int" />
         <property category="TRX" defaultValue="32" description="Damage dealt by gun shots." displayName="Damage" internalName="damage" minValue="0" type="Int" />
+        <property category="TRX" defaultValue="32" description="Damage dealt by the death-state final shot." displayName="Final Shot Damage" internalName="final_shot_damage" minValue="0" type="Int" />
     </moveable>
     <moveable id="62">
         <property category="TRX" defaultValue="20" description="Maximum hit points." displayName="Max Hit Points" internalName="max_hit_points" minValue="0" type="Int" />
@@ -177,12 +179,8 @@
         <property category="TRX" defaultValue="40" description="Damage dealt by the civilian's second punch attack." displayName="Punch 2 Damage" internalName="punch_2_damage" minValue="0" type="Int" />
         <property category="TRX" defaultValue="50" description="Damage dealt by the civilian's third punch attack." displayName="Punch 3 Damage" internalName="punch_3_damage" minValue="0" type="Int" />
     </moveable>
-    <moveable id="66,68,148-157,360">
-        <property category="TRX" defaultValue="1" description="Maximum hit points." displayName="Max Hit Points" internalName="max_hit_points" minValue="0" type="Int" />
-    </moveable>
     <moveable id="67">
         <property category="TRX" defaultValue="10" description="Damage dealt when Lara crosses the security laser." displayName="Damage" internalName="damage" minValue="0" type="Int" />
-        <property category="TRX" defaultValue="1" description="Maximum hit points." displayName="Max Hit Points" internalName="max_hit_points" minValue="0" type="Int" />
     </moveable>
     <moveable id="69">
         <property category="TRX" defaultValue="8" description="Maximum hit points." displayName="Max Hit Points" internalName="max_hit_points" minValue="0" type="Int" />
@@ -267,6 +265,10 @@
     </moveable>
     <moveable id="139-141">
         <property category="TRX" defaultValue="true" description="Whether the trapdoor opens automatically when triggered." displayName="Auto Open" internalName="auto_open" type="Bool" />
+        <property category="TRX" defaultValue="false" description="Whether the trapdoor blocks any portals it sits on." displayName="Blocks Portal" internalName="blocks_portal" type="Bool" />
+    </moveable>
+    <moveable id="148-157,360">
+        <property category="TRX" defaultValue="1" description="Maximum hit points." displayName="Max Hit Points" internalName="max_hit_points" minValue="0" type="Int" />
     </moveable>
     <moveable id="160-178,205-208,221-227,236,237,240-243,381,382,386,387,391,392">
         <property category="TRX" defaultValue="Normal" description="Pickup animation mode." displayName="Pickup Mode" entries="Normal, Low Pedestal, High Pedestal, Hidden Reach-in, Crowbar, Hidden Sarcophagus, Scion Pedestal" internalName="pickup_mode" type="Enum" />
@@ -274,17 +276,22 @@
         <property category="TRX" defaultValue="true" description="Move the item to the middle of its sector where a carrier drops it." displayName="Snap To Sector" internalName="snap_to_sector" type="Bool" />
         <property category="TRX" defaultValue="false" description="Simulate the item again once it becomes visible, so that it goes on rotating, glowing and showing its twinkle after a carrier drops it or a trigger brings it back." displayName="Keep Simulated" internalName="keep_simulated" type="Bool" />
         <property category="TRX" defaultValue="0" description="How much to rotate the item by each frame while it's active, in engine angle units." displayName="Rotation" internalName="rotation" maxValue="16384" minValue="-16384" type="Int" />
+        <property category="TRX" defaultValue="TEN.Color(0, 0, 0)" description="The color of the item's glow while it's active. Black infers no glow." displayName="Glow Color" internalName="glow_color" type="Color" />
     </moveable>
     <moveable id="179">
         <property category="TRX" defaultValue="30" description="How long the flare burns for, in seconds." displayName="Burn Time" internalName="burn_time" minValue="0" type="Float" />
     </moveable>
     <moveable id="180">
         <property category="TRX" defaultValue="true" description="Whether the crystal hovers and bobs in place." displayName="Bob" internalName="bob" type="Bool" />
+        <property category="TRX" defaultValue="TEN.Color(0, 0, 0)" description="Color of the light the crystal casts. Black picks one from the save crystal mode." displayName="Glow Color" internalName="glow_color" type="Color" />
         <property category="TRX" defaultValue="-1" description="Mesh the crystal is drawn with. -1 picks one from the save crystal mode." displayName="Mesh Index" internalName="mesh_index" minValue="-1" type="Int" />
         <property category="TRX" defaultValue="500" description="Health restored by a healing crystal." displayName="Heal Amount" internalName="heal_amount" minValue="0" type="Int" />
     </moveable>
     <moveable id="213-220">
         <property category="TRX" defaultValue="true" description="Whether or not Lara can collide with the slot after using it." displayName="Collidable When Done" internalName="collidable_when_done" type="Bool" />
+    </moveable>
+    <moveable id="282">
+        <property category="TRX" defaultValue="2.33" description="The number of seconds the firehead blows flames for before resetting its animation and starting again." displayName="Blow Time" internalName="blow_time" minValue="0" type="Float" />
     </moveable>
     <moveable id="287">
         <property category="TRX" defaultValue="800" description="Maximum hit points." displayName="Max Hit Points" internalName="max_hit_points" minValue="0" type="Int" />
@@ -319,6 +326,12 @@
     </moveable>
     <moveable id="349-354">
         <property category="TRX" defaultValue="true" description="Whether or not Lara can collide with the animating." displayName="Collidable" internalName="collidable" type="Bool" />
+    </moveable>
+    <moveable id="365">
+        <property category="TRX" defaultValue="Ramped (TR3)" description="Control mode." displayName="Mode" entries="Random (TR1), Random (TR2), Ramped (TR3), Basic (TR4)" internalName="mode" type="Enum" />
+        <property category="TRX" defaultValue="true" description="Whether or not the earthquake shakes the camera while it is active." displayName="Shake Camera" internalName="shake_camera" type="Bool" />
+        <property category="TRX" defaultValue="0" description="The lifetime of the earthquake to remain active. Zero implies active until anti-triggered." displayName="Lifetime" internalName="lifetime" minValue="0" type="Int" />
+        <property category="TRX" defaultValue="true" description="Whether or not the earthquake triggers falling ceiling and flame emitters placed in the same room at random." displayName="Trigger Items" internalName="trigger_items" type="Bool" />
     </moveable>
     <moveable id="370">
         <property category="TRX" defaultValue="false" description="Kill the item immediately while its trigger is inactive." displayName="Kill On Trigger" internalName="kill_on_trigger" type="Bool" />

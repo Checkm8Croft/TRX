@@ -23,6 +23,11 @@
 #define M_OUTSIDE_TABLE_SENTINEL NO_ROOM
 #define M_OUTSIDE_OFFSET_EMPTY 0xFFFF
 
+typedef struct {
+    const int16_t *next;
+    int16_t single_room;
+} M_OUTSIDE_CELL;
+
 static int32_t m_RoomCount = 0;
 static ROOM *m_Rooms = nullptr;
 static HANDLE_EPOCH m_RoomEpoch;
@@ -57,6 +62,8 @@ static void M_Shutdown(void)
     m_OutsideGridZ = 0;
     m_OutsideOriginCellX = 0;
     m_OutsideOriginCellZ = 0;
+
+    Room_ResetShatteredStatics();
 }
 
 static void M_AddFlipItems(const ROOM *const room)
@@ -114,6 +121,63 @@ static bool M_TryResolveRoom(
 
     *out_room = start_room;
     return true;
+}
+
+// Starts a walk over the rooms that the outside table lists for the cell
+// holding a point. Returns false where the table lists none.
+static bool M_BeginOutsideCell(
+    const int32_t x, const int32_t z, M_OUTSIDE_CELL *const cell)
+{
+    if (m_OutsideRoomTable == nullptr || m_OutsideRoomOffsets == nullptr) {
+        return false;
+    }
+
+    const int32_t cell_x =
+        (x >> M_OUTSIDE_TABLE_BLOCK_SHIFT) - m_OutsideOriginCellX;
+    const int32_t cell_z =
+        (z >> M_OUTSIDE_TABLE_BLOCK_SHIFT) - m_OutsideOriginCellZ;
+    if (cell_x < 0 || cell_x >= m_OutsideGridX || cell_z < 0
+        || cell_z >= m_OutsideGridZ) {
+        return false;
+    }
+
+    const uint16_t entry =
+        m_OutsideRoomOffsets[m_OutsideGridZ * cell_x + cell_z];
+    if (entry == M_OUTSIDE_OFFSET_EMPTY) {
+        return false;
+    }
+
+    cell->next = nullptr;
+    cell->single_room = M_OUTSIDE_TABLE_SENTINEL;
+    if ((entry & 0x8000U) != 0U) {
+        cell->single_room = (int16_t)(entry & ~0x8000U);
+    } else {
+        cell->next = &m_OutsideRoomTable[entry];
+    }
+    return true;
+}
+
+// Returns the next room of the cell, or NO_ROOM past the last one.
+static int16_t M_NextOutsideRoom(M_OUTSIDE_CELL *const cell)
+{
+    if (cell->next != nullptr) {
+        if (*cell->next == M_OUTSIDE_TABLE_SENTINEL) {
+            return NO_ROOM;
+        }
+        return *cell->next++;
+    }
+    const int16_t room_num = cell->single_room;
+    cell->single_room = M_OUTSIDE_TABLE_SENTINEL;
+    return room_num == M_OUTSIDE_TABLE_SENTINEL ? NO_ROOM : room_num;
+}
+
+static bool M_IsInsideRoomXZ(
+    const ROOM *const room, const int32_t x, const int32_t z)
+{
+    return z > room->pos.z + WALL_L
+        && z < room->pos.z + (room->size.z << WALL_SHIFT) - WALL_L
+        && x > room->pos.x + WALL_L
+        && x < room->pos.x + (room->size.x << WALL_SHIFT) - WALL_L;
 }
 
 void Room_InitialiseRooms(const int32_t num_rooms)
@@ -219,6 +283,9 @@ void Room_BuildOutsideTable(void)
         for (int32_t x = 0; x < blocks_z; x += M_OUTSIDE_TABLE_STEP) {
             for (int32_t i = 0; i < num_rooms; i++) {
                 const ROOM *const room = Room_Get(i);
+                if (room->flip_status == RFS_FLIPPED) {
+                    continue;
+                }
 
                 const int32_t room_x = (room->pos.z >> WALL_SHIFT)
                     - (m_OutsideOriginCellZ * M_OUTSIDE_TABLE_STEP);
@@ -336,49 +403,13 @@ int32_t Room_GetOutsideStatus(
         *out_bbox_room_num = NO_ROOM;
     }
 
-    if (m_OutsideRoomTable == nullptr || m_OutsideRoomOffsets == nullptr) {
+    M_OUTSIDE_CELL cell;
+    if (!M_BeginOutsideCell(pos.x, pos.z, &cell)) {
         return -2;
     }
 
-    const int32_t cell_x =
-        (pos.x >> M_OUTSIDE_TABLE_BLOCK_SHIFT) - m_OutsideOriginCellX;
-    const int32_t cell_z =
-        (pos.z >> M_OUTSIDE_TABLE_BLOCK_SHIFT) - m_OutsideOriginCellZ;
-    if (cell_x < 0 || cell_x >= m_OutsideGridX || cell_z < 0
-        || cell_z >= m_OutsideGridZ) {
-        return -2;
-    }
-
-    const uint16_t entry =
-        m_OutsideRoomOffsets[m_OutsideGridZ * cell_x + cell_z];
-    if (entry == M_OUTSIDE_OFFSET_EMPTY) {
-        return -2;
-    }
-
-    const int16_t *p = nullptr;
-    int16_t single_room = M_OUTSIDE_TABLE_SENTINEL;
-    if ((entry & 0x8000U) != 0U) {
-        single_room = (int16_t)(entry & ~0x8000U);
-    } else {
-        p = &m_OutsideRoomTable[entry];
-    }
-
-    while (true) {
-        int16_t candidate_room_num;
-        if (p != nullptr) {
-            if (*p == M_OUTSIDE_TABLE_SENTINEL) {
-                break;
-            }
-            candidate_room_num = (int16_t)(*p);
-            p++;
-        } else {
-            if (single_room == M_OUTSIDE_TABLE_SENTINEL) {
-                break;
-            }
-            candidate_room_num = single_room;
-            single_room = M_OUTSIDE_TABLE_SENTINEL;
-        }
-
+    int16_t candidate_room_num;
+    while ((candidate_room_num = M_NextOutsideRoom(&cell)) != NO_ROOM) {
         const ROOM *const room = Room_Get(candidate_room_num);
         if (room == nullptr) {
             continue;
@@ -388,13 +419,7 @@ int32_t Room_GetOutsideStatus(
             continue;
         }
 
-        if (pos.z <= room->pos.z + WALL_L
-            || pos.z >= room->pos.z + (room->size.z << WALL_SHIFT) - WALL_L) {
-            continue;
-        }
-
-        if (pos.x <= room->pos.x + WALL_L
-            || pos.x >= room->pos.x + (room->size.x << WALL_SHIFT) - WALL_L) {
+        if (!M_IsInsideRoomXZ(room, pos.x, pos.z)) {
             continue;
         }
 
@@ -427,6 +452,38 @@ int32_t Room_GetOutsideStatus(
     }
 
     return -2;
+}
+
+bool Room_GetOutsideColumn(
+    const int32_t x, const int32_t z, int32_t *const out_ceiling,
+    int32_t *const out_floor)
+{
+    M_OUTSIDE_CELL cell;
+    if (!M_BeginOutsideCell(x, z, &cell)) {
+        return false;
+    }
+
+    int16_t room_num;
+    while ((room_num = M_NextOutsideRoom(&cell)) != NO_ROOM) {
+        const ROOM *const room = Room_Get(room_num);
+        if (room == nullptr || !room->flags.wind
+            || !M_IsInsideRoomXZ(room, x, z)) {
+            continue;
+        }
+
+        const XYZ_32 pos = { x, (room->max_ceiling + room->min_floor) / 2, z };
+        int16_t rn = room_num;
+        const SECTOR *const sector = Room_GetSector(pos, &rn);
+        const int32_t floor = Room_GetHeight(sector, pos);
+        const int32_t ceiling = Room_GetCeiling(sector, pos);
+        if (floor == NO_HEIGHT || ceiling == NO_HEIGHT || ceiling >= floor) {
+            continue;
+        }
+        *out_ceiling = ceiling;
+        *out_floor = floor;
+        return true;
+    }
+    return false;
 }
 
 int32_t Room_GetIndex(const ROOM *const room)
@@ -787,7 +844,8 @@ bool Room_FindValidPos(XYZ_32 *const out_pos, int16_t *const out_room_num)
                     .z = ROUND_TO_SECTOR(z + dz * unit) + WALL_L / 2,
                 };
                 sector = Room_GetSector(point, &room_num);
-                height = Room_GetHeightEx(sector, point, true, NO_ITEM);
+                height = Room_GetHeightEx(
+                    sector, point, &(ROOM_HEIGHT_CTX) { .fix_tilts = true });
                 if (height == NO_HEIGHT) {
                     continue;
                 }

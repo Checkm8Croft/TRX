@@ -13,7 +13,9 @@
 #include <trx/game/photo_mode.h>
 #include <trx/game/savegame.h>
 #include <trx/game/screenshot.h>
+#include <trx/version.h>
 
+#include <stdio.h>
 #include <string.h>
 
 #include <lauxlib.h>
@@ -25,6 +27,11 @@ static GF_FMV m_FMVs[FAKE_FMV_COUNT];
 static GF_LEVEL m_TitleLevel;
 static GF_LEVEL_TABLE m_Tables[GFLT_NUMBER_OF];
 static RESUME_INFO m_Resume;
+// The game's own clock, which a test moves on by hand.
+static double m_SimTime;
+// The levels a test has marked finished, one bit each by their place in the
+// table.
+static uint32_t m_CompletedLevels;
 static const GF_LEVEL *m_CurrentLevel;
 static bool m_HasGym;
 static bool m_InCutscene;
@@ -36,8 +43,40 @@ static bool m_IsPlaying = true;
 static bool m_InPhotoMode;
 static PHOTO_MODE m_PhotoModeTarget;
 
+// Whether a script holds an engine screen, which makes the play_* verbs wait.
+static bool m_ScreenHeld;
+
+// What the held entry combines with.
+static OBJECT_ID m_Partners[8];
+static int32_t m_PartnerCount;
+// The last two things a script combined.
+static OBJECT_ID m_Combined[2];
+// Whether every entry can be examined.
+static bool m_Examinable;
+static bool m_Separable;
+static OBJECT_ID m_SeparatedObject = NO_OBJECT;
+// Whether every entry leads nowhere, as an entry with no lock to use it on.
+static bool m_Unusable;
+
+// The areas of the globe a test gives the game flow.
+static GF_GLOBE_ENTRY m_Globe[8];
+static int32_t m_GlobeCount;
+
+// The last command the play_* verbs queued, which the game leaves for.
+static GF_COMMAND m_Override = { .action = GF_NOOP };
+
 static void M_Reset(void)
 {
+    m_Override = (GF_COMMAND) { .action = GF_NOOP };
+    m_PartnerCount = 0;
+    m_Separable = false;
+    m_SeparatedObject = NO_OBJECT;
+    m_Combined[0] = NO_OBJECT;
+    m_Combined[1] = NO_OBJECT;
+    m_GlobeCount = 0;
+    m_CompletedLevels = 0;
+    m_ScreenHeld = false;
+    g_TRVersion = 1;
     m_InPhotoMode = false;
     m_PhotoModeTarget = PHOTO_MODE_CAMERA;
     memset(m_Levels, 0, sizeof(m_Levels));
@@ -104,6 +143,13 @@ static void M_Reset(void)
     m_InCutscene = false;
 }
 
+// fake.advance_sim_time(seconds) - moves the game's own clock on.
+static int M_L_AdvanceSimTime(lua_State *const L)
+{
+    m_SimTime += luaL_checknumber(L, 1);
+    return 0;
+}
+
 // fake.set_current_level(n) - nil for a game that is not in a level at all.
 static int M_L_SetCurrentLevel(lua_State *const L)
 {
@@ -116,6 +162,20 @@ static int M_L_SetCurrentLevel(lua_State *const L)
 static int M_L_SetCurrentTitle(lua_State *const L)
 {
     m_CurrentLevel = &m_TitleLevel;
+    return 0;
+}
+
+// fake.set_current_cutscene() - the first cutscene level.
+static int M_L_SetCurrentCutscene(lua_State *const L)
+{
+    m_CurrentLevel = &m_Cutscenes[0];
+    return 0;
+}
+
+// fake.set_current_demo() - the first demo.
+static int M_L_SetCurrentDemo(lua_State *const L)
+{
+    m_CurrentLevel = &m_Demos[0];
     return 0;
 }
 
@@ -150,6 +210,130 @@ static int M_L_SetNGPlus(lua_State *const L)
     return 0;
 }
 
+// fake.set_tr_version(n) - which game the session plays.
+static int M_L_SetTRVersion(lua_State *const L)
+{
+    g_TRVersion = (int32_t)luaL_checkinteger(L, 1);
+    return 0;
+}
+
+// fake.set_examinable(bool) - whether every entry can be examined.
+static int M_L_SetExaminable(lua_State *const L)
+{
+    m_Examinable = lua_toboolean(L, 1);
+    return 0;
+}
+
+// fake.set_separable(bool, object?) - whether every entry carries an
+// attachment, and what separating one gives Lara.
+static int M_L_SetSeparable(lua_State *const L)
+{
+    m_Separable = lua_toboolean(L, 1);
+    m_SeparatedObject = (OBJECT_ID)luaL_optinteger(L, 2, NO_OBJECT);
+    return 0;
+}
+
+// fake.set_unusable(bool) - whether every entry leads nowhere.
+static int M_L_SetUnusable(lua_State *const L)
+{
+    m_Unusable = lua_toboolean(L, 1);
+    return 0;
+}
+
+// fake.set_combine_partners({ object, ... }) - what the held entry combines
+// with.
+static int M_L_SetCombinePartners(lua_State *const L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+    m_PartnerCount = 0;
+    const int32_t len = (int32_t)lua_rawlen(L, 1);
+    for (int32_t i = 1; i <= len && m_PartnerCount < 8; i++) {
+        lua_rawgeti(L, 1, i);
+        m_Partners[m_PartnerCount++] = (OBJECT_ID)luaL_checkinteger(L, -1);
+        lua_pop(L, 1);
+    }
+    return 0;
+}
+
+// fake.set_globe({ { start = n, finish = n, prereqs = { i, ... }, mesh = n,
+// rot = { x, y, z } }, ... }) - the areas of the globe, with their levels by
+// ordinal and the areas they need counted from 1.
+static int M_L_SetGlobe(lua_State *const L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+    m_GlobeCount = 0;
+    const int32_t len = (int32_t)lua_rawlen(L, 1);
+    for (int32_t i = 1; i <= len && m_GlobeCount < 8; i++) {
+        lua_rawgeti(L, 1, i);
+        const int area = lua_gettop(L);
+        GF_GLOBE_ENTRY *const entry = &m_Globe[m_GlobeCount++];
+        *entry = (GF_GLOBE_ENTRY) {};
+        lua_getfield(L, area, "start");
+        entry->start_level_ordinal = (int32_t)luaL_optinteger(L, -1, -1);
+        lua_getfield(L, area, "finish");
+        entry->completion_level_ordinal = (int32_t)luaL_optinteger(L, -1, -1);
+        lua_getfield(L, area, "mesh");
+        entry->mesh_idx = (uint8_t)luaL_optinteger(L, -1, i);
+        lua_pop(L, 3);
+        lua_getfield(L, area, "prereqs");
+        if (lua_istable(L, -1)) {
+            const int32_t needs = (int32_t)lua_rawlen(L, -1);
+            for (int32_t j = 1; j <= needs; j++) {
+                lua_rawgeti(L, -1, j);
+                entry->prereq_mask |= 1u << (luaL_checkinteger(L, -1) - 1);
+                lua_pop(L, 1);
+            }
+        }
+        lua_pop(L, 1);
+        lua_getfield(L, area, "rot");
+        if (lua_istable(L, -1)) {
+            lua_rawgeti(L, -1, 1);
+            lua_rawgeti(L, -2, 2);
+            lua_rawgeti(L, -3, 3);
+            entry->rot = (XYZ_16) {
+                .x = (int16_t)luaL_optinteger(L, -3, 0),
+                .y = (int16_t)luaL_optinteger(L, -2, 0),
+                .z = (int16_t)luaL_optinteger(L, -1, 0),
+            };
+            lua_pop(L, 3);
+        }
+        lua_pop(L, 2);
+    }
+    return 0;
+}
+
+// fake.set_completed({ num, ... }) - the levels the player has finished.
+static int M_L_SetCompleted(lua_State *const L)
+{
+    luaL_checktype(L, 1, LUA_TTABLE);
+    m_CompletedLevels = 0;
+    const int32_t len = (int32_t)lua_rawlen(L, 1);
+    for (int32_t i = 1; i <= len; i++) {
+        lua_rawgeti(L, 1, i);
+        m_CompletedLevels |= 1u << luaL_checkinteger(L, -1);
+        lua_pop(L, 1);
+    }
+    return 0;
+}
+
+// fake.combined() -> object?, partner? - what a script last combined.
+static int M_L_Combined(lua_State *const L)
+{
+    if (m_Combined[0] == NO_OBJECT) {
+        return 0;
+    }
+    lua_pushinteger(L, m_Combined[0]);
+    lua_pushinteger(L, m_Combined[1]);
+    return 2;
+}
+
+// fake.set_screen_held(bool) - whether a script holds an engine screen.
+static int M_L_SetScreenHeld(lua_State *const L)
+{
+    m_ScreenHeld = lua_toboolean(L, 1);
+    return 0;
+}
+
 void Screenshot_Make(const SCREENSHOT_FORMAT format)
 {
 }
@@ -161,6 +345,16 @@ void Screenshot_MakeToPath(const char *const path)
 void Game_SetIsLevelComplete(const bool is_complete)
 {
     FAKE_RECORD("end_level");
+}
+
+int32_t GF_GetGlobeEntryCount(void)
+{
+    return m_GlobeCount;
+}
+
+const GF_GLOBE_ENTRY *GF_GetGlobeEntry(const int32_t idx)
+{
+    return idx >= 0 && idx < m_GlobeCount ? &m_Globe[idx] : nullptr;
 }
 
 int32_t GF_GetFMVCount(void)
@@ -240,6 +434,60 @@ const GF_LEVEL *GF_GetCurrentLevel(void)
     return m_CurrentLevel;
 }
 
+const GF_LEVEL *GF_GetFirstLevel(void)
+{
+    const GF_LEVEL_TABLE *const tbl = GF_GetLevelTable(GFLT_MAIN);
+    for (int32_t i = 0; i < tbl->count; i++) {
+        if (tbl->levels[i].type != GFL_GYM) {
+            return &tbl->levels[i];
+        }
+    }
+    return nullptr;
+}
+
+void Game_SetBonusFlag(const GAME_BONUS_FLAG flag)
+{
+    m_IsNGPlus = flag == GBF_NGPLUS;
+}
+
+void SG_Resume_ResetAllEntries(void)
+{
+    FAKE_RECORD("reset_resume");
+}
+
+void SG_Manager_UnbindSlot(void)
+{
+    FAKE_RECORD("unbind_slot");
+}
+
+void SG_Manager_BindSlot(const SAVEGAME_SLOT_REF slot)
+{
+    const int32_t index = slot.index;
+    FAKE_RECORD("bind_slot", FV(index));
+}
+
+SAVEGAME_SLOT_REF SG_Manager_NormalSlot(const int32_t index)
+{
+    return (SAVEGAME_SLOT_REF) { .pool = SAVEGAME_SLOT_POOL_NORMAL,
+                                 .index = index };
+}
+
+SAVEGAME_SLOT_REF SG_Manager_QuickFromVisualIndex(const int32_t visual_index)
+{
+    return (SAVEGAME_SLOT_REF) { .pool = SAVEGAME_SLOT_POOL_QUICK,
+                                 .index = visual_index };
+}
+
+SAVEGAME_SLOT_REF SG_Manager_InvalidSlot(void)
+{
+    return (SAVEGAME_SLOT_REF) { .index = -1 };
+}
+
+bool SG_Manager_IsValidSlotRef(const SAVEGAME_SLOT_REF slot)
+{
+    return slot.index >= 0;
+}
+
 // The game flow's level and the game's are not the same one. The title screen
 // is a level the flow is on and the game is not, which is where a caller that
 // reads the game's and guards on the flow's comes apart.
@@ -306,12 +554,23 @@ GF_LEVEL *GF_GetLevelByOrdinalNumber(
 
 // The gameflow command the play_* verbs queue, and the savegame bookkeeping
 // they do on the way. Recorded, not performed.
-void GF_OverrideCommand(const GF_COMMAND command)
+GF_COMMAND GF_GetOverrideCommand(void)
 {
+    return m_Override;
+}
+
+bool Shell_IsExiting(void)
+{
+    return false;
+}
+
+void GF_OverrideCommand(const GF_COMMAND command, const bool immediate)
+{
+    m_Override = command;
     const int32_t num = command.param;
     switch (command.action) {
     case GF_START_GAME:
-        FAKE_RECORD("play_level", FV(num));
+        FAKE_RECORD("play_level", FV(num), FV(immediate));
         break;
     case GF_START_CINE:
         FAKE_RECORD("play_cutscene", FV(num));
@@ -323,11 +582,34 @@ void GF_OverrideCommand(const GF_COMMAND command)
         FAKE_RECORD("play_fmv", FV(num));
         break;
     case GF_SELECT_GAME:
-        FAKE_RECORD("play_gym", FV(num));
+        FAKE_RECORD("play_gym", FV(num), FV(immediate));
         break;
+    case GF_RESTART_GAME:
+        FAKE_RECORD("restart_level", FV(num));
+        break;
+    case GF_EXIT_GAME:
+        FAKE_RECORD("exit_game");
+        break;
+    case GF_NEW_GAME: {
+        const bool ng_plus = command.param == GBF_NGPLUS;
+        FAKE_RECORD("new_game", FV(ng_plus), FV(immediate));
+        break;
+    }
     default:
         break;
     }
+}
+
+// Weak, so that a test linking the real takeover state reads that instead.
+__attribute__((weak)) bool UI_Takeover_IsAnyHeld(void)
+{
+    return m_ScreenHeld;
+}
+
+// Weak, so that a test linking the real console reads that instead.
+__attribute__((weak)) bool LUA_Console_IsRunningCommand(void)
+{
+    return false;
 }
 
 void SG_Resume_StoreGameToEntry(const GF_LEVEL *const level)
@@ -336,7 +618,12 @@ void SG_Resume_StoreGameToEntry(const GF_LEVEL *const level)
 
 RESUME_INFO *SG_Resume_GetEntry(const GF_LEVEL *const level)
 {
-    return level == nullptr ? nullptr : &m_Resume;
+    if (level == nullptr) {
+        return nullptr;
+    }
+    m_Resume.level_completed = level->num >= 0 && level->num < 32
+        && (m_CompletedLevels & (1u << level->num)) != 0;
+    return &m_Resume;
 }
 
 void FakeGame_SetRunTime(const int32_t frames)
@@ -382,6 +669,11 @@ double Clock_GetRealTime(void)
     return 0.0;
 }
 
+double Clock_GetSimTime(void)
+{
+    return m_SimTime;
+}
+
 bool PhotoMode_IsActive(void)
 {
     return m_InPhotoMode;
@@ -415,14 +707,99 @@ void FakeGame_SetCurrentLevel(const int32_t idx)
     m_CurrentLevel = idx < 0 ? nullptr : &m_Levels[idx];
 }
 
+// Combines anything with a partner the held entry has, into the first
+// partner, so that a test sees what was asked for.
+OBJECT_ID Inv_Combine(const OBJECT_ID obj_id, const OBJECT_ID partner_id)
+{
+    for (int32_t i = 0; i < m_PartnerCount; i++) {
+        if (m_Partners[i] == partner_id) {
+            m_Combined[0] = obj_id;
+            m_Combined[1] = partner_id;
+            return m_Partners[0];
+        }
+    }
+    return NO_OBJECT;
+}
+
+// The fake inventory, where the test links one. Separating gives back what
+// the test names only where it does.
+extern bool Inv_AddItem(OBJECT_ID object_id) __attribute__((weak));
+
+// Separates an entry where the fake says entries carry an attachment, and
+// hands back the entry itself as the attachment, so that a test sees what was
+// asked for.
+OBJECT_ID Inv_Separate(const OBJECT_ID obj_id)
+{
+    FAKE_RECORD("separate", FV(obj_id));
+    if (!m_Separable) {
+        return NO_OBJECT;
+    }
+    m_Separable = false;
+    if (m_SeparatedObject != NO_OBJECT && Inv_AddItem != nullptr) {
+        Inv_AddItem(m_SeparatedObject);
+        return m_SeparatedObject;
+    }
+    return obj_id;
+}
+
+void Lara_UseItem(const OBJECT_ID object_id)
+{
+    FAKE_RECORD("use_item", FV(object_id));
+}
+
+// An entry combines where it has partners, and is used otherwise.
+INV_ITEM_ACTIONS Inv_GetItemActions(const OBJECT_ID object_id)
+{
+    return (INV_ITEM_ACTIONS) {
+        .can_use = !m_Unusable && m_PartnerCount == 0,
+        .can_examine = m_Examinable,
+        .can_separate = m_Separable,
+        .can_combine = m_PartnerCount > 0,
+    };
+}
+
+int32_t Inv_GetCombinePartners(
+    const OBJECT_ID obj_id, OBJECT_ID *const partners, const int32_t max_count)
+{
+    int32_t count = 0;
+    for (int32_t i = 0; i < m_PartnerCount && count < max_count; i++) {
+        partners[count++] = m_Partners[i];
+    }
+    return count;
+}
+
 void FakeGame_PushLua(lua_State *const L)
 {
+    lua_pushcfunction(L, M_L_AdvanceSimTime);
+    lua_setfield(L, -2, "advance_sim_time");
+    lua_pushcfunction(L, M_L_SetCompleted);
+    lua_setfield(L, -2, "set_completed");
+    lua_pushcfunction(L, M_L_SetGlobe);
+    lua_setfield(L, -2, "set_globe");
+    lua_pushcfunction(L, M_L_Combined);
+    lua_setfield(L, -2, "combined");
+    lua_pushcfunction(L, M_L_SetCombinePartners);
+    lua_setfield(L, -2, "set_combine_partners");
+    lua_pushcfunction(L, M_L_SetExaminable);
+    lua_setfield(L, -2, "set_examinable");
+    lua_pushcfunction(L, M_L_SetSeparable);
+    lua_setfield(L, -2, "set_separable");
+    lua_pushcfunction(L, M_L_SetUnusable);
+    lua_setfield(L, -2, "set_unusable");
+    lua_pushcfunction(L, M_L_SetTRVersion);
+    lua_setfield(L, -2, "set_tr_version");
+    lua_pushcfunction(L, M_L_SetScreenHeld);
+    lua_setfield(L, -2, "set_screen_held");
     lua_pushcfunction(L, M_L_SetNGPlus);
     lua_setfield(L, -2, "set_ngplus");
     lua_pushcfunction(L, M_L_SetCurrentLevel);
     lua_setfield(L, -2, "set_current_level");
     lua_pushcfunction(L, M_L_SetCurrentTitle);
     lua_setfield(L, -2, "set_current_title");
+    lua_pushcfunction(L, M_L_SetCurrentCutscene);
+    lua_setfield(L, -2, "set_current_cutscene");
+    lua_pushcfunction(L, M_L_SetCurrentDemo);
+    lua_setfield(L, -2, "set_current_demo");
     lua_pushcfunction(L, M_L_SetInCutscene);
     lua_setfield(L, -2, "set_in_cutscene");
     lua_pushcfunction(L, M_L_SetGymPresent);

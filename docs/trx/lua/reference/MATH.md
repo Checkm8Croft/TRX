@@ -1,23 +1,26 @@
 ---
 title: Math
-order: 31
+order: 32
 ---
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/math.lua. Edit it there.
+  src/lua/trx/math.lua. Edit it there.
 -->
 
 ## <a id="math" name="math"></a>Math module
 
-Fixed-point trigonometry, matching the engine's own tables. Using these rather than Lua's `math` library guarantees a script places things exactly where the engine would. [`trx.math.Angle`](#math.Angle) says what an angle is here.
+Fixed-point trigonometry, matching the engine's own tables. Using these
+rather than Lua's `math` library guarantees a script places things exactly
+where the engine would. [`trx.math.Angle`](#math.Angle) says what an angle is here.
 
 ### Constants
 
 - <a id="math.DEG_1" name="math.DEG_1"></a>[lua]`trx.math.DEG_1` = `182` ([trx.math.Angle](#math.Angle))  
-  One degree. Multiply by it to say an angle in degrees: `45 * trx.math.DEG_1`.
+  One degree. Multiply by it to say an angle in degrees:
+  `45 * trx.math.DEG_1`.
 
 - <a id="math.DEG_45" name="math.DEG_45"></a>[lua]`trx.math.DEG_45` = `8192` ([trx.math.Angle](#math.Angle))  
   A 45-degree turn.
@@ -26,7 +29,8 @@ Fixed-point trigonometry, matching the engine's own tables. Using these rather t
   A quarter turn. A full turn is four of these.
 
 - <a id="math.WALL_L" name="math.WALL_L"></a>[lua]`trx.math.WALL_L` = `1024` ([trx.math.Distance](#math.Distance))  
-  The size of one sector. Level geometry is laid out on this grid, so it is the step to take to move an item a sector over.
+  The size of one sector. Level geometry is laid out on this grid, so it is
+  the step to take to move an item a sector over.
 
 ### Structures
 
@@ -62,7 +66,8 @@ Fixed-point trigonometry, matching the engine's own tables. Using these rather t
 
 - <a id="math.Box" name="math.Box"></a>[lua]`trx.math.Box`
 
-    An axis-aligned box. Whether it is placed in the world or in something's own frame is for the call that hands it over to say.
+    An axis-aligned box. Whether it is placed in the world or in something's
+    own frame is for the call that hands it over to say.
 
     Properties:
     - <a id="math.Box.max_x" name="math.Box.max_x"></a>**`max_x`**: [trx.math.Distance](#math.Distance). East edge.
@@ -77,13 +82,13 @@ Fixed-point trigonometry, matching the engine's own tables. Using these rather t
     A color, as three channels counted 0 to 255.
 
     Assigning one takes either a color or the hex text a color is written as, so
-    `"33e5ff"` and `{ r = 51, g = 229, b = 255 }` say the same thing. A channel may
-    also be written on its own, and a color read off something the engine owns
-    writes that change straight back to it.
+    `"33e5ff"` and `{ r = 51, g = 229, b = 255 }` say the same thing. A channel
+    may also be written on its own, and a color read off something the engine
+    owns writes that change straight back to it.
 
     Some colors the engine keeps are stored as fractions rather than bytes, and
-    those carry more precision than the hex text shows: a channel of one may read
-    back as `191.25`.
+    those carry more precision than the hex text shows: a channel of one may
+    read back as `191.25`.
 
     Properties:
     - <a id="math.Color.b" name="math.Color.b"></a>**`b`**: number. The blue channel.
@@ -99,7 +104,9 @@ Fixed-point trigonometry, matching the engine's own tables. Using these rather t
 ### Functions
 
 - <a id="math.color" name="math.color"></a>[lua]`trx.math.color(value, [g], [b])`  
-  Builds a color, out of three channels or out of hex text. The color it hands back belongs to the caller: assign it somewhere for the engine to take it.
+  Builds a color, out of three channels or out of hex text. The color it
+  hands back belongs to the caller: assign it somewhere for the engine to take
+  it.
 
   Parameters:
   - <a id="math.color.value" name="math.color.value"></a>**`value`** (string or number). The hex text, or the red channel.
@@ -113,6 +120,108 @@ Fixed-point trigonometry, matching the engine's own tables. Using these rather t
   local gold = trx.math.color("ffbf20")
   local teal = trx.math.color(51, 229, 255)
   ```
+
+- <a id="math.from_oklch" name="math.from_oklch"></a>[lua]`trx.math.from_oklch(l, c, h)`  
+  Builds a color out of OKLCH, the space in which equal steps of lightness,
+  chroma or hue look equal: the settings menu picks colors in it.
+
+  Parameters:
+  - <a id="math.from_oklch.l" name="math.from_oklch.l"></a>**`l`** (number). The lightness, from `0` to `1`.
+  - <a id="math.from_oklch.c" name="math.from_oklch.c"></a>**`c`** (number). The chroma, from `0` for grey upwards.
+  - <a id="math.from_oklch.h" name="math.from_oklch.h"></a>**`h`** (number). The hue, in degrees.
+
+  Returns: [trx.math.Color](#math.Color).
+
+  Example:
+  ```lua
+  local orange = trx.math.from_oklch(0.75, 0.15, 60)
+  ```
+
+- <a id="math.to_oklch" name="math.to_oklch"></a>[lua]`trx.math.to_oklch(color)`  
+  Reads a color as OKLCH, the space [`trx.math.from_oklch`](#math.from_oklch) builds one from.
+
+  Parameters:
+  - <a id="math.to_oklch.color" name="math.to_oklch.color"></a>**`color`** ([trx.math.Color](#math.Color)). The color.
+
+  Returns:
+  - number. The lightness, from `0` to `1`.
+  - number. The chroma.
+  - number. The hue, in degrees from `0` up to `360`.
+
+  Example:
+  ```lua
+  local l, c, h = trx.math.to_oklch(trx.math.color("ff8000"))
+  ```
+
+- <a id="math.degrees" name="math.degrees"></a>[lua]`trx.math.degrees(degrees)`  
+  Converts an angle from degrees. A whole degree and a part of one both
+  remain exact. [`trx.math.DEG_1`](#math.DEG_1) uses the nearest whole unit and falls four
+  units short over a quarter turn.
+
+  Parameters:
+  - <a id="math.degrees.degrees" name="math.degrees.degrees"></a>**`degrees`** (number). The angle in degrees.
+
+  Returns: [trx.math.Angle](#math.Angle).
+
+  Example:
+  ```lua
+  local half_turn = trx.math.degrees(180)
+  ```
+
+- <a id="math.wrap_angle" name="math.wrap_angle"></a>[lua]`trx.math.wrap_angle(angle)`  
+  Brings an angle back into the engine's range, from `-32768` to `32767`, the
+  way the engine's own angles wrap round.
+
+  Parameters:
+  - <a id="math.wrap_angle.angle" name="math.wrap_angle.angle"></a>**`angle`** (number). The angle, any number of turns out of range.
+
+  Returns: [trx.math.Angle](#math.Angle).
+
+  Example:
+  ```lua
+  local turned = trx.math.wrap_angle(angle + trx.math.DEG_90)
+  ```
+
+- <a id="math.idiv" name="math.idiv"></a>[lua]`trx.math.idiv(a, b)`  
+  Divides two whole numbers and drops the fraction, towards zero, as the
+  engine's integer division does. Lua's `//` rounds down instead, so the two
+  differ for a negative result: `-7 // 2` is `-4`, and `trx.math.idiv(-7, 2)`
+  is `-3`.
+
+  Parameters:
+  - <a id="math.idiv.a" name="math.idiv.a"></a>**`a`** (number). The dividend, a whole number.
+  - <a id="math.idiv.b" name="math.idiv.b"></a>**`b`** (number). The divisor, a whole number.
+
+  Returns: number. The quotient, a whole number.
+
+- <a id="math.lerp" name="math.lerp"></a>[lua]`trx.math.lerp(from, to, rate)`  
+  A value part way from one to another, rounded to the nearest whole number
+  as the engine rounds, with halves going away from zero. A script draws a
+  frame between two ticks with it, with [`trx.ui.interpolation_rate`](UI.md#ui.interpolation_rate) as the
+  rate.
+
+  Parameters:
+  - <a id="math.lerp.from" name="math.lerp.from"></a>**`from`** (number). The value at a rate of `0`.
+  - <a id="math.lerp.to" name="math.lerp.to"></a>**`to`** (number). The value at a rate of `1`.
+  - <a id="math.lerp.rate" name="math.lerp.rate"></a>**`rate`** (number). How far from the first to the second.
+
+  Returns: integer. The value in between.
+
+  Example:
+  ```lua
+  local y = trx.math.lerp(last_y, y, trx.ui.interpolation_rate())
+  ```
+
+- <a id="math.lerp_angle" name="math.lerp_angle"></a>[lua]`trx.math.lerp_angle(from, to, rate)`  
+  An angle part way from one to another, the short way round, with the
+  fraction dropped towards zero as the engine drops it.
+
+  Parameters:
+  - <a id="math.lerp_angle.from" name="math.lerp_angle.from"></a>**`from`** ([trx.math.Angle](#math.Angle)). The angle at a rate of `0`.
+  - <a id="math.lerp_angle.to" name="math.lerp_angle.to"></a>**`to`** ([trx.math.Angle](#math.Angle)). The angle at a rate of `1`.
+  - <a id="math.lerp_angle.rate" name="math.lerp_angle.rate"></a>**`rate`** (number). How far from the first to the second.
+
+  Returns: [trx.math.Angle](#math.Angle). The angle in between.
 
 - <a id="math.sin" name="math.sin"></a>[lua]`trx.math.sin(angle)`  
   Sine of an angle.
@@ -145,15 +254,32 @@ Fixed-point trigonometry, matching the engine's own tables. Using these rather t
   local angle = trx.math.atan(lara.pos.z - pos.z, lara.pos.x - pos.x)
   ```
 
+- <a id="math.rotate" name="math.rotate"></a>[lua]`trx.math.rotate(vec, rot)`  
+  Turns a vector as the engine turns a model by the same rotation: by its yaw,
+  then its pitch, then its roll, the way [`trx.math.Rot`](#math.Rot) describes them.
+
+  Parameters:
+  - <a id="math.rotate.vec" name="math.rotate.vec"></a>**`vec`** ([trx.math.Vec3](#math.Vec3)). The vector to turn.
+  - <a id="math.rotate.rot" name="math.rotate.rot"></a>**`rot`** ([trx.math.Rot](#math.Rot)). How far to turn it.
+
+  Returns: [trx.math.Vec3](#math.Vec3). The vector turned.
+
+  Example:
+  ```lua
+  -- a light a quarter turn round from straight ahead
+  local dir = trx.math.rotate({ x = 0, y = 0, z = 1024 }, { x = 0, y = trx.math.DEG_90, z = 0 })
+  ```
+
 - <a id="math.round_to_sector" name="math.round_to_sector"></a>[lua]`trx.math.round_to_sector(value)`  
   Snaps a position back to the corner of the sector it stands in, the way the
-  level's own geometry is laid out. A whole position keeps its height: a sector
-  is a column, and rounding it is about the ground plan rather than how far up
-  the position sits. A single coordinate rounds on its own, which is what an axis
-  at a time needs.
+  level's own geometry is laid out. A whole position keeps its height: a
+  sector is a column, and rounding it is about the ground plan rather than how
+  far up the position sits. A single coordinate rounds on its own, which is
+  what an axis at a time needs.
 
-  The corner is always the one to the west and the south, on both sides of the
-  origin, so two positions in the same sector always answer with the same corner.
+  The corner is always the one to the west and the south, on both sides of
+  the origin, so two positions in the same sector always answer with the same
+  corner.
 
   Parameters:
   - <a id="math.round_to_sector.value" name="math.round_to_sector.value"></a>**`value`** ([trx.math.Vec3](#math.Vec3) or [trx.math.Distance](#math.Distance)). A world position, or one coordinate of one.
@@ -173,9 +299,9 @@ Fixed-point trigonometry, matching the engine's own tables. Using these rather t
   ```
 
 - <a id="math.from_sectors" name="math.from_sectors"></a>[lua]`trx.math.from_sectors(value)`  
-  Says a length in sectors, which is how a level is laid out, in the units the
-  engine measures the world in. A part of a sector is a length of its own, so
-  `0.5` is half a sector.
+  Says a length in sectors, which is how a level is laid out, in the units
+  the engine measures the world in. A part of a sector is a length of its
+  own, so `0.5` is half a sector.
 
   Parameters:
   - <a id="math.from_sectors.value" name="math.from_sectors.value"></a>**`value`** (number). A length in sectors.
@@ -190,7 +316,8 @@ Fixed-point trigonometry, matching the engine's own tables. Using these rather t
   ```
 
 - <a id="math.to_sectors" name="math.to_sectors"></a>[lua]`trx.math.to_sectors(value)`  
-  Says a length in sectors, which is what it reads as on a level's own grid. A length that is not a whole number of sectors reads as a fraction.
+  Says a length in sectors, which is what it reads as on a level's own grid.
+  A length that is not a whole number of sectors reads as a fraction.
 
   Parameters:
   - <a id="math.to_sectors.value" name="math.to_sectors.value"></a>**`value`** ([trx.math.Distance](#math.Distance)). The length to say.

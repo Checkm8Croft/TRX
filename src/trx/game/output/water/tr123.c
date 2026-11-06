@@ -34,12 +34,23 @@ static RGBA_F M_GetPerMeshTint(const GAME_VECTOR pos)
 }
 
 // Returns the world-space water surface height above a point, or NO_HEIGHT
-// when no surface exists.
+// when no surface exists. Swamp surfaces return NO_HEIGHT, because swamps do
+// not tint Lara.
 static int32_t M_ProbeWaterSurface(const GAME_VECTOR pos)
 {
     int16_t room_num = pos.room_num;
     Room_GetSector(pos.pos, &room_num);
-    return Room_GetWaterHeight(pos.pos, room_num);
+    const int32_t height = Room_GetWaterHeight(pos.pos, room_num);
+    if (height == NO_HEIGHT) {
+        return NO_HEIGHT;
+    }
+
+    const XYZ_32 below = { .x = pos.pos.x, .y = height + 1, .z = pos.pos.z };
+    Room_GetSector(below, &room_num);
+    if (!Room_Get(room_num)->flags.underwater) {
+        return NO_HEIGHT;
+    }
+    return height;
 }
 
 // Finds water reached by a mesh by testing its lowest possible position first,
@@ -89,6 +100,9 @@ static WATER_LARA_MESH M_DecideLaraMesh(
         return (WATER_LARA_MESH) { .tint = M_GetPerMeshTint(pos) };
 
     case WATER_TINT_MODE_RESPONSIVE: {
+        if (g_Camera.underwater) {
+            return (WATER_LARA_MESH) { .tint = Output_GetTint() };
+        }
         const int32_t surface = M_FindMeshWaterSurface(pos, radius);
         if (surface == NO_HEIGHT) {
             return (WATER_LARA_MESH) { .tint = COLOR_RGBA_F_WHITE };

@@ -32,6 +32,14 @@ static COMMAND_RESULT m_EvalResult;
 static char *m_EvalOutput;
 static bool m_IsCapturing;
 static char *m_Capture;
+
+// Whether the console is open, which the real one keeps and fires events for.
+static bool m_IsOpened = false;
+
+// The entered lines, kept as the real history keeps them so that a test can
+// read back what it remembered.
+static char *m_History[16];
+static int32_t m_HistoryCount = 0;
 // The aliases arrive comma-joined ("secondary, third"); each spelling
 // dispatches.
 static bool M_FakeAliasMatch(const char *const aliases, const char *const word)
@@ -387,4 +395,54 @@ void FakeConsole_PushLua(lua_State *const L)
     lua_pushinteger(L, CR_BAD_INVOCATION);
     lua_setfield(L, -2, "BAD_INVOCATION");
     lua_setfield(L, -2, "CommandResult");
+}
+
+int32_t Console_History_GetLength(void)
+{
+    return m_HistoryCount;
+}
+
+const char *Console_History_Get(const int32_t idx)
+{
+    if (idx < 0 || idx >= m_HistoryCount) {
+        return nullptr;
+    }
+    return m_History[idx];
+}
+
+void Console_History_Append(const char *const prompt)
+{
+    if (m_HistoryCount >= (int32_t)(sizeof m_History / sizeof m_History[0])) {
+        return;
+    }
+    m_History[m_HistoryCount++] = Memory_DupStr(prompt);
+}
+
+void Console_History_Clear(void)
+{
+    for (int32_t i = 0; i < m_HistoryCount; i++) {
+        Memory_FreePointer(&m_History[i]);
+    }
+    m_HistoryCount = 0;
+}
+
+bool Console_IsOpened(void)
+{
+    return m_IsOpened;
+}
+
+void Console_Open(void)
+{
+    if (m_IsOpened) {
+        return;
+    }
+    m_IsOpened = true;
+}
+
+void Console_Close(void)
+{
+    if (!m_IsOpened) {
+        return;
+    }
+    m_IsOpened = false;
 }

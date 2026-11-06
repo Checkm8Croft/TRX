@@ -1,3 +1,4 @@
+#include <trx/config.h>
 #include <trx/core/utils.h>
 #include <trx/game/creature.h>
 #include <trx/game/game_buf.h>
@@ -8,7 +9,6 @@
 #include <trx/game/rooms.h>
 #include <trx/version.h>
 
-#define BOX_OVERLAP_BITS 0x3FFF
 #define BOX_SEARCH_NUMBER 0x7FFF
 #define BOX_END_BIT 0x8000
 #define BOX_NUMBER_BITS 0x7FFF // = ~BOX_END_BIT
@@ -41,12 +41,82 @@ static int16_t M_GetOverlapBoxNum(const int16_t overlap)
     return overlap & (g_TRVersion >= 4 ? BOX_NUMBER_BITS_TR4 : BOX_NUMBER_BITS);
 }
 
+static int16_t M_GetOverlapFlags(const int16_t overlap)
+{
+    return g_TRVersion >= 4 ? overlap & (BOX_OVERLAP_JUMP | BOX_OVERLAP_MONKEY)
+                            : 0;
+}
+
 static int16_t M_GetOverlap(const int32_t overlap_idx)
 {
     return m_Overlaps == nullptr || overlap_idx < 0
             || overlap_idx >= m_OverlapCount
         ? NO_BOX
         : m_Overlaps[overlap_idx];
+}
+
+// How the path leaves the box the creature stands in. TR4 marks the overlaps
+// that take a jump or a swing along the monkey bars to cross.
+static bool M_IsOverlapTypeAhead(
+    const LOT_INFO *const lot, const int16_t box_num, const int32_t type)
+{
+    const BOX_INFO *const box = Box_GetBox(box_num);
+    if (box == nullptr || lot->node[box_num].exit_box == NO_BOX) {
+        return false;
+    }
+
+    const int16_t exit_box = lot->node[box_num].exit_box;
+    int32_t index = box->overlap_index & BOX_OVERLAP_BITS;
+    while (true) {
+        const int16_t overlap = M_GetOverlap(index++);
+        if (overlap == NO_BOX) {
+            return false;
+        }
+        if (M_GetOverlapBoxNum(overlap) == exit_box) {
+            return (M_GetOverlapFlags(overlap) & type) != 0;
+        }
+        if ((overlap & BOX_END_BIT) != 0) {
+            return false;
+        }
+    }
+}
+
+static bool M_UpdateLOT(
+    LOT_INFO *const lot, const int32_t expansion, const bool is_ai_target)
+{
+    if (Box_GetBox(lot->required_box) == nullptr
+        || lot->required_box == lot->target_box) {
+        goto end;
+    }
+
+    lot->target_box = lot->required_box;
+
+    // Drops the expansions queued for the previous target. They carry a
+    // search number that is no longer current, and they would delay the new
+    // search by one frame for every five of them.
+    if (!is_ai_target && g_Config.gameplay.fix_enemy_route_delay) {
+        while (lot->head != NO_BOX) {
+            BOX_NODE *const queued = &lot->node[lot->head];
+            lot->head = queued->next_expansion;
+            queued->next_expansion = NO_BOX;
+        }
+        lot->tail = NO_BOX;
+    }
+
+    BOX_NODE *const expand = &lot->node[lot->target_box];
+    if (expand->next_expansion == NO_BOX && lot->tail != lot->target_box) {
+        expand->next_expansion = lot->head;
+        if (lot->head == NO_BOX) {
+            lot->tail = lot->target_box;
+        }
+        lot->head = lot->target_box;
+    }
+    lot->search_num++;
+    expand->search_num = lot->search_num;
+    expand->exit_box = NO_BOX;
+
+end:
+    return Box_SearchLOT(lot, expansion);
 }
 
 void Box_InitialiseBoxes(const int32_t num_boxes)
@@ -138,7 +208,7 @@ bool Box_SearchLOT(LOT_INFO *const lot, const int32_t expansion)
             if ((box_num & BOX_END_BIT) != 0) {
                 done = true;
             }
-            const int16_t overlap_flags = box_num;
+            const int16_t overlap_flags = M_GetOverlapFlags(box_num);
             box_num = M_GetOverlapBoxNum(box_num);
 
             const BOX_INFO *const box = Box_GetBox(box_num);
@@ -208,53 +278,14 @@ bool Box_SearchLOT(LOT_INFO *const lot, const int32_t expansion)
     return true;
 }
 
-// How the path leaves the box the creature stands in. TR4 marks the overlaps
-// that take a jump or a swing along the monkey bars to cross.
 bool Box_IsMonkeyAhead(const LOT_INFO *const lot, const int16_t box_num)
 {
-    const BOX_INFO *const box = Box_GetBox(box_num);
-    if (box == nullptr || lot->node[box_num].exit_box == NO_BOX) {
-        return false;
-    }
-
-    const int16_t exit_box = lot->node[box_num].exit_box;
-    int32_t index = box->overlap_index & BOX_OVERLAP_BITS;
-    while (true) {
-        const int16_t overlap = M_GetOverlap(index++);
-        if (overlap == NO_BOX) {
-            return false;
-        }
-        if (M_GetOverlapBoxNum(overlap) == exit_box) {
-            return (overlap & BOX_OVERLAP_MONKEY) != 0;
-        }
-        if ((overlap & BOX_END_BIT) != 0) {
-            return false;
-        }
-    }
+    return M_IsOverlapTypeAhead(lot, box_num, BOX_OVERLAP_MONKEY);
 }
 
-bool Box_UpdateLOT(LOT_INFO *const lot, const int32_t expansion)
+bool Box_IsJumpAhead(const LOT_INFO *const lot, const int16_t box_num)
 {
-    if (Box_GetBox(lot->required_box) == nullptr
-        || lot->required_box == lot->target_box) {
-        goto end;
-    }
-
-    lot->target_box = lot->required_box;
-    BOX_NODE *const expand = &lot->node[lot->target_box];
-    if (expand->next_expansion == NO_BOX && lot->tail != lot->target_box) {
-        expand->next_expansion = lot->head;
-        if (lot->head == NO_BOX) {
-            lot->tail = lot->target_box;
-        }
-        lot->head = lot->target_box;
-    }
-    lot->search_num++;
-    expand->search_num = lot->search_num;
-    expand->exit_box = NO_BOX;
-
-end:
-    return Box_SearchLOT(lot, expansion);
+    return M_IsOverlapTypeAhead(lot, box_num, BOX_OVERLAP_JUMP);
 }
 
 void Box_TargetBox(LOT_INFO *const lot, int16_t box_num)
@@ -265,14 +296,26 @@ void Box_TargetBox(LOT_INFO *const lot, int16_t box_num)
         return;
     }
 
-    // TODO: determine if the shift is essential
-    const int32_t shift = g_TRVersion >= 2 ? 1 : 0;
-    lot->target.z = box->left + WALL_L / 2
-        + (Random_GetControl() * (box->right + shift - box->left - WALL_L)
-           >> 15);
-    lot->target.x = box->top + WALL_L / 2
-        + (Random_GetControl() * (box->bottom + shift - box->top - WALL_L)
-           >> 15);
+    if (g_TRVersion == 3) {
+        // TR3 scales the random offset by the box size in sectors shifted
+        // right by five, so the offset is zero for boxes up to 32 sectors
+        // across and the target stays half a sector in from the near corner.
+        const int32_t width = ((box->right + 1 - box->left) >> WALL_SHIFT) - 1;
+        const int32_t depth = ((box->bottom + 1 - box->top) >> WALL_SHIFT) - 1;
+        lot->target.z =
+            box->left + WALL_L / 2 + (width >> 5) * Random_GetControl();
+        lot->target.x =
+            box->top + WALL_L / 2 + (depth >> 5) * Random_GetControl();
+    } else {
+        // TODO: determine if the shift is essential
+        const int32_t shift = g_TRVersion >= 2 ? 1 : 0;
+        lot->target.z = box->left + WALL_L / 2
+            + (Random_GetControl() * (box->right + shift - box->left - WALL_L)
+               >> 15);
+        lot->target.x = box->top + WALL_L / 2
+            + (Random_GetControl() * (box->bottom + shift - box->top - WALL_L)
+               >> 15);
+    }
     lot->required_box = box_num;
     if (lot->setup.fly != 0) {
         lot->target.y = box->height - STEP_L * 3 / 2;
@@ -369,7 +412,7 @@ bool Box_ValidBox(
 TARGET_TYPE Box_CalculateTarget(
     XYZ_32 *const target, const ITEM *const item, LOT_INFO *const lot)
 {
-    Box_UpdateLOT(lot, BOX_MAX_EXPANSION);
+    M_UpdateLOT(lot, BOX_MAX_EXPANSION, item->ai_bits != 0);
 
     *target = item->pos;
 

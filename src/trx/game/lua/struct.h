@@ -10,8 +10,8 @@
 // Generic Lua bridge over FIELD_DESC.
 //
 // Registering a type creates its metatable with EMPTY public tables: no field,
-// method or computed member is reachable until a script declares it (see
-// trx.api.type in src/lua/api.lua). The declaration is what populates the
+// method or computed member is reachable until a script exposes it (see
+// h.handle in src/lua/trx/internal/helpers.lua). Exposing is what populates the
 // metatable, so the public API is coined in Lua, while dispatch stays in C
 // - routing field reads through Lua costs ~1.5x on the hottest path scripts
 // have.
@@ -65,3 +65,20 @@ typedef struct {
 // set, bound to `desc`. Call after LUA_Struct_Register; a declaration exposes
 // them by name.
 void LUA_Property_Register(lua_State *L, const LUA_PROPERTY_DESC *desc);
+
+// Make a member reachable from a script under `public_name`, as the type's
+// declaration in Lua states it. A field is writable only where `writable` is
+// set; the function at `fn_idx` is exposed as a method, or as a computed member
+// read through it.
+void LUA_Struct_ExposeField(
+    lua_State *L, const TYPE_DESC *type, const char *public_name,
+    const FIELD_DESC *field, bool writable);
+void LUA_Struct_ExposeMethod(
+    lua_State *L, const TYPE_DESC *type, const char *public_name, int fn_idx);
+void LUA_Struct_ExposeComputed(
+    lua_State *L, const TYPE_DESC *type, const char *public_name, int fn_idx);
+
+// Push one of the C methods the type offers by its C name, or nil where it
+// offers none, and answer whether it does.
+bool LUA_Struct_PushRawMethod(
+    lua_State *L, const TYPE_DESC *type, const char *c_name);

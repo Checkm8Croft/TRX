@@ -7,7 +7,6 @@
 #include <trx/game/camera.h>
 #include <trx/game/game.h>
 #include <trx/game/game_buf.h>
-#include <trx/game/game_strings/entries.h>
 #include <trx/game/gun.h>
 #include <trx/game/gun/common.h>
 #include <trx/game/input.h>
@@ -15,14 +14,26 @@
 #include <trx/game/lara.h>
 #include <trx/game/lara/hair.h>
 #include <trx/game/music.h>
-#include <trx/game/overlay.h>
 #include <trx/game/random.h>
 #include <trx/game/rooms.h>
 #include <trx/version.h>
 
+#define M_SEED 0xD371F947
+
 #define L_MODIFY_CONFIG()                                                      \
     X_PROCESS_CONFIG(gameplay.disable_healing_between_levels, false);          \
+    X_PROCESS_CONFIG(gameplay.enable_enemy_rotation, true);                    \
     X_PROCESS_CONFIG(gameplay.enable_fast_pickups, false);                     \
+    X_PROCESS_CONFIG(gameplay.enemy_health_scale, 1.0f);                       \
+    X_PROCESS_CONFIG(gameplay.enable_pickup_aids, false);                      \
+    X_PROCESS_CONFIG(gameplay.enable_responsive_sprint, false);                \
+    X_PROCESS_CONFIG(gameplay.enable_sprint, g_TRVersion >= 3);                \
+    X_PROCESS_CONFIG(gameplay.enable_toggle_crouch, false);                    \
+    X_PROCESS_CONFIG(gameplay.enable_toggle_sprint, false);                    \
+    X_PROCESS_CONFIG(debug.enable_endless_sprint, false);                      \
+    X_PROCESS_CONFIG(gameplay.enable_fast_pull_up, false);                     \
+    X_PROCESS_CONFIG(gameplay.jump_lock_mode, JUMP_LOCK_LEGACY);               \
+    X_PROCESS_CONFIG(gameplay.lara_damage_scale, 1.0f);                        \
     X_PROCESS_CONFIG(gameplay.target_change_mode, TARGET_CHANGE_MODE_OFF);     \
     X_PROCESS_CONFIG(gameplay.enable_tr2_jumping, g_TRVersion >= 2);           \
     X_PROCESS_CONFIG(gameplay.enable_tr2_swim_cancel, g_TRVersion >= 2);       \
@@ -30,6 +41,8 @@
     X_PROCESS_CONFIG(gameplay.enable_wading, g_TRVersion >= 2);                \
     X_PROCESS_CONFIG(gameplay.enable_walk_to_items, false);                    \
     X_PROCESS_CONFIG(gameplay.fix_bear_ai, false);                             \
+    X_PROCESS_CONFIG(gameplay.fix_bird_start_pos, false);                      \
+    X_PROCESS_CONFIG(gameplay.fix_enemy_route_delay, false);                   \
     X_PROCESS_CONFIG(gameplay.harpoon_recoil, 4);                              \
     X_PROCESS_CONFIG(                                                          \
         gameplay.look_mode,                                                    \
@@ -97,6 +110,12 @@ void Demo_LoadData(TRX_FILE *const file, const size_t size)
     }
 }
 
+bool Demo_UsesPS1Rules(void)
+{
+    const GF_LEVEL *const level = GF_GetCurrentLevel();
+    return g_TRVersion == 3 && level != nullptr && level->type == GFL_DEMO;
+}
+
 bool Demo_UpdateInput(void)
 {
     M_PRIV *const p = &m_Priv;
@@ -125,6 +144,9 @@ bool Demo_UpdateInput(void)
             uint32_t menu_back:    1;
             uint32_t save:         1;
             uint32_t load:         1;
+            uint32_t _pad2:        5;
+            uint32_t crouch:       1;
+            uint32_t sprint:       1;
             // clang-format on
         };
     } demo_input = { .any = *p->demo_ptr };
@@ -154,6 +176,8 @@ bool Demo_UpdateInput(void)
         .menu_back    = demo_input.menu_back,
         .save         = demo_input.save,
         .load         = demo_input.load,
+        .crouch       = demo_input.crouch,
+        .sprint       = demo_input.sprint,
         // clang-format on
     };
 
@@ -166,6 +190,13 @@ bool Demo_UpdateInput(void)
     return true;
 }
 
+void Demo_Initialise(void)
+{
+    Random_SeedDraw(M_SEED);
+    Random_SeedControl(M_SEED);
+    M_PrepareConfig(&m_Priv);
+}
+
 bool Demo_Start(const int32_t level_num)
 {
     M_PRIV *const p = &m_Priv;
@@ -173,7 +204,6 @@ bool Demo_Start(const int32_t level_num)
     ASSERT(p->level != nullptr);
     ASSERT(GF_GetCurrentLevel() == p->level);
 
-    M_PrepareConfig(p);
     Interpolation_Remember();
 
     // Remember old inputs in case the demo was forcefully started with some
@@ -226,15 +256,11 @@ bool Demo_Start(const int32_t level_num)
     Lara_Hair_Initialise();
 
     Camera_Initialise();
-    Random_SeedDraw(0xD371F947);
-    Random_SeedControl(0xD371F947);
+    if (g_TRVersion <= 2) {
+        Random_SeedDraw(M_SEED);
+        Random_SeedControl(M_SEED);
+    }
     g_OverlayFlag = 1;
-
-    Overlay_SetBottomText((OVERLAY_TEXT) {
-        .kind = OVERLAY_TEXT_GS_KEY,
-        .gs_key = GS_ID("general/misc/demo_mode"),
-        .flash_enabled = true,
-    });
     return true;
 }
 
@@ -242,7 +268,6 @@ void Demo_End(void)
 {
     M_PRIV *const p = &m_Priv;
     M_RestoreConfig(p);
-    Overlay_SetBottomText((OVERLAY_TEXT) { 0 });
     Music_Stop();
 }
 
@@ -250,18 +275,12 @@ void Demo_Pause(void)
 {
     M_PRIV *const p = &m_Priv;
     M_RestoreConfig(p);
-    Overlay_SetBottomText((OVERLAY_TEXT) { 0 });
 }
 
 void Demo_Unpause(void)
 {
     M_PRIV *const p = &m_Priv;
     M_PrepareConfig(p);
-    Overlay_SetBottomText((OVERLAY_TEXT) {
-        .kind = OVERLAY_TEXT_GS_KEY,
-        .gs_key = GS_ID("general/misc/demo_mode"),
-        .flash_enabled = true,
-    });
 }
 
 int32_t Demo_ChooseLevel(const int32_t demo_num)
@@ -280,15 +299,6 @@ int32_t Demo_ChooseLevel(const int32_t demo_num)
 GF_COMMAND Demo_Control(void)
 {
     return Game_Control(true);
-}
-
-void Demo_StopFlashing(void)
-{
-    Overlay_SetBottomText((OVERLAY_TEXT) {
-        .kind = OVERLAY_TEXT_GS_KEY,
-        .gs_key = GS_ID("general/misc/demo_mode"),
-        .flash_enabled = false,
-    });
 }
 
 REGISTER_SUBSYSTEM(.shutdown = M_Shutdown)

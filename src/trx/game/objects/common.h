@@ -97,12 +97,14 @@ OBJECT_ID Object_FindReceptacleKey(const OBJECT_ID receptacle_obj_id);
 void Object_SetReflective(OBJECT_ID obj_id, bool enabled);
 void Object_SetMeshReflective(OBJECT_ID obj_id, int32_t mesh_idx, bool enabled);
 
-// Marks every face of the object's meshes to draw at half opacity, like the
-// PSX half blend mode. Face scene passes are baked at level load; when
-// changing this mid-game, follow up with Output_RefreshObjectMeshes().
-void Object_SetSemiTransparent(OBJECT_ID obj_id, bool enabled);
+// Excludes one mesh from reflections without clearing its reflection flags.
+void Object_SetMeshReflectionsSuppressed(
+    OBJECT_ID obj_id, int32_t mesh_idx, bool suppressed);
 
 bool Object_CanInterpolate(const ITEM *item, int32_t frame_a, int32_t frame_b);
+
+// Returns whether the item can be exploded.
+bool Object_CanBeExploded(const ITEM *item);
 
 // Bind the setup routine of an object before catalogue setup.
 void Object_Register(OBJECT_ID object_id, void (*setup_func)(OBJECT *obj));

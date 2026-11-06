@@ -1,4 +1,5 @@
 #include <trx/config.h>
+#include <trx/core/math/geom.h>
 #include <trx/core/subsystem.h>
 #include <trx/core/utils.h>
 #include <trx/core/vector.h>
@@ -7,7 +8,10 @@
 #include <trx/game/effects.h>
 #include <trx/game/fx.h>
 #include <trx/game/lara.h>
+#include <trx/game/lara/mesh.h>
 #include <trx/game/matrix.h>
+#include <trx/game/objects.h>
+#include <trx/game/objects/draw.h>
 #include <trx/game/output.h>
 #include <trx/game/output/bind.h>
 #include <trx/game/output/water.h>
@@ -15,6 +19,7 @@
 #include <trx/game/rope.h>
 #include <trx/game/sparks.h>
 #include <trx/game/viewport.h>
+#include <trx/version.h>
 
 #include <string.h>
 
@@ -38,6 +43,13 @@ static int32_t m_OutsideBottom;
 static int32_t m_BoundStart;
 static int32_t m_BoundEnd;
 static int32_t m_BoundRooms[M_MAX_BOUND_ROOMS] = {};
+
+// Reports whether the draw leaves out Lara, the creatures and the effects,
+// which is how the level view a loading screen shows draws.
+static bool M_IsSceneryOnly(void)
+{
+    return g_Camera.type == CAM_LOADING_SCREEN;
+}
 
 static inline void M_DrawSet_Init(ROOM_DRAWSET *const s)
 {
@@ -296,6 +308,11 @@ static void M_SetBounds(
     }
 }
 
+static bool M_IsSkyboxDrawn(void)
+{
+    return Output_IsSkyboxEnabled() && Object_Get(O_SKYBOX)->loaded;
+}
+
 static void M_DrawSkybox(void)
 {
     if (!Output_IsSkyboxEnabled()) {
@@ -317,7 +334,10 @@ static void M_DrawRoomItem(const int16_t item_num, void *const ud)
     ITEM *const item = Item_Get(item_num);
     const OBJECT *const obj = Object_Get(item->object_id);
     OUTPUT_ITEM_BIND *const bind = Output_Bind_GetItem(item);
-    if (bind->drawn || !item->is_visible || obj->draw_func == nullptr) {
+    // Skips Lara, whom Room_DrawAllRooms draws after the rooms, even when a
+    // cutscene gives her a draw function.
+    if (bind->drawn || !item->is_visible || obj->draw_func == nullptr
+        || item == Lara_GetItem() || (M_IsSceneryOnly() && obj->intelligent)) {
         return;
     }
 
@@ -383,6 +403,14 @@ static void M_DrawRoomItem(const int16_t item_num, void *const ud)
     }
 }
 
+static void M_DrawEffect(const EFFECT *const effect)
+{
+    const OBJECT *const obj = Object_Get(effect->object_id);
+    if (obj->loaded && obj->effect_draw_func != nullptr) {
+        obj->effect_draw_func(effect);
+    }
+}
+
 static void M_DrawSingleRoom(const ROOM *const room)
 {
     Output_SetCurrentRoom(room);
@@ -421,7 +449,8 @@ static void M_DrawSingleRoom(const ROOM *const room)
 
     for (int32_t i = 0; i < room->num_static_meshes; i++) {
         const STATIC_MESH *const mesh = &room->static_meshes[i];
-        if (M_DrawSet_Has(&m_DrawnStatics, mesh->draw_num)) {
+        if (M_DrawSet_Has(&m_DrawnStatics, mesh->draw_num)
+            || Room_IsStaticShattered(mesh)) {
             continue;
         }
         const STATIC_OBJECT_3D *const obj =
@@ -442,7 +471,8 @@ static void M_DrawSingleRoom(const ROOM *const room)
             Object_DrawMesh(obj->mesh_idx, clip, false);
             Output_Water_SetupFromRoom(room);
             if (g_Config.debug.enable_debug_bounding_boxes) {
-                Output_DrawCuboid(&obj->draw_bounds);
+                const BOUNDS_32 bounds = BOUNDS_32_From16(&obj->draw_bounds);
+                Output_DrawCuboid(&bounds);
             }
         }
         Matrix_Pop();
@@ -459,7 +489,7 @@ static void M_DrawSingleRoom(const ROOM *const room)
     int16_t effect_num = room->effect_num;
     while (effect_num != NO_EFFECT) {
         const EFFECT *const effect = Effect_Get(effect_num);
-        Effect_Draw(effect_num);
+        M_DrawEffect(effect);
         effect_num = effect->next_free;
     }
 
@@ -542,6 +572,10 @@ void Room_DrawAllRooms(const int16_t current_room, const int16_t target_room)
 
     M_GetBounds();
 
+    if (!m_Outside || M_IsSkyboxDrawn()) {
+        Output_KeepPreviousFrame();
+    }
+
     if (m_Outside) {
         M_DrawSkybox();
     }
@@ -553,10 +587,9 @@ void Room_DrawAllRooms(const int16_t current_room, const int16_t target_room)
         M_DrawSingleRoom(Room_Get(draw_room_num));
     }
 
-    // A title level running behind the menu may hold her object without ever
-    // placing her.
     const ITEM *const lara_item = Lara_GetItem();
-    if (lara_item != nullptr && Object_Get(O_LARA)->loaded) {
+    if (!M_IsSceneryOnly() && lara_item != nullptr && Object_Get(O_LARA)->loaded
+        && Lara_Mesh_IsReady()) {
         const ROOM *const lara_room = Room_Get(lara_item->room_num);
         Output_Water_SetupFromRoom(lara_room);
         Output_SetCurrentRoom(lara_room);
@@ -566,10 +599,13 @@ void Room_DrawAllRooms(const int16_t current_room, const int16_t target_room)
     CutSeq_DrawActors();
 
     Output_Water_SetupAboveWater(false);
-    FX_Draw();
-    Sparks_Draw();
+    if (!M_IsSceneryOnly()) {
+        FX_DrawAll();
+        Sparks_DrawAll();
+    }
     Rope_DrawAll();
     Output_LensFlares_Draw();
+    Output_Flash_Draw();
 }
 
 bool Room_IsSkyVisible(void)

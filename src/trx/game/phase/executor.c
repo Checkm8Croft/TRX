@@ -2,64 +2,89 @@
 
 #include <trx/config.h>
 #include <trx/core/benchmark.h>
+#include <trx/core/log.h>
+#include <trx/core/memory.h>
+#include <trx/core/strings.h>
 #include <trx/game/clock.h>
 #include <trx/game/console/common.h>
+#include <trx/game/const.h>
 #include <trx/game/fader.h>
 #include <trx/game/fmv.h>
 #include <trx/game/game.h>
 #include <trx/game/game_flow.h>
 #include <trx/game/input.h>
 #include <trx/game/interpolation.h>
+#include <trx/game/locale/common.h>
 #include <trx/game/lua/events.h>
-#include <trx/game/lua/ui.h>
+#include <trx/game/lua/events/ui.h>
 #include <trx/game/music.h>
 #include <trx/game/output.h>
 #include <trx/game/output/overlay.h>
-#include <trx/game/overlay.h>
 #include <trx/game/savegame.h>
 #include <trx/game/shell.h>
 #include <trx/game/ui.h>
+#include <trx/game/ui/draw.h>
+#include <trx/game/ui/takeover.h>
 #include <trx/game/ui/touch_overlay.h>
+#include <trx/game/viewport.h>
 #include <trx/gl/context.h>
+#include <trx/gl/gpu_timer.h>
+#include <trx/gl/renderer.h>
 #include <trx/gl/track.h>
 
-#include <stdio.h>
+#include <SDL2/SDL_timer.h>
 
 #define M_MAX_PHASES 10
+// The warm-up ends once a frame takes no longer than this many frames of the
+// target rate, or once this many frames in a row are no faster than the
+// fastest one by M_WARM_UP_GAIN.
+#define M_WARM_UP_BUDGET 1.1
+#define M_WARM_UP_SETTLED_FRAMES 4
+#define M_WARM_UP_GAIN 0.95
+#define M_WARM_UP_MAX_SECONDS 1.0
 
 static int32_t m_CurrentFrame = 0;
 static bool m_Exiting;
-static FADER m_ExitFader;
 static int32_t m_PhaseStackSize = 0;
 static PHASE *m_PhaseStack[M_MAX_PHASES] = {};
 static bool m_PendingFadeToBlack = false;
+static bool m_WarmUpPending = false;
 static FADER_ARGS m_PendingFadeToBlackArgs;
 
-static GF_COMMAND M_HandleOverride(void)
+static double m_LastFlipMs = 0.0;
+
+static GF_COMMAND M_HandleOverride(const PHASE *const phase)
 {
     const GF_COMMAND gf_override_cmd = GF_GetOverrideCommand();
+    if (!GF_IsOverrideImmediate() && phase != nullptr
+        && phase->defers_override) {
+        // Defer the command until the phase finishes.
+        return (GF_COMMAND) { .action = GF_NOOP };
+    }
     if (gf_override_cmd.action == GF_START_FMV) {
-        GF_OverrideCommand((GF_COMMAND) { .action = GF_NOOP });
-        // A movie plays over the phase and hands it back, so the flow is not
-        // derailed and none of the teardown below applies.
+        GF_OverrideCommand((GF_COMMAND) { .action = GF_NOOP }, true);
+        // Let movies return to the current phase.
         const GF_FMV *const fmv = GF_GetFMV(gf_override_cmd.param);
         if (fmv != nullptr) {
-            SHOULD(FMV_Play(fmv->path));
+            char *path = Locale_ResolvePath(
+                LOCALE_ROLE_AUDIO, GAME_DYNAMIC_PATH_FMV_FILE,
+                &fmv->localized_path);
+            SHOULD(FMV_Play(path));
+            Memory_FreePointer(&path);
         }
         return (GF_COMMAND) { .action = GF_NOOP };
     }
     if (gf_override_cmd.action != GF_NOOP) {
         const GF_COMMAND gf_cmd = gf_override_cmd;
-        GF_OverrideCommand((GF_COMMAND) { .action = GF_NOOP });
+        GF_OverrideCommand((GF_COMMAND) { .action = GF_NOOP }, true);
 
-        // A change in the game flow is not natural. Force features like death
-        // counter to break from the currently active savegame file.
-        SG_Manager_UnbindSlot();
-        // This flag needs to be cleared as well.
+        // Stop the current save and music before changing game flow. A level
+        // select keeps the save bound by the code that raised it, because
+        // the save decides what Lara carries into the level.
+        if (gf_cmd.action != GF_SELECT_GAME) {
+            SG_Manager_UnbindSlot();
+        }
         Game_SetIsPlaying(false);
-        // Usually, sequences permit music to flow through - for instance, the
-        // end of level screen in The Great Wall transitioning to Venice.
-        // We must stop it manually here when derailing the sequence (#3469).
         Music_Stop();
 
         return gf_cmd;
@@ -67,39 +92,35 @@ static GF_COMMAND M_HandleOverride(void)
     return (GF_COMMAND) { .action = GF_NOOP };
 }
 
-// Starts the exit and reports whether a fade must finish before the phase ends.
-static bool M_BeginExit(void)
+// Reports whether a frame is drawn between two ticks. Unlike
+// Interpolation_IsActive, this stays true while the game exits, so that a
+// tick of the exit fade lasts as long as a tick of play.
+static bool M_HasHalfFrames(void)
 {
-    if (!m_Exiting) {
-        m_Exiting = true;
-        if (g_Config.visuals.enable_exit_fade_effects) {
-            Fader_InitFromCurrentHold(&m_ExitFader, 1.0f, 0.333f, 0.1f);
-        }
-    }
-    return Fader_IsActive(&m_ExitFader);
+    return Interpolation_IsEnabled() && Clock_GetCurrentFPS() == 60;
 }
 
-static void M_DrawFadeToBlackTransition(const float opacity)
+// Keeps the world on its last tick while the game exits, because no tick
+// moves it on and a half frame would show it between two positions.
+static void M_SetHalfFrameRate(void)
+{
+    Interpolation_SetRate(m_Exiting ? 1.0 : 0.5);
+    Interpolation_SetUIRate(0.5);
+}
+
+static void M_DrawHeldScreen(void)
 {
     Output_BeginScene();
     Output_SwitchViewport(VIEWPORT_GAME);
     UI_BeginScene();
-
-    Output_Overlay_DrawSnapshot(1.0f);
-    Output_Overlay_DrawBlackRectangle(opacity, false);
-
-    LUA_UI_DrawRegions();
-    Overlay_DrawUI();
+    LUA_UI_ReserveRegions();
     TouchOverlay_Draw();
-    Console_Draw();
-    UI_EndScene();
+    LUA_UI_EndScene();
 
     Output_SwitchViewport(VIEWPORT_UI);
     UI_Draw();
 
     Output_Flush();
-    Output_Overlay_DrawBlackRectangle(
-        Fader_GetCurrentValue(&m_ExitFader), true);
     Output_EndScene();
 
     if (!Output_IsHeadless()
@@ -110,39 +131,73 @@ static void M_DrawFadeToBlackTransition(const float opacity)
     }
 }
 
-static GF_COMMAND M_RunFadeToBlackTransition(const FADER_ARGS args)
+static int32_t M_ToTicks(const double seconds)
 {
-    Output_Overlay_CaptureSnapshot();
+    return (int32_t)(seconds * LOGIC_FPS + 0.5);
+}
 
-    FADER fader = {};
-    Fader_InitToHold(&fader, 0.0f, 1.0f, args.duration, args.debuff);
-    while (Fader_IsActive(&fader)) {
-        Clock_WaitTick();
-        m_CurrentFrame++;
+// Tells scripts that the next phase is about to start, then waits while a fade
+// layer holds the screen. The scripts decide how one screen gives way to the
+// next.
+static GF_COMMAND M_ChangeScreen(const PHASE *const phase)
+{
+    const bool cross_fades = phase != nullptr
+        && phase->uses_cross_fade_in != nullptr
+        && phase->uses_cross_fade_in(phase);
+    const FADER_ARGS fade =
+        m_PendingFadeToBlack ? m_PendingFadeToBlackArgs : (FADER_ARGS) {};
+    m_PendingFadeToBlack = false;
+    const LUA_EVENT_ARG args[] = {
+        { .type = LUA_EVENT_ARG_BOOL, .value.b = cross_fades },
+        { .type = LUA_EVENT_ARG_INT32, .value.i32 = M_ToTicks(fade.duration) },
+        { .type = LUA_EVENT_ARG_INT32, .value.i32 = M_ToTicks(fade.debuff) },
+    };
+    LUA_FireEventEx(LUA_EVENT_SCREEN_CHANGE, args, 3);
 
-        Shell_ProcessEvents();
-        Console_Control();
-        Overlay_Control();
+    // Starts the clock from the change, so that the time the last screen took
+    // to end, such as to load a level, does not run as ticks of the fade.
+    Clock_SyncTick();
+    while (LUA_UI_IsHoldingScreen()) {
+        const int32_t nframes = Clock_WaitTick();
+        for (int32_t frame = 0; frame < nframes; frame++) {
+            m_CurrentFrame++;
 
-        const GF_COMMAND gf_cmd = M_HandleOverride();
-        if (gf_cmd.action == GF_EXIT_GAME) {
-            M_BeginExit();
-        } else if (gf_cmd.action != GF_NOOP) {
-            return gf_cmd;
+            Shell_ProcessEvents();
+
+            const GF_COMMAND gf_cmd = M_HandleOverride(phase);
+            if (gf_cmd.action == GF_EXIT_GAME) {
+                PhaseExecutor_BeginExit();
+            } else if (gf_cmd.action != GF_NOOP) {
+                return gf_cmd;
+            }
+
+            if (Shell_IsExiting()) {
+                PhaseExecutor_BeginExit();
+            }
+            if (m_Exiting && !LUA_UI_IsHoldingScreen()) {
+                return (GF_COMMAND) { .action = GF_EXIT_GAME };
+            }
+
+            LUA_Tick();
+        }
+        // Draws nothing once the fades let go of the screen, so that no frame
+        // shows the interface between the fades and the next screen.
+        if (!LUA_UI_IsHoldingScreen()) {
+            break;
         }
 
-        if (Shell_IsExiting()) {
-            M_BeginExit();
+        // Draws the frame between two ticks as the main loop does, so that a
+        // tick lasts as long here as in a phase.
+        if (M_HasHalfFrames()) {
+            M_SetHalfFrameRate();
+            Output_SetTime(m_CurrentFrame - 0.5f);
+            M_DrawHeldScreen();
+            Clock_WaitTick();
         }
-        if (m_Exiting && !Fader_IsActive(&m_ExitFader)) {
-            return (GF_COMMAND) { .action = GF_EXIT_GAME };
-        }
-
-        LUA_FireEvent(LUA_EVENT_TICK);
 
         Interpolation_SetRate(1.0f);
         Output_SetTime(m_CurrentFrame);
-        M_DrawFadeToBlackTransition(Fader_GetCurrentValue(&fader));
+        M_DrawHeldScreen();
     }
 
     return (GF_COMMAND) { .action = GF_NOOP };
@@ -152,12 +207,10 @@ static PHASE_CONTROL M_Control(PHASE *const phase)
 {
     m_CurrentFrame++;
     Shell_ProcessEvents();
-    Console_Control();
-    Overlay_Control();
 
-    const GF_COMMAND gf_cmd = M_HandleOverride();
+    const GF_COMMAND gf_cmd = M_HandleOverride(phase);
     if (gf_cmd.action == GF_EXIT_GAME) {
-        M_BeginExit();
+        PhaseExecutor_BeginExit();
     } else if (gf_cmd.action != GF_NOOP) {
         return (PHASE_CONTROL) {
             .action = PHASE_ACTION_END_FAST,
@@ -166,15 +219,18 @@ static PHASE_CONTROL M_Control(PHASE *const phase)
     }
 
     if (Shell_IsExiting()) {
-        M_BeginExit();
+        PhaseExecutor_BeginExit();
     }
     if (m_Exiting) {
-        if (!Fader_IsActive(&m_ExitFader)) {
+        if (!LUA_UI_IsHoldingScreen()) {
             return (PHASE_CONTROL) {
                 .action = PHASE_ACTION_END,
                 .gf_cmd = { .action = GF_EXIT_GAME },
             };
         }
+        // The exit fade moves on the scripts' ticks, so they go on while the
+        // phase stands still.
+        LUA_Tick();
         return (PHASE_CONTROL) { .action = PHASE_ACTION_CONTINUE };
     }
 
@@ -185,12 +241,20 @@ static PHASE_CONTROL M_Control(PHASE *const phase)
     // Publish signals after phase control updates the frame state.
     if (phase != nullptr && phase->control != nullptr) {
         Output_DropPendingFog();
+        const bool was_closed = UI_Takeover_IsAnyClosed();
         const PHASE_CONTROL control = phase->control(phase);
-        LUA_FireEvent(LUA_EVENT_TICK);
+        LUA_Tick();
+        // Runs the phase again before the next draw when a script closes a
+        // screen during the tick. Otherwise one frame shows the screen
+        // without the script's layers.
+        if (control.action == PHASE_ACTION_CONTINUE && !was_closed
+            && UI_Takeover_IsAnyClosed()) {
+            return (PHASE_CONTROL) { .action = PHASE_ACTION_NO_WAIT };
+        }
         return control;
     }
 
-    LUA_FireEvent(LUA_EVENT_TICK);
+    LUA_Tick();
     return (PHASE_CONTROL) {
         .action = PHASE_ACTION_END,
         .gf_cmd = { .action = GF_NOOP },
@@ -208,37 +272,103 @@ static void M_Draw(PHASE *const phase)
         phase->draw(phase);
     }
 
-    LUA_UI_DrawRegions();
-    Overlay_DrawUI();
+    LUA_UI_ReserveRegions();
     TouchOverlay_Draw();
-    Console_Draw();
-    UI_EndScene();
+    LUA_UI_EndScene();
 
     Output_SwitchViewport(VIEWPORT_UI);
     UI_Draw();
 
     Output_Flush();
-    Output_Overlay_DrawBlackRectangle(
-        Fader_GetCurrentValue(&m_ExitFader), true);
     Output_EndScene();
 
+    TRX_GL_GpuTimer_Collect();
     if (Shell_GetArgs()->debug_render_performance) {
-        char buffer[80];
         const TRX_GL_METRICS metrics = TRX_GL_Track_GetMetrics();
-        sprintf(
-            buffer, "%.03f KB T:%d U:%d Vo:%d Vt:%d Vb:%d",
-            metrics.buffer_total_bytes / 1024.0f, metrics.buffer_transfer_count,
-            metrics.uniform_changes, metrics.opaque_vert_count,
-            metrics.trans_vert_count, metrics.blend_add_vert_count);
-        Benchmark_End(&benchmark, buffer);
+        Benchmark_End(
+            &benchmark,
+            String_FormatStatic(
+                "%.03f KB T:%d U:%d Vo:%d Vt:%d Vb:%d Do:%d Dt:%d Db:%d S:%d "
+                "I:%d F:%.03f | gpu bg:%.02f op:%.02f tr:%.02f sub:%.02f "
+                "add:%.02f ui:%.02f",
+                metrics.buffer_total_bytes / 1024.0f,
+                metrics.buffer_transfer_count, metrics.uniform_changes,
+                metrics.opaque_vert_count, metrics.trans_vert_count,
+                metrics.blend_add_vert_count, metrics.opaque_draw_count,
+                metrics.trans_draw_count, metrics.blend_add_draw_count,
+                metrics.trans_sort_count, metrics.staged_count, m_LastFlipMs,
+                TRX_GL_GpuTimer_GetMs(SCENE_PASS_BACKGROUND),
+                TRX_GL_GpuTimer_GetMs(SCENE_PASS_OPAQUE),
+                TRX_GL_GpuTimer_GetMs(SCENE_PASS_TRANSPARENT),
+                TRX_GL_GpuTimer_GetMs(SCENE_PASS_BLEND_SUB),
+                TRX_GL_GpuTimer_GetMs(SCENE_PASS_BLEND_ADD),
+                TRX_GL_GpuTimer_GetMs(SCENE_PASS_UI)));
     }
 
     if (!Output_IsHeadless()
         || TRX_GL_Context_GetScheduledScreenshotPath() != nullptr) {
+        const Uint64 flip_start = SDL_GetPerformanceCounter();
         Output_FlipScreen();
+        m_LastFlipMs = (double)(SDL_GetPerformanceCounter() - flip_start)
+            * 1000.0 / (double)SDL_GetPerformanceFrequency();
     } else {
+        m_LastFlipMs = 0.0;
         TRX_GL_Track_Reset();
     }
+}
+
+// Draws the first frame of a phase again while the frames get faster, without
+// moving the phase on, for at most M_WARM_UP_MAX_SECONDS. The window shows
+// black meanwhile, since the first frame can be part way into a fade, and
+// holding it would show as a stall. A graphics card that idled through an FMV
+// lowers its clock and takes a moment to raise it again, and a fade that ran
+// meanwhile would stall and then jump.
+static void M_WarmUp(PHASE *const phase)
+{
+    const double frequency = (double)SDL_GetPerformanceFrequency();
+    const double budget = M_WARM_UP_BUDGET / (double)Clock_GetCurrentFPS();
+    const Uint64 start = SDL_GetPerformanceCounter();
+    Uint64 last = start;
+    double best_time = 0.0;
+    double time = 0.0;
+    int32_t settled_frames = 0;
+    int32_t frames = 0;
+    // A frame that waits for the display takes as long as the display does,
+    // which hides how fast the card has become.
+    TRX_GL_Context_SetVSync(false);
+    TRX_GL_Renderer_SetOutputBlank(true);
+    while ((SDL_GetPerformanceCounter() - start) / frequency
+           < M_WARM_UP_MAX_SECONDS) {
+        Shell_ProcessEvents();
+        M_Draw(phase);
+        // The card queues frames ahead of the processor, so each is waited
+        // for to time it.
+        glFinish();
+        const Uint64 now = SDL_GetPerformanceCounter();
+        time = (now - last) / frequency;
+        last = now;
+        frames++;
+        if (time <= budget) {
+            break;
+        }
+        if (best_time == 0.0 || time < best_time * M_WARM_UP_GAIN) {
+            best_time = time;
+            settled_frames = 0;
+        } else if (++settled_frames >= M_WARM_UP_SETTLED_FRAMES) {
+            break;
+        }
+    }
+    TRX_GL_Renderer_SetOutputBlank(false);
+    TRX_GL_Context_SetVSync(g_Config.rendering.enable_vsync);
+    LOG_DEBUG(
+        "warmed up in %d frames, %.0f ms, last frame %.2f ms", frames,
+        (last - start) * 1000.0 / frequency, time * 1000.0);
+    Clock_SyncTick();
+}
+
+void PhaseExecutor_WarmUpNextPhase(void)
+{
+    m_WarmUpPending = true;
 }
 
 GF_COMMAND PhaseExecutor_Run(PHASE *const phase)
@@ -246,7 +376,7 @@ GF_COMMAND PhaseExecutor_Run(PHASE *const phase)
     GF_COMMAND gf_cmd = { .action = GF_NOOP };
     bool skip_fade_out = false;
 
-    gf_cmd = M_HandleOverride();
+    gf_cmd = M_HandleOverride(phase);
     if (gf_cmd.action != GF_NOOP) {
         return gf_cmd;
     }
@@ -258,21 +388,12 @@ GF_COMMAND PhaseExecutor_Run(PHASE *const phase)
     }
     m_PhaseStack[m_PhaseStackSize++] = phase;
 
-    if (m_PendingFadeToBlack) {
-        const bool uses_cross_fade_in = phase != nullptr
-            && phase->uses_cross_fade_in != nullptr
-            && phase->uses_cross_fade_in(phase);
-        if (!uses_cross_fade_in) {
-            gf_cmd = M_RunFadeToBlackTransition(m_PendingFadeToBlackArgs);
-            if (gf_cmd.action != GF_NOOP) {
-                goto finish;
-            }
-        }
-        m_PendingFadeToBlack = false;
+    gf_cmd = M_ChangeScreen(phase);
+    if (gf_cmd.action != GF_NOOP) {
+        goto finish;
     }
 
     if (phase->start != nullptr) {
-        Clock_SyncTick();
         g_OldInputDB = g_Input;
         const PHASE_CONTROL control = phase->start(phase);
         if (Shell_IsExiting()) {
@@ -286,6 +407,16 @@ GF_COMMAND PhaseExecutor_Run(PHASE *const phase)
             skip_fade_out = true;
             goto finish;
         }
+        // Starts the clock once the phase has started. A start can take a
+        // while, such as to decode a picture, and that time would otherwise
+        // run as ticks before the first frame, so a fade that the start set
+        // off would show part way through.
+        Clock_SyncTick();
+    }
+
+    if (m_WarmUpPending) {
+        m_WarmUpPending = false;
+        M_WarmUp(phase);
     }
 
     while (true) {
@@ -301,7 +432,8 @@ GF_COMMAND PhaseExecutor_Run(PHASE *const phase)
                     skip_fade_out = control.action == PHASE_ACTION_END_FAST;
                     gf_cmd = control.gf_cmd;
                 }
-                if (gf_cmd.action != GF_EXIT_GAME || !M_BeginExit()) {
+                if (gf_cmd.action != GF_EXIT_GAME
+                    || !PhaseExecutor_BeginExit()) {
                     goto finish;
                 }
             } else if (control.action == PHASE_ACTION_NO_WAIT) {
@@ -314,9 +446,8 @@ GF_COMMAND PhaseExecutor_Run(PHASE *const phase)
             }
         }
 
-        if (!Shell_ShouldPauseForFocusLoss() && !m_Exiting
-            && Interpolation_IsActive()) {
-            Interpolation_SetRate(0.5);
+        if (!Shell_ShouldPauseForFocusLoss() && M_HasHalfFrames()) {
+            M_SetHalfFrameRate();
             Output_SetTime(m_CurrentFrame - 0.5f);
             M_Draw(phase);
             Clock_WaitTick();
@@ -356,4 +487,16 @@ PHASE *PhaseExecutor_GetOuterPhase(void)
         return nullptr;
     }
     return m_PhaseStack[m_PhaseStackSize - 2];
+}
+
+bool PhaseExecutor_BeginExit(void)
+{
+    if (!m_Exiting) {
+        m_Exiting = true;
+        // Nothing reads the devices while the game fades out, so the presses
+        // of the last update would otherwise read again on every tick.
+        Input_Reset();
+        LUA_FireEvent(LUA_EVENT_EXIT);
+    }
+    return LUA_UI_IsHoldingScreen();
 }

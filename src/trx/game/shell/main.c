@@ -6,6 +6,7 @@
 #include <trx/game/shell.h>
 #include <trx/game/shell/common.h>
 #include <trx/game/shell/mod.h>
+#include <trx/game/shell/tombstones.h>
 #include <trx/version.h>
 
 #include <stdlib.h>
@@ -132,6 +133,7 @@ int main(int argc, char *argv[])
     Log_SetMinLevel(args->quiet ? LOG_LEVEL_WARNING : LOG_LEVEL_MAX);
 #endif
 
+    Shell_SweepTombstones();
     Shell_ValidateMods();
     // A game the player named is theirs to hear about, so it stays where it is
     // for the shell to report. Anything else falls back to what can be played.

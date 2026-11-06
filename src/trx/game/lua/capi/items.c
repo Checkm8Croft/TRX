@@ -1,13 +1,17 @@
 #include <trx/core/utils.h>
 #include <trx/game/anims.h>
+#include <trx/game/collision.h>
 #include <trx/game/const.h>
 #include <trx/game/creature.h>
 #include <trx/game/items.h>
 #include <trx/game/items/utils.h>
+#include <trx/game/lara.h>
 #include <trx/game/lua/common.h>
 #include <trx/game/lua/registry.h>
 #include <trx/game/lua/struct.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/args.h>
+#include <trx/game/lua/utils/item.h>
+#include <trx/game/lua/utils/module.h>
 #include <trx/game/objects.h>
 #include <trx/game/pathing/lot.h>
 #include <trx/game/rooms.h>
@@ -24,9 +28,13 @@ typedef struct {
 
 static bool M_GetAnim(const void *const self, TRX_VALUE *const out)
 {
+    const ITEM *const item = self;
+    const int16_t anim_idx = item == Lara_GetItem()
+        ? Item_GetRelativeObjAnim(item, Lara_GetAnimationObject())
+        : Item_GetRelativeAnim(item);
     *out = (TRX_VALUE) {
         .type = TVT_S16,
-        .as_int = Item_GetRelativeAnim(self),
+        .as_int = anim_idx,
     };
     return true;
 }
@@ -34,7 +42,9 @@ static bool M_GetAnim(const void *const self, TRX_VALUE *const out)
 static const char *M_SetAnim(void *const self, const TRX_VALUE *const in)
 {
     ITEM *const item = self;
-    const OBJECT *const obj = Object_Get(item->object_id);
+    const OBJECT *const obj = item == Lara_GetItem()
+        ? Object_Get(Lara_GetAnimationObject())
+        : Object_Get(item->object_id);
     if (obj->anim_idx == NO_ANIM) {
         return "object has no animations";
     }
@@ -63,7 +73,9 @@ static bool M_GetFrame(const void *const self, TRX_VALUE *const out)
 static const char *M_SetFrame(void *const self, const TRX_VALUE *const in)
 {
     ITEM *const item = self;
-    const OBJECT *const obj = Object_Get(item->object_id);
+    const OBJECT *const obj = item == Lara_GetItem()
+        ? Object_Get(Lara_GetAnimationObject())
+        : Object_Get(item->object_id);
     if (obj->anim_idx == NO_ANIM) {
         return "object has no animations";
     }
@@ -91,6 +103,15 @@ static bool M_GetIsAlive(const void *const self, TRX_VALUE *const out)
 static bool M_GetIsTargetable(const void *const self, TRX_VALUE *const out)
 {
     *out = (TRX_VALUE) { .type = TVT_BOOL, .as_bool = Item_IsTargetable(self) };
+    return true;
+}
+
+static bool M_GetCanTakeDamage(const void *const self, TRX_VALUE *const out)
+{
+    *out = (TRX_VALUE) {
+        .type = TVT_BOOL,
+        .as_bool = Item_CanTakeDamage(self),
+    };
     return true;
 }
 
@@ -247,6 +268,7 @@ static const FIELD_DESC m_Fields[] = {
     FIELD_FN("is_ally",            TVT_BOOL, M_GetIsAlly,       nullptr),
     FIELD_FN("is_alive",           TVT_BOOL, M_GetIsAlive,      nullptr),
     FIELD_FN("is_targetable",      TVT_BOOL, M_GetIsTargetable, nullptr),
+    FIELD_FN("can_take_damage",    TVT_BOOL, M_GetCanTakeDamage, nullptr),
     FIELD_FN("is_killed",          TVT_BOOL, M_GetIsKilled,     nullptr),
     FIELD_FN("is_one_shot",        TVT_BOOL, M_GetIsOneShot,    M_SetIsOneShot),
 
@@ -443,7 +465,7 @@ static int M_L_ItemsTrigger(lua_State *const L)
     return 0;
 }
 
-// trxc.items.count() -> int
+// trxc.items.count(): integer
 static int M_L_ItemsCount(lua_State *const L)
 {
     lua_pushinteger(L, Item_GetTotalCount());
@@ -485,7 +507,7 @@ static bool M_InSphere(const XYZ_32 pos, const void *const arg)
     return dx * dx + dy * dy + dz * dz <= sphere->radius_sq;
 }
 
-// trxc.items.in_box({x,y,z}, {x,y,z}) -> list of item numbers
+// trxc.items.in_box(a: trx.math.Vec3, b: trx.math.Vec3): trx.items.Num[]
 static int M_L_ItemsInBox(lua_State *const L)
 {
     const XYZ_32 a = LUA_CheckXYZ(L, 1);
@@ -497,7 +519,7 @@ static int M_L_ItemsInBox(lua_State *const L)
     return M_PushItemsWhere(L, M_InBox, &box);
 }
 
-// trxc.items.in_sphere({x,y,z}, radius) -> list of item numbers
+// trxc.items.in_sphere(centre: trx.math.Vec3, radius: trx.math.Distance): trx.items.Num[]
 static int M_L_ItemsInSphere(lua_State *const L)
 {
     const XYZ_32 centre = LUA_CheckXYZ(L, 1);
@@ -512,7 +534,7 @@ static int M_L_ItemsInSphere(lua_State *const L)
     return M_PushItemsWhere(L, M_InSphere, &sphere);
 }
 
-// trxc.items.get(index | name) -> Item or nil
+// trxc.items.get(key: trx.items.Num|string): trx.items.Item?
 static int M_L_ItemsGet(lua_State *const L)
 {
     int32_t idx = -1;
@@ -535,7 +557,7 @@ static int M_L_ItemsGet(lua_State *const L)
     return 1;
 }
 
-// trxc.items.spawn(object_id, {x,y,z}, angle_y) -> Item or nil
+// trxc.items.spawn(object_id: trx.catalog.objects, pos: trx.math.Vec3, angle_y?: trx.math.Angle, opts?: trx.items.spawn.opts): trx.items.Item?
 static int M_L_ItemsSpawn(lua_State *const L)
 {
     // Object_Get asserts on an id outside the table.
@@ -592,8 +614,7 @@ static int M_L_ItemsDistanceTo(lua_State *const L)
     return 1;
 }
 
-// trxc.items.get_bounds(item) -> { min_x=, min_y=, min_z=, max_x=, max_y=,
-// max_z= }
+// trxc.items.get_bounds(item: trx.items.Item): trx.math.Box
 //
 // A table, not a scalar, so it cannot be a reflected field. Lua wraps this as a
 // computed property.
@@ -619,6 +640,36 @@ static int M_L_ItemsGetBounds(lua_State *const L)
     return 1;
 }
 
+// trxc.items.joint_count(item: trx.items.Item): integer
+static int M_L_ItemsJointCount(lua_State *const L)
+{
+    LUA_STRUCT_REF *const ref = LUA_Struct_CheckRef(L, 1, &TYPE_ITEM);
+    const ITEM *const item = LUA_Struct_Deref(L, ref);
+    lua_pushinteger(L, Object_Get(item->object_id)->mesh_count);
+    return 1;
+}
+
+// trxc.items.joint_pos(item: trx.items.Item, joint: integer, x?: trx.math.Distance, y?: trx.math.Distance, z?: trx.math.Distance): trx.math.Distance, trx.math.Distance, trx.math.Distance
+static int M_L_ItemsJointPos(lua_State *const L)
+{
+    LUA_STRUCT_REF *const ref = LUA_Struct_CheckRef(L, 1, &TYPE_ITEM);
+    const ITEM *const item = LUA_Struct_Deref(L, ref);
+    const int32_t joint_count = Object_Get(item->object_id)->mesh_count;
+    const lua_Integer joint = luaL_checkinteger(L, 2);
+    luaL_argcheck(L, joint >= 0 && joint < joint_count, 2, "unknown joint");
+
+    XYZ_32 pos = {
+        .x = (int32_t)luaL_optinteger(L, 3, 0),
+        .y = (int32_t)luaL_optinteger(L, 4, 0),
+        .z = (int32_t)luaL_optinteger(L, 5, 0),
+    };
+    Collide_GetJointAbsPosition(item, &pos, (int32_t)joint);
+    lua_pushinteger(L, pos.x);
+    lua_pushinteger(L, pos.y);
+    lua_pushinteger(L, pos.z);
+    return 3;
+}
+
 // Returns the item credited with a death or a blow, or nullptr when none is
 // set.
 static const ITEM *M_GetOptSender(lua_State *const L, const int32_t idx)
@@ -630,17 +681,66 @@ static const ITEM *M_GetOptSender(lua_State *const L, const int32_t idx)
     return LUA_Struct_Deref(L, ref);
 }
 
-// item:die([explode], [flame_variant], [sender])
+// The gib flags an options table names, as a set of true fields.
+static GIB_FLAGS M_OptGibFlags(lua_State *const L, const int32_t idx)
+{
+    if (!lua_istable(L, idx)) {
+        return GIB_NONE;
+    }
+
+    lua_getfield(L, idx, "gibs");
+    const int32_t gibs = lua_gettop(L);
+    GIB_FLAGS flags = GIB_NONE;
+    if (M_OptFlag(L, gibs, "flame")) {
+        flags |= GIB_FLAME;
+    }
+    if (M_OptFlag(L, gibs, "smoke")) {
+        flags |= GIB_SMOKE;
+    }
+    if (M_OptFlag(L, gibs, "blast")) {
+        flags |= GIB_BLAST;
+    }
+    if (M_OptFlag(L, gibs, "blood")) {
+        flags |= GIB_BLOOD;
+    }
+    lua_pop(L, 1);
+    return flags;
+}
+
+// An optional item in an optional options table.
+static const ITEM *M_OptItemField(
+    lua_State *const L, const int32_t idx, const char *const key)
+{
+    if (!lua_istable(L, idx)) {
+        return nullptr;
+    }
+
+    lua_getfield(L, idx, key);
+    const ITEM *item = nullptr;
+    if (!lua_isnoneornil(L, -1)) {
+        LUA_STRUCT_REF *const ref =
+            LUA_Struct_CheckRef(L, lua_gettop(L), &TYPE_ITEM);
+        item = LUA_Struct_Deref(L, ref);
+    }
+    lua_pop(L, 1);
+    return item;
+}
+
+// item:die([opts])
 static int M_L_ItemsDie(lua_State *const L)
 {
     LUA_STRUCT_REF *const ref = LUA_Struct_CheckRef(L, 1, &TYPE_ITEM);
     LUA_Struct_Deref(L, ref);
+    if (!lua_isnoneornil(L, 2)) {
+        luaL_checktype(L, 2, LUA_TTABLE);
+    }
     Creature_Die(
         ref->handle.id,
         (CREATURE_DIE_ARGS) {
-            .explode = lua_toboolean(L, 2),
-            .flame_variant = (int16_t)luaL_optinteger(L, 3, 0),
-            .sender = M_GetOptSender(L, 4),
+            .explode = M_OptFlag(L, 2, "explode"),
+            .gib_flags = M_OptGibFlags(L, 2),
+            .flame_variant = (int16_t)M_OptInt(L, 2, "flame_variant", 0),
+            .sender = M_OptItemField(L, 2, "sender"),
         });
     return 0;
 }
@@ -658,17 +758,23 @@ static int M_L_ItemsTakeDamage(lua_State *const L)
     return 0;
 }
 
-// item:shatter([damage])
+// item:shatter([opts])
 static int M_L_ItemsShatter(lua_State *const L)
 {
     LUA_STRUCT_REF *const ref = LUA_Struct_CheckRef(L, 1, &TYPE_ITEM);
     LUA_Struct_Deref(L, ref);
+    if (!lua_isnoneornil(L, 2)) {
+        luaL_checktype(L, 2, LUA_TTABLE);
+    }
     Item_Shatter(
         ref->handle.id,
         (ITEM_SHATTER_ARGS) {
-            .mesh_bits = -1,
-            .damage = (int16_t)luaL_optinteger(L, 2, 0),
-            .flame_variant = (int16_t)luaL_optinteger(L, 3, 0),
+            .mesh_bits = M_OptInt(L, 2, "mesh_bits", -1),
+            .gib_flags = M_OptGibFlags(L, 2),
+            .speed = (int16_t)M_OptInt(L, 2, "speed", 0),
+            .fall_speed = (int16_t)M_OptInt(L, 2, "fall_speed", 0),
+            .damage = (int16_t)M_OptInt(L, 2, "damage", 0),
+            .flame_variant = (int16_t)M_OptInt(L, 2, "flame_variant", 0),
         });
     return 0;
 }
@@ -689,6 +795,8 @@ static const luaL_Reg m_Module[] = {
     { "count", M_L_ItemsCount },
     { "get", M_L_ItemsGet },
     { "get_bounds", M_L_ItemsGetBounds },
+    { "joint_count", M_L_ItemsJointCount },
+    { "joint_pos", M_L_ItemsJointPos },
     { "in_box", M_L_ItemsInBox },
     { "in_sphere", M_L_ItemsInSphere },
     { "spawn", M_L_ItemsSpawn },

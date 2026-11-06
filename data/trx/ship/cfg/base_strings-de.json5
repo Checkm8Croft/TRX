@@ -4,12 +4,23 @@
     "language_name": "Deutsch",
     "general": {
         "actions": {
+            "action": "\\{review}Aktion",
+            "ammo": "\\{review}Munition",
+            "cancel": "\\{review}Abbrechen",
+            "choose_ammo": "\\{review}Munition wählen",
+            "combine_item": "\\{review}Kombinieren",
             "examine_item": "Untersuchen",
             "hide_dialog": "Dialog ausblenden",
             "reset_defaults": "\\{review}Zurücksetzen",
             "rotate": "Drehen",
+            "separate_item": "\\{review}Trennen",
             "unbind": "Freigeben",
             "use_item": "Benutzen",
+            "weapon_options": "\\{review}Optionen",
+        },
+        "ammo": {
+            "count_fmt": "\\{review}%d x %s",
+            "unlimited_fmt": "\\{review}%s unbegrenzt",
         },
         "config_presets": {
             "applied": "\\{review}Voreinstellung angewendet.",
@@ -21,6 +32,24 @@
             "no_changes": "\\{review}Keine Änderungen anzuwenden.",
             "title_fmt": "\\{review}Voreinstellung %s anwenden?",
         },
+        "flat_menu": {
+            "choose_ammo": "\\{review}MUNITION WÄHLEN",
+            "combine": "\\{review}KOMBINIEREN",
+            "combine_with": "\\{review}KOMBINIEREN MIT",
+            "count_fmt": "\\{review}%d x %s",
+            "empty_slot": "\\{review}Leerer Platz",
+            "equip": "\\{review}AUSRÜSTEN",
+            "examine": "\\{review}UNTERSUCHEN",
+            "exit": "\\{review}Beenden",
+            "exit_to_title": "\\{review}Zurück zum Titel",
+            "gym": "\\{review}Laras Haus",
+            "load_game": "\\{review}SPIEL LADEN",
+            "options": "\\{review}Optionen",
+            "save_game": "\\{review}SPIEL SPEICHERN",
+            "separate": "\\{review}TRENNEN",
+            "statistics": "\\{review}Statistiken",
+            "use": "\\{review}BENUTZEN",
+        },
         "globe_select": {
             "area_1": "\\{review}Bereich 1",
             "area_2": "\\{review}Bereich 2",
@@ -29,21 +58,22 @@
             "area_5": "\\{review}Bereich 5",
             "area_6": "\\{review}Bereich 6",
         },
+        "inventory": {
+            "attached_fmt": "\\{review}%s + %s",
+        },
         "inventory_ring": {
             "heading_adventure": "\\{review}Abenteuer",
-            "heading_fmt": "%s",
             "heading_game_over": "GAME OVER",
             "heading_inventory": "INVENTAR",
             "heading_items": "ITEMS",
             "heading_option": "OPTION",
-            "item_count_fmt": "\\{small}%s",
-            "object_name_fmt": "%s",
         },
         "misc": {
             "demo_mode": "Demo Modus",
             "empty_slot_fmt": "- LEERER SLOT -",
             "exit": "Beenden",
             "hold_fmt": "\\{review}Halten %s",
+            "loading": "\\{review}Laden",
             "off": "Aus",
             "on": "Ein",
             "pagination_nav": "%d / %d",
@@ -93,8 +123,6 @@
             "debug_position": "Position: ",
             "debug_rotation": "Rotation: ",
             "debug_speed": "Geschwindigkeit: ",
-            "item_count_fmt_pc": "\\{small}%s",
-            "item_count_fmt_ps1": "\\{small}%s",
         },
         "passport": {
             "delete_save": "\\{review}Löschen",
@@ -149,7 +177,6 @@
         },
         "settings": {
             "common": {
-                "all_hidden_disclaimer": "\\{review}Die Einstellungen sind für dieses Level-Set deaktiviert.",
                 "chroma": "Chroma",
                 "edit_value": "\\{review}Bearbeiten",
                 "frozen_option_disclaimer": "Diese Einstellung ist vom Ersteller des Levels erzwungen und kann nicht geändert werden.",
@@ -176,7 +203,8 @@
                     "items": "Items",
                     "misc": "Sonstiges",
                     "system": "System",
-                }
+                },
+                "title": "\\{review}Steuerung",
             },
             "gameplay": {
                 "tabs": {
@@ -208,12 +236,11 @@
         },
         "stats": {
             "ammo": "Munition Treffer/Verbraucht",
+            "ammo_fmt": "\\{review}%d / %d",
             "ammo_hits": "Treffer",
             "ammo_used": "Benötigte Munition",
-            "assault_best_time_fmt": "\\{review}%s",
             "assault_finish": "Zeit",
             "assault_no_times_set": "Keine Zeiten gesetzt",
-            "assault_other_times_fmt": "\\{review}%s",
             "assault_reset_times": "\\{review}Zurücksetzen",
             "assault_title": "Bestzeiten",
             "basic_fmt": "%d",
@@ -230,6 +257,9 @@
             "medipacks_used": "Benötigte Medi-Packs",
             "none": "None",
             "pickups": "Pickups",
+            "save_offer": "\\{review}Möchtest du jetzt speichern?",
+            "save_offer_no": "\\{review}Nein",
+            "save_offer_yes": "\\{review}Ja",
             "secrets": "Gefundene Geheimnisse",
             "time_taken": "Benötigte Zeit",
         }
@@ -476,6 +506,9 @@
                 "level_fmt_cutscene": "Zwischensequenz %d",
                 "level_fmt_demo": "Demo %d",
             },
+            "restart_level": {
+                "help": "\\{review}Startet das aktuelle Level neu.",
+            },
             "rule": {
                 "ambiguous": "Mehrdeutige Eingabe: %s und %s",
                 "bad_invocation": "Unzulässiger Aufruf: %s",
@@ -615,6 +648,8 @@
                 "tr2_ps1": "\\{review}TR2 PS1",
                 "tr3_pc": "\\{review}TR3 PC",
                 "tr3_ps1": "TR3 PS1",
+                "tr4_pc": "\\{review}TR4 PC",
+                "tr4_ps1": "\\{review}TR4 PS1",
             },
             "lara_outfit": {
                 "default": "\\{review}Standard",
@@ -666,6 +701,9 @@
             },
             "tr3-la": {
                 "title": "\\{review}Das Verlorene Artefakt",
+            },
+            "tr4": {
+                "title": "\\{review}Tomb Raider IV",
             }
         }
     },
@@ -756,10 +794,12 @@
             "change_outfit": "\\{review}Outfit wechseln",
             "change_target": "Ziel wechseln",
             "crouch": "\\{review}Ducken",
+            "cycle_ammo": "\\{review}Munition wechseln",
             "cycle_lighting_model": "\\{review}Beleuchtungsmodell wechseln",
             "draw": "Waffe ziehen",
             "enter_console": "Entwickler-Konsole",
             "equip_autos": "Automatik-Pistolen ausrüsten",
+            "equip_crossbow": "\\{review}Armbrust ausrüsten",
             "equip_desert_eagle": "\\{review}Desert Eagle ausrüsten",
             "equip_grenade_launcher": "Granatenwerfer ausrüsten",
             "equip_harpoon": "Harpune ausrüsen",
@@ -767,6 +807,7 @@
             "equip_magnums": "Magnums ausrüsten",
             "equip_mp5": "\\{review}MP5 ausrüsten",
             "equip_pistols": "Pistolen ausrüsten",
+            "equip_revolver": "\\{review}Revolver ausrüsten",
             "equip_rocket_launcher": "\\{review}Raketenwerfer ausrüsten",
             "equip_shotgun": "Schrotflinte ausrüsten",
             "equip_uzis": "Uzis ausrüsten",
@@ -910,6 +951,11 @@
             "pc": "PC",
             "ps1": "PS1",
         },
+        "underwater_muffle_mode": {
+            "all": "\\{review}Alle Musik",
+            "ambient": "\\{review}Nur Ambiente",
+            "off": "\\{review}Aus",
+        },
         "vertex_snap_mode": {
             "disabled": "\\{review}Deaktiviert",
             "upscale_res": "\\{review}Hochskalierte Auflösung",
@@ -935,13 +981,17 @@
             "title": "\\{review}Zwischensequenz-Lautstärke",
             "description": "\\{review}Passt die Lautstärke der Zwischensequenzen im Spiel an.",
         },
+        "audio.enable_ambient_crossfade": {
+            "title": "\\{review}Ambiente-Überblendung",
+            "description": "\\{review}Blendet eine sich wiederholende Ambiente-Spur in die nächste über, wenn sie wechselt, anstatt die erste abrupt zu beenden.",
+        },
         "audio.enable_lara_mic": {
             "title": "Mikrofon nah an Lara",
             "description": "Setzt das Mikrofon auf Laras Position. Wenn deaktiviert, wird das Mikrofon auf der Position der Kamera gesetzt.",
         },
         "audio.enable_music_in_inventory": {
             "title": "\\{review}Musik im Inventar abspielen",
-            "description": "\\{review}Lässt Spielgeräusche, Umgebungsgeräusche und Musik im Inventarbildschirm weiterlaufen.",
+            "description": "\\{review}Lässt Umgebungsgeräusche und Musik im Inventarbildschirm weiterlaufen.",
         },
         "audio.enable_music_in_menu": {
             "title": "Hauptmenü-Musik",
@@ -999,6 +1049,12 @@
             "title": "\\{review}Hauptlautstärke",
             "description": "\\{review}Passt die gesamte Spiel-Lautstärke an. Die restlichen Einstellungen sind relativ zu dieser Lautstärke.",
         },
+        "audio.media_language": {
+            "auto": "\\{review}Automatisch",
+            "description": "\\{review}Wählt die Sprache, in der FMVs und gesprochene Zeilen zu hören sind, unabhängig von der Textsprache. Automatisch spielt die Synchronisation der Textsprache, sofern sie installiert ist, und Original spielt die Dateien so, wie sie installiert sind.",
+            "retail": "\\{review}Original",
+            "title": "\\{review}Sprache der Stimmen",
+        },
         "audio.music_load_condition": {
             "title": "\\{review}Musik beim Laden",
             "description": "Lädt den Musiktitel der vor dem Speichern des Spiels abgespielt wurde.\n\n- Nie: keine Musik-Titel beim laden wiederherstellen.\n- Nicht-Umgebung: stellt nur Nicht-Umgebungs-Musiktitel beim laden wieder her.\n- Immer: stellt jede Art von Musiktitel beim Laden wieder her.",
@@ -1018,6 +1074,10 @@
         "audio.underwater_ambient_volume": {
             "title": "\\{review}Umgebungslautstärke (unter Wasser)",
             "description": "\\{review}Passt die Umgebungslautstärke unter Wasser an.",
+        },
+        "audio.underwater_muffle": {
+            "title": "\\{review}Musik unter Wasser dämpfen",
+            "description": "\\{review}Dämpft die Musik, solange die Kamera unter Wasser ist, als würde sie durch das Wasser gehört.\n\n- Aus: Die Musik bleibt klar.\n- Nur Ambiente: Nur die Ambiente-Spur wird gedämpft.\n- Alle Musik: Musik- und Ambiente-Spuren werden gedämpft.",
         },
         "audio.underwater_music_volume": {
             "title": "\\{review}Musiklautstärke (unter Wasser)",
@@ -1120,8 +1180,8 @@
             "description": "Aktiviert die Entwickler-Konsole.",
         },
         "gameplay.enable_continuous_pushblocks": {
-            "title": "\\{review}Kontinuierliche Schiebeblöcke",
-            "description": "\\{review}Ermöglicht es Lara, Blöcke weiter zu schieben oder zu ziehen, solange die Aktionstaste gedrückt gehalten wird, ähnlich wie in TR4+. Wenn deaktiviert, stoppt Lara nach jeder Schiebe-/Ziehanimation.",
+            "title": "\\{review}Kontinuierliches Schieben",
+            "description": "\\{review}Ermöglicht es Lara, Objekte weiter zu schieben oder zu ziehen, solange die Aktionstaste gedrückt gehalten wird, wie in TR4+. Wenn deaktiviert, stoppt Lara nach jeder Schiebe-/Ziehanimation.",
         },
         "gameplay.enable_controlled_drops": {
             "title": "\\{review}Kontrollierter Fall",
@@ -1207,6 +1267,10 @@
             "title": "\\{review}Tödliche Schiebeblöcke aktivieren",
             "description": "Aktiviert, dass Lara sofort stirbt, wenn ein Schiebeblock von oben auf Lara herab fällt. Andernfalls wird Lara oben auf dem Block hängen bleiben und überleben.",
         },
+        "gameplay.enable_laser_sight_toggle": {
+            "title": "\\{review}Laservisier umschalten",
+            "description": "\\{review}Die Umsehen-Taste öffnet die Laservisier-Ansicht und schließt sie beim nächsten Drücken wieder. Wenn deaktiviert, muss die Taste gehalten werden, damit die Ansicht offen bleibt, wie im Originalspiel.",
+        },
         "gameplay.enable_lean_jumping": {
             "title": "Schmales Springen",
             "description": "\\{review}Erlaubt Lara, sich weiter voran oder rückwärts zu tasten, wenn man eine der Richtungstasten gedrückt hält, während sie einen neutralen Sprung ausführt. Das gibt es ab TR2; im originalen TR1 tastet sie sich unabhängig von der Eingabe nur nach vorn, und das viel langsamer.",
@@ -1222,6 +1286,10 @@
         "gameplay.enable_manual_camera": {
             "title": "\\{review}Manuelle Kamera",
             "description": "\\{review}Aktiviert die Kameratasten (\\{input camera_forward}\\{input camera_back}\\{input camera_left}\\{input camera_right}), die zur Steuerung der Kamera im Fotomodus verwendet werden, um auch die Ingame-Kamera zu drehen.",
+        },
+        "gameplay.enable_monkey_bar_edge_deflect": {
+            "title": "\\{review}Kletterstangen-Abstoß",
+            "description": "\\{review}Ermöglicht Lara, sich beim Vorwärtsbewegen an den Kanten von Kletterstangen abzustoßen.",
         },
         "gameplay.enable_monkey_bar_shimmy_turn": {
             "title": "\\{review}Drehen beim Hangeln",
@@ -1327,6 +1395,10 @@
             "title": "Animierte Interaktionen",
             "description": "\\{review}Lässt Lara zu aufhebbaren Gegenständen, Schaltern, Schlüssellöchern und Puzzle-Einsätzen gehen, wenn sie sich in der Nähe befindet, anstatt sich dorthin zu teleportieren.",
         },
+        "gameplay.enemy_health_scale": {
+            "title": "\\{review}Gegnergesundheit",
+            "description": "\\{review}Skaliert die Gesundheit, mit der Gegner beginnen. Verbündete sind nicht betroffen.",
+        },
         "gameplay.fix_alligator_ai": {
             "title": "Fix: Alligator-AI",
             "description": "Fixt, dass die Alligatoren keinen Schaden machen, wenn Lara sich im Wasser befindet und sich nicht bewegt.",
@@ -1339,6 +1411,10 @@
             "title": "Fix: Bären-AI",
             "description": "Fixt, dass die aufrecht stehend ausgeführten Prankenhiebe von Bären Lara nicht mehr verfehlen.",
         },
+        "gameplay.fix_bird_start_pos": {
+            "title": "\\{review}Vogelstart korrigieren",
+            "description": "\\{review}Behebt, dass Vögel immer auf dem Boden unterhalb ihrer ursprünglichen Position in der Luft starten.",
+        },
         "gameplay.fix_breakable_wall_clip": {
             "title": "\\{review}Fix: Zerbrechliche Wände durchqueren",
             "description": "\\{review}Fixt, dass Lara sich durch zerbrechliche Wände am Rand eines Sektors hochziehen oder hindurchkriechen kann. Wenn aktiviert, hält sie vor der Wand an, bis diese zerstört ist.",
@@ -1350,6 +1426,14 @@
         "gameplay.fix_descending_glitch": {
             "title": "Fix: Zerbrechliche Böden-Stürze",
             "description": "\\{review}Fixt, dass Seit-Schritte und Vorwärtslaufen auf zerbrechlichen Platten dazu führen, dass Lara sofort herab zur darunter liegenden Platte fällt. Die originalen TR2+ haben diesen Fehler nicht; TR1 schon.",
+        },
+        "gameplay.fix_enemy_route_delay": {
+            "title": "\\{review}Gegner-Routenverzögerung beheben",
+            "description": "\\{review}Behebt, dass Gegner bis zu mehrere Sekunden brauchen, um einen neuen Weg zu finden, nachdem Lara sich bewegt hat.",
+        },
+        "gameplay.fix_falling_glitch": {
+            "title": "\\{review}Sturzfehler beheben",
+            "description": "\\{review}Behebt Fehler, durch die Lara von Falltüren springen kann, sobald sie sich öffnen, anstatt hinunterzufallen, und durch die sie nicht hinunterfällt, wenn der Boden unter ihr beim Drehen im Kriechen nachgibt.",
         },
         "gameplay.fix_flare_throw_priority": {
             "title": "Fix: Fackel-Wurf-Priorität",
@@ -1369,15 +1453,15 @@
         },
         "gameplay.fix_lara_pickup_embed": {
             "title": "Fix: Pickup-Fehler",
-            "description": "\\{review}Behebt ein Problem, bei dem Lara manchmal in Wände driftet, wenn sie unter Wasser Gegenstände einsammelt, sowie beim Einsammeln von Gegenständen über Wasser unter steil geneigten Decken.",
+            "description": "\\{review}Behebt, dass Lara beim Aufheben von Gegenständen in Geometrie stecken bleibt. Wenn diese Option aktiviert ist, wird verhindert, dass Lara:\n\n- unter steilen, geneigten Decken eingeklemmt wird (wie im Original-TR1);\n- beim Aufheben von Gegenständen unter Wasser in den Boden oder Wände driftet (alle Spiele);\n- beim Aufheben von Fackeln unter Wasser in Wände eindringt (TR2 PS1);\n- beim Aufheben einer Fackel in geduckter Haltung in Wände eindringt (TR4+).",
         },
         "gameplay.fix_lift_collision": {
             "title": "Aufzug-Kollision beheben",
             "description": "\\{review}Behebt Fehler bei der Kollision mit beweglichen Aufzügen, durch die Lara stecken bleiben oder hindurchfallen kann.",
         },
         "gameplay.fix_m16_accuracy": {
-            "title": "\\{review}Fix: M16/MP5-Genauigkeit",
-            "description": "\\{review}Fixt die Genauigkeit des M16/MP5, während Lara rennt.",
+            "title": "\\{review}Fix: M16/MP5-Genauigkeit im Laufen",
+            "description": "\\{review}Behebt einen Fehler im Originalspiel, durch den das M16/MP5 beim Schießen im Laufen keinen Genauigkeitsabzug bekam. Mit dem Fix ist Feuer im Laufen ungenauer und richtet weniger Schaden an.",
         },
         "gameplay.fix_monkey_pickup_priority": {
             "title": "\\{review}Fix: Aufheben beim Hangeln",
@@ -1398,6 +1482,10 @@
         "gameplay.fix_underwater_crawl": {
             "title": "\\{review}Unterwasser-Kriechen korrigieren",
             "description": "\\{review}Behebt den Fehler, durch den Lara vom Land in Wasser- oder Sumpfräume beliebiger Tiefe kriechen kann. Wenn aktiviert, kann Lara nur bis zu einer Tiefe von etwas mehr als einem Klick kriechen.",
+        },
+        "gameplay.fix_wade_sprint": {
+            "title": "\\{review}Sprinten im seichten Wasser korrigieren",
+            "description": "\\{review}Behebt einen Fehler, durch den Lara durch hüfttiefes Wasser sprinten kann, wenn sie laufend hineingeht.",
         },
         "gameplay.fix_wade_wall_hit": {
             "title": "Fix: Wand-Treffer beim Waten",
@@ -1435,6 +1523,10 @@
             "title": "Sprung-Block Modus",
             "description": "Erlaubt einzustellen, wie früh es Lara erlaubt ist zu springen, nachdem sie begonnen hat zu laufen.\n\n- Original: entspricht dem originalen TR2 Timing.\n- Getuned: springen ist 2 Frames früher möglich.\n- Deaktiviert: springen ist sofort nachdem die Laufen-Animation begonnen hat möglich.",
         },
+        "gameplay.lara_damage_scale": {
+            "title": "\\{review}Erlittener Schaden",
+            "description": "\\{review}Skaliert den Schaden, den Lara aus jeder Quelle erleidet, etwa durch Gegner, Fallen und Stürze.",
+        },
         "gameplay.loading_screens": {
             "title": "Ladebildschirme",
             "description": "\\{review}Steuert Ladebildschirme vor dem Laden eines Levels.\n\n- Deaktiviert: Ladebildschirme nie anzeigen.\n- Immer: Ladebildschirme anzeigen.\n- Neue Spiele: Ladebildschirme beim Laden eines Spielstands überspringen.",
@@ -1445,7 +1537,7 @@
         },
         "gameplay.m16_aim_mode": {
             "title": "\\{review}M16/MP5-Zielvarianten",
-            "description": "\\{review}Steuert, wann Lara die M16/MP5 von der Schulter statt aus der Hüfte anlegt.\n\n- Original: Lara nimmt die Waffe an die Schulter, sobald sie stehen bleibt.\n- Erweitert: Lara schießt weiter aus der Hüfte, solange die Aktionstaste gehalten wird, und nimmt die Waffe nur an die Schulter, wenn sie im Stehen zu schießen beginnt. Mit aktivierter Genauigkeitskorrektur ist der Hüftschuss ungenauer und richtet pro Schuss weniger Schaden an.",
+            "description": "\\{review}Steuert, wann Lara die M16/MP5 von der Schulter statt aus der Hüfte anlegt.\n\n- Original: Lara nimmt die Waffe an die Schulter, sobald sie stehen bleibt.\n- Erweitert: Lara schießt weiter aus der Hüfte, solange die Aktionstaste gehalten wird, und nimmt die Waffe nur an die Schulter, wenn sie im Stehen zu schießen beginnt. Mit aktivierter Korrektur der Laufgenauigkeit ist der Hüftschuss ungenauer und richtet pro Schuss weniger Schaden an.",
         },
         "gameplay.maximum_quick_save_slots": {
             "title": "\\{review}Anzahl der Schnellspeicherplätze",
@@ -1477,7 +1569,7 @@
         },
         "gameplay.save_crystal_mode": {
             "title": "\\{review}Kristallmodus",
-            "description": "\\{review}Legt fest, was die in den Leveln verteilten Kristalle bewirken.\n\n- Aus: Es sind keine Kristalle vorhanden.\n- Speichern: Kristalle sind einmalig verwendbar und erlauben Lara, das Spiel an Ort und Stelle zu speichern, wie in der PS1-Fassung von TR1. Ansonsten kann nur am Anfang eines Levels gespeichert werden.\n- Speichern (Fundstücke): Kristalle werden eingesammelt und erlauben Lara, das Spiel überall aus dem Inventar heraus zu speichern, wie in der PS1-Fassung von TR3. Ansonsten kann nur am Anfang eines Levels gespeichert werden.\n- Heilung: Kristalle stellen die Hälfte von Laras Gesundheit wieder her und heilen Vergiftungen, sobald sie sie berührt, wie in der PC-Version von TR3.\n- Fundstücke: Kristalle sind Sammelobjekte, die in der Levelstatistik gezählt werden, und bewirken sonst nichts.\n\nEine Änderung dieser Option erfordert einen Neustart des Levels.",
+            "description": "\\{review}Legt fest, was die in den Leveln verteilten Kristalle bewirken.\n\n- Aus: Es sind keine Kristalle vorhanden.\n- Speichern: Kristalle sind einmalig verwendbar und erlauben Lara, das Spiel an Ort und Stelle zu speichern, wie in der PS1-Fassung von TR1. Ansonsten kann nur am Ende eines Levels gespeichert werden.\n- Speichern (Fundstücke): Kristalle werden eingesammelt und erlauben Lara, das Spiel überall aus dem Inventar heraus zu speichern, wie in der PS1-Fassung von TR3. Ansonsten kann nur am Ende eines Levels gespeichert werden.\n- Heilung: Kristalle stellen die Hälfte von Laras Gesundheit wieder her und heilen Vergiftungen, sobald sie sie berührt, wie in der PC-Version von TR3.\n- Fundstücke: Kristalle sind Sammelobjekte, die in der Levelstatistik gezählt werden, und bewirken sonst nichts.\n\nEine Änderung dieser Option erfordert einen Neustart des Levels.",
         },
         "gameplay.start_lara_hitpoints": {
             "title": "\\{review}Laras Startenergie",
@@ -1563,13 +1655,25 @@
             "title": "\\{review}Affines Textur-Mapping",
             "description": "\\{review}Lässt die perspektivische Korrektur beim Texturieren weg, die der PlayStation fehlte, sodass Texturen auf großen Flächen verzerren und wandern, wenn sich die Kamera bewegt.",
         },
+        "rendering.enable_hall_of_mirrors": {
+            "title": "\\{review}Spiegelsaal",
+            "description": "\\{review}Lässt das vorherige Bild dort auf dem Bildschirm, wo nichts gezeichnet wird, wie in den PC-Versionen. Manche Level nutzen dies für Effekte, etwa in Thames Wharf. Außenbereiche ohne Skybox werden weiterhin geleert.",
+        },
         "rendering.enable_palette_quantize": {
             "title": "\\{review}Paletten-Quantisierung",
             "description": "\\{review}Rastet jede gerenderte Farbe auf die nächstgelegene Farbe der Levelpalette ein. Bei aktiviertem Dithering mischt die Palette zwischen ihren Farben.",
         },
+        "rendering.enable_ps1_blending": {
+            "title": "\\{review}PlayStation-Überblendung",
+            "description": "\\{review}Blendet einige Effekte und Flächen wie auf der PlayStation mit der Szene. Rauch, Schatten und Fußspuren ziehen ihre Farbe von der Szene ab, wodurch jeder Farbkanal um denselben Betrag abgedunkelt wird und das Ergebnis gesättigter wirkt. In TR1 und TR2 werden Flächen wie Wasseroberflächen, Glas und Mündungsfeuer sowie Effekte wie Spritzer, Flammen und Explosionen zur Hälfte mit der Szene gemischt. In TR3 wird außerdem Blut zur Hälfte mit der Szene gemischt. Deaktiviert wird all dies wie auf dem PC gezeichnet.",
+        },
         "rendering.enable_ps1_fog": {
             "title": "\\{review}PlayStation-Nebel",
             "description": "\\{review}Blendet entfernte Geometrie so zur Nebelfarbe über, wie es die Tiefenabstufung der PlayStation tat: entlang 1/Entfernung statt der Entfernung und pro Vertex berechnet, sodass der Verlauf über große Flächen Stufen bildet.",
+        },
+        "rendering.enable_ps1_pixel_aspect": {
+            "title": "\\{review}PlayStation-Pixelseitenverhältnis",
+            "description": "\\{review}Zeigt die Spielwelt schmaler, wie es die PlayStation auf einem Fernseher tat. Das Bild füllt weiterhin den Bildschirm. Die Oberfläche ändert sich nicht.",
         },
         "rendering.enable_trapezoid_filter": {
             "title": "Trapezoid-Filter",
@@ -1647,6 +1751,10 @@
             "title": "\\{review}Munitionszähler-Position",
             "description": "\\{review}Position, an der der Munitionszähler angezeigt wird.",
         },
+        "ui.background_blur": {
+            "title": "\\{review}Hintergrundunschärfe",
+            "description": "\\{review}Zeichnet das Spiel hinter Inventar, Pause und Statistik unscharf. Die Unschärfe wirkt zusätzlich zum gewählten Hintergrundstil.",
+        },
         "ui.bar_look": {
             "title": "\\{review}Aussehen der Balken",
             "description": "\\{review}Wählt Rahmen und Farben, mit denen die UI-Leisten gezeichnet werden, übernommen aus einer der Originalveröffentlichungen. Die Wahl bestimmt außerdem, welcher Satz der Leistenfarben weiter unten gilt.",
@@ -1658,6 +1766,10 @@
         "ui.enable_bar_flashing": {
             "title": "\\{review}Leisten blinken",
             "description": "\\{review}Lässt Laras Gesundheits- und Sauerstoffanzeigen blinken, wenn eine der Ressourcen knapp wird.",
+        },
+        "ui.enable_bar_side_borders": {
+            "title": "\\{review}Seitenränder",
+            "description": "\\{review}Zeichnet den zusätzlichen Rand an den Seiten der PS1-Leisten.",
         },
         "ui.enable_smooth_bars": {
             "title": "Leisten-Farbverläufe",
@@ -1729,7 +1841,7 @@
         },
         "ui.inventory_background_style": {
             "title": "\\{review}Inventar-Hintergrund",
-            "description": "\\{review}Ändert die Art und Weise, wie der Hintergrund für den Inventarring angezeigt wird.\n\n- Dunkel: TR1 (PC).\n- Sehr dunkel: TR1 (PS1).\n- Statisch: TR2 (PC).\n- Welle: TR2 (PS1).\n- Monochrom: TR3.",
+            "description": "\\{review}Ändert die Art und Weise, wie der Hintergrund für den Inventarring angezeigt wird.\n\n- Dunkel: TR1 (PC).\n- Sehr dunkel: TR1 (PS1).\n- Statisch: TR2 (PC).\n- Welle: TR2 (PS1).\n- Monochrom: TR3/4.",
         },
         "ui.inventory_fade_effects": {
             "title": "\\{review}Inventar-Ausblend-Effekte",
@@ -1739,9 +1851,17 @@
             "title": "Menü-Stil",
             "description": "Ändert, wie Menüs dargestellt werden.\n\n- PC: UI-Stil gleicht der PC-Version.\n- PS1: UI-Stil gleicht der PS1-Version.",
         },
+        "ui.menu_system": {
+            "description": "\\{review}Wie das Spiel seine Menüs zeigt. Ring zeigt, was Lara bei sich trägt, auf einem drehbaren Ring wie in TR1 bis TR3. Flach zeigt es in einer Reihe quer über den Bildschirm mit einer Liste, was man damit tun kann, wie im originalen TR4.",
+            "title": "\\{review}Menüsystem",
+            "values": {
+                "flat": "\\{review}Flach",
+                "ring": "\\{review}Ring",
+            }
+        },
         "ui.pause_background_style": {
             "title": "\\{review}Pause-Hintergrund",
-            "description": "\\{review}Ändert die Art und Weise, wie der Hintergrund für den Pausenbildschirm angezeigt wird.\n\n- Dunkel: TR1 (PC).\n- Sehr dunkel: TR1 (PS1).\n- Statisch: TR2 (PC).\n- Welle: TR2 (PS1).\n- Monochrom: TR3.",
+            "description": "\\{review}Ändert die Art und Weise, wie der Hintergrund für den Pausenbildschirm angezeigt wird.\n\n- Dunkel: TR1 (PC).\n- Sehr dunkel: TR1 (PS1).\n- Statisch: TR2 (PC).\n- Welle: TR2 (PS1).\n- Monochrom: TR3/4.",
         },
         "ui.pause_fade_effects": {
             "title": "\\{review}Pause-Ausblend-Effekte",
@@ -1751,9 +1871,21 @@
             "title": "Pickup-Skala",
             "description": "\\{review}Ändert die Größe der im UI animierten Gegenstände, wenn Lara etwas aufnimmt.",
         },
+        "ui.progressbar_color": {
+            "title": "\\{review}Ladebalken-Farbe",
+            "description": "\\{review}Farbe des Ladebalkens.",
+        },
+        "ui.progressbar_color_ps1": {
+            "title": "\\{review}Ladebalken-Farbe",
+            "description": "\\{review}Farbe des Ladebalkens.",
+        },
         "ui.show_bars": {
             "title": "\\{review}Leisten anzeigen",
             "description": "\\{review}Zeigt die Ingame-Leisten an. Werden sie ausgeschaltet, bleiben Informationen über Laras Gesundheit und andere Ressourcen verborgen (für Herausforderungsdurchläufe).",
+        },
+        "ui.show_loading_bar": {
+            "title": "\\{review}Ladebalken",
+            "description": "\\{review}Zeigt auf den Ladebildschirmen einen Fortschrittsbalken an.",
         },
         "ui.show_pickups_overlay": {
             "title": "Pickup-Anzeige",
@@ -1825,7 +1957,7 @@
         },
         "ui.stats_background_style": {
             "title": "\\{review}Statistik-Hintergrund",
-            "description": "\\{review}Ändert die Art und Weise, wie der Hintergrund für die Endlevel-Statistiken angezeigt wird.\n\n- Dunkel: TR1 (PC).\n- Sehr dunkel: TR1 (PS1).\n- Statisch: TR2 (PC).\n- Welle: TR2 (PS1).\n- Monochrom: TR3.",
+            "description": "\\{review}Ändert die Art und Weise, wie der Hintergrund für die Endlevel-Statistiken angezeigt wird.\n\n- Dunkel: TR1 (PC).\n- Sehr dunkel: TR1 (PS1), TR2 (PS1).\n- Statisch: TR2 (PC).\n- Welle.\n- Monochrom: TR3/4.",
         },
         "ui.stats_fade_effects": {
             "title": "\\{review}Statistik-Ausblend-Effekte",
@@ -1855,9 +1987,24 @@
             "title": "Kamera-Modus",
             "description": "\\{review}Legt fest, welchem Spiel das Kameraverhalten folgt.\n\n- TR1: Die Verfolgerkamera richtet sich nach den Wegfindungsboxen des Levels.\n- TR2: Dasselbe, mit anderen Verfolgungs- und Blickgrenzen und einer anderen Behandlung fester Kameras.\n- TR3: Die Verfolgerkamera nutzt die Sichtlinie statt der Wegfindungsboxen.\n- TR4: Wie TR3, zusätzlich reagiert die Kamera, wenn eine Aktion Laras Blick bewegt, etwa beim Aufheben eines Gegenstands oder beim Hangeln um eine Ecke.",
         },
+        "visuals.controls_model": {
+            "description": "\\{review}Welches Modell der Steuerungsgegenstand im Inventar zeigt. Automatisch zeigt ein Gamepad, solange die Steuerung auf Kontroller eingestellt ist, und sonst die Tastatur. Original zeigt das Modell, das jedes Level mitbringt.",
+            "title": "\\{review}Steuerungsmodell",
+            "values": {
+                "auto": "\\{review}Automatisch",
+                "keyboard": "\\{review}Tastatur",
+                "original": "\\{review}Original",
+                "ps1": "\\{review}PlayStation-Gamepad",
+                "saturn": "\\{review}Sega-Saturn-Gamepad",
+            }
+        },
         "visuals.enable_3d_pickups": {
             "title": "3D-Pickups",
             "description": "Aktiviert die Darstellung von 3D-Modellen für Pickups anstatt der üblichen Sprites.",
+        },
+        "visuals.enable_all_upv_wakes": {
+            "title": "\\{review}Kielwasser bei jedem UPV",
+            "description": "\\{review}Jedes UPV hinterlässt Kielwasser hinter seinen Lenkgriffen. Wenn deaktiviert, hinterlässt nur ein UPV, das ein Auslöser aktiviert, Kielwasser, wie in der PC-Version.",
         },
         "visuals.enable_droplets": {
             "title": "\\{review}Wassertropfen",
@@ -1889,7 +2036,7 @@
         },
         "visuals.enable_gun_glow": {
             "title": "\\{review}Waffenleuchten",
-            "description": "\\{review}Macht Waffen- und Fackelblitze halbtransparent und fügt einen Leuchteffekt um sie herum hinzu, wie in der TR2 PS1-Version zu sehen.",
+            "description": "\\{review}Fügt um Mündungsfeuer und Fackelblitze einen Glanzeffekt hinzu, wie in der PS1-Version von TR2.",
         },
         "visuals.enable_gun_lighting": {
             "title": "Dynamisches Licht für Waffen",
@@ -1911,6 +2058,10 @@
             "title": "\\{review}PS1-Regentropfen",
             "description": "\\{review}Regentropfen werden der Szene hinzugefügt, statt mit ihr vermischt zu werden, und wirken dadurch hell wie auf der PS1.",
         },
+        "visuals.enable_rain_splashes": {
+            "title": "\\{review}Regenspritzer",
+            "description": "\\{review}Regentropfen spritzen dort auf, wo sie auf den Boden oder das Wasser treffen.",
+        },
         "visuals.enable_reflections": {
             "title": "Reflektionen",
             "description": "Aktiviert Reflektionen auf bestimmten Objekten.",
@@ -1922,6 +2073,10 @@
         "visuals.enable_skybox": {
             "title": "Skyboxes",
             "description": "Aktiviert die Skybox in unterstützten Leveln.",
+        },
+        "visuals.enable_spherical_fog": {
+            "title": "\\{review}Kugelförmiger Nebel",
+            "description": "\\{review}Lässt den Nebel vom Abstand zur Kamera abhängen, sodass ein Drehen der Kamera die Sichtweite nicht ändert. Wenn deaktiviert, hängt der Nebel wie in den Originalspielen von der Tiefe entlang der Blickrichtung ab, und an den Bildrändern sieht man weiter als in der Mitte.",
         },
         "visuals.enable_static_lighting": {
             "title": "\\{review}Beleuchtung statischer Meshes",
@@ -1938,6 +2093,10 @@
         "visuals.fix_item_rots": {
             "title": "\\{review}Fix: Objektplatzierung",
             "description": "\\{review}Behebt mehrere Probleme aus den Originalspielen, die durch falsch platzierte oder ausgerichtete Objekte verursacht werden.",
+        },
+        "visuals.fix_projectile_brightness": {
+            "title": "\\{review}Projektilhelligkeit korrigieren",
+            "description": "\\{review}Behebt, dass Projektile wie Messer, Harpunen und Granaten in voller Helligkeit gezeichnet werden, statt vom umgebenden Raum beleuchtet zu werden.",
         },
         "visuals.fix_smoke_emitters": {
             "title": "\\{review}Rauchemitter korrigieren",
@@ -1983,6 +2142,15 @@
             "title": "\\{review}Laras Outfit",
             "description": "\\{review}Ändert Laras Aussehen. Bei Auswahl von Standard werden die regulären Outfit-Wechsel zwischen den Levels beibehalten, andernfalls bleibt das gewählte Outfit aktiv, bis es manuell geändert wird.",
         },
+        "visuals.level_start_transition": {
+            "description": "\\{review}Wie ein Level erscheint, wenn es beginnt oder ein Spielstand geladen wird. Überblenden lässt den Ladebildschirm in das Level übergehen. Über Schwarz blendet den Ladebildschirm nach Schwarz ab und das Level aus Schwarz auf, wie im originalen TR4. Ohne Ladebildschirm blenden beide das Level aus Schwarz auf. Deaktiviert zeigt das Level sofort.",
+            "title": "\\{review}Übergang beim Levelstart",
+            "values": {
+                "black": "\\{review}Über Schwarz",
+                "cross-fade": "\\{review}Überblenden",
+                "disabled": "\\{review}Deaktiviert",
+            }
+        },
         "visuals.logo_locale": {
             "description": "\\{review}Welches Logo der Titelbildschirm zeigt. Das Original bringt für jede Sprache, in der es erschienen ist, ein eigenes mit.",
             "title": "\\{review}Titel-Logo",
@@ -2000,6 +2168,10 @@
         "visuals.sunglasses_mode": {
             "title": "\\{review}Laras Sonnenbrille",
             "description": "\\{review}Ändert den Stil von Laras Sonnenbrille. Hinweis: Die Gläser sind reflektierend, wenn die entsprechende Option aktiviert ist.\n\n- Aus: Lara trägt keine Sonnenbrille.\n- Undurchsichtig: Laras Sonnenbrille hat undurchsichtige Gläser.\n- Transparent: Laras Sonnenbrille hat halbtransparente Gläser.",
+        },
+        "visuals.sunglasses_reflective": {
+            "title": "\\{review}Reflektierende Sonnenbrille",
+            "description": "\\{review}Aktiviert Reflexionen auf den Gläsern von Laras Sonnenbrille. Reflexionen müssen ebenfalls aktiviert sein.",
         },
         "visuals.ui_brightness": {
             "title": "UI-Helligkeit",
@@ -2025,6 +2197,10 @@
         "visuals.water_tint_mode": {
             "title": "\\{review}Wasserfärbung",
             "description": "\\{review}Wie viel von Lara die Wasserfarbe annimmt, während sie im Wasser ist. Ganz färbt sie vollständig, wie in TR1 und TR2. Pro Mesh färbt jedes Mesh danach, wo es sitzt, wie in TR3 und TR4. Reaktiv schneidet sie an der Wasseroberfläche, sodass nur der Teil unter Wasser die Farbe annimmt.",
+        },
+        "window.is_borderless": {
+            "title": "\\{review}Randloser Vollbildmodus",
+            "description": "\\{review}Füllt den Bildschirm mit einem Fenster ohne Rahmen, sodass andere Fenster und Overlays über dem Spiel bleiben können.",
         },
         "window.is_fullscreen": {
             "title": "\\{review}Vollbild",
@@ -2241,6 +2417,9 @@
         },
         "body_part": {
             "name": "Körperteil",
+        },
+        "bouncing_boulder": {
+            "name": "\\{review}Springender Felsbrocken",
         },
         "bridge_flat": {
             "name": "Brücke Flach",
@@ -2488,6 +2667,9 @@
         "ember_emitter": {
             "name": "Gluterzeuger",
         },
+        "enemy_jeep": {
+            "name": "\\{review}Feindlicher Jeep",
+        },
         "examine_item_1": {
             "name": "\\{review}Gegenstand 1 untersuchen",
         },
@@ -2497,11 +2679,17 @@
         "examine_item_3": {
             "name": "\\{review}Gegenstand 3 untersuchen",
         },
+        "expanding_block": {
+            "name": "\\{review}Ausfahrender Block",
+        },
         "explosion_1": {
             "name": "Explosion 1",
         },
         "explosion_2": {
             "name": "Explosion 2",
+        },
+        "falling_blade": {
+            "name": "\\{review}Fallende Klinge",
         },
         "falling_block_1": {
             "name": "Fallender Block 1|Zerbrechbarer Boden 1|Zerbrechbare Kacheln 1",
@@ -2614,6 +2802,9 @@
         "grenade_gun_item": {
             "name": "Granatenwerfer",
         },
+        "guide": {
+            "name": "\\{review}Begleiter",
+        },
         "gun_flash": {
             "name": "Mündungsfeuer",
         },
@@ -2628,6 +2819,15 @@
         },
         "harpoon_gun_item": {
             "name": "Harpune",
+        },
+        "henchman_1": {
+            "name": "\\{review}Handlanger 1",
+        },
+        "henchman_2": {
+            "name": "\\{review}Handlanger 2",
+        },
+        "henchman_jeep": {
+            "name": "\\{review}Handlanger Jeep",
         },
         "hook": {
             "name": "Hook",
@@ -2646,6 +2846,12 @@
         },
         "inv_background": {
             "name": "Menü Hintergrund",
+        },
+        "jackal": {
+            "name": "\\{review}Hund|\\{review}Schakal",
+        },
+        "jeep": {
+            "name": "\\{review}Jeep",
         },
         "jelly": {
             "name": "Qualle",
@@ -2800,6 +3006,9 @@
         "lara_crossbow": {
             "name": "\\{review}Armbrust-Animation",
         },
+        "lara_crossbow_laser": {
+            "name": "\\{review}Armbrust-Animation (Laservisier)",
+        },
         "lara_desert_eagle": {
             "name": "\\{review}Animation der Desert Eagle",
         },
@@ -2817,6 +3026,9 @@
         },
         "lara_harpoon_gun": {
             "name": "Harpunen-Animation",
+        },
+        "lara_jeep": {
+            "name": "\\{review}Jeep-Animation",
         },
         "lara_kayak": {
             "name": "\\{review}Kajak-Animation",
@@ -2844,6 +3056,9 @@
         },
         "lara_revolver": {
             "name": "\\{review}Revolver-Animation",
+        },
+        "lara_revolver_laser": {
+            "name": "\\{review}Revolver-Animation (Laservisier)",
         },
         "lara_rib": {
             "name": "\\{review}RIB-Animation",
@@ -2893,6 +3108,9 @@
         },
         "lizard": {
             "name": "\\{review}Echse",
+        },
+        "load_option": {
+            "name": "\\{review}Laden",
         },
         "m16_ammo_item": {
             "name": "M16-Munition",
@@ -2980,6 +3198,9 @@
         },
         "moving_bar": {
             "name": "Moving Bar",
+        },
+        "moving_floor": {
+            "name": "\\{review}Beweglicher Boden",
         },
         "mp5_ammo_item": {
             "name": "\\{review}MP5-Munition",
@@ -3107,6 +3328,9 @@
         "player_10": {
             "name": "Zwischensequenz-Schauspieler 10",
         },
+        "plough": {
+            "name": "\\{review}Pflug",
+        },
         "pods": {
             "name": "Pod",
         },
@@ -3145,6 +3369,21 @@
         },
         "punk_2": {
             "name": "\\{review}Punk 2",
+        },
+        "pushable_object_1": {
+            "name": "\\{review}Schiebbares Objekt 1",
+        },
+        "pushable_object_2": {
+            "name": "\\{review}Schiebbares Objekt 2",
+        },
+        "pushable_object_3": {
+            "name": "\\{review}Schiebbares Objekt 3",
+        },
+        "pushable_object_4": {
+            "name": "\\{review}Schiebbares Objekt 4",
+        },
+        "pushable_object_5": {
+            "name": "\\{review}Schiebbares Objekt 5",
         },
         "pushpull_door_1": {
             "name": "\\{review}Schwingtür 1",
@@ -3329,6 +3568,12 @@
         "quest_item_6": {
             "name": "\\{review}Questgegenstand 6",
         },
+        "raising_block_1": {
+            "name": "\\{review}Hebeblock 1",
+        },
+        "raising_block_2": {
+            "name": "\\{review}Hebeblock 2",
+        },
         "raptor": {
             "name": "Raptor",
         },
@@ -3374,6 +3619,9 @@
         "rolling_ball_4": {
             "name": "Boulder 4|Rolling Ball 4",
         },
+        "rolling_spikes": {
+            "name": "\\{review}Rollende Stacheln",
+        },
         "rope": {
             "name": "\\{review}Seil",
         },
@@ -3397,6 +3645,9 @@
         },
         "save_crystal_option": {
             "name": "\\{review}Kristall|Speicherkristall",
+        },
+        "save_option": {
+            "name": "\\{review}Speichern",
         },
         "scaled_spikes": {
             "name": "\\{review}Skalierte Stacheln",
@@ -3430,6 +3681,9 @@
         },
         "sentry_gun": {
             "name": "\\{review}Roboter-Wachgeschütz",
+        },
+        "seth_sarcophagus": {
+            "name": "\\{review}Seth-Sarkophag",
         },
         "shadow": {
             "name": "\\{review}Schatten",
@@ -3473,6 +3727,9 @@
         "sliding_pillar": {
             "name": "Sliding Pillar",
         },
+        "small_scorpion": {
+            "name": "\\{review}Kleiner Skorpion",
+        },
         "smashable_1": {
             "name": "Zerstörbares Fenster 1",
         },
@@ -3484,6 +3741,9 @@
         },
         "smashable_4": {
             "name": "Zerstörbares Fenster 4",
+        },
+        "smashable_vehicle_wall": {
+            "name": "\\{review}Zerstörbare Fahrzeugwand",
         },
         "smoke_emitter_black": {
             "name": "\\{review}Rauchgenerator (Schwarz)",
@@ -3656,11 +3916,17 @@
         "tribe_pipeman": {
             "name": "\\{review}Stammes-Blasrohrbenutzer",
         },
+        "trigger_gate": {
+            "name": "\\{review}Trigger-Sperre",
+        },
         "tropical_fish": {
             "name": "\\{review}Tropischer Fisch",
         },
         "twinkle": {
             "name": "Funken",
+        },
+        "undead_mummy": {
+            "name": "\\{review}Untote Mumie",
         },
         "underwater_door": {
             "name": "\\{review}Unterwassertür",

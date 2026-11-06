@@ -1,12 +1,59 @@
 {
     // For usage, refer to the documentation here:
     // https://lostartefacts.dev/trx/docs/stable/game_strings
+    "enums": {
+        "input_role": {
+            "equip_grenade_launcher": "Equip Grenade Gun",
+            "equip_uzis": "Equip Uzi",
+        }
+    },
     "objects": {
+        "crossbow_ammo_1_item": {
+            "name": "Crossbow Normal Ammo",
+        },
+        "crossbow_ammo_2_item": {
+            "name": "Crossbow Poison Ammo",
+        },
+        "crossbow_ammo_2_option": "$objects/crossbow_ammo_2_item",
+        "crossbow_ammo_3_item": {
+            "name": "Crossbow Explosive Ammo",
+        },
+        "crossbow_ammo_3_option": "$objects/crossbow_ammo_3_item",
         "flare_item": {
             "name": "Flares",
         },
+        "grenade_ammo_2_item": {
+            "name": "Grenade Gun Super Ammo",
+        },
+        "grenade_ammo_2_option": "$objects/grenade_ammo_2_item",
+        "grenade_ammo_3_item": {
+            "name": "Grenade Gun Flash Ammo",
+        },
+        "grenade_ammo_3_option": "$objects/grenade_ammo_3_item",
+        "grenade_ammo_item": {
+            "name": "Grenade Gun Normal Ammo",
+        },
         "grenade_gun_item": {
             "name": "Grenade Gun",
+        },
+        "pistols_ammo_item": {
+            "name": "Pistol Ammo",
+        },
+        "quest_item_1": {
+            "name": "Amulet of Horus",
+        },
+        "shotgun_ammo_2_item": {
+            "name": "Shotgun Wideshot Ammo",
+        },
+        "shotgun_ammo_2_option": "$objects/shotgun_ammo_2_item",
+        "shotgun_ammo_item": {
+            "name": "Shotgun Normal Ammo",
+        },
+        "uzis_ammo_item": {
+            "name": "Uzi Ammo",
+        },
+        "uzis_item": {
+            "name": "Uzi",
         }
     },
     "cutscenes": [],
@@ -112,9 +159,6 @@
                 "key_item_2": {
                     "name": "Hypostyle Key",
                 },
-                "key_item_3": {
-                    "name": "Temple Key",
-                },
                 "puzzle_item_1": {
                     "name": "Sun Talisman",
                 },
@@ -137,9 +181,6 @@
             "objects": {
                 "key_item_2": {
                     "name": "Hypostyle Key",
-                },
-                "key_item_3": {
-                    "name": "Temple Key",
                 },
                 "puzzle_item_1": {
                     "name": "Sun Talisman",
@@ -178,7 +219,7 @@
                 },
                 "examine_item_2": {
                     "name": "The Rules of Senet",
-                    "description": "\\{color grey}To win the game, get all your pieces off the board by landing them on the final ankh square. On your turn spin the sticks. Your throw is the number of white sides showing.\n\nIf no white sides show, your throw is a six. If you throw a six or land on an ankh square you get an extra turn. If you land on an opponent's piece, it is returned to the start.",
+                    "description": "To win the game, get all your pieces off the board by landing them on the final ankh square. On your turn spin the sticks. Your throw is the number of white sides showing.\n\nIf no white sides show, your throw is a six. If you throw a six or land on an ankh square you get an extra turn. If you land on an opponent's piece, it is returned to the start.",
                 }
             }
         },
@@ -332,6 +373,9 @@
                 "puzzle_item_5": {
                     "name": "Portal Guardian",
                 },
+                "puzzle_item_6": {
+                    "name": "Horseman's Gem",
+                },
                 "puzzle_item_10": {
                     "name": "Pharos Knot",
                 },
@@ -404,6 +448,9 @@
                 },
                 "puzzle_item_3": {
                     "name": "Golden Star",
+                },
+                "puzzle_item_4": {
+                    "name": "Hook and Pole",
                 },
                 "puzzle_item_5": {
                     "name": "Portal Guardian",
@@ -513,7 +560,7 @@
                 },
                 "examine_item_3": {
                     "name": "Fire Circle Scroll",
-                    "description": "\\{color yellow}For the serpents to live, all must first be stilled. Provoke each in turn, and the circle will burn complete.",
+                    "description": "For the serpents to live, all must first be stilled. Provoke each in turn, and the circle will burn complete.",
                 }
             }
         },

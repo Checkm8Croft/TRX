@@ -78,7 +78,7 @@
                 "z": 40,
             },
             "pos_alt": {
-                "x": 16,
+                "x": 4,
                 "y": 128,
                 "z": 40,
             },
@@ -130,7 +130,7 @@
         "ammo": {
             "initial_shots": 30,
             "box_shots": 30,
-            "box_label_qty": 2,
+            "box_label_qty": 30,
             "icon": "\\{ammo uzis}",
         },
         "aim": {
@@ -210,6 +210,7 @@
         "kind": "single_pistol",
         "damage": 21,
         "gun_height": 650,
+        "equip_key": "equip_revolver",
         "is_remembered": true,
         "wants_combat_camera": true,
         "objects": {
@@ -217,10 +218,16 @@
             "ammo": "revolver_ammo_item",
             "anim": "lara_revolver",
         },
+        "attachment": {
+            "object": "lasersight_item",
+            "anim": "lara_revolver_laser",
+            "inventory_meshes": 11,
+            "fire_delay": 16,
+        },
         "ammo": {
             "initial_shots": 6,
             "box_shots": 6,
-            "box_label_qty": 2,
+            "box_label_qty": 6,
         },
         "aim": {
             "speed": 10,
@@ -301,7 +308,7 @@
         "is_remembered": true,
         "wants_combat_camera": true,
         "unaims_on_release": true,
-        "fire": "generic",
+        "fire": "shotgun_tr4",
         "objects": {
             "pickup": "shotgun_item",
             "ammo": "shotgun_ammo_item",
@@ -312,7 +319,7 @@
             "rounds_per_shot": 6,
             "initial_shots": 6,
             "box_shots": 6,
-            "box_label_qty": 2,
+            "box_label_qty": 6,
             "icon": "\\{ammo shotgun}",
         },
         "aim": {
@@ -349,11 +356,22 @@
             "pos": {
                 "x": -16,
                 "y": 228,
-                "z": 96,
+                "z": 32,
             },
         },
         "smoke": {
+            "pos": {
+                "x": 0,
+                "y": 228,
+                "z": 32,
+            },
+            "tip": {
+                "x": 0,
+                "y": 1508,
+                "z": 32,
+            },
             "count": 32,
+            "burst": 7,
         },
         "shell": {
             "pos": {
@@ -389,18 +407,26 @@
         "kind": "rifle",
         "damage": 5,
         "gun_height": 500,
+        "equip_key": "equip_crossbow",
         "is_remembered": true,
         "wants_combat_camera": true,
-        "fire": "generic",
+        "fire": "crossbow",
         "objects": {
             "pickup": "crossbow_item",
             "ammo": "crossbow_ammo_1_item",
             "anim": "lara_crossbow",
         },
+        "attachment": {
+            "object": "lasersight_item",
+            "anim": "lara_crossbow_laser",
+            "inventory_meshes": 11,
+            "fire_delay": 32,
+            "fire": "crossbow",
+        },
         "ammo": {
             "initial_shots": 10,
             "box_shots": 10,
-            "box_label_qty": 1,
+            "box_label_qty": 10,
         },
         "aim": {
             "speed": 10,
@@ -419,18 +445,8 @@
         "flash": {
             "time": 2,
         },
-        "muzzle": {
-            "pos": {
-                "x": 0,
-                "y": 228,
-                "z": 96,
-            },
-        },
-        "smoke": {
-            "count": 24,
-        },
         "sound": {
-            "fire": "",
+            "fire": "lara_crossbow",
         },
         "stow": {
             "place": "back",
@@ -455,7 +471,7 @@
         "is_remembered": true,
         "is_launcher": true,
         "wants_combat_camera": true,
-        "fire": "grenade",
+        "fire": "grenade_tr4",
         "objects": {
             "pickup": "grenade_gun_item",
             "ammo": "grenade_ammo_item",
@@ -465,7 +481,7 @@
         "ammo": {
             "initial_shots": 4,
             "box_shots": 4,
-            "box_label_qty": 1,
+            "box_label_qty": 4,
         },
         "aim": {
             "speed": 10,
@@ -493,7 +509,18 @@
             },
         },
         "smoke": {
+            "pos": {
+                "x": 0,
+                "y": 276,
+                "z": 80,
+            },
+            "tip": {
+                "x": 0,
+                "y": 1204,
+                "z": 80,
+            },
             "count": 32,
+            "burst": 5,
             "size": "launcher",
         },
         "sound": {

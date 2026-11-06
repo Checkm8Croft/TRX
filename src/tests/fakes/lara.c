@@ -50,6 +50,24 @@ static INVENTORY_ENTRY *M_StateEntry(
     return nullptr;
 }
 
+// Gives every weapon no attachment, as the engine's registry does. A zeroed
+// record would name object 0 instead.
+static void M_SeedWeapons(void)
+{
+    static bool seeded = false;
+    if (seeded) {
+        return;
+    }
+    seeded = true;
+    for (int32_t i = 0; i < MAX_WEAPONS; i++) {
+        m_Weapons[i].attachment = (WEAPON_ATTACHMENT_INFO) {
+            .object_id = NO_OBJECT,
+            .anim_object_id = NO_OBJECT,
+            .inventory_meshes = -1,
+        };
+    }
+}
+
 static void M_Reset(void)
 {
     memset(&m_Lara, 0, sizeof(m_Lara));
@@ -94,6 +112,7 @@ RESULT Gun_Registry_Declare(
 
 WEAPON_INFO *Gun_Registry_Get(const LARA_GUN_TYPE gun_type)
 {
+    M_SeedWeapons();
     m_Weapons[gun_type].gun_type = gun_type;
     return &m_Weapons[gun_type];
 }
@@ -190,6 +209,34 @@ OBJECT_ID Gun_GetAmmoObject(const LARA_GUN_TYPE gun_type)
     return FakeLara_AmmoObject(gun_type);
 }
 
+// The shotgun takes a second kind, as the TR4 shotgun takes wideshot shells.
+int32_t Gun_GetAmmoKinds(
+    const LARA_GUN_TYPE gun_type, OBJECT_ID kinds[MAX_AMMO_KINDS])
+{
+    const OBJECT_ID primary = FakeLara_AmmoObject(gun_type);
+    if (primary == NO_OBJECT) {
+        return 0;
+    }
+    int32_t count = 0;
+    kinds[count++] = primary;
+    if (gun_type == LGT_SHOTGUN) {
+        kinds[count++] = O_SHOTGUN_AMMO_2_ITEM;
+    }
+    return count;
+}
+
+bool Gun_IsAmmoKind(const LARA_GUN_TYPE gun_type, const OBJECT_ID obj_id)
+{
+    OBJECT_ID kinds[MAX_AMMO_KINDS];
+    const int32_t count = Gun_GetAmmoKinds(gun_type, kinds);
+    for (int32_t i = 0; i < count; i++) {
+        if (kinds[i] == obj_id) {
+            return true;
+        }
+    }
+    return false;
+}
+
 OBJECT_ID Gun_GetWeaponAnim(const LARA_GUN_TYPE gun_type)
 {
     return FakeLara_GunObject(gun_type);
@@ -280,32 +327,88 @@ OBJECT_ID Inv_GetItemPickup(const OBJECT_ID object_id)
     return object_id;
 }
 
-int32_t Inv_State_GetAmmo(
+bool Inv_State_HasAttachment(
     const INVENTORY_STATE *const state, const LARA_GUN_TYPE gun_type)
 {
+    for (int32_t i = 0; i < state->attached_count; i++) {
+        if (state->attached[i] == gun_type) {
+            return true;
+        }
+    }
+    return false;
+}
+
+int32_t Inv_State_GetKindAmmo(
+    const INVENTORY_STATE *const state, const LARA_GUN_TYPE gun_type,
+    const OBJECT_ID kind)
+{
     for (int32_t i = 0; i < state->ammo_count; i++) {
-        if (state->ammo[i].gun_type == gun_type) {
+        if (state->ammo[i].gun_type == gun_type
+            && state->ammo[i].kind == kind) {
             return state->ammo[i].rounds;
         }
     }
     return 0;
 }
 
-void Inv_State_SetAmmo(
+void Inv_State_SetKindAmmo(
     INVENTORY_STATE *const state, const LARA_GUN_TYPE gun_type,
-    const int32_t rounds)
+    const OBJECT_ID kind, const int32_t rounds)
 {
     if (gun_type == LGT_UNARMED) {
         return;
     }
     for (int32_t i = 0; i < state->ammo_count; i++) {
-        if (state->ammo[i].gun_type == gun_type) {
+        if (state->ammo[i].gun_type == gun_type
+            && state->ammo[i].kind == kind) {
             state->ammo[i].rounds = rounds;
             return;
         }
     }
-    state->ammo[state->ammo_count++] =
-        (INVENTORY_AMMO) { .gun_type = gun_type, .rounds = rounds };
+    state->ammo[state->ammo_count++] = (INVENTORY_AMMO) {
+        .gun_type = gun_type,
+        .kind = kind,
+        .rounds = rounds,
+    };
+}
+
+OBJECT_ID Inv_State_GetAmmoKind(
+    const INVENTORY_STATE *const state, const LARA_GUN_TYPE gun_type)
+{
+    for (int32_t i = 0; i < state->ammo_count; i++) {
+        if (state->ammo[i].gun_type == gun_type && state->ammo[i].is_selected) {
+            return state->ammo[i].kind;
+        }
+    }
+    return Gun_GetAmmoObject(gun_type);
+}
+
+void Inv_State_SelectAmmoKind(
+    INVENTORY_STATE *const state, const LARA_GUN_TYPE gun_type,
+    const OBJECT_ID kind)
+{
+    Inv_State_SetKindAmmo(
+        state, gun_type, kind, Inv_State_GetKindAmmo(state, gun_type, kind));
+    for (int32_t i = 0; i < state->ammo_count; i++) {
+        if (state->ammo[i].gun_type == gun_type) {
+            state->ammo[i].is_selected = state->ammo[i].kind == kind;
+        }
+    }
+}
+
+int32_t Inv_State_GetAmmo(
+    const INVENTORY_STATE *const state, const LARA_GUN_TYPE gun_type)
+{
+    return Inv_State_GetKindAmmo(
+        state, gun_type, Inv_State_GetAmmoKind(state, gun_type));
+}
+
+void Inv_State_SetAmmo(
+    INVENTORY_STATE *const state, const LARA_GUN_TYPE gun_type,
+    const int32_t rounds)
+{
+    Inv_State_SetKindAmmo(
+        state, gun_type, Inv_State_GetAmmoKind(state, gun_type), rounds);
 }
 
 void Inv_State_ClearAmmo(INVENTORY_STATE *const state)
@@ -397,6 +500,14 @@ void Inv_State_SetCount(
 {
     const OBJECT_ID object_id = Inv_GetItemOption(raw_object_id);
     INVENTORY_ENTRY *const entry = M_StateEntry(state, object_id);
+    if (entry != nullptr && qty <= 0) {
+        state->count--;
+        for (INVENTORY_ENTRY *it = entry; it < &state->entries[state->count];
+             it++) {
+            *it = *(it + 1);
+        }
+        return;
+    }
     if (entry != nullptr) {
         entry->qty = qty;
         return;
@@ -639,6 +750,12 @@ int16_t (*Gun_Routines_GetReadyAnim(const char *const name))(void)
 }
 
 uint8_t (*Gun_Routines_GetSmokeSize(const char *const name))(void)
+{
+    return nullptr;
+}
+
+void (*Gun_Routines_GetSightFire(const char *const name))(
+    LARA_GUN_TYPE, GAME_VECTOR, GAME_VECTOR)
 {
     return nullptr;
 }

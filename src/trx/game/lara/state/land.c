@@ -1,5 +1,6 @@
 #include <trx/config.h>
 #include <trx/game/camera.h>
+#include <trx/game/demo.h>
 #include <trx/game/gun.h>
 #include <trx/game/input.h>
 #include <trx/game/interpolation.h>
@@ -22,7 +23,8 @@
 #define M_SPRINT_TURN_MAX          (DEG_1 * 4)                    // = 728
 #define M_SPRINT_LEAN_MAX          (DEG_1 * 16)                   // = 2192
 #define M_CAM_SLIDE_ELEVATION      (-45 * DEG_1)                  // = -8190
-#define M_CAM_PUSH_BLOCK_ANGLE     (35 * DEG_1)                   // = 6370
+#define M_CAM_PUSH_BLOCK_ANGLE_1_3 (35 * DEG_1)                   // = 6370
+#define M_CAM_PUSH_BLOCK_ANGLE_4   (90 * DEG_1)                   // = 16380
 #define M_CAM_PUSH_BLOCK_ELEVATION (-25 * DEG_1)                  // = -4550
 #define M_CAM_PP_READY_ANGLE       (75 * DEG_1)                   // = 13650
 #define M_CAM_PICKUP_ANGLE         (-130 * DEG_1)                 // = -23660
@@ -86,6 +88,16 @@ static void M_PullUp(ITEM *const item, COLL_INFO *const coll)
     }
 }
 
+// The PS1 release lets Lara look up and down while she walks, runs or
+// sprints, which takes away the forward input and stops her. Its demos depend
+// on it.
+static void M_LookWhileMoving(void)
+{
+    if (Demo_UsesPS1Rules() && g_Input.look) {
+        Lara_Look_UpDown();
+    }
+}
+
 static void M_Walk(ITEM *const item, COLL_INFO *const coll)
 {
     if (item->hit_points <= 0) {
@@ -98,6 +110,7 @@ static void M_Walk(ITEM *const item, COLL_INFO *const coll)
         return;
     }
 
+    M_LookWhileMoving();
     if (g_Input.left) {
         lara->turn_rate -= LARA_TURN_RATE;
         CLAMPL(lara->turn_rate, -LARA_SLOW_TURN);
@@ -184,8 +197,9 @@ static void M_Run(ITEM *const item, COLL_INFO *const coll)
     }
 
     if (sprint_requested && g_Config.gameplay.enable_sprint
-        && lara->water_status != LWS_WADE
         && item->current_anim_state == LS(LS_RUN) && lara->sprint_timer > 0
+        && (!g_Config.gameplay.fix_wade_sprint
+            || lara->water_status != LWS_WADE)
         && (g_Config.gameplay.enable_responsive_sprint
             || lara->sprint_timer == LARA_MAX_SPRINT)) {
         item->goal_anim_state = LS(LS_SPRINT);
@@ -197,6 +211,7 @@ static void M_Run(ITEM *const item, COLL_INFO *const coll)
         return;
     }
 
+    M_LookWhileMoving();
     if (g_Input.left) {
         lara->turn_rate -= LARA_TURN_RATE;
         CLAMPL(lara->turn_rate, -M_FAST_TURN);
@@ -585,6 +600,14 @@ static void M_FastBack(ITEM *const item, COLL_INFO *const coll)
     }
 }
 
+// TR3 lets a turn run out while Lara looks around. The turn keeps adding to
+// her turn rate until it stops, which changes the heading she ends up with.
+static bool M_IsLookStoppingTurn(void)
+{
+    return g_TRVersion != 3
+        && g_Config.gameplay.look_mode != LOOK_MODE_RESTRICTED && g_Input.look;
+}
+
 static void M_Turn(ITEM *const item, COLL_INFO *const coll)
 {
     if (item->hit_points <= 0) {
@@ -592,7 +615,7 @@ static void M_Turn(ITEM *const item, COLL_INFO *const coll)
         return;
     }
 
-    if (g_Config.gameplay.look_mode != LOOK_MODE_RESTRICTED && g_Input.look) {
+    if (M_IsLookStoppingTurn()) {
         item->goal_anim_state = LS(LS_STOP);
         return;
     }
@@ -646,7 +669,7 @@ static void M_FastTurn(ITEM *const item, COLL_INFO *const coll)
         return;
     }
 
-    if (g_Config.gameplay.look_mode != LOOK_MODE_RESTRICTED && g_Input.look) {
+    if (M_IsLookStoppingTurn()) {
         item->goal_anim_state = LS(LS_STOP);
         return;
     }
@@ -722,16 +745,23 @@ static void M_Slide(ITEM *const item, COLL_INFO *const coll)
     }
 }
 
+// The PS1 demos depend on enemies hitting Lara while she rolls, as they do in
+// the original games.
 static void M_Roll(ITEM *const item, COLL_INFO *const coll)
 {
-    coll->enable_hit = 0;
+    if (!Demo_UsesPS1Rules()) {
+        coll->enable_hit = 0;
+    }
 }
 
 static void M_PushBlock(ITEM *const item, COLL_INFO *const coll)
 {
     M_Default(item, coll);
     g_Camera.flags = CF_FOLLOW_CENTRE;
-    g_Camera.target_angle = M_CAM_PUSH_BLOCK_ANGLE;
+    g_Camera.target_angle = item->current_anim_state == LS(LS_PUSH_BLOCK)
+            && g_Config.visuals.camera_mode == CAMERA_MODE_TR4
+        ? M_CAM_PUSH_BLOCK_ANGLE_4
+        : M_CAM_PUSH_BLOCK_ANGLE_1_3;
     g_Camera.target_elevation = M_CAM_PUSH_BLOCK_ELEVATION;
 }
 
@@ -741,6 +771,7 @@ static void M_PPReady(ITEM *const item, COLL_INFO *const coll)
     g_Camera.target_angle = M_CAM_PP_READY_ANGLE;
     if (!g_Input.action) {
         item->goal_anim_state = LS(LS_STOP);
+        Lara_GetLaraInfo()->interact_target.item_num = NO_ITEM;
     }
 }
 
@@ -838,6 +869,8 @@ static void M_Sprint(ITEM *const item, COLL_INFO *const coll)
         item->goal_anim_state = M_GetRunToCrouchState();
         return;
     }
+
+    M_LookWhileMoving();
     if (g_Input.left) {
         lara->turn_rate -= M_SPRINT_TURN_RATE;
         CLAMPL(lara->turn_rate, -M_SPRINT_TURN_MAX);

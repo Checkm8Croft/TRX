@@ -10,25 +10,8 @@
             "area_5": "Londres",
             "area_6": "Antarctique",
         },
-        "inventory_ring": {
-            "heading_fmt": "\\{color 5}%s",
-            "item_count_fmt": "\\{color 3}%s",
-            "object_name_fmt": "\\{color 5}%s",
-        },
         "misc": {
             "empty_slot_fmt": "- Emplacement vide -",
-        },
-        "overlay": {
-            "item_count_fmt_pc": "%s",
-            "item_count_fmt_ps1": "\\{color 3}%s",
-        },
-        "pause": {
-            "paused": "\\{color 5}En pause",
-        },
-        "stats": {
-            "assault_other_times_fmt": "\\{color 2}%s",
-            "gym_assault_course": "\\{color 5}Entraînement",
-            "gym_racetrack_course": "\\{color 5}Course de quad",
         }
     },
     "objects": {
@@ -310,6 +293,53 @@
             "objects": {
                 "key_item_1": {
                     "name": "Clé du caveau",
+                }
+            }
+        }
+    ],
+    "demos": [
+        {
+            "title": "Aldwych",
+            "objects": {
+                "key_item_1": {
+                    "name": "Clé de la maintenance",
+                },
+                "key_item_2": {
+                    "name": "Clé de Salomon",
+                },
+                "key_item_3": {
+                    "name": "Clé de Salomon",
+                },
+                "puzzle_item_1": {
+                    "name": "Vieux penny",
+                },
+                "puzzle_item_2": {
+                    "name": "Ticket",
+                },
+                "puzzle_item_3": {
+                    "name": "Maillet maçonnique",
+                },
+                "puzzle_item_4": {
+                    "name": "Étoile décorée",
+                }
+            }
+        },
+        {
+            "title": "Le Gange",
+            "objects": {
+                "key_item_1": {
+                    "name": "Clé du portail",
+                }
+            }
+        },
+        {
+            "title": "Le désert du Nevada",
+            "objects": {
+                "key_item_1": {
+                    "name": "Passe du générateur",
+                },
+                "key_item_2": {
+                    "name": "Interrupteur du détonateur",
                 }
             }
         }

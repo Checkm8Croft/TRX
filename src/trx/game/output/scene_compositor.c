@@ -13,6 +13,7 @@
 #include <trx/game/shell.h>
 #include <trx/game/viewport.h>
 #include <trx/gl/context.h>
+#include <trx/gl/gpu_timer.h>
 #include <trx/gl/renderer.h>
 #include <trx/gl/utils.h>
 #ifndef GL_TEXTURE_MAX_ANISOTROPY_EXT
@@ -42,6 +43,10 @@ typedef struct {
 
 static M_PRIV m_Priv = {};
 
+_Static_assert(
+    SCENE_PASS_COUNT <= TRX_GL_GPU_TIMER_SLOTS,
+    "The GPU timer has no slot for every scene pass");
+
 static void M_SetSamplerFilter(
     const GLuint sampler, const TEXTURE_FILTER filter)
 {
@@ -49,15 +54,6 @@ static void M_SetSamplerFilter(
         filter == TEXTURE_FILTER_BILINEAR ? GL_LINEAR : GL_NEAREST;
     glSamplerParameteri(sampler, GL_TEXTURE_MIN_FILTER, gl_filter);
     glSamplerParameteri(sampler, GL_TEXTURE_MAG_FILTER, gl_filter);
-}
-
-static void M_BindTextures(const M_PRIV *const p)
-{
-    glBindSampler(0, p->sampler_id);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D_ARRAY, Output_Textures_GetAtlasTexture());
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, Output_Textures_GetEnvMapTexture());
 }
 
 static void M_SetupScene(const M_PRIV *const p)
@@ -84,6 +80,7 @@ static void M_SetupUI(const M_PRIV *const p)
 
 static void M_RenderSourcePass(const M_PRIV *const p, const SCENE_PASS pass)
 {
+    TRX_GL_GpuTimer_Begin(pass);
     for (int32_t i = 0; i < p->sources->count; i++) {
         const SCENE_SOURCE *const source =
             *(SCENE_SOURCE **)Vector_Get(p->sources, i);
@@ -92,6 +89,7 @@ static void M_RenderSourcePass(const M_PRIV *const p, const SCENE_PASS pass)
             source->render_pass(source, pass);
         }
     }
+    TRX_GL_GpuTimer_End();
 }
 
 static bool M_IsSourceDirty(const M_PRIV *const p, const SCENE_PASS pass)
@@ -126,12 +124,18 @@ static void M_PrepareScene(const M_PRIV *const p)
     TRX_GL_CheckError();
 #endif
 
-    glSamplerParameterf(
-        p->sampler_id, GL_TEXTURE_MAX_ANISOTROPY_EXT,
-        g_Config.rendering.anisotropy_filter);
+#if !defined(TRX_TARGET_IOS)
+    if (GLEW_EXT_texture_filter_anisotropic
+        || GLEW_ARB_texture_filter_anisotropic) {
+        glSamplerParameterf(
+            p->sampler_id, GL_TEXTURE_MAX_ANISOTROPY_EXT,
+            g_Config.rendering.anisotropy_filter);
+        TRX_GL_CheckError();
+    }
+#endif
 
     Output_Uniforms_UploadGeneral(Output_GetUniforms());
-    Output_Uniforms_UploadRoomLights(Output_GetUniforms(), nullptr);
+    Output_Uniforms_UploadDynamicLights(Output_GetUniforms());
     Output_SetCurrentRoom(nullptr);
 }
 
@@ -141,8 +145,9 @@ static void M_RenderScenePasses(const M_PRIV *const p)
         return;
     }
 
+    Output_ApplyPendingClear();
     TRX_GL_Renderer_InvalidateScene();
-    M_BindTextures(p);
+    SceneCompositor_BindTextures();
     M_SetupScene(p);
 
     glDisable(GL_DEPTH_TEST);
@@ -175,8 +180,7 @@ static void M_RenderScenePasses(const M_PRIV *const p)
         glDepthMask(GL_FALSE);
         glEnable(GL_BLEND);
         M_RenderSourcePass(p, SCENE_PASS_TRANSPARENT);
-        glBlendEquation(GL_FUNC_ADD);
-        glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+        SceneCompositor_SetSubtractiveBlend();
         M_RenderSourcePass(p, SCENE_PASS_BLEND_SUB);
         glBlendEquation(GL_FUNC_ADD);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
@@ -185,17 +189,13 @@ static void M_RenderScenePasses(const M_PRIV *const p)
         glDisable(GL_CULL_FACE);
     }
 
-    if (M_IsSourceDirty(p, SCENE_PASS_OVERLAY_PRE_UI)) {
-        M_RenderSourcePass(p, SCENE_PASS_OVERLAY_PRE_UI);
+    if (M_IsSourceDirty(p, SCENE_PASS_OVERLAY)) {
+        M_RenderSourcePass(p, SCENE_PASS_OVERLAY);
     }
 
     if (M_IsSourceDirty(p, SCENE_PASS_UI)) {
         M_SetupUI(p);
         M_RenderSourcePass(p, SCENE_PASS_UI);
-    }
-
-    if (M_IsSourceDirty(p, SCENE_PASS_OVERLAY_POST_UI)) {
-        M_RenderSourcePass(p, SCENE_PASS_OVERLAY_POST_UI);
     }
 }
 
@@ -220,6 +220,7 @@ void SceneCompositor_EndCapture(void)
 void SceneCompositor_Init(void)
 {
     M_PRIV *const p = &m_Priv;
+    TRX_GL_GpuTimer_Init(Shell_GetArgs()->debug_render_performance);
     p->sources = Vector_Create(sizeof(SCENE_SOURCE *));
     glGenSamplers(1, &p->sampler_id);
     glSamplerParameteri(p->sampler_id, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -240,6 +241,7 @@ void SceneCompositor_Shutdown(void)
         glDeleteSamplers(1, &p->sampler_id);
         p->sampler_id = 0;
     }
+    TRX_GL_GpuTimer_Shutdown();
 }
 
 void SceneCompositor_BeginScene(void)
@@ -288,8 +290,29 @@ void SceneCompositor_AddSource(const SCENE_SOURCE *const source)
     Vector_Add(p->sources, &source);
 }
 
+void SceneCompositor_BindTextures(void)
+{
+    const M_PRIV *const p = &m_Priv;
+    glBindSampler(0, p->sampler_id);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D_ARRAY, Output_Textures_GetAtlasTexture());
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, Output_Textures_GetEnvMapTexture());
+}
+
 void SceneCompositor_SetSamplerFilter(const TEXTURE_FILTER filter)
 {
     M_PRIV *const p = &m_Priv;
     M_SetSamplerFilter(p->sampler_id, filter);
+}
+
+void SceneCompositor_SetSubtractiveBlend(void)
+{
+    if (g_Config.rendering.enable_ps1_blending) {
+        glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+        glBlendFunc(GL_ONE, GL_ONE);
+    } else {
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+    }
 }

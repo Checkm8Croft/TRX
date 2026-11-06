@@ -15,7 +15,7 @@ local function give(args)
 end
 
 local function count(object)
-  return trx.inventory:count(object)
+  return trx.inventory.count(object)
 end
 
 local UZIS = trx.catalog.weapons.UZIS
@@ -105,16 +105,25 @@ end)
 
 test("guns respects what the level allows, moreguns does not", function()
   assert(give("guns") == trx.console.Result.OK)
-  assert(trx.inventory:shots(UZIS) == 0, "the level leaves the uzis out")
+  assert(trx.inventory.shots(UZIS) == 0, "the level leaves the uzis out")
 
   assert(give("moreguns") == trx.console.Result.OK)
-  assert(trx.inventory:shots(UZIS) == 2000, "and moreguns hands them over")
+  assert(trx.inventory.shots(UZIS) == 2000, "and moreguns hands them over")
 end)
 
 test("a weapon the level allows comes with its ammunition", function()
   fake.set_weapon_available(UZIS, true)
   assert(give("guns") == trx.console.Result.OK)
-  assert(trx.inventory:shots(UZIS) == 2000)
+  assert(trx.inventory.shots(UZIS) == 2000)
+end)
+
+test("a weapon comes with every kind of its ammunition", function()
+  local SHOTGUN = trx.catalog.weapons.SHOTGUN
+  fake.set_weapon_available(SHOTGUN, true)
+  assert(give("guns") == trx.console.Result.OK)
+  for _, kind in ipairs(trx.weapons[SHOTGUN].ammo_objects) do
+    assert(trx.inventory.shots(SHOTGUN, kind) == 300, "a kind came empty")
+  end
 end)
 
 test("a new game plus run tops every weapon up", function()
@@ -122,7 +131,7 @@ test("a new game plus run tops every weapon up", function()
   fake.set_weapon_available(UZIS, true)
 
   assert(give("moreguns") == trx.console.Result.OK)
-  assert(trx.inventory:shots(UZIS) == 10001)
+  assert(trx.inventory.shots(UZIS) == 10001)
 end)
 
 test("all gives one of everything, and the supplies by the ten", function()
@@ -131,7 +140,7 @@ test("all gives one of everything, and the supplies by the ten", function()
 
   assert(count(fake.STORY_KEY) == 1, "the story item")
   assert(count(fake.TOOL) == 1, "and the tool, once")
-  assert(trx.inventory:shots(UZIS) == 2000, "with the guns loaded")
+  assert(trx.inventory.shots(UZIS) == 2000, "with the guns loaded")
   assert(
     count(trx.catalog.objects.SMALL_MEDIPACK_ITEM) == 10,
     "the supplies come by the ten"
@@ -210,9 +219,42 @@ test("the keyword commands reach the same cheats", function()
 
   fake.set_weapon_available(UZIS, true)
   assert(fake.run("guns", "") == trx.console.Result.OK)
-  assert(trx.inventory:shots(UZIS) == 2000)
+  assert(trx.inventory.shots(UZIS) == 2000)
 
   assert(fake.run("moreguns", "") == trx.console.Result.OK)
+end)
+
+test("what a name gives is shown on the HUD", function()
+  assert(give("vase") == trx.console.Result.OK)
+  local shown = fake.calls().show_pickup
+  assert(shown.count == 1)
+  assert(shown.object_id == fake.VASE)
+end)
+
+test("what keys gives is shown on the HUD", function()
+  assert(give("keys") == trx.console.Result.OK)
+  assert(fake.calls().show_pickup.count > 0)
+end)
+
+-- The item cheat key runs `give all`, so it does not fill the HUD.
+test("all shows nothing on the HUD", function()
+  assert(give("all") == trx.console.Result.OK)
+  assert(fake.calls().show_pickup.count == 0)
+end)
+
+test("quiet gives without showing anything", function()
+  for _, args in ipairs({ "-q vase", "--quiet vase", "-q 2 vase", "-q keys" }) do
+    assert(give(args) == trx.console.Result.OK, args .. " should succeed")
+  end
+  assert(count(fake.VASE) == 4)
+  assert(count(fake.STORY_KEY) == 1)
+  assert(fake.calls().show_pickup.count == 0)
+end)
+
+test("the keyword commands take quiet too", function()
+  assert(fake.run("keys", "-q") == trx.console.Result.OK)
+  assert(count(fake.STORY_KEY) == 1)
+  assert(fake.calls().show_pickup.count == 0)
 end)
 
 test("completion offers the keywords and the names together", function()

@@ -426,7 +426,7 @@ static const char *M_GetScancodeName(SDL_Scancode scancode)
     // clang-format on
 }
 
-static bool M_CheckScancode(const SDL_Scancode scancode, const bool exact)
+static bool M_CheckScancode(const SDL_Scancode scancode)
 {
     if (scancode == SDL_SCANCODE_UNKNOWN) {
         return false;
@@ -439,9 +439,6 @@ static bool M_CheckScancode(const SDL_Scancode scancode, const bool exact)
 #endif
     if (KEY_DOWN(scancode)) {
         return true;
-    }
-    if (exact) {
-        return false;
     }
     if (scancode == SDL_SCANCODE_LCTRL) {
         return KEY_DOWN(SDL_SCANCODE_RCTRL);
@@ -464,16 +461,15 @@ static bool M_CheckScancode(const SDL_Scancode scancode, const bool exact)
     return false;
 }
 
-// A binding of one key takes either side of a paired modifier, so that Ctrl
-// bound as action answers to both. A combo takes the side it was bound to:
-// Alt+Enter otherwise fires from the Alt a player jumps with.
+// A binding takes either side of a paired modifier, so that Ctrl bound as
+// action answers to both, and Alt+Enter answers to either Alt.
 static bool M_CheckBinding(const KEYBOARD_BINDING *const bind)
 {
     if (bind->key_count == 0) {
         return false;
     }
     for (int32_t k = 0; k < bind->key_count; k++) {
-        if (!M_CheckScancode(bind->keys[k], bind->key_count > 1)) {
+        if (!M_CheckScancode(bind->keys[k])) {
             return false;
         }
     }
@@ -503,13 +499,29 @@ static bool M_ComboKeysEqual(const void *const a, const void *const b)
     return *(const SDL_Scancode *)a == *(const SDL_Scancode *)b;
 }
 
+static bool M_IsPairedModifier(const SDL_Scancode scancode)
+{
+    return scancode == SDL_SCANCODE_LCTRL || scancode == SDL_SCANCODE_RCTRL
+        || scancode == SDL_SCANCODE_LSHIFT || scancode == SDL_SCANCODE_RSHIFT
+        || scancode == SDL_SCANCODE_LALT || scancode == SDL_SCANCODE_RALT;
+}
+
+// Compares keys for the rules that keep a combo from riding on an immediate
+// action, such as a jump. A paired modifier is exempt: a combo such as
+// Alt+Enter fires even while the player jumps with Alt, whichever Alt that is.
+static bool M_ComboKeysClash(const void *const a, const void *const b)
+{
+    return M_ComboKeysEqual(a, b)
+        && !M_IsPairedModifier(*(const SDL_Scancode *)a);
+}
+
 static bool M_Key(const INPUT_LAYOUT layout, const INPUT_ROLE role)
 {
     for (int32_t slot = 0; slot < INPUT_BINDING_SLOTS; slot++) {
         const KEYBOARD_BINDING *bind = &m_Layout[layout][role].slots[slot];
         if (bind->key_count >= 2
             && Input_ComboIsKeyImmediate(
-                layout, &bind->keys[0], M_GetComboBinding, M_ComboKeysEqual)) {
+                layout, &bind->keys[0], M_GetComboBinding, M_ComboKeysClash)) {
             continue;
         }
         if (M_CheckBinding(bind)) {
@@ -557,11 +569,30 @@ static void M_AssignConflict(
     m_Conflicts[layout][role] = conflict;
 }
 
+// Flags the combos that never fire: those that start with the key of an
+// immediate role, and those that hold a sustained role's key while pressing
+// an immediate one.
+static void M_CheckComboConflicts(const INPUT_LAYOUT layout)
+{
+    for (INPUT_ROLE role = 0; role < INPUT_ROLE_NUMBER_OF; role++) {
+        for (int32_t slot = 0; slot < INPUT_BINDING_SLOTS; slot++) {
+            const INPUT_COMBO_BINDING bind =
+                M_GetComboBinding(layout, role, slot);
+            if (Input_ComboStartsWithImmediate(
+                    layout, bind, M_GetComboBinding, M_ComboKeysClash)
+                || Input_ComboSustainedHasImmediate(
+                    layout, bind, M_GetComboBinding, M_ComboKeysEqual)) {
+                m_Conflicts[layout][role] = true;
+                break;
+            }
+        }
+    }
+}
+
 static void M_CheckConflicts(const INPUT_LAYOUT layout)
 {
     Input_ConflictHelper(layout, M_CheckConflict, M_AssignConflict);
-    Input_ComboCheckConflicts(
-        layout, M_GetComboBinding, M_ComboKeysEqual, m_Conflicts[layout]);
+    M_CheckComboConflicts(layout);
 }
 
 static void M_AssignBinding(
@@ -613,6 +644,15 @@ static void M_HandleBuiltInDefaults(void)
         L_BIND(INPUT_ROLE_EQUIP_MP5, SDL_SCANCODE_6);
         L_BIND(INPUT_ROLE_EQUIP_ROCKET_LAUNCHER, SDL_SCANCODE_7);
         L_BIND(INPUT_ROLE_EQUIP_GRENADE_LAUNCHER, SDL_SCANCODE_8);
+    } else if (g_TRVersion == 4) {
+        L_BIND(INPUT_ROLE_EQUIP_MAGNUMS, SDL_SCANCODE_UNKNOWN);
+        L_BIND(INPUT_ROLE_EQUIP_UZIS, SDL_SCANCODE_3);
+        L_BIND(INPUT_ROLE_EQUIP_REVOLVER, SDL_SCANCODE_4);
+        L_BIND(INPUT_ROLE_EQUIP_HARPOON, SDL_SCANCODE_UNKNOWN);
+        L_BIND(INPUT_ROLE_EQUIP_GRENADE_LAUNCHER, SDL_SCANCODE_5);
+        L_BIND(INPUT_ROLE_EQUIP_M16, SDL_SCANCODE_UNKNOWN);
+        L_BIND(INPUT_ROLE_EQUIP_CROSSBOW, SDL_SCANCODE_6);
+        L_BIND(INPUT_ROLE_CYCLE_AMMO, SDL_SCANCODE_7);
     }
 
 #undef L_BIND
@@ -644,16 +684,66 @@ static void M_Init(void)
     }
 }
 
+static bool M_IsMenuKey(const INPUT_LAYOUT layout, const SDL_Scancode key)
+{
+    static const INPUT_ROLE roles[] = {
+        INPUT_ROLE_MENU_CONFIRM,  INPUT_ROLE_MENU_BACK,
+        INPUT_ROLE_MENU_UP,       INPUT_ROLE_MENU_DOWN,
+        INPUT_ROLE_MENU_LEFT,     INPUT_ROLE_MENU_RIGHT,
+        INPUT_ROLE_MENU_TAB_LEFT, INPUT_ROLE_MENU_TAB_RIGHT,
+    };
+    for (size_t i = 0; i < sizeof(roles) / sizeof(roles[0]); i++) {
+        for (int32_t slot = 0; slot < INPUT_BINDING_SLOTS; slot++) {
+            const KEYBOARD_BINDING *const bind =
+                &m_Layout[layout][roles[i]].slots[slot];
+            if (bind->key_count == 1 && bind->keys[0] == key) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// A game binding steers the menus too, but a key that a menu binding already
+// claims answers to that binding alone, so rebinding a game role onto, say,
+// the up arrow does not make it confirm as well as move.
+static bool M_IsHeldOffMenu(const INPUT_LAYOUT layout, const INPUT_ROLE role)
+{
+    for (int32_t slot = 0; slot < INPUT_BINDING_SLOTS; slot++) {
+        const KEYBOARD_BINDING *bind = &m_Layout[layout][role].slots[slot];
+        if (bind->key_count == 1 && M_IsMenuKey(layout, bind->keys[0])) {
+            continue;
+        }
+        if (bind->key_count >= 2
+            && Input_ComboIsKeyImmediate(
+                layout, &bind->keys[0], M_GetComboBinding, M_ComboKeysClash)) {
+            continue;
+        }
+        if (M_CheckBinding(bind)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool M_CustomUpdate(INPUT_STATE *const result, const INPUT_LAYOUT layout)
 {
-    // we only do this for keyboard input
-    // Skip reads confirm before the line below folds action into it, so that
-    // skip names the keys it answers to rather than inheriting them.
-    result->menu_skip |= result->action || result->menu_confirm;
-    result->menu_confirm |= result->action;
-    result->menu_show_info |= result->look;
-    result->menu_fine_adjust |= result->slow;
-    result->menu_coarse_adjust |= result->draw;
+    result->menu_up = M_Key(layout, INPUT_ROLE_MENU_UP)
+        || M_IsHeldOffMenu(layout, INPUT_ROLE_UP);
+    result->menu_down = M_Key(layout, INPUT_ROLE_MENU_DOWN)
+        || M_IsHeldOffMenu(layout, INPUT_ROLE_DOWN);
+    result->menu_left = M_Key(layout, INPUT_ROLE_MENU_LEFT)
+        || M_IsHeldOffMenu(layout, INPUT_ROLE_LEFT);
+    result->menu_right = M_Key(layout, INPUT_ROLE_MENU_RIGHT)
+        || M_IsHeldOffMenu(layout, INPUT_ROLE_RIGHT);
+    result->menu_back = M_Key(layout, INPUT_ROLE_MENU_BACK)
+        || M_IsHeldOffMenu(layout, INPUT_ROLE_INVENTORY);
+    result->menu_confirm = M_Key(layout, INPUT_ROLE_MENU_CONFIRM)
+        || M_IsHeldOffMenu(layout, INPUT_ROLE_ACTION);
+    result->menu_show_info |= M_IsHeldOffMenu(layout, INPUT_ROLE_LOOK);
+    result->menu_fine_adjust |= M_IsHeldOffMenu(layout, INPUT_ROLE_SLOW);
+    result->menu_coarse_adjust |=
+        M_IsHeldOffMenu(layout, INPUT_ROLE_DRAW_WEAPON);
     return true;
 }
 
@@ -831,7 +921,7 @@ static void M_ResolveCombos(
         if (active[role] != nullptr
             && Input_ComboEarliestKeyIsImmediate(
                 layout, M_ToCombo(active[role]), M_GetPressTick,
-                M_GetComboBinding, M_ComboKeysEqual)) {
+                M_GetComboBinding, M_ComboKeysClash)) {
             InputState_ClearRole(result, role);
             active[role] = nullptr;
         }
@@ -985,7 +1075,7 @@ static bool M_ReadAndAssign(
     if (m_CaptureActive && m_CaptureBuffer.key_count == 1 && any_held
         && Input_ComboIsKeyImmediate(
             layout, &m_CaptureBuffer.keys[0], M_GetComboBinding,
-            M_ComboKeysEqual)) {
+            M_ComboKeysClash)) {
         M_AssignBinding(layout, role, slot, &m_CaptureBuffer);
         m_CaptureBuffer.key_count = 0;
         m_CaptureActive = false;

@@ -1,12 +1,54 @@
 {
     // For usage, refer to the documentation here:
     // https://lostartefacts.dev/trx/docs/stable/game_strings
+    "enums": {
+        "input_role": {
+            "equip_grenade_launcher": "\\{review}Granatenwerfer ausrüsten",
+            "equip_uzis": "\\{review}Uzi ausrüsten",
+        }
+    },
     "objects": {
+        "crossbow_ammo_1_item": {
+            "name": "\\{review}Normale Armbrustbolzen",
+        },
+        "crossbow_ammo_2_item": {
+            "name": "\\{review}Giftbolzen",
+        },
+        "crossbow_ammo_3_item": {
+            "name": "\\{review}Explosivbolzen",
+        },
         "flare_item": {
             "name": "Fackeln",
         },
+        "grenade_ammo_2_item": {
+            "name": "\\{review}Supergranaten",
+        },
+        "grenade_ammo_3_item": {
+            "name": "\\{review}Blendgranaten",
+        },
+        "grenade_ammo_item": {
+            "name": "\\{review}Normale Granaten",
+        },
         "grenade_gun_item": {
             "name": "Granatenwerfer",
+        },
+        "pistols_ammo_item": {
+            "name": "\\{review}Pistolenmunition",
+        },
+        "quest_item_1": {
+            "name": "\\{review}Amulett des Horus",
+        },
+        "shotgun_ammo_2_item": {
+            "name": "\\{review}Streuschuss-Patronen",
+        },
+        "shotgun_ammo_item": {
+            "name": "\\{review}Normale Schrotpatronen",
+        },
+        "uzis_ammo_item": {
+            "name": "\\{review}Uzi-Munition",
+        },
+        "uzis_item": {
+            "name": "\\{review}Uzi",
         }
     },
     "cutscenes": [],
@@ -112,9 +154,6 @@
                 "key_item_2": {
                     "name": "Hypostelschlüssel",
                 },
-                "key_item_3": {
-                    "name": "Tempelschlüssel",
-                },
                 "puzzle_item_1": {
                     "name": "Sonnentalisman",
                 },
@@ -137,9 +176,6 @@
             "objects": {
                 "key_item_2": {
                     "name": "Hypostelschlüssel",
-                },
-                "key_item_3": {
-                    "name": "Tempelschlüssel",
                 },
                 "puzzle_item_1": {
                     "name": "Sonnentalisman",
@@ -178,7 +214,7 @@
                 },
                 "examine_item_2": {
                     "name": "Die Gesetze des Senet",
-                    "description": "\\{color grey}Sie gewinnen das Spiel, wenn Sie jeden Ihrer Brettsteine auf dem letzten Ankhfeld positionieren. Drehen Sie die Sticks, wenn Sie an der Reihe sind. Die Anzahl der weissen Flächen zeigt Ihre Wurfanzahl.\n\nWerden keine weissen Flächen gezeigt, haben Sie eine Sechs geworfen. Wenn Sie eine Sechs werfen, oder auf einem Ankhfeld landen, sind Sie nochmals am Zug. Landen Sie auf einem gegnerischen Stein, wird Ihrer an den Anfang zurückgesetzt.",
+                    "description": "Sie gewinnen das Spiel, wenn Sie jeden Ihrer Brettsteine auf dem letzten Ankhfeld positionieren. Drehen Sie die Sticks, wenn Sie an der Reihe sind. Die Anzahl der weissen Flächen zeigt Ihre Wurfanzahl.\n\nWerden keine weissen Flächen gezeigt, haben Sie eine Sechs geworfen. Wenn Sie eine Sechs werfen, oder auf einem Ankhfeld landen, sind Sie nochmals am Zug. Landen Sie auf einem gegnerischen Stein, wird Ihrer an den Anfang zurückgesetzt.",
                 }
             }
         },
@@ -332,6 +368,9 @@
                 "puzzle_item_5": {
                     "name": "Portalwächter",
                 },
+                "puzzle_item_6": {
+                    "name": "Reiter Juwel",
+                },
                 "puzzle_item_10": {
                     "name": "Pharo's Knoten",
                 },
@@ -404,6 +443,9 @@
                 },
                 "puzzle_item_3": {
                     "name": "Goldener Stern",
+                },
+                "puzzle_item_4": {
+                    "name": "Haken und Stab",
                 },
                 "puzzle_item_5": {
                     "name": "Portalwächter",
@@ -513,7 +555,7 @@
                 },
                 "examine_item_3": {
                     "name": "Feuerzirkelrolle",
-                    "description": "\\{color yellow}Damit die Schlangen leben können, muss ihr Hunger zuerst gestillt werden. Reize sie nacheinander, und der Kreis wird gänzlich brennen.",
+                    "description": "Damit die Schlangen leben können, muss ihr Hunger zuerst gestillt werden. Reize sie nacheinander, und der Kreis wird gänzlich brennen.",
                 }
             }
         },

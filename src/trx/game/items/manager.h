@@ -26,34 +26,35 @@ int32_t Item_GetTotalCount(void);
 
 int16_t Item_GetNextSimulated(void);
 
-// Reserve an item slot. Item_Create takes the next free slot for a spawn made
-// during play; that slot is recycled once the item is destroyed.
-// Item_CreateLevelItem counts the slot into the level total instead, so it is
-// never recycled - the fixed slots the level format loads into. Item_Spawn is
-// Item_Create plus placement: a new object of obj_id at the given item's
-// position, initialised.
+// Take a free slot and clear it. Set the object, room and position, then call
+// Item_Initialise. Item_Spawn does both for you. A slot taken while the level
+// sets up its own items stays the level's for good.
 int16_t Item_Create(void);
-int16_t Item_CreateLevelItem(void);
+
+// Hold a free slot for a save putting its item back. Without a creator the
+// slot is taken now. With one, the creator's Item_Create gets it while the
+// creator is being initialised. Returns false when the slot is not free.
+bool Item_Reserve(int16_t item_num, int16_t creator_num);
+
+// The spawned item that created this one while it was being initialised, or
+// NO_ITEM. Forgotten once that item is destroyed.
+int16_t Item_GetCreator(int16_t item_num);
+
+// Create and initialise an item of obj_id where the given item stands. Returns
+// NO_ITEM when no slot is free.
 int16_t Item_Spawn(const ITEM *item, OBJECT_ID obj_id);
 
+// Get a created item ready for play: start its first animation, apply its
+// object's properties, run the object's initialise hook, which may create more
+// items, and put it in its room.
 void Item_Initialise(int16_t item_num);
 
 // The starting hit points an object gives its items, declared once for every
-// object that has any. Moving the ceiling carries the current hit points with
-// it, so a level states the maximum alone and an item that has already been
-// hurt stays hurt by as much.
-static inline void Item_Property_SetMaxHitPoints(
-    ITEM *item, const TRX_VALUE *value)
-{
-    item->hit_points += value->as_int - item->max_hit_points;
-    item->max_hit_points = value->as_int;
-    CLAMP(item->hit_points, 0, item->max_hit_points);
-}
-
+// object that has any. An item's maximum is this scaled by the rules, and
+// follows both as they change: an unhurt item stays at full health, and a hurt
+// one stays hurt by as much.
 #define ITEM_PROPERTY_MAX_HIT_POINTS(value_)                                   \
-    OBJECT_PROPERTY_ITEM(                                                      \
-        max_hit_points, value_, nullptr, Item_Property_SetMaxHitPoints,        \
-        "Maximum hit points.")
+    OBJECT_PROPERTY_STORED("max_hit_points", value_, "Maximum hit points.")
 
 void Item_Control(void);
 

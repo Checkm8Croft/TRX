@@ -1,5 +1,3 @@
-#include "sophia_internal.h"
-
 #include <trx/core/json/util/read_io.h>
 #include <trx/core/json/util/write_io.h>
 #include <trx/core/math/geom.h>
@@ -11,6 +9,8 @@
 #include <trx/game/lara.h>
 #include <trx/game/lara/electric.h>
 #include <trx/game/objects.h>
+#include <trx/game/objects/projectiles/sophia_laser_bolt.h>
+#include <trx/game/objects/projectiles/sophia_plasma_ball.h>
 #include <trx/game/objects/property.h>
 #include <trx/game/output.h>
 #include <trx/game/output/sources/poly_fx.h>
@@ -21,6 +21,7 @@
 
 // clang-format off
 #define M_HIT_POINTS     300
+#define M_KNOCKBACK_DAMAGE 200
 #define M_SMALL_FLASH    10
 
 #define M_RIGHT_PRONG    0
@@ -210,7 +211,7 @@ static bool M_KnockBackCollision(const FX_RING *const ring)
     }
 
     Lara_TakeDamage(
-        M_GetObjectDamage("knockback_damage", SOPHIA_KNOCKBACK_DAMAGE), true);
+        M_GetObjectDamage("knockback_damage", M_KNOCKBACK_DAMAGE), true);
 
     const int16_t angle = Math_Atan(delta.z, delta.x);
     const int16_t dy = lara_item->rot.y - angle;
@@ -343,9 +344,9 @@ static bool M_GunHit(
     return true;
 }
 
-static bool M_ShouldSpawnBlood(const ITEM *const item)
+static ITEM_HIT_EFFECT M_GetHitEffect(const ITEM *const item)
 {
-    return false;
+    return ITEM_HIT_RICOCHET;
 }
 
 static void M_Control(const int16_t item_num)
@@ -893,7 +894,7 @@ static void M_DrawShield(const ITEM *const item)
 
 static bool M_Draw(const ITEM *const item)
 {
-    const bool result = Object_DrawAnimatingItem(item);
+    const bool result = Item_DrawAnimating(item);
 
     const M_PRIV *const p = item->priv;
     if (p->explode_count != 0) {
@@ -919,7 +920,7 @@ static void M_Setup(OBJECT *const obj)
     obj->collision_func = Creature_Collision;
     obj->draw_func = M_Draw;
     obj->gun_hit_func = M_GunHit;
-    obj->should_spawn_blood_func = M_ShouldSpawnBlood;
+    obj->get_hit_effect_func = M_GetHitEffect;
 
     obj->priv_size = sizeof(M_PRIV);
     obj->priv_load_func = M_LoadPriv;
@@ -944,7 +945,7 @@ static void M_Setup(OBJECT *const obj)
     OBJECT_PROPERTIES(
         obj, ITEM_PROPERTY_MAX_HIT_POINTS(M_HIT_POINTS),
         OBJECT_PROPERTY_STORED(
-            "knockback_damage", SOPHIA_KNOCKBACK_DAMAGE,
+            "knockback_damage", M_KNOCKBACK_DAMAGE,
             "Damage dealt by the knockback shockwave."),
         OBJECT_PROPERTY_STORED(
             "laser_bolt_damage", SOPHIA_LASER_BOLT_DAMAGE,

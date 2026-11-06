@@ -1,6 +1,7 @@
 #include <trx/game/lara/common.h>
 
 #include <trx/config.h>
+#include <trx/core/math.h>
 #include <trx/core/utils.h>
 #include <trx/debug.h>
 #include <trx/game/camera.h>
@@ -119,6 +120,32 @@ static int32_t M_GetStartingHitPoints(void)
     return g_Config.gameplay.start_lara_hitpoints;
 }
 
+void Lara_SmoothlyRotateMeshTo(
+    XYZ_16 *const mesh, const int16_t target_x, const int16_t target_y,
+    const uint8_t smoothing_factor)
+{
+    const CAMERA_LOOK_SETTINGS *const look = Camera_GetLookSettings(false);
+    const int16_t snap_threshold = look->head_turn;
+
+    if (mesh->x != target_x) {
+        if (mesh->x <= target_x - snap_threshold
+            || mesh->x >= target_x + snap_threshold) {
+            mesh->x += (target_x - mesh->x) / smoothing_factor;
+        } else {
+            mesh->x = target_x;
+        }
+    }
+
+    if (mesh->y != target_y) {
+        if (mesh->y <= target_y - snap_threshold
+            || mesh->y >= target_y + snap_threshold) {
+            mesh->y += (target_y - mesh->y) / smoothing_factor;
+        } else {
+            mesh->y = target_y;
+        }
+    }
+}
+
 LARA_INFO *Lara_GetLaraInfo(void)
 {
     return &m_Lara;
@@ -194,9 +221,10 @@ void Lara_Initialise(const GF_LEVEL *const level)
     lara_info->rope.index = NO_ROPE;
     lara_info->poison.value = 0;
     lara_info->poison.target = 0;
-    lara_info->tr3_smoke_count_l = 0;
-    lara_info->tr3_smoke_count_r = 0;
+    lara_info->smoke_count_l = 0;
+    lara_info->smoke_count_r = 0;
     lara_info->mesh_pos_matrices_valid = false;
+    lara_info->blind_timer = 0;
 
     // Wetness carries from level to level within a playthrough, but the gym
     // and the demos start one of their own.
@@ -273,7 +301,6 @@ void Lara_InitialiseInventory(const GF_LEVEL *const level)
     lara_info->request_gun_type = lara_info->last_gun_type;
     Lara_Mesh_Initialise(level);
     Gun_InitialiseNewWeapon();
-    Gun_EnsureReady();
 }
 
 void Lara_RevertToDefaultGunIfNeeded(void)
@@ -361,11 +388,30 @@ void Lara_UseItem(const OBJECT_ID obj_id)
         break;
     }
 
+    case O_QUEST_OPTION_1:
+    case O_QUEST_OPTION_2:
+    case O_QUEST_OPTION_3:
+    case O_QUEST_OPTION_4:
+    case O_QUEST_OPTION_5:
+    case O_QUEST_OPTION_6:
+        if (g_TRVersion >= 4) {
+            Sound_Effect(SFX_LARA_NO, nullptr, SPM_NORMAL);
+        }
+        break;
+
     default: {
         const OBJECT_ID option_id = Inv_GetItemOption(obj_id);
         if (option_id != O_SCION_OPTION
             && ObjectLink_Get(option_id, OBJ_LINK_KEY_TO_RECEPTACLE)
+                == NO_OBJECT
+            && ObjectLink_Get(option_id, OBJ_LINK_KEY_TO_VEHICLE)
                 == NO_OBJECT) {
+            // TR4 refuses an item that fits nothing, such as a combo piece,
+            // as it refuses one that fits nothing nearby. A gun is not
+            // refused, as the end of this function draws it.
+            if (g_TRVersion >= 4 && request_gun_type == LGT_UNARMED) {
+                Sound_Effect(SFX_LARA_NO, nullptr, SPM_NORMAL);
+            }
             break;
         }
 
@@ -571,6 +617,7 @@ void Lara_Animate(ITEM *const item)
         }
         item->fall_speed -= item->fall_speed / 4;
         CLAMPL(item->fall_speed, 4);
+        item->pos.y += item->fall_speed;
     } else {
         int32_t speed = anim->velocity + anim->acceleration * (rel_frame - 1);
         item->speed -= (int16_t)(speed >> 16);
@@ -627,6 +674,16 @@ const ANIM_FRAME *Lara_GetHitFrame(const ITEM *const item)
     const OBJECT *const obj = Object_Get(item->object_id);
     const ANIM *const anim = Object_GetAnim(obj, anim_idx);
     return &anim->frame_ptr[lara->hit_frame];
+}
+
+int16_t Lara_ScaleDamage(const int16_t damage)
+{
+    if (damage <= 0) {
+        return damage;
+    }
+    const int32_t scaled =
+        Math_ApplyPercent(damage, g_Config.gameplay.lara_damage_scale);
+    return MIN(scaled, INT16_MAX);
 }
 
 void Lara_TakeDamage(const int16_t damage, const bool hit_status)
@@ -823,7 +880,8 @@ bool Lara_MovePositionEx(
         .z = ref_item->pos.z + shift.z,
     };
 
-    if (ref_item->object_id == O_FLARE_ITEM) {
+    if (ref_item->object_id == O_FLARE_ITEM
+        && (lara_on_land || g_Config.gameplay.fix_lara_pickup_embed)) {
         int16_t room_num = lara_item->room_num;
         const SECTOR *const sector = Room_GetSector(new_pos, &room_num);
         const int32_t height = Room_GetHeight(sector, new_pos);

@@ -2,6 +2,7 @@
 
 #include <trx/config/enum.h>
 #include <trx/core/colors.h>
+#include <trx/core/result.h>
 
 // A box on the screen, as fractions of the screen width and height measured
 // from the top left corner. The whole screen is 0,0 to 1,1.
@@ -16,11 +17,19 @@ typedef struct {
     float opacity;
     float desaturation; // 0 = off
     RGB_F tint; // COLOR_RGB_F_WHITE = no tint
+    float blur; // 0 = sharp, 1 = strongest
 } OUTPUT_SNAPSHOT_SETTINGS;
+
+typedef struct {
+    float black_opacity;
+    float desaturation;
+    RGB_F tint;
+    float blur;
+} OUTPUT_BACKGROUND_TINT;
 
 void Output_Overlay_DrawPattern(bool wave);
 void Output_Overlay_DrawPatternOpacity(bool wave, float opacity);
-void Output_Overlay_DrawBlackRectangle(float opacity, bool post_ui);
+void Output_Overlay_DrawBlackRectangle(float opacity);
 
 // The cinematic bars across the top and bottom of the view, as a fraction of
 // the screen height each. 0 removes them. The depth is remembered, so whoever
@@ -32,6 +41,8 @@ void Output_Overlay_SetLetterbox(float ratio);
 void Output_Overlay_SlideLetterbox(float ratio);
 void Output_Overlay_UpdateLetterbox(void);
 float Output_Overlay_GetLetterbox(void);
+// The depth the bars are moving to, or hold once they get there.
+float Output_Overlay_GetLetterboxTarget(void);
 // Whether the bars take any of the screen.
 bool Output_Overlay_HasLetterbox(void);
 void Output_Overlay_DrawLetterbox(void);
@@ -41,6 +52,11 @@ void Output_Overlay_DrawLetterbox(void);
 void Output_Overlay_SetFade(float opacity);
 float Output_Overlay_GetFade(void);
 bool Output_Overlay_LoadImage(const char *file_name);
+// Reports the size of the image that drawing a file shows, in pixels. Where
+// the file has versions for other screen shapes, the size is that of the
+// version the screen picks.
+RESULT Output_Overlay_GetImageSize(
+    const char *file_name, int32_t *out_width, int32_t *out_height);
 void Output_Overlay_DrawImage(const char *file_name);
 void Output_Overlay_DrawImageBilinear(const char *file_name);
 void Output_Overlay_DrawImageMono(const char *file_name, float intensity);
@@ -49,13 +65,25 @@ void Output_Overlay_DrawImageMono(const char *file_name, float intensity);
 // that wants the image's own shape gives the box that shape.
 void Output_Overlay_DrawImageInBox(
     const char *file_name, OUTPUT_OVERLAY_BOX box, float opacity);
-// Marks the start of a new frame, so that a transition captured before it is
-// drawn once no matter how many times the frame is flushed.
-void Output_Overlay_BeginFrame(void);
 void Output_Overlay_CaptureSnapshot(void);
 void Output_Overlay_CaptureGameSnapshot(void);
 void Output_Overlay_DrawSnapshot(float opacity);
+
+#define OUTPUT_OVERLAY_SNAPSHOT_SLOTS 4
+
+// Captures the frame on screen into a snapshot of its own, which the shared
+// snapshot cannot overwrite. Returns the slot it is kept in, or -1 when every
+// slot is taken or the capture failed.
+int32_t Output_Overlay_CaptureSnapshotSlot(void);
+// Draws a slot's snapshot over the whole screen. Does nothing for a free slot.
+void Output_Overlay_DrawSnapshotSlot(int32_t slot, float opacity);
+// Gives a slot back. Its texture is kept for the next capture.
+void Output_Overlay_FreeSnapshotSlot(int32_t slot);
 void Output_Overlay_DrawSnapshotEx(const OUTPUT_SNAPSHOT_SETTINGS *settings);
 void Output_Overlay_DrawBackground(
     BACKGROUND_TYPE style, float opacity, const char *image_path);
-void Output_Overlay_BeginTransitionFadeOut(float duration, float start);
+// Report the tint and opacity for a background style.
+OUTPUT_BACKGROUND_TINT Output_Overlay_GetBackgroundTint(
+    BACKGROUND_TYPE style, float opacity);
+// Reports whether overlay draws wait for the next flush.
+bool Output_Overlay_HasPending(void);

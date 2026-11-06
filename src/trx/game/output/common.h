@@ -22,6 +22,15 @@ void Output_FlipScreen(void);
 
 void Output_SwitchViewport(VIEWPORT_SPACE space);
 
+// Keeps the previous frame in the game viewport for this frame instead of
+// clearing it, so that it shows through where nothing is drawn. Has an effect
+// only when the hall of mirrors option is enabled and wireframe mode is off.
+// Call it before anything draws into the game viewport.
+void Output_KeepPreviousFrame(void);
+// Clears the game viewport now if its clear was held back. Call it before
+// drawing into the game viewport outside the scene compositor.
+void Output_ApplyPendingClear(void);
+
 // Suspends or restores supersampling and resizes the framebuffers to match.
 // Call it between frames only.
 void Output_SetSupersamplingEnabled(bool enabled);
@@ -34,6 +43,14 @@ void Output_DispatchLevelUnload(void);
 // Rebakes the object meshes so that face data changes (e.g. semi-transparency
 // flags) take effect without a level reload.
 void Output_RefreshObjectMeshes(void);
+// Rebakes the room meshes so that face data changes take effect without a
+// level reload.
+void Output_RefreshRoomMeshes(void);
+// Returns whether a face is mixed half and half with the scene.
+bool Output_IsFaceSemiTransparent(const FACE *face);
+// Returns how the sprites of an object are laid over the scene: mixed half
+// and half with it where the PlayStation does so, and cut out otherwise.
+DRAW_TYPE Output_GetSpriteDrawType(const OBJECT *obj);
 void Output_DispatchRoomFlip(const ROOM *room);
 void Output_DispatchObjectMeshUpdate(int32_t mesh_idx);
 // Uploads new vertex positions for the mesh into the GPU buffer, for meshes

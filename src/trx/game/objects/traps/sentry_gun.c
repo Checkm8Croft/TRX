@@ -137,21 +137,28 @@ static void M_Control(const int16_t item_num)
     }
 
     if (item->hit_points <= 0) {
-        Item_Shatter(item_num, (ITEM_SHATTER_ARGS) { .mesh_bits = -1 });
+        Item_Shatter(
+            item_num,
+            (ITEM_SHATTER_ARGS) { .mesh_bits = -1,
+                                  .gib_flags = GIB_FLAME | GIB_SMOKE });
         LOT_DisableBaddieAI(item_num);
         Item_Destroy(item_num);
         item->trigger.spent = true;
         Item_SetFinished(item, true);
+        return;
     }
 
     if (!p->is_alerted) {
         return;
     }
 
+    Creature_ChooseEnemy(item, Creature_HasLineOfFire);
+
     AI_INFO info;
     Creature_AIInfo(item, &info);
 
-    const int16_t tilt = -info.x_angle;
+    const bool has_enemy = creature->enemy != nullptr;
+    const int16_t tilt = has_enemy ? -info.x_angle : 0;
 
     switch (item->current_anim_state) {
     case M_STATE_FIRE:
@@ -189,12 +196,18 @@ static void M_Control(const int16_t item_num)
         break;
     }
 
-    int16_t diff = info.angle - creature->joint_rotation[0];
-    CLAMP(diff, -DEG_1 * 10, DEG_1 * 10);
+    if (has_enemy) {
+        int16_t diff = info.angle - creature->joint_rotation[0];
+        CLAMP(diff, -DEG_1 * 10, DEG_1 * 10);
+        creature->joint_rotation[0] += diff;
+    }
 
-    creature->joint_rotation[0] += diff;
     Creature_Joint(item, 1, tilt);
     Item_Animate(item);
+
+    if (!has_enemy) {
+        return;
+    }
 
     if (info.angle > 0x4000) {
         item->rot.y += 0x8000;
@@ -220,9 +233,9 @@ static void M_HandleEvent(
     p->is_alerted = true;
 }
 
-static bool M_ShouldSpawnBlood(const ITEM *const item)
+static ITEM_HIT_EFFECT M_GetHitEffect(const ITEM *const item)
 {
-    return false;
+    return ITEM_HIT_RICOCHET;
 }
 
 static void M_Setup(OBJECT *const obj)
@@ -238,7 +251,7 @@ static void M_Setup(OBJECT *const obj)
     obj->control_func = M_Control;
     obj->collision_func = Creature_Collision;
     obj->event_func = M_HandleEvent;
-    obj->should_spawn_blood_func = M_ShouldSpawnBlood;
+    obj->get_hit_effect_func = M_GetHitEffect;
 
     obj->shadow_size = 0;
 

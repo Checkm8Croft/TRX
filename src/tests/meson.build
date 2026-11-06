@@ -62,41 +62,69 @@ test_stubs = files('harness/stubs.c')
 # are two levels up from this project.
 repo_root = meson.current_source_dir() / '../..'
 
+# trx.internal.signatures is generated from the annotations in src/lua/trx, so the
+# harness reads it from here rather than from the tree.
+lua_signatures = custom_target(
+  'lua_signatures',
+  output: 'internal.signatures.lua',
+  command: [
+    find_program('python3'),
+    repo_root / 'tools/gen_lua_signatures.py',
+    '--module-root',
+    repo_root / 'src/lua/trx',
+    '--output',
+    '@OUTPUT@',
+  ],
+  depend_files: files('../../tools/shared/luaannot.py'),
+  build_always_stale: true,
+)
+
 # The public Lua surface, driven the way a level script drives it. Everything
 # below the assertions is real - the FIELD_DESC tables, the struct and enum
-# bridges, the trxc modules, and src/lua/api/*.lua read from the tree - and only
+# bridges, the trxc modules, and src/lua/trx/*.lua read from the tree - and only
 # the engine underneath is faked. The modules are read from disk rather than from
 # the embedded copy, so the tests need to know where the tree is.
 b_lua_surface = {
   'engine': [
     'core/dynamic_enum.c',
     'core/enum_map.c',
-    'game/catalog/keys.c',
     'core/handle.c',
     'core/memory.c',
     'core/result.c',
     'core/subsystem.c',
     'core/value.c',
     'core/vector.c',
+    'game/catalog/keys.c',
     'game/enum.c',
+    'game/lua/api.c',
     'game/lua/capi/api.c',
     'game/lua/capi/enum.c',
+    'game/lua/capi/hooks.c',
     'game/lua/capi/struct.c',
     'game/lua/field.c',
+    'game/lua/hooks/common.c',
     'game/lua/registry.c',
     'game/lua/sandbox.c',
-    'game/lua/utils.c',
+    'game/lua/struct.c',
+    'game/lua/utils/args.c',
+    'game/lua/utils/caller.c',
+    'game/lua/utils/module.c',
+    'game/lua/utils/value.c',
   ],
   'src': [
     'fakes/catalog.c',
     'harness/fake_calls.c',
     'harness/lua_surface.c',
+    'harness/stubs_console.c',
     'harness/stubs_enum_map.c',
     'harness/stubs_lua_context.c',
     'harness/stubs_result.c',
   ],
   'deps': [dep_lua],
-  'args': ['-DREPO_ROOT="' + repo_root + '"'],
+  'args': [
+    '-DREPO_ROOT="' + repo_root + '"',
+    '-DLUA_GEN_ROOT="' + meson.current_build_dir() + '"',
+  ],
 }
 
 # The primitive value taxonomy and the two registries it reads names out of.
@@ -128,7 +156,6 @@ b_config = {
     'core/event_manager.c',
     'core/json/base.c',
     'core/json/parse.c',
-    'version.c',
   ],
   'src': ['fakes/config.c', 'harness/stubs_config_file.c'],
 }
@@ -149,12 +176,18 @@ b_lua_strings = {
 
 # What it takes to dispatch a console command, on top of b_lua_surface: the
 # console itself, the strings it prints and the log it prints them through.
+# The strings tell scripts when they reload through the event bridge.
 b_console = {
   'engine': [
     'core/completion.c',
+    'core/event_manager.c',
+    'game/events.c',
     'game/lua/capi/console.c',
+    'game/lua/capi/events.c',
     'game/lua/capi/locale.c',
     'game/lua/capi/log.c',
+    'game/lua/events/manager.c',
+    'game/lua/utils/game_flow.c',
   ],
   'src': ['fakes/console.c', 'fakes/locale.c'],
 }
@@ -163,20 +196,129 @@ b_console = {
 # signals needs it. The item action interceptor it installs does nothing here,
 # because no test that only wants the tick exercises flipeffects.
 b_lua_events = {
-  'engine': ['game/lua/capi/events.c'],
+  'engine': ['game/lua/capi/events.c', 'game/lua/events/manager.c'],
   'src': ['harness/stubs_item_action.c'],
 }
 
 # The trig bridge. A module that hands back a math.Box needs trx.math loaded,
 # and loading it means its own declarations resolve, so the bridge comes along.
-b_lua_math = {
-  'engine': ['core/math/trig.c', 'game/lua/capi/math.c'],
+# The engine's matrices, for what turns an inventory entry by hand.
+b_matrix = {
+  'engine': [
+    'core/math/func.c',
+    'core/math/geom.c',
+    'core/math/trig.c',
+    'game/matrix.c',
+  ],
   'deps': [dep_mathlibrary],
+}
+
+b_lua_math = {
+  'engine': [
+    'core/math/func.c',
+    'core/math/geom.c',
+    'core/math/trig.c',
+    'game/lua/capi/math.c',
+  ],
+  'deps': [dep_mathlibrary],
+}
+
+# What a shipped screen module runs on: the screen harness, the fakes of the
+# game it reads, and the engine's dialog and widget code under trx.ui. It does
+# not include the surface, the math or the strings, which a test lists beside it.
+b_screen_module = {
+  'src': [
+    'harness/screen_module.c',
+    'harness/takeover_args.c',
+    'harness/stubs_config_file.c',
+    'fakes/assault.c',
+    'fakes/camera.c',
+    'fakes/creatures.c',
+    'fakes/cutseq.c',
+    'fakes/game.c',
+    'fakes/input.c',
+    'fakes/items.c',
+    'fakes/lara.c',
+    'fakes/level.c',
+    'fakes/locale.c',
+    'fakes/overlay.c',
+    'fakes/savegame.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sound.c',
+    'fakes/stats.c',
+    'fakes/rooms.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/ui_menu.c',
+  ],
+  'engine': [
+    'config/common.c',
+    'config/enum.c',
+    'config/legacy.c',
+    'config/map.c',
+    'config/option.c',
+    'config/option_text.c',
+    'config/priv.c',
+    'config/registry.c',
+    'config/section.c',
+    'core/colors.c',
+    'core/event_manager.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/handle.c',
+    'core/json/base.c',
+    'core/json/parse.c',
+    'core/json/util/file.c',
+    'core/json/util/read_io.c',
+    'core/json/util/value.c',
+    'core/json/util/write_io.c',
+    'core/json/write.c',
+    'game/lua/capi/assault.c',
+    'game/lua/capi/camera.c',
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/cutscenes.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/inventory.c',
+    'game/lua/capi/items.c',
+    'game/lua/capi/lara.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/mod.c',
+    'game/lua/capi/objects.c',
+    'game/lua/capi/overlay.c',
+    'game/lua/capi/rooms.c',
+    'game/lua/capi/rules.c',
+    'game/lua/capi/screens.c',
+    'game/lua/capi/sound.c',
+    'game/lua/capi/stats.c',
+    'game/lua/capi/store.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/capi/weapons.c',
+    'game/lua/capi/weapons_spec.c',
+    'game/lua/events/manager.c',
+    'game/lua/hooks/screens.c',
+    'game/lua/store.c',
+    'game/lua/events/ui.c',
+    'game/rules.c',
+    'game/ui/common.c',
+    'game/ui/takeover.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+  'args': ['-D_DEFAULT_SOURCE'],
 }
 
 # One stanza per test. `name` is the test source, minus its .c, and mirrors what
 # the test exercises: src/tests/trx/core/vector.c tests src/trx/core/vector.c,
-# and src/tests/lua/api/music.c stands trx.music up out of src/lua/api/music.lua.
+# and src/tests/lua/trx/music.c stands trx.music up out of src/lua/trx/music.lua.
 # The same name with dots for slashes is what `meson test` calls it.
 #
 # The rest says what the test needs on top of the harness:
@@ -313,6 +455,25 @@ unit_tests += {
     'core/strings/common.c',
     'core/vector.c',
     'game/inject/canonical.c',
+  ],
+  'src': ['harness/stubs_result.c'],
+  'deps': [dep_pcre2],
+  'args': ['-DPCRE2_CODE_UNIT_WIDTH=8', '-D_DEFAULT_SOURCE'],
+}
+
+# The pathing chunk widens the overlap index of the boxes the level loaded,
+# which are faked here.
+unit_tests += {
+  'name': 'trx/game/inject/data/pathing',
+  'engine': [
+    'core/result.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/memory.c',
+    'core/strings/case_funcs.c',
+    'core/strings/common.c',
+    'core/vector.c',
+    'game/inject/data/pathing.c',
   ],
   'src': ['harness/stubs_result.c'],
   'deps': [dep_pcre2],
@@ -501,7 +662,10 @@ unit_tests += {
   'engine': [
     'game/lua/capi/enum.c',
     'game/lua/registry.c',
-    'game/lua/utils.c',
+    'game/lua/utils/args.c',
+    'game/lua/utils/caller.c',
+    'game/lua/utils/module.c',
+    'game/lua/utils/value.c',
   ],
   'deps': [dep_lua],
 }
@@ -517,8 +681,13 @@ unit_tests += {
     'core/vector.c',
     'game/lua/capi/events.c',
     'game/lua/common.c',
+    'game/lua/events/manager.c',
     'game/lua/registry.c',
-    'game/lua/utils.c',
+    'game/lua/scripts.c',
+    'game/lua/utils/args.c',
+    'game/lua/utils/caller.c',
+    'game/lua/utils/module.c',
+    'game/lua/utils/value.c',
   ],
   'src': [
     'harness/stubs_catalog.c',
@@ -557,36 +726,43 @@ unit_tests += {
     'game/lua/capi/struct.c',
     'game/lua/field.c',
     'game/lua/registry.c',
-    'game/lua/utils.c',
+    'game/lua/struct.c',
+    'game/lua/utils/args.c',
+    'game/lua/utils/caller.c',
+    'game/lua/utils/module.c',
+    'game/lua/utils/value.c',
   ],
   'deps': [dep_lua],
 }
 
 unit_tests += {
-  'name': 'lua/api/rooms',
+  'name': 'lua/trx/rooms',
   'bundles': [b_lua_surface, b_lua_math],
   'src': [
     'harness/stubs_console.c',
     'fakes/level.c',
     'fakes/rooms.c',
     'fakes/items.c',
+    'fakes/lara.c',
   ],
   'engine': [
     'game/lua/capi/events.c',
     'game/lua/capi/items.c',
     'game/lua/capi/rooms.c',
+    'game/lua/events/manager.c',
   ],
 }
 
 unit_tests += {
-  'name': 'lua/api/items',
+  'name': 'lua/trx/items',
   'bundles': [b_lua_surface, b_lua_strings, b_lua_math],
-  'src': ['harness/stubs_console.c', 'fakes/items.c'],
+  'src': ['harness/stubs_console.c', 'fakes/items.c', 'fakes/lara.c'],
   'engine': [
     'game/lua/capi/catalog.c',
     'game/lua/capi/events.c',
     'game/lua/capi/items.c',
     'game/lua/capi/objects.c',
+    'game/lua/events/manager.c',
   ],
 }
 
@@ -595,13 +771,13 @@ unit_tests += {
 unit_tests += {
   'name': 'lua/boot',
   'bundles': [b_lua_surface, b_lua_math],
-  'src': ['fakes/items.c'],
+  'src': ['fakes/items.c', 'fakes/lara.c'],
   'engine': ['game/lua/capi/items.c'],
 }
 
 # No fake engine: the real trig tables are the thing under test.
 unit_tests += {
-  'name': 'lua/api/math',
+  'name': 'lua/trx/math',
   'bundles': [b_lua_surface, b_lua_math],
 }
 
@@ -609,23 +785,21 @@ unit_tests += {
 # because a setting speaks through a signal of its own, and that is what it
 # speaks with.
 unit_tests += {
-  'name': 'lua/api/signal',
+  'name': 'lua/trx/signal',
   'bundles': [b_lua_surface, b_config, b_lua_math, b_lua_strings],
   'src': ['fakes/level.c', 'harness/stubs_console.c', 'fakes/locale.c', 'fakes/rooms.c'],
   'engine': [
     'game/lua/capi/config.c',
     'game/lua/capi/events.c',
     'game/lua/capi/locale.c',
-    'game/ui/dialogs/settings_handlers.c',
-    'game/ui/dialogs/settings_lua.c',
-    'game/ui/dialogs/settings_rows.c',
+    'game/lua/events/manager.c',
   ],
 }
 
 # No fake engine either: the real generator is the thing under test. trx.math
 # comes along for the angle unit that trx.random.angle reports in.
 unit_tests += {
-  'name': 'lua/api/random',
+  'name': 'lua/trx/random',
   'bundles': [b_lua_surface, b_lua_math],
   'engine': [
     'core/result.c',
@@ -637,9 +811,9 @@ unit_tests += {
 }
 
 unit_tests += {
-  'name': 'lua/api/store',
+  'name': 'lua/trx/store',
   'bundles': [b_lua_surface, b_lua_strings],
-  'src': ['lua/api/store.c'],
+  'src': ['lua/trx/store.c'],
   'engine': [
     'core/colors.c',
     'core/json/base.c',
@@ -647,19 +821,24 @@ unit_tests += {
     'core/json/util/value.c',
     'core/json/util/write_io.c',
     'game/lua/capi/store.c',
+    'game/lua/store.c',
   ],
   'deps': [dep_mathlibrary],
 }
 
 unit_tests += {
-  'name': 'lua/api/ui',
+  'name': 'lua/trx/ui',
   'bundles': [b_lua_surface, b_lua_math, b_config],
   'src': [
+    'fakes/camera.c',
+    'fakes/game.c',
     'fakes/level.c',
-    'lua/api/ui.c',
+    'lua/trx/ui.c',
     'fakes/objects.c',
+    'fakes/snapshot_slots.c',
     'fakes/sprites.c',
     'fakes/paths.c',
+    'fakes/text_wrap.c',
     'fakes/ui_draw.c',
     'fakes/locale.c',
     'fakes/rooms.c',
@@ -667,32 +846,26 @@ unit_tests += {
   'engine': [
     'config/enum.c',
     'core/event_manager.c',
-    'game/ui/events.c',
+    'core/handle.c',
     'game/lua/capi/config.c',
     'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
     'game/lua/capi/locale.c',
+    'game/lua/capi/tween.c',
     'game/lua/capi/ui.c',
-    'game/ui/dialogs/settings_handlers.c',
-    'game/ui/dialogs/settings_lua.c',
-    'game/ui/dialogs/settings_rows.c',
+    'game/lua/events/manager.c',
+    'game/lua/events/ui.c',
     'game/ui/common.c',
+    'game/ui/events.c',
     'game/ui/regions.c',
-    'game/ui/elements/anchor.c',
-    'game/ui/elements/frame.c',
-    'game/ui/elements/hide.c',
-    'game/ui/elements/offset.c',
-    'game/ui/elements/pad.c',
-    'game/ui/elements/resize.c',
-    'game/ui/elements/spacer.c',
-    'game/ui/elements/span.c',
-    'game/ui/elements/stack.c',
-    'game/ui/helpers.c',
     'game/ui/scaler.c',
+    'game/ui/tween.c',
   ],
 }
 
 unit_tests += {
-  'name': 'lua/api/assault',
+  'name': 'lua/trx/assault',
   'bundles': [b_lua_surface],
   'src': ['fakes/assault.c'],
   'engine': ['game/lua/capi/assault.c'],
@@ -700,7 +873,7 @@ unit_tests += {
 
 # rooms rides along: trx.camera.room hands back a trx.rooms.Room.
 unit_tests += {
-  'name': 'lua/api/camera',
+  'name': 'lua/trx/camera',
   'bundles': [b_lua_surface, b_lua_math],
   'src': [
     'harness/stubs_console.c',
@@ -717,19 +890,19 @@ unit_tests += {
 }
 
 unit_tests += {
-  'name': 'lua/api/music',
+  'name': 'lua/trx/music',
   'bundles': [b_lua_surface],
   'src': ['fakes/music.c'],
   'engine': ['game/lua/capi/music.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/strings',
+  'name': 'lua/trx/strings',
   'bundles': [b_lua_surface, b_lua_strings],
 }
 
 unit_tests += {
-  'name': 'lua/api/path',
+  'name': 'lua/trx/path',
   'bundles': [b_lua_surface],
   'src': ['fakes/path.c'],
 }
@@ -737,7 +910,7 @@ unit_tests += {
 # The encoder is pure Lua, but decoding is the engine's own reader, and a file
 # is named with a path, so the two are stood up together.
 unit_tests += {
-  'name': 'lua/api/json',
+  'name': 'lua/trx/json',
   'bundles': [b_lua_surface],
   'src': ['fakes/path.c'],
   'engine': [
@@ -750,35 +923,35 @@ unit_tests += {
 # The parser is pure Lua, but it leans on the real fuzzy matcher out of
 # trx.strings, so the two are stood up together.
 unit_tests += {
-  'name': 'lua/api/argparse',
-  'bundles': [b_lua_surface, b_lua_strings],
+  'name': 'lua/trx/argparse',
+  'bundles': [b_lua_surface, b_lua_strings, b_lua_events],
   'src': ['fakes/locale.c'],
   'engine': ['game/lua/capi/locale.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/sound',
+  'name': 'lua/trx/sound',
   'bundles': [b_lua_surface],
   'src': ['fakes/sound.c'],
   'engine': ['game/lua/capi/sound.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/stats',
+  'name': 'lua/trx/stats',
   'bundles': [b_lua_surface, b_lua_events],
-  'src': ['harness/stubs_console.c', 'fakes/game.c', 'fakes/stats.c'],
+  'src': ['harness/stubs_console.c', 'fakes/camera.c', 'fakes/game.c', 'fakes/stats.c'],
   'engine': ['game/lua/capi/game.c', 'game/lua/capi/stats.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/locale',
-  'bundles': [b_lua_surface],
+  'name': 'lua/trx/locale',
+  'bundles': [b_lua_surface, b_lua_events, b_lua_strings],
   'src': ['fakes/locale.c'],
   'engine': ['game/lua/capi/locale.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/lua',
+  'name': 'lua/trx/lua',
   'bundles': [b_lua_surface],
   'src': ['fakes/lua.c'],
   'engine': ['game/lua/capi/lua.c'],
@@ -788,7 +961,7 @@ unit_tests += {
 # registry, so the suite says whether the zones work rather than whether the
 # module repeats what we meant.
 unit_tests += {
-  'name': 'lua/api/zones',
+  'name': 'lua/trx/zones',
   'bundles': [b_lua_surface, b_lua_math],
   'src': ['fakes/level.c',
     'harness/stubs_console.c',
@@ -804,30 +977,114 @@ unit_tests += {
     'game/lua/capi/items.c',
     'game/lua/capi/lara.c',
     'game/lua/capi/rooms.c',
+    'game/lua/events/manager.c',
   ],
 }
 
 unit_tests += {
-  'name': 'lua/api/weather',
+  'name': 'lua/trx/weather',
   'bundles': [b_lua_surface],
   'src': ['fakes/weather.c'],
   'engine': ['game/lua/capi/weather.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/mod',
+  'name': 'lua/trx/mod',
   'bundles': [b_lua_surface],
   'engine': ['game/lua/capi/mod.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/savegame',
+  'name': 'lua/trx/savegame',
   'bundles': [b_lua_surface],
   'engine': ['game/lua/capi/savegame.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/input',
+  'name': 'lua/trx/ui/layers',
+  'bundles': [b_lua_surface, b_lua_math, b_config],
+  'src': [
+    'fakes/input.c',
+    'fakes/camera.c',
+    'fakes/game.c',
+    'fakes/level.c',
+    'fakes/objects.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/locale.c',
+    'fakes/rooms.c',
+  ],
+  'engine': [
+    'config/enum.c',
+    'core/event_manager.c',
+    'core/handle.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/events/manager.c',
+    'game/lua/events/ui.c',
+    'game/ui/common.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+}
+
+unit_tests += {
+  'name': 'lua/trx/ui/screens',
+  'bundles': [b_lua_surface, b_lua_math, b_config],
+  'src': [
+    'harness/takeover_args.c',
+    'fakes/input.c',
+    'fakes/camera.c',
+    'fakes/game.c',
+    'fakes/level.c',
+    'fakes/objects.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/locale.c',
+    'fakes/rooms.c',
+  ],
+  'engine': [
+    'config/enum.c',
+    'core/event_manager.c',
+    'core/handle.c',
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/screens.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/events/manager.c',
+    'game/lua/events/ui.c',
+    'game/lua/hooks/screens.c',
+    'game/ui/common.c',
+    'game/ui/takeover.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+}
+
+unit_tests += {
+  'name': 'lua/trx/input',
   'bundles': [b_lua_surface, b_lua_events],
   'src': ['harness/stubs_console.c'],
   'engine': ['config/enum.c', 'game/lua/capi/input.c'],
@@ -836,7 +1093,7 @@ unit_tests += {
 # No stubs: fakes/log.c provides Log_Message itself, because which line
 # the log blames is the thing under test.
 unit_tests += {
-  'name': 'lua/api/log',
+  'name': 'lua/trx/log',
   'bundles': [b_lua_surface],
   'src': ['fakes/log.c'],
   'engine': ['game/lua/capi/log.c'],
@@ -844,31 +1101,31 @@ unit_tests += {
 }
 
 unit_tests += {
-  'name': 'lua/api/game',
+  'name': 'lua/trx/game',
   'bundles': [b_lua_surface, b_lua_events],
-  'src': ['harness/stubs_console.c', 'fakes/game.c'],
+  'src': ['harness/stubs_console.c', 'fakes/camera.c', 'fakes/game.c'],
   'engine': ['game/lua/capi/game.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/objects',
+  'name': 'lua/trx/objects',
   'bundles': [b_lua_surface, b_lua_strings],
-  'src': ['fakes/items.c', 'harness/stubs_console.c'],
+  'src': ['fakes/items.c', 'fakes/lara.c', 'harness/stubs_console.c'],
   'engine': [
     'game/lua/capi/catalog.c',
     'game/lua/capi/items.c',
     'game/lua/capi/objects.c',
+    'game/lua/hooks/objects.c',
   ],
 }
 
 # The catalog rides along: the weapons a script names are its enum.
 unit_tests += {
-  'name': 'lua/api/inventory',
-  'bundles': [b_lua_surface, b_lua_math],
+  'name': 'lua/trx/inventory',
+  'bundles': [b_lua_surface, b_lua_events, b_lua_math, b_matrix],
   'src': ['harness/stubs_console.c', 'fakes/game.c', 'fakes/lara.c', 'fakes/items.c'],
   'engine': [
     'game/lua/capi/catalog.c',
-    'game/inventory_ring/vars.c',
     'game/lua/capi/inventory.c',
     'game/lua/capi/items.c',
     'game/lua/capi/weapons.c',
@@ -879,7 +1136,7 @@ unit_tests += {
 # The weapon table is the engine's own; the fake stands in for the gun code the
 # bridges ask which pickup a weapon is and what it is drawn from.
 unit_tests += {
-  'name': 'lua/api/weapons',
+  'name': 'lua/trx/weapons',
   'bundles': [b_lua_surface, b_lua_math],
   'src': ['harness/stubs_console.c', 'fakes/lara.c', 'fakes/items.c'],
   'engine': [
@@ -891,7 +1148,7 @@ unit_tests += {
 }
 
 unit_tests += {
-  'name': 'lua/api/lara',
+  'name': 'lua/trx/lara',
   'bundles': [b_lua_surface, b_lua_math, b_lua_events],
   'src': [
     'harness/stubs_console.c',
@@ -909,27 +1166,31 @@ unit_tests += {
 # The catalogs are real ENUM_MAP enums out of the real trx/game/enum.c. Only
 # the slot mapping, which a game loads from a CSV, is faked.
 unit_tests += {
-  'name': 'lua/api/catalog',
+  'name': 'lua/trx/catalog',
   'bundles': [b_lua_surface],
   'engine': ['game/lua/capi/catalog.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/config',
+  'name': 'lua/trx/config',
   'bundles': [b_lua_surface, b_config, b_lua_math, b_lua_strings],
-  'src': ['fakes/level.c', 'harness/stubs_console.c', 'fakes/locale.c'],
+  'src': [
+    'fakes/level.c',
+    'harness/stubs_console.c',
+    'harness/stubs_item_action.c',
+    'fakes/locale.c',
+  ],
   'engine': [
     'game/lua/capi/config.c',
+    'game/lua/capi/events.c',
     'game/lua/capi/locale.c',
-    'game/ui/dialogs/settings_handlers.c',
-    'game/ui/dialogs/settings_lua.c',
-    'game/ui/dialogs/settings_rows.c',
+    'game/lua/events/manager.c',
   ],
 }
 
 unit_tests += {
-  'name': 'lua/api/console',
-  'bundles': [b_lua_surface, b_console, b_lua_strings],
+  'name': 'lua/trx/console',
+  'bundles': [b_lua_surface, b_console, b_lua_strings, b_lua_events],
 }
 
 # The help command, which the console module registers and composes from the
@@ -937,14 +1198,14 @@ unit_tests += {
 # itself does not.
 unit_tests += {
   'name': 'lua/commands/help',
-  'bundles': [b_lua_surface, b_console, b_lua_strings],
+  'bundles': [b_lua_surface, b_console, b_lua_strings, b_lua_events],
 }
 
 # The copy command, which runs another command and copies what it prints. It
 # needs nothing the console itself does not.
 unit_tests += {
   'name': 'lua/commands/copy',
-  'bundles': [b_lua_surface, b_console, b_lua_strings],
+  'bundles': [b_lua_surface, b_console, b_lua_strings, b_lua_events],
 }
 
 # A console command written in Lua, exercised through the console that
@@ -956,14 +1217,14 @@ unit_tests += {
 unit_tests += {
   'name': 'lua/commands/version',
   'bundles': [b_lua_surface, b_console, b_lua_events],
-  'src': ['fakes/game.c'],
+  'src': ['fakes/camera.c', 'fakes/game.c'],
   'engine': ['game/lua/capi/game.c'],
 }
 
 unit_tests += {
   'name': 'lua/commands/heal',
   'bundles': [b_lua_surface, b_console, b_lua_math, b_lua_events],
-  'src': ['fakes/level.c', 'fakes/game.c', 'fakes/items.c', 'fakes/lara.c'],
+  'src': ['fakes/level.c', 'fakes/camera.c', 'fakes/game.c', 'fakes/items.c', 'fakes/lara.c'],
   'engine': [
     'game/lua/capi/game.c',
     'game/lua/capi/items.c',
@@ -977,43 +1238,50 @@ unit_tests += {
 unit_tests += {
   'name': 'lua/commands/play_level',
   'bundles': [b_lua_surface, b_console, b_lua_events],
-  'src': ['fakes/game.c', 'fakes/strings.c'],
+  'src': ['fakes/camera.c', 'fakes/game.c', 'fakes/strings.c'],
+  'engine': ['game/lua/capi/game.c'],
+}
+
+unit_tests += {
+  'name': 'lua/commands/restart_level',
+  'bundles': [b_lua_surface, b_console, b_lua_events],
+  'src': ['fakes/camera.c', 'fakes/game.c', 'fakes/savegame.c'],
   'engine': ['game/lua/capi/game.c'],
 }
 
 unit_tests += {
   'name': 'lua/commands/music',
-  'bundles': [b_lua_surface, b_console],
+  'bundles': [b_lua_surface, b_console, b_lua_events],
   'src': ['fakes/music.c', 'fakes/strings.c'],
   'engine': ['game/lua/capi/music.c'],
 }
 
 unit_tests += {
   'name': 'lua/commands/load_game',
-  'bundles': [b_lua_surface, b_console],
+  'bundles': [b_lua_surface, b_console, b_lua_events],
   'src': ['fakes/savegame.c'],
 }
 
 unit_tests += {
   'name': 'lua/commands/rule',
-  'bundles': [b_lua_surface, b_console, b_lua_strings],
+  'bundles': [b_lua_surface, b_console, b_lua_strings, b_lua_events],
   'engine': ['game/lua/capi/rules.c', 'game/rules.c'],
 }
 
 unit_tests += {
   'name': 'lua/commands/secret',
   'bundles': [b_lua_surface, b_console, b_lua_strings, b_lua_events],
-  'src': ['fakes/game.c', 'fakes/stats.c'],
+  'src': ['fakes/camera.c', 'fakes/game.c', 'fakes/stats.c'],
   'engine': ['game/lua/capi/game.c', 'game/lua/capi/stats.c'],
 }
 
 unit_tests += {
-  'name': 'lua/commands/give',
-  'bundles': [
-    b_lua_surface, b_console, b_lua_math, b_lua_strings, b_lua_events,
-  ],
+  'name': 'lua/commands/kill',
+  'bundles': [b_lua_surface, b_console, b_lua_math, b_lua_strings, b_lua_events],
   'src': [
     'fakes/level.c',
+    'fakes/camera.c',
+    'fakes/creatures.c',
     'fakes/game.c',
     'fakes/items.c',
     'fakes/lara.c',
@@ -1021,12 +1289,39 @@ unit_tests += {
   ],
   'engine': [
     'game/lua/capi/catalog.c',
+    'game/lua/capi/creatures.c',
     'game/lua/capi/game.c',
-    'game/inventory_ring/vars.c',
+    'game/lua/capi/items.c',
+    'game/lua/capi/lara.c',
+    'game/lua/capi/objects.c',
+    'game/lua/capi/sound.c',
+  ],
+}
+
+unit_tests += {
+  'name': 'lua/commands/give',
+  'bundles': [
+    b_lua_surface, b_console, b_lua_math, b_lua_strings, b_lua_events,
+    b_matrix,
+  ],
+  'src': [
+    'fakes/level.c',
+    'fakes/camera.c',
+    'fakes/game.c',
+    'fakes/items.c',
+    'fakes/lara.c',
+    'fakes/overlay.c',
+    'fakes/sound.c',
+    'fakes/ui_menu.c',
+  ],
+  'engine': [
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/game.c',
     'game/lua/capi/inventory.c',
     'game/lua/capi/items.c',
     'game/lua/capi/lara.c',
     'game/lua/capi/objects.c',
+    'game/lua/capi/overlay.c',
     'game/lua/capi/sound.c',
     'game/lua/capi/weapons.c',
     'game/lua/capi/weapons_spec.c',
@@ -1034,19 +1329,111 @@ unit_tests += {
 }
 
 unit_tests += {
-  'name': 'modules/assault',
+  'name': 'modules/timer',
+  'bundles': [b_lua_surface, b_lua_math, b_lua_strings, b_matrix],
+  'src': [
+    'harness/screen_module.c',
+    'harness/takeover_args.c',
+    'harness/stubs_config_file.c',
+    'fakes/camera.c',
+    'fakes/creatures.c',
+    'fakes/cutseq.c',
+    'fakes/game.c',
+    'fakes/input.c',
+    'fakes/items.c',
+    'fakes/lara.c',
+    'fakes/level.c',
+    'fakes/locale.c',
+    'fakes/overlay.c',
+    'fakes/savegame.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sound.c',
+    'fakes/rooms.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/ui_menu.c',
+  ],
+  'engine': [
+    'config/common.c',
+    'config/enum.c',
+    'config/legacy.c',
+    'config/map.c',
+    'config/option.c',
+    'config/option_text.c',
+    'config/priv.c',
+    'config/registry.c',
+    'config/section.c',
+    'core/colors.c',
+    'core/event_manager.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/handle.c',
+    'core/json/base.c',
+    'core/json/parse.c',
+    'core/json/util/file.c',
+    'core/json/util/read_io.c',
+    'core/json/write.c',
+    'game/lua/capi/camera.c',
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/cutscenes.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/inventory.c',
+    'game/lua/capi/items.c',
+    'game/lua/capi/lara.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/mod.c',
+    'game/lua/capi/objects.c',
+    'game/lua/capi/overlay.c',
+    'game/lua/capi/rooms.c',
+    'game/lua/capi/rules.c',
+    'game/lua/capi/screens.c',
+    'game/lua/capi/sound.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/capi/weapons.c',
+    'game/lua/capi/weapons_spec.c',
+    'game/lua/events/manager.c',
+    'game/lua/hooks/screens.c',
+    'game/lua/events/ui.c',
+    'game/rules.c',
+    'game/ui/common.c',
+    'game/ui/takeover.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+  'args': ['-D_DEFAULT_SOURCE'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/hud/assault',
   'bundles': [b_lua_surface, b_lua_math, b_lua_strings],
+  'runs': [
+    {'suffix': '', 'env': []},
+    {'suffix': '.tr2', 'env': ['TRX_TEST_TR_VERSION=2']},
+  ],
   'src': [
     'harness/stubs_config_file.c',
     'harness/stubs_console.c',
     'fakes/assault.c',
+    'fakes/camera.c',
     'fakes/game.c',
     'fakes/level.c',
     'fakes/locale.c',
     'fakes/objects.c',
     'fakes/rooms.c',
+    'fakes/snapshot_slots.c',
     'fakes/sprites.c',
     'fakes/paths.c',
+    'fakes/text_wrap.c',
     'fakes/ui_draw.c',
   ],
   'engine': [
@@ -1055,14 +1442,15 @@ unit_tests += {
     'config/legacy.c',
     'config/map.c',
     'config/option.c',
-    'config/priv.c',
     'config/option_text.c',
+    'config/priv.c',
     'config/registry.c',
     'config/section.c',
     'core/colors.c',
     'core/event_manager.c',
     'core/file.c',
     'core/filesystem.c',
+    'core/handle.c',
     'core/json/base.c',
     'core/json/parse.c',
     'core/json/util/file.c',
@@ -1072,32 +1460,26 @@ unit_tests += {
     'game/lua/capi/catalog.c',
     'game/lua/capi/config.c',
     'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
     'game/lua/capi/game.c',
     'game/lua/capi/locale.c',
+    'game/lua/capi/tween.c',
     'game/lua/capi/ui.c',
-    'game/lua/ui.c',
+    'game/lua/events/manager.c',
+    'game/lua/events/ui.c',
     'game/ui/common.c',
-    'game/ui/elements/anchor.c',
-    'game/ui/elements/frame.c',
-    'game/ui/elements/hide.c',
-    'game/ui/elements/offset.c',
-    'game/ui/elements/pad.c',
-    'game/ui/elements/resize.c',
-    'game/ui/elements/spacer.c',
-    'game/ui/elements/span.c',
-    'game/ui/elements/stack.c',
     'game/ui/events.c',
-    'game/ui/helpers.c',
     'game/ui/regions.c',
     'game/ui/scaler.c',
+    'game/ui/tween.c',
   ],
   'args': ['-D_DEFAULT_SOURCE'],
   'stubs': false,
 }
 
 unit_tests += {
-  'name': 'modules/overlay',
-  'bundles': [b_lua_surface, b_lua_math, b_lua_strings],
+  'name': 'modules/ui/hud/overlay',
+  'bundles': [b_lua_surface, b_lua_math, b_lua_strings, b_matrix],
   'src': [
     'harness/stubs_config_file.c',
     'harness/stubs_console.c',
@@ -1112,9 +1494,12 @@ unit_tests += {
     'fakes/locale.c',
     'fakes/overlay.c',
     'fakes/rooms.c',
+    'fakes/snapshot_slots.c',
     'fakes/sprites.c',
     'fakes/paths.c',
+    'fakes/text_wrap.c',
     'fakes/ui_draw.c',
+    'fakes/ui_menu.c',
   ],
   'engine': [
     'config/common.c',
@@ -1122,14 +1507,15 @@ unit_tests += {
     'config/legacy.c',
     'config/map.c',
     'config/option.c',
-    'config/priv.c',
     'config/option_text.c',
+    'config/priv.c',
     'config/registry.c',
     'config/section.c',
     'core/colors.c',
     'core/event_manager.c',
     'core/file.c',
     'core/filesystem.c',
+    'core/handle.c',
     'core/json/base.c',
     'core/json/parse.c',
     'core/json/util/file.c',
@@ -1140,9 +1526,9 @@ unit_tests += {
     'game/lua/capi/config.c',
     'game/lua/capi/cutscenes.c',
     'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
     'game/lua/capi/game.c',
     'game/lua/capi/input.c',
-    'game/inventory_ring/vars.c',
     'game/lua/capi/inventory.c',
     'game/lua/capi/items.c',
     'game/lua/capi/lara.c',
@@ -1151,26 +1537,1061 @@ unit_tests += {
     'game/lua/capi/overlay.c',
     'game/lua/capi/rooms.c',
     'game/lua/capi/rules.c',
+    'game/lua/capi/tween.c',
     'game/lua/capi/ui.c',
     'game/lua/capi/weapons.c',
     'game/lua/capi/weapons_spec.c',
-    'game/lua/ui.c',
+    'game/lua/events/manager.c',
+    'game/lua/events/ui.c',
     'game/rules.c',
     'game/ui/common.c',
-    'game/ui/elements/anchor.c',
-    'game/ui/elements/frame.c',
-    'game/ui/elements/hide.c',
-    'game/ui/elements/offset.c',
-    'game/ui/elements/pad.c',
-    'game/ui/elements/resize.c',
-    'game/ui/elements/row_arrows.c',
-    'game/ui/elements/spacer.c',
-    'game/ui/elements/span.c',
-    'game/ui/elements/stack.c',
     'game/ui/events.c',
-    'game/ui/helpers.c',
     'game/ui/regions.c',
     'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+  'args': ['-D_DEFAULT_SOURCE'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/screens/passport',
+  'bundles': [b_lua_surface, b_lua_math, b_lua_strings, b_matrix],
+  'src': [
+    'harness/screen_module.c',
+    'harness/takeover_args.c',
+    'harness/stubs_config_file.c',
+    'fakes/camera.c',
+    'fakes/creatures.c',
+    'fakes/cutseq.c',
+    'fakes/game.c',
+    'fakes/input.c',
+    'fakes/items.c',
+    'fakes/lara.c',
+    'fakes/level.c',
+    'fakes/locale.c',
+    'fakes/overlay.c',
+    'fakes/savegame.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sound.c',
+    'fakes/rooms.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/ui_menu.c',
+  ],
+  'engine': [
+    'config/common.c',
+    'config/enum.c',
+    'config/legacy.c',
+    'config/map.c',
+    'config/option.c',
+    'config/option_text.c',
+    'config/priv.c',
+    'config/registry.c',
+    'config/section.c',
+    'core/colors.c',
+    'core/event_manager.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/handle.c',
+    'core/json/base.c',
+    'core/json/parse.c',
+    'core/json/util/file.c',
+    'core/json/util/read_io.c',
+    'core/json/write.c',
+    'game/lua/capi/camera.c',
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/cutscenes.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/inventory.c',
+    'game/lua/capi/items.c',
+    'game/lua/capi/lara.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/mod.c',
+    'game/lua/capi/objects.c',
+    'game/lua/capi/overlay.c',
+    'game/lua/capi/rooms.c',
+    'game/lua/capi/rules.c',
+    'game/lua/capi/screens.c',
+    'game/lua/capi/sound.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/capi/weapons.c',
+    'game/lua/capi/weapons_spec.c',
+    'game/lua/events/manager.c',
+    'game/lua/hooks/screens.c',
+    'game/lua/events/ui.c',
+    'game/rules.c',
+    'game/ui/common.c',
+    'game/ui/takeover.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+  'args': ['-D_DEFAULT_SOURCE'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/screens/pause',
+  'bundles': [b_lua_surface, b_lua_math, b_lua_strings, b_matrix],
+  'src': [
+    'harness/screen_module.c',
+    'harness/takeover_args.c',
+    'harness/stubs_config_file.c',
+    'fakes/camera.c',
+    'fakes/creatures.c',
+    'fakes/cutseq.c',
+    'fakes/game.c',
+    'fakes/input.c',
+    'fakes/items.c',
+    'fakes/lara.c',
+    'fakes/level.c',
+    'fakes/locale.c',
+    'fakes/overlay.c',
+    'fakes/savegame.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sound.c',
+    'fakes/rooms.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/ui_menu.c',
+  ],
+  'engine': [
+    'config/common.c',
+    'config/enum.c',
+    'config/legacy.c',
+    'config/map.c',
+    'config/option.c',
+    'config/option_text.c',
+    'config/priv.c',
+    'config/registry.c',
+    'config/section.c',
+    'core/colors.c',
+    'core/event_manager.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/handle.c',
+    'core/json/base.c',
+    'core/json/parse.c',
+    'core/json/util/file.c',
+    'core/json/util/read_io.c',
+    'core/json/write.c',
+    'game/lua/capi/camera.c',
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/cutscenes.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/inventory.c',
+    'game/lua/capi/items.c',
+    'game/lua/capi/lara.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/mod.c',
+    'game/lua/capi/objects.c',
+    'game/lua/capi/overlay.c',
+    'game/lua/capi/rooms.c',
+    'game/lua/capi/rules.c',
+    'game/lua/capi/screens.c',
+    'game/lua/capi/sound.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/capi/weapons.c',
+    'game/lua/capi/weapons_spec.c',
+    'game/lua/events/manager.c',
+    'game/lua/hooks/screens.c',
+    'game/lua/events/ui.c',
+    'game/rules.c',
+    'game/ui/common.c',
+    'game/ui/takeover.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+  'args': ['-D_DEFAULT_SOURCE'],
+  'stubs': false,
+}
+
+# The cookbook in docs/trx/lua/examples, run as the level scripts it shows,
+# so that every example the guide prints is one that works.
+unit_tests += {
+  'name': 'docs/examples',
+  'bundles': [b_lua_surface, b_lua_math, b_lua_strings, b_matrix],
+  'src': [
+    'harness/screen_module.c',
+    'harness/takeover_args.c',
+    'harness/stubs_config_file.c',
+    'fakes/camera.c',
+    'fakes/creatures.c',
+    'fakes/cutseq.c',
+    'fakes/game.c',
+    'fakes/input.c',
+    'fakes/items.c',
+    'fakes/lara.c',
+    'fakes/level.c',
+    'fakes/locale.c',
+    'fakes/overlay.c',
+    'fakes/savegame.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sound.c',
+    'fakes/rooms.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/ui_menu.c',
+  ],
+  'engine': [
+    'config/common.c',
+    'config/enum.c',
+    'config/legacy.c',
+    'config/map.c',
+    'config/option.c',
+    'config/option_text.c',
+    'config/priv.c',
+    'config/registry.c',
+    'config/section.c',
+    'core/colors.c',
+    'core/event_manager.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/handle.c',
+    'core/json/base.c',
+    'core/json/parse.c',
+    'core/json/util/file.c',
+    'core/json/util/read_io.c',
+    'core/json/write.c',
+    'game/lua/capi/camera.c',
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/cutscenes.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/inventory.c',
+    'game/lua/capi/items.c',
+    'game/lua/capi/lara.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/mod.c',
+    'game/lua/capi/objects.c',
+    'game/lua/capi/overlay.c',
+    'game/lua/capi/rooms.c',
+    'game/lua/capi/rules.c',
+    'game/lua/capi/screens.c',
+    'game/lua/capi/sound.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/capi/weapons.c',
+    'game/lua/capi/weapons_spec.c',
+    'game/lua/events/manager.c',
+    'game/lua/hooks/screens.c',
+    'game/lua/events/ui.c',
+    'game/rules.c',
+    'game/ui/common.c',
+    'game/ui/takeover.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+  'args': ['-D_DEFAULT_SOURCE'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/screens/stats',
+  'bundles': [b_lua_surface, b_lua_math, b_lua_strings, b_matrix],
+  'src': [
+    'harness/screen_module.c',
+    'harness/takeover_args.c',
+    'harness/stubs_config_file.c',
+    'fakes/assault.c',
+    'fakes/camera.c',
+    'fakes/creatures.c',
+    'fakes/cutseq.c',
+    'fakes/game.c',
+    'fakes/input.c',
+    'fakes/items.c',
+    'fakes/lara.c',
+    'fakes/level.c',
+    'fakes/locale.c',
+    'fakes/overlay.c',
+    'fakes/savegame.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sound.c',
+    'fakes/stats.c',
+    'fakes/rooms.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/ui_menu.c',
+  ],
+  'engine': [
+    'config/common.c',
+    'config/enum.c',
+    'config/legacy.c',
+    'config/map.c',
+    'config/option.c',
+    'config/option_text.c',
+    'config/priv.c',
+    'config/registry.c',
+    'config/section.c',
+    'core/colors.c',
+    'core/event_manager.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/handle.c',
+    'core/json/base.c',
+    'core/json/parse.c',
+    'core/json/util/file.c',
+    'core/json/util/read_io.c',
+    'core/json/write.c',
+    'game/lua/capi/assault.c',
+    'game/lua/capi/camera.c',
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/cutscenes.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/inventory.c',
+    'game/lua/capi/items.c',
+    'game/lua/capi/lara.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/mod.c',
+    'game/lua/capi/objects.c',
+    'game/lua/capi/overlay.c',
+    'game/lua/capi/rooms.c',
+    'game/lua/capi/rules.c',
+    'game/lua/capi/screens.c',
+    'game/lua/capi/sound.c',
+    'game/lua/capi/stats.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/capi/weapons.c',
+    'game/lua/capi/weapons_spec.c',
+    'game/lua/events/manager.c',
+    'game/lua/hooks/screens.c',
+    'game/lua/events/ui.c',
+    'game/rules.c',
+    'game/ui/common.c',
+    'game/ui/takeover.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+  'args': ['-D_DEFAULT_SOURCE'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/screens/globe',
+  'bundles': [b_lua_surface, b_lua_math, b_lua_strings, b_matrix],
+  'src': [
+    'harness/screen_module.c',
+    'harness/takeover_args.c',
+    'harness/stubs_config_file.c',
+    'fakes/assault.c',
+    'fakes/camera.c',
+    'fakes/creatures.c',
+    'fakes/cutseq.c',
+    'fakes/game.c',
+    'fakes/input.c',
+    'fakes/items.c',
+    'fakes/lara.c',
+    'fakes/level.c',
+    'fakes/locale.c',
+    'fakes/overlay.c',
+    'fakes/savegame.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sound.c',
+    'fakes/stats.c',
+    'fakes/rooms.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/ui_menu.c',
+  ],
+  'engine': [
+    'config/common.c',
+    'config/enum.c',
+    'config/legacy.c',
+    'config/map.c',
+    'config/option.c',
+    'config/option_text.c',
+    'config/priv.c',
+    'config/registry.c',
+    'config/section.c',
+    'core/colors.c',
+    'core/event_manager.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/handle.c',
+    'core/json/base.c',
+    'core/json/parse.c',
+    'core/json/util/file.c',
+    'core/json/util/read_io.c',
+    'core/json/write.c',
+    'game/lua/capi/assault.c',
+    'game/lua/capi/camera.c',
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/cutscenes.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/inventory.c',
+    'game/lua/capi/items.c',
+    'game/lua/capi/lara.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/mod.c',
+    'game/lua/capi/objects.c',
+    'game/lua/capi/overlay.c',
+    'game/lua/capi/rooms.c',
+    'game/lua/capi/rules.c',
+    'game/lua/capi/screens.c',
+    'game/lua/capi/sound.c',
+    'game/lua/capi/stats.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/capi/weapons.c',
+    'game/lua/capi/weapons_spec.c',
+    'game/lua/events/manager.c',
+    'game/lua/hooks/screens.c',
+    'game/lua/events/ui.c',
+    'game/rules.c',
+    'game/ui/common.c',
+    'game/ui/takeover.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+  'args': ['-D_DEFAULT_SOURCE'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/screens/level_view',
+  'bundles': [b_lua_surface, b_lua_math, b_lua_strings, b_matrix],
+  'src': [
+    'harness/screen_module.c',
+    'harness/takeover_args.c',
+    'harness/stubs_config_file.c',
+    'fakes/assault.c',
+    'fakes/camera.c',
+    'fakes/creatures.c',
+    'fakes/cutseq.c',
+    'fakes/game.c',
+    'fakes/input.c',
+    'fakes/items.c',
+    'fakes/lara.c',
+    'fakes/level.c',
+    'fakes/locale.c',
+    'fakes/overlay.c',
+    'fakes/savegame.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sound.c',
+    'fakes/stats.c',
+    'fakes/rooms.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/ui_menu.c',
+  ],
+  'engine': [
+    'config/common.c',
+    'config/enum.c',
+    'config/legacy.c',
+    'config/map.c',
+    'config/option.c',
+    'config/option_text.c',
+    'config/priv.c',
+    'config/registry.c',
+    'config/section.c',
+    'core/colors.c',
+    'core/event_manager.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/handle.c',
+    'core/json/base.c',
+    'core/json/parse.c',
+    'core/json/util/file.c',
+    'core/json/util/read_io.c',
+    'core/json/write.c',
+    'game/lua/capi/assault.c',
+    'game/lua/capi/camera.c',
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/cutscenes.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/inventory.c',
+    'game/lua/capi/items.c',
+    'game/lua/capi/lara.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/mod.c',
+    'game/lua/capi/objects.c',
+    'game/lua/capi/overlay.c',
+    'game/lua/capi/rooms.c',
+    'game/lua/capi/rules.c',
+    'game/lua/capi/screens.c',
+    'game/lua/capi/sound.c',
+    'game/lua/capi/stats.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/capi/weapons.c',
+    'game/lua/capi/weapons_spec.c',
+    'game/lua/events/manager.c',
+    'game/lua/hooks/screens.c',
+    'game/lua/events/ui.c',
+    'game/rules.c',
+    'game/ui/common.c',
+    'game/ui/takeover.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+  'args': ['-D_DEFAULT_SOURCE'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/controls_model',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/fade',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/screens/settings',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'src': ['fakes/path.c'],
+  'engine': ['game/lua/capi/json.c', 'gl/enum.c'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/ring/motion',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/scroll',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/settings/color_editor',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/settings/controls',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'src': ['fakes/path.c'],
+  'engine': ['game/lua/capi/json.c', 'gl/enum.c'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/settings/dialog',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'engine': ['gl/enum.c'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/settings/editor',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/settings/preset_tab',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'src': ['fakes/path.c'],
+  'engine': ['game/lua/capi/json.c'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/settings/presets',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'src': ['fakes/path.c'],
+  'engine': ['game/lua/capi/json.c'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/ring/entries',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/flat_menu',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'src': ['fakes/path.c'],
+  'engine': ['game/lua/capi/json.c', 'gl/enum.c'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/flat_menu/death',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'src': ['fakes/path.c'],
+  'engine': ['game/lua/capi/json.c', 'gl/enum.c'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/flat_menu/pause',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'src': ['fakes/path.c'],
+  'engine': ['game/lua/capi/json.c', 'gl/enum.c'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/flat_menu/title',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'src': ['fakes/path.c'],
+  'engine': ['game/lua/capi/json.c', 'gl/enum.c'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/ring/screen',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/settings/rows',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/settings/tabs',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/value',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/widgets/color',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/widgets/row_arrows',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/widgets/tab_switch',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/widgets/text_dialog',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/widgets/window',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/screens/picture',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/ring/weapon',
+  'bundles': [
+    b_lua_surface,
+    b_lua_math,
+    b_lua_strings,
+    b_matrix,
+    b_screen_module,
+  ],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/screens/combine',
+  'bundles': [b_lua_surface, b_lua_math, b_lua_strings, b_matrix],
+  'src': [
+    'harness/screen_module.c',
+    'harness/takeover_args.c',
+    'harness/stubs_config_file.c',
+    'fakes/assault.c',
+    'fakes/camera.c',
+    'fakes/creatures.c',
+    'fakes/cutseq.c',
+    'fakes/game.c',
+    'fakes/input.c',
+    'fakes/items.c',
+    'fakes/lara.c',
+    'fakes/level.c',
+    'fakes/locale.c',
+    'fakes/overlay.c',
+    'fakes/savegame.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sound.c',
+    'fakes/stats.c',
+    'fakes/rooms.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/ui_menu.c',
+  ],
+  'engine': [
+    'config/common.c',
+    'config/enum.c',
+    'config/legacy.c',
+    'config/map.c',
+    'config/option.c',
+    'config/option_text.c',
+    'config/priv.c',
+    'config/registry.c',
+    'config/section.c',
+    'core/colors.c',
+    'core/event_manager.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/handle.c',
+    'core/json/base.c',
+    'core/json/parse.c',
+    'core/json/util/file.c',
+    'core/json/util/read_io.c',
+    'core/json/write.c',
+    'game/lua/capi/assault.c',
+    'game/lua/capi/camera.c',
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/cutscenes.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/inventory.c',
+    'game/lua/capi/items.c',
+    'game/lua/capi/lara.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/mod.c',
+    'game/lua/capi/objects.c',
+    'game/lua/capi/overlay.c',
+    'game/lua/capi/rooms.c',
+    'game/lua/capi/rules.c',
+    'game/lua/capi/screens.c',
+    'game/lua/capi/sound.c',
+    'game/lua/capi/stats.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/capi/weapons.c',
+    'game/lua/capi/weapons_spec.c',
+    'game/lua/events/manager.c',
+    'game/lua/hooks/screens.c',
+    'game/lua/events/ui.c',
+    'game/rules.c',
+    'game/ui/common.c',
+    'game/ui/takeover.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
+  ],
+  'args': ['-D_DEFAULT_SOURCE'],
+  'stubs': false,
+}
+
+unit_tests += {
+  'name': 'modules/ui/screens/examine',
+  'bundles': [b_lua_surface, b_lua_math, b_lua_strings, b_matrix],
+  'src': [
+    'harness/screen_module.c',
+    'harness/takeover_args.c',
+    'harness/stubs_config_file.c',
+    'fakes/assault.c',
+    'fakes/camera.c',
+    'fakes/creatures.c',
+    'fakes/cutseq.c',
+    'fakes/game.c',
+    'fakes/input.c',
+    'fakes/items.c',
+    'fakes/lara.c',
+    'fakes/level.c',
+    'fakes/locale.c',
+    'fakes/overlay.c',
+    'fakes/savegame.c',
+    'fakes/snapshot_slots.c',
+    'fakes/sound.c',
+    'fakes/stats.c',
+    'fakes/rooms.c',
+    'fakes/sprites.c',
+    'fakes/paths.c',
+    'fakes/text_wrap.c',
+    'fakes/ui_draw.c',
+    'fakes/ui_menu.c',
+  ],
+  'engine': [
+    'config/common.c',
+    'config/enum.c',
+    'config/legacy.c',
+    'config/map.c',
+    'config/option.c',
+    'config/option_text.c',
+    'config/priv.c',
+    'config/registry.c',
+    'config/section.c',
+    'core/colors.c',
+    'core/event_manager.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/handle.c',
+    'core/json/base.c',
+    'core/json/parse.c',
+    'core/json/util/file.c',
+    'core/json/util/read_io.c',
+    'core/json/write.c',
+    'game/lua/capi/assault.c',
+    'game/lua/capi/camera.c',
+    'game/lua/capi/catalog.c',
+    'game/lua/capi/config.c',
+    'game/lua/capi/cutscenes.c',
+    'game/lua/capi/events.c',
+    'game/lua/capi/fade.c',
+    'game/lua/capi/game.c',
+    'game/lua/capi/input.c',
+    'game/lua/capi/inventory.c',
+    'game/lua/capi/items.c',
+    'game/lua/capi/lara.c',
+    'game/lua/capi/locale.c',
+    'game/lua/capi/mod.c',
+    'game/lua/capi/objects.c',
+    'game/lua/capi/overlay.c',
+    'game/lua/capi/rooms.c',
+    'game/lua/capi/rules.c',
+    'game/lua/capi/screens.c',
+    'game/lua/capi/sound.c',
+    'game/lua/capi/stats.c',
+    'game/lua/capi/tween.c',
+    'game/lua/capi/ui.c',
+    'game/lua/capi/weapons.c',
+    'game/lua/capi/weapons_spec.c',
+    'game/lua/events/manager.c',
+    'game/lua/hooks/screens.c',
+    'game/lua/events/ui.c',
+    'game/rules.c',
+    'game/ui/common.c',
+    'game/ui/takeover.c',
+    'game/ui/events.c',
+    'game/ui/regions.c',
+    'game/ui/scaler.c',
+    'game/ui/tween.c',
   ],
   'args': ['-D_DEFAULT_SOURCE'],
   'stubs': false,
@@ -1187,6 +2608,7 @@ unit_tests += {
     'fakes/rooms.c',
   ],
   'engine': [
+    'core/math/trig.c',
     'game/lua/capi/camera.c',
     'game/lua/capi/catalog.c',
     'game/lua/capi/events.c',
@@ -1195,7 +2617,7 @@ unit_tests += {
     'game/lua/capi/lara.c',
     'game/lua/capi/objects.c',
     'game/lua/capi/rooms.c',
-    'core/math/trig.c',
+    'game/lua/events/manager.c',
   ],
   'deps': [dep_mathlibrary],
 }
@@ -1203,42 +2625,43 @@ unit_tests += {
 unit_tests += {
   'name': 'lua/commands/save_game',
   'bundles': [b_lua_surface, b_console, b_lua_events],
-  'src': ['fakes/game.c', 'fakes/savegame.c'],
+  'src': ['fakes/camera.c', 'fakes/game.c', 'fakes/savegame.c'],
   'engine': ['game/lua/capi/game.c'],
 }
 
 unit_tests += {
   'name': 'lua/commands/weather',
   'bundles': [b_lua_surface, b_console, b_lua_events],
-  'src': ['fakes/game.c', 'fakes/strings.c', 'fakes/weather.c'],
+  'src': ['fakes/camera.c', 'fakes/game.c', 'fakes/strings.c', 'fakes/weather.c'],
   'engine': ['game/lua/capi/game.c', 'game/lua/capi/weather.c'],
 }
 
 unit_tests += {
   'name': 'lua/commands/set',
 
-  'src': ['fakes/level.c'],  'bundles': [b_lua_surface, b_config, b_lua_math, b_lua_strings, b_console],
+  'src': ['fakes/level.c'],  'bundles': [b_lua_surface, b_config, b_lua_math, b_lua_strings, b_console, b_lua_events],
   'engine': ['game/lua/capi/config.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/creatures',
+  'name': 'lua/trx/creatures',
   'bundles': [b_lua_surface],
   'src': ['fakes/creatures.c'],
   'engine': ['game/lua/capi/creatures.c'],
 }
 
 unit_tests += {
-  'name': 'lua/api/events',
+  'name': 'lua/trx/events',
   'bundles': [b_lua_surface],
-  'src': ['fakes/rooms.c'],
-  'engine': ['game/lua/capi/events.c'],
+  'src': ['fakes/log.c', 'fakes/rooms.c'],
+  'engine': ['game/lua/capi/events.c', 'game/lua/events/manager.c'],
+  'stubs': false,
 }
 
 unit_tests += {
   'name': 'lua/seal',
   'bundles': [b_lua_surface, b_lua_math],
-  'src': ['fakes/items.c'],
+  'src': ['fakes/items.c', 'fakes/lara.c'],
   'engine': ['game/lua/capi/items.c'],
 }
 
@@ -1266,6 +2689,64 @@ unit_tests += {
   ],
 }
 
+unit_tests += {
+  'name': 'trx/game/locale/chain',
+  'src': ['harness/stubs_paths.c', 'harness/stubs_result.c'],
+  'engine': [
+    'core/file.c',
+    'core/filesystem.c',
+    'core/memory.c',
+    'core/result.c',
+    'core/strings/case_funcs.c',
+    'core/strings/common.c',
+    'core/vector.c',
+    'game/locale/chain.c',
+    'game/paths.c',
+  ],
+  'deps': [dep_pcre2],
+  'args': ['-DPCRE2_CODE_UNIT_WIDTH=8', '-D_DEFAULT_SOURCE'],
+}
+
+unit_tests += {
+  'name': 'trx/game/locale/common',
+  'src': ['harness/stubs_paths.c', 'harness/stubs_result.c'],
+  'engine': [
+    'core/event_manager.c',
+    'core/file.c',
+    'core/filesystem.c',
+    'core/memory.c',
+    'core/result.c',
+    'core/strings/case_funcs.c',
+    'core/strings/common.c',
+    'core/vector.c',
+    'game/locale/chain.c',
+    'game/locale/common.c',
+    'game/locale/path.c',
+    'game/paths.c',
+  ],
+  'deps': [dep_pcre2],
+  'args': ['-DPCRE2_CODE_UNIT_WIDTH=8', '-D_DEFAULT_SOURCE'],
+}
+
+unit_tests += {
+  'name': 'trx/game/locale/path',
+  'src': ['harness/stubs_paths.c', 'harness/stubs_result.c'],
+  'engine': [
+    'core/file.c',
+    'core/filesystem.c',
+    'core/memory.c',
+    'core/result.c',
+    'core/strings/case_funcs.c',
+    'core/strings/common.c',
+    'core/vector.c',
+    'game/locale/chain.c',
+    'game/locale/path.c',
+    'game/paths.c',
+  ],
+  'deps': [dep_pcre2],
+  'args': ['-DPCRE2_CODE_UNIT_WIDTH=8', '-D_DEFAULT_SOURCE'],
+}
+
 # The text a binding reads as. It knows nothing of SDL, so no backend comes
 # along.
 unit_tests += {
@@ -1273,9 +2754,22 @@ unit_tests += {
   'engine': ['game/input/names.c'],
 }
 
+# What a key or a button is doing, apart from the device that says so. Naming
+# a key is SDL's business and stays in game/input/raw.c, which is why the
+# bookkeeping sits in a module of its own and can be tested here at all.
 unit_tests += {
-  'name': 'trx/game/ui/scrollable',
-  'engine': ['game/ui/scrollable.c'],
+  'name': 'trx/game/input/raw_state',
+  'engine': ['game/input/raw_state.c'],
+}
+
+unit_tests += {
+  'name': 'trx/game/ui/takeover',
+  'engine': ['game/ui/takeover.c'],
+}
+
+unit_tests += {
+  'name': 'trx/game/ui/tween',
+  'engine': ['game/ui/tween.c'],
 }
 
 # Word wrapping, over the shipped font.bin of a single game: what the wrapper
@@ -1286,11 +2780,13 @@ unit_tests += {
     'fakes/ui.c',
     'fakes/paths.c',
     'fakes/ui_draw.c',
+    'fakes/ui_layer.c',
     'harness/font_bin.c',
     'harness/stubs_result.c',
   ],
   'engine': [
     'core/enum_map.c',
+    'core/handle.c',
     'core/memory.c',
     'core/strings/case_funcs.c',
     'core/strings/common.c',
@@ -1310,41 +2806,17 @@ unit_tests += {
   ],
 }
 
-# Where a settings row sits: the tab lists and the placement a declared row
-# resolves to. The options are real; nothing draws.
-unit_tests += {
-  'name': 'trx/game/ui/dialogs/settings_rows',
-  'bundles': [b_value],
-  'engine': [
-    'config/common.c',
-    'config/legacy.c',
-    'config/option.c',
-    'config/priv.c',
-    'config/registry.c',
-    'config/section.c',
-    'core/event_manager.c',
-    'core/json/base.c',
-    'core/json/parse.c',
-    'core/result.c',
-    'core/subsystem.c',
-    'game/ui/dialogs/settings_handlers.c',
-    'game/ui/dialogs/settings_rows.c',
-    'version.c',
-  ],
-  'src': ['harness/stubs_config_file.c', 'harness/stubs_result.c'],
-}
-
-# The UI layout test is the widest of the unit tests: it stands up the settings
-# dialogs and runs the real measure and layout passes over them. It reads the
-# shipped font.bin for glyph metrics and the shipped config for the strings -
-# both versioned in this repository - so it still needs no window and no build
-# of the game.
+# The UI layout test lays the regions out for real and measures text with the
+# shipped font.bin, which is versioned in this repository, so it needs no
+# window and no build of the game.
 unit_tests += {
   'name': 'trx/game/ui',
   'src': [
     'fakes/catalog.c',
     'harness/stubs_result.c',
+    'fakes/lua_tick.c',
     'fakes/settings.c',
+    'fakes/snapshot_slots.c',
     'fakes/ui.c',
     'fakes/paths.c',
     'fakes/ui_draw.c',
@@ -1356,7 +2828,6 @@ unit_tests += {
     'config/map.c',
     'config/option.c',
     'config/option_text.c',
-    'config/presets.c',
     'config/registry.c',
     'config/section.c',
     'core/colors.c',
@@ -1388,55 +2859,14 @@ unit_tests += {
     'game/rules.c',
     'game/ui/common.c',
     'game/ui/regions.c',
-    'game/ui/dialogs/color_editor.c',
-    'game/ui/dialogs/config_presets.c',
-    'game/ui/dialogs/controls_editor.c',
-    'game/ui/dialogs/gameplay_settings.c',
-    'game/ui/dialogs/graphic_settings.c',
-    'game/ui/dialogs/setting_helpers/handlers.c',
-    'game/ui/dialogs/setting_helpers/handlers_language.c',
-    'game/ui/dialogs/settings.c',
-    'game/ui/dialogs/settings_editor.c',
-    'game/ui/dialogs/settings_handlers.c',
-    'game/ui/dialogs/settings_rows.c',
-    'game/ui/dialogs/settings_tabs.c',
-    'game/ui/dialogs/sound_settings.c',
-    'game/ui/dialogs/text.c',
     'game/ui/events.c',
-    'game/ui/helpers.c',
     'game/ui/scaler.c',
     'game/ui/scaler.c',
-    'game/ui/scrollable.c',
-    'game/ui/settings.c',
     'game/ui/text.c',
     'version.c',
     'gl/enum.c',
-    'game/ui/elements/anchor.c',
-    'game/ui/elements/bar.c',
-    'game/ui/elements/color_swatch.c',
-    'game/ui/elements/flash.c',
-    'game/ui/elements/frame.c',
-    'game/ui/elements/gradient_slider.c',
-    'game/ui/elements/hide.c',
-    'game/ui/elements/horizontal_line.c',
-    'game/ui/elements/label.c',
-    'game/ui/elements/modal.c',
-    'game/ui/elements/offset.c',
-    'game/ui/elements/pad.c',
-    'game/ui/elements/progress_button.c',
-    'game/ui/elements/prompt.c',
-    'game/ui/elements/requester.c',
-    'game/ui/elements/resize.c',
-    'game/ui/elements/row_arrows.c',
-    'game/ui/elements/scrollable_stack.c',
-    'game/ui/elements/sleek_bar.c',
-    'game/ui/elements/spacer.c',
-    'game/ui/elements/span.c',
-    'game/ui/elements/stack.c',
-    'game/ui/helpers.c',
     'game/ui/scaler.c',
-    'game/ui/elements/tab_switch.c',
-    'game/ui/elements/window.c',
+    'game/ui/tween.c',
   ],
   'deps': [dep_mathlibrary, dep_pcre2, dep_zlib],
   'args': [
@@ -1492,17 +2922,27 @@ foreach spec : unit_tests
     c_args: test_args,
     build_by_default: false,
   )
-  test(test_id, exe, suite: 'unit')
+  # Runs a test once for each entry in `runs`. A module reads the game
+  # version once per process, so each game needs a run of its own.
+  foreach run : spec.get('runs', [{'suffix': '', 'env': []}])
+    test(
+      test_id + run['suffix'],
+      exe,
+      suite: 'unit',
+      env: run['env'],
+      depends: lua_signatures,
+    )
+  endforeach
 endforeach
 
-# src/lua/api/api.lua under a plain interpreter, with the C bridge stubbed in
+# src/lua/trx/api.lua under a plain interpreter, with the C bridge stubbed in
 # Lua. It is the one suite with no runner to build.
 lua_exe = find_program('lua', 'lua5.4', 'lua5.5', required: false)
 if lua_exe.found()
   test(
-    'lua.api.api',
+    'lua.trx.api',
     lua_exe,
-    args: [files('lua/api/api.lua'), repo_root],
+    args: [files('lua/trx/api.lua'), repo_root],
     suite: 'unit',
   )
 endif
@@ -1511,7 +2951,7 @@ endif
 # engine code, so they mirror nothing under trx/.
 python_exe = find_program('python3', required: false)
 if python_exe.found()
-  foreach name : ['lua_sources', 'update_lua_docs', 'game_strings', 'cfuncs', 'cdecls', 'object_taxonomy']
+  foreach name : ['lua_sources', 'update_lua_docs', 'lua_annot', 'game_strings', 'cfuncs', 'cdecls', 'object_taxonomy']
     test(
       'tools.' + name,
       python_exe,

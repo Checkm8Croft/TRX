@@ -1,20 +1,22 @@
 ---
 title: Strings
-order: 33
+order: 34
 ---
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/strings.lua. Edit it there.
+  src/lua/trx/strings.lua. Edit it there.
 -->
 
 ## <a id="strings" name="strings"></a>Strings module
 
 Utilities for working with strings.
 
-Not to be confused with [`trx.locale`](LOCALE.md#locale), which is the text a player reads: this module is about manipulating strings, that one is about which string the player gets.
+Not to be confused with [`trx.locale`](LOCALE.md#locale), which is the text a player reads: this
+module is about manipulating strings, that one is about which string the
+player gets.
 
 ### Structures
 
@@ -32,9 +34,12 @@ Not to be confused with [`trx.locale`](LOCALE.md#locale), which is the text a pl
 ### Functions
 
 - <a id="strings.fuzzy_match" name="strings.fuzzy_match"></a>[lua]`trx.strings.fuzzy_match(input, sources)`  
-  Matches what someone typed against a list of candidates, forgivingly: `big medi` finds `large medipack`.
+  Matches what someone typed against a list of candidates, forgivingly: `big
+  medi` finds `large medipack`.
 
-  Candidates are ranked, best first. Each carries a [`sources.value`](#strings.fuzzy_match.sources.value) of the caller's choosing, which comes back untouched on the match - hang an id off it and read it back.
+  Candidates are ranked, best first. Each carries a
+  [`sources.value`](#strings.fuzzy_match.sources.value) of the caller's choosing, which comes
+  back untouched on the match - hang an id off it and read it back.
 
   Parameters:
   - <a id="strings.fuzzy_match.input" name="strings.fuzzy_match.input"></a>**`input`** (string). What the player typed.
@@ -57,7 +62,8 @@ Not to be confused with [`trx.locale`](LOCALE.md#locale), which is the text a pl
   ```
 
 - <a id="strings.parse_bool" name="strings.parse_bool"></a>[lua]`trx.strings.parse_bool(text)`  
-  Reads a boolean the way the console does: `1`, `true` or `on` for true, `0`, `false` or `off` for false, in any case. Anything else is not a boolean.
+  Reads a boolean the way the console does: `1`, `true` or `on` for true, `0`,
+  `false` or `off` for false, in any case. Anything else is not a boolean.
 
   Parameters:
   - <a id="strings.parse_bool.text" name="strings.parse_bool.text"></a>**`text`** (string). The text to read.
@@ -70,9 +76,11 @@ Not to be confused with [`trx.locale`](LOCALE.md#locale), which is the text a pl
   ```
 
 - <a id="strings.collapse_ranges" name="strings.collapse_ranges"></a>[lua]`trx.strings.collapse_ranges(numbers, [separator])`  
-  Writes a list of whole numbers as ranges, so that a long run reads as one: `{ 0, 2, 3, 4, 9 }` becomes `0, 2-4, 9`.
+  Writes a list of whole numbers as ranges, so that a long run reads as one:
+  `{ 0, 2, 3, 4, 9 }` becomes `0, 2-4, 9`.
 
-  The list is sorted first, and duplicates survive as they are, so the caller need not tidy up before handing it over.
+  The list is sorted first, and duplicates survive as they are, so the caller
+  need not tidy up before handing it over.
 
   Parameters:
   - <a id="strings.collapse_ranges.numbers" name="strings.collapse_ranges.numbers"></a>**`numbers`** (a list of integer). The numbers to write out.
@@ -99,8 +107,71 @@ Not to be confused with [`trx.locale`](LOCALE.md#locale), which is the text a pl
   if trx.strings.regex_match(args, "^\\d+$") then ... end
   ```
 
+- <a id="strings.paginate" name="strings.paginate"></a>[lua]`trx.strings.paginate(text, max_lines)`  
+  Splits text into pages of at most a number of lines, the way the game pages
+  its own text. A form feed, `\f`, also starts a new page, and a page does
+  not start on a blank line.
+
+  Parameters:
+  - <a id="strings.paginate.text" name="strings.paginate.text"></a>**`text`** (string). The text to split.
+  - <a id="strings.paginate.max_lines" name="strings.paginate.max_lines"></a>**`max_lines`** (integer). How many lines a page holds. At least 1.
+
+  Returns: a list of string. The pages, in order. Text with nothing in it is one empty page.
+
+  Example:
+  ```lua
+  local pages = trx.strings.paginate("one\ntwo\nthree", 2)
+  ```
+
+- <a id="strings.upper" name="strings.upper"></a>[lua]`trx.strings.upper(text)`  
+  Turns text to capitals the way the game's own screens do. Unlike
+  `string.upper`, this knows the letters beyond ASCII that the game's font
+  draws, and leaves a `\\{...}` glyph name as it is.
+
+  Parameters:
+  - <a id="strings.upper.text" name="strings.upper.text"></a>**`text`** (string). The text to turn to capitals.
+
+  Returns: string. The text in capitals.
+
+  Example:
+  ```lua
+  trx.strings.upper("Żółw \\{secret 1}") -- "ŻÓŁW \\{secret 1}"
+  ```
+
+- <a id="strings.lower" name="strings.lower"></a>[lua]`trx.strings.lower(text)`  
+  Turns text to small letters, the counterpart of [`trx.strings.upper`](#strings.upper). It
+  knows the same letters beyond ASCII, and leaves a `\\{...}` glyph name as it
+  is.
+
+  Parameters:
+  - <a id="strings.lower.text" name="strings.lower.text"></a>**`text`** (string). The text to turn to small letters.
+
+  Returns: string. The text in small letters.
+
+  Example:
+  ```lua
+  trx.strings.lower("ŻÓŁW") -- "żółw"
+  ```
+
+- <a id="strings.equivalent" name="strings.equivalent"></a>[lua]`trx.strings.equivalent(a, b)`  
+  Whether two texts are the same but for the case of their ASCII letters, as
+  the engine compares names such as language codes.
+
+  Parameters:
+  - <a id="strings.equivalent.a" name="strings.equivalent.a"></a>**`a`** (string). The one text.
+  - <a id="strings.equivalent.b" name="strings.equivalent.b"></a>**`b`** (string). The other text.
+
+  Returns: boolean. True where they match.
+
+  Example:
+  ```lua
+  trx.strings.equivalent("en-GB", "en-gb") -- true
+  ```
+
 - <a id="strings.dash_case" name="strings.dash_case"></a>[lua]`trx.strings.dash_case(text)`  
-  Spells a name the way the console shows one: lower case, with underscores read as dashes. This is how an enum constant is offered for completion, and a catalog name resolves in either spelling.
+  Spells a name the way the console shows one: lower case, with underscores
+  read as dashes. This is how an enum constant is offered for completion, and a
+  catalog name resolves in either spelling.
 
   Parameters:
   - <a id="strings.dash_case.text" name="strings.dash_case.text"></a>**`text`** (string). The name to spell.

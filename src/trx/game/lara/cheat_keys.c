@@ -46,7 +46,7 @@ static void M_GiveItems(void)
             continue;
         }
         if (Lara_Cheat_GiveGun(gun_type, false)) {
-            Inv_SetAmmo(gun_type, info->cheat_key_ammo);
+            Inv_FillAmmo(gun_type, info->cheat_key_ammo);
         }
     }
     Inv_AddItemNTimes(O_SMALL_MEDIPACK_ITEM, 50);
@@ -63,7 +63,8 @@ static void M_ExplodeLara(void)
     ITEM *const lara_item = Lara_GetItem();
     Item_Shatter(
         lara_info->item_num,
-        (ITEM_SHATTER_ARGS) { .mesh_bits = -1, .damage = 1 });
+        (ITEM_SHATTER_ARGS) {
+            .mesh_bits = -1, .gib_flags = GIB_BLAST, .damage = 1 });
     Sound_Effect(SFX_EXPLOSION_1, &lara_item->pos, SPM_NORMAL);
     Lara_Kill();
     Item_SetVisible(lara_item, false);

@@ -1,40 +1,44 @@
-// The overlay flags a script reads: whether something asks for Lara's health
-// bar, and whether the cinematic bars have the screen.
+// How deep the cinematic bars are. A script asking for bars sets where they
+// are going; the test says where they are.
 
 #include <fakes/overlay.h>
 
 #include <harness/fake_calls.h>
 
 #include <trx/game/output/overlay.h>
-#include <trx/game/overlay.h>
 
-static bool m_ForcedHealthBar;
-static bool m_Letterbox;
+static float m_Letterbox;
+static float m_LetterboxTarget;
 
 static void M_Reset(void)
 {
-    m_ForcedHealthBar = false;
-    m_Letterbox = false;
+    m_Letterbox = 0.0f;
+    m_LetterboxTarget = 0.0f;
 }
 
-void FakeOverlay_ForceHealthBar(const bool show)
+void FakeOverlay_SetLetterbox(const float depth)
 {
-    m_ForcedHealthBar = show;
+    m_Letterbox = depth;
 }
 
-bool Overlay_IsHealthBarForced(void)
+void Output_Overlay_SlideLetterbox(const float ratio)
 {
-    return m_ForcedHealthBar;
+    m_LetterboxTarget = ratio;
 }
 
-void FakeOverlay_SetLetterbox(const bool shown)
+float Output_Overlay_GetLetterbox(void)
 {
-    m_Letterbox = shown;
+    return m_Letterbox;
+}
+
+float Output_Overlay_GetLetterboxTarget(void)
+{
+    return m_LetterboxTarget;
 }
 
 bool Output_Overlay_HasLetterbox(void)
 {
-    return m_Letterbox;
+    return m_Letterbox > 0.0f;
 }
 
 FAKE_ON_RESET(M_Reset)

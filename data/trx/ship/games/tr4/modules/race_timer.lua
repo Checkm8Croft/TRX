@@ -65,13 +65,18 @@ function M.finish()
 end
 
 -- The clock as it reads now, or nil while it has nothing to show. It stays
--- hidden during the race cutscenes and once the race is over.
+-- hidden during the race cutscenes, on loading screens and once the race is
+-- over.
 local function clock()
   local frames = store.race_frames or 0
   if store.race_done or frames <= 0 or frames >= MAX_FRAMES then
     return nil
   end
-  if not trx.game.is_playable or trx.cutscenes.is_playing then
+  if
+    not trx.game.is_playing
+    or not trx.game.is_playable
+    or trx.cutscenes.is_playing
+  then
     return nil
   end
   return format_clock(frames)
@@ -86,7 +91,7 @@ trx.ui.regions.place(
     text = text:map(function(value)
       return value or ""
     end),
-    shown = text:map(function(value)
+    visible = text:map(function(value)
       return value ~= nil
     end),
   })

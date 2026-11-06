@@ -15,9 +15,10 @@ const char *SG_File_GetQuickSaveFilePattern(void);
 RESULT SG_File_FillInfo(TRX_FILE *fp, SAVEGAME_INFO *info);
 RESULT SG_File_LoadFromFile(TRX_FILE *fp);
 RESULT SG_File_LoadOnlyResumeInfo(TRX_FILE *fp);
+RESULT SG_File_LoadLevelEndFromFile(TRX_FILE *fp);
 RESULT SG_File_SaveToFile(TRX_FILE *fp, SAVEGAME_INFO *info);
 RESULT SG_File_UpdateDeathCounters(
-    TRX_FILE *fp, int32_t level_num, int32_t death_count, bool is_quick);
+    TRX_FILE *fp, const SAVEGAME_INFO *info, int32_t death_count);
 
 // Start of reader functions ===================================================
 RESULT SG_File_LoadLara(JSON_READ_IO *io);
@@ -32,10 +33,10 @@ RESULT SG_File_LoadMusic(JSON_READ_IO *io);
 RESULT SG_File_LoadResumeInfoList(JSON_READ_IO *io);
 RESULT SG_File_LoadRules(JSON_READ_IO *io);
 RESULT SG_File_LoadMisc(JSON_READ_IO *io);
+RESULT SG_File_LoadLevelEndMisc(JSON_READ_IO *io);
 // End of reader functions =====================================================
 
 // Start of writer functions ===================================================
-void SG_File_DumpFlares(JSON_WRITE_IO *io);
 void SG_File_DumpEffects(JSON_WRITE_IO *io);
 void SG_File_DumpInventory(JSON_WRITE_IO *io);
 void SG_File_DumpFlipmaps(JSON_WRITE_IO *io);
@@ -47,6 +48,7 @@ void SG_File_DumpLara(JSON_WRITE_IO *io);
 void SG_File_DumpResumeInfoList(JSON_WRITE_IO *io);
 void SG_File_DumpRules(JSON_WRITE_IO *io);
 void SG_File_DumpMisc(JSON_WRITE_IO *io);
+void SG_File_DumpLevelEndMisc(JSON_WRITE_IO *io);
 // End of writer functions =====================================================
 
 #pragma pack(push, 1)
@@ -67,3 +69,9 @@ typedef struct {
 #pragma pack(pop)
 
 #define SAVEGAME_EXT_FLAG_QUICK (1U << 31)
+// The time the save was made follows the level title, in seconds since the
+// epoch as a 64-bit number.
+#define SAVEGAME_EXT_FLAG_SAVED_AT (1U << 30)
+// The save holds the playthrough as a level ends, without the level itself.
+// Loading it resumes the level's sequence after its statistics.
+#define SAVEGAME_EXT_FLAG_LEVEL_END (1U << 29)

@@ -65,7 +65,8 @@ whichever key you have bound, and not include it as part of the command itself.
   `/give guns` or `/guns`  
   `/give moreguns` or `/moreguns`  
   `/give keys` or `/keys`  
-  Gives Lara an item. Try `/give guns` to arm her to the teeth, and `/give keys` to get her all important puzzle items. Ain't nobody got time for searching! `/give all` hands over one of everything, ammunition and medipacks included.
+  `/give -q {item_name}`  
+  Gives Lara an item. Use `/give guns` for weapons or `/give keys` for puzzle items. `/give all` gives one of each item, including ammunition and medipacks. The given item appears in the corner unless you use `/give all`. Add `-q` to hide the pickup.
 
 - `/secret`  
   `/secret {num}`  
@@ -99,7 +100,7 @@ whichever key you have bound, and not include it as part of the command itself.
   Calls your loyal butler to any end of the world you're exploring right now. Effective immediately.
 
 - `/bignasty`  
-  Special delivery! The BFG9000 comes down through the ceiling with its cells humming, and one shot turns a whole room green. Ask for seconds and it helps itself to half of Lara's health instead. TR4 misses out entirely - nothing in there to hang it off.
+  Special delivery! The BFG9000 comes down through the ceiling with its cells humming, and one shot turns a whole room green. Ask for seconds and it helps itself to half of Lara's health instead.
 
 - `/spawn {object}`  
   Spawn an object of your choice. Not guaranteed to behave, but good for testing and oddly therapeutic for goofing off.
@@ -182,6 +183,7 @@ whichever key you have bound, and not include it as part of the command itself.
   - object mesh spheres - see hitboxes in their natural habitat.
   - Lara's position and animation details - nerdy stats, you've gotta love them.
   - bounding boxes – to marvel at the collision code.
+  - script zones - the boxes, spheres and tiles a mod watches.
 
 - `/speed`  
   `/speed {num}`  
@@ -235,6 +237,10 @@ whichever key you have bound, and not include it as part of the command itself.
 - `/endlevel`  
   `/nextlevel`  
   Too cool to finish puzzles? Smash-cut to the ending! Lara doesn't have time for this nonsense.
+
+- `/restartlevel`  
+  `/restart`  
+  Botched the jump? Rewinds the current level back to its start for another go.
 
 - `/level {num}`  
   `/level {name}`  

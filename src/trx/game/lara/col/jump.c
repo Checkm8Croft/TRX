@@ -1,5 +1,6 @@
 #include <trx/config.h>
 #include <trx/game/anims/common.h>
+#include <trx/game/demo.h>
 #include <trx/game/input.h>
 #include <trx/game/lara.h>
 #include <trx/game/lara/util.h>
@@ -113,7 +114,9 @@ static bool M_TestHangJump(ITEM *const item, COLL_INFO *const coll)
     const BOUNDS_16 *const bounds = Item_GetBoundsAccurate(item);
     if (edge_catch == EDGE_CATCH_POS) {
         item->pos.y += coll->side_front.floor - bounds->min.y;
-        switch (dir) {
+        // The PS1 release moves Lara onto a ledge by the collision shift rather
+        // than against the edge of the sector, and its demos depend on it.
+        switch (Demo_UsesPS1Rules() ? DIR_UNKNOWN : dir) {
         case DIR_NORTH:
             item->pos.z = ROUND_TO_SECTOR_END(item->pos.z) - LARA_RADIUS;
             item->pos.x += coll->shift.x;
@@ -245,6 +248,10 @@ static void M_Compress(ITEM *const item, COLL_INFO *const coll)
 
     Lara_Col_GetInfo(item, coll);
 
+    if (g_Config.gameplay.fix_falling_glitch && Lara_Col_Fallen(item, coll)) {
+        return;
+    }
+
     if (coll->side_mid.ceiling > -100) {
         Item_SwitchToAnim(item, LA(LA_STAND_STILL), 0);
         item->goal_anim_state = LS(LS_STOP);
@@ -278,7 +285,7 @@ static void M_NeutralJumpRoll(ITEM *const item, COLL_INFO *const coll)
         item->speed = 0;
         item->pos = coll->old_pos;
     } else if (coll->side_mid.floor <= STEPUP_HEIGHT) {
-        item->pos.y += coll->side_mid.floor;
+        Lara_Col_AlignToFloor(item, coll);
     }
 }
 
@@ -304,7 +311,16 @@ static void M_UpJump(ITEM *const item, COLL_INFO *const coll)
         return;
     }
 
-    M_SlideEdgeJump(item, coll);
+    if (g_Config.gameplay.wall_glitch_mode == WALL_GLITCH_FIXED) {
+        Lara_Col_Shift(coll);
+        if (coll->coll_type == COLL_CLAMP || coll->coll_type == COLL_TOP
+            || coll->coll_type == COLL_TOP_FRONT) {
+            item->fall_speed = 1;
+        }
+    } else {
+        M_SlideEdgeJump(item, coll);
+    }
+
     if (g_Config.gameplay.enable_lean_jumping) {
         if (coll->coll_type != COLL_NONE) {
             item->speed = item->speed > 0 ? 2 : -2;
@@ -334,7 +350,7 @@ static void M_UpJump(ITEM *const item, COLL_INFO *const coll)
     }
     item->gravity = false;
     item->fall_speed = 0;
-    item->pos.y += coll->side_mid.floor;
+    Lara_Col_AlignToFloor(item, coll);
 }
 
 static void M_ForwardJump(ITEM *const item, COLL_INFO *const coll)
@@ -391,7 +407,7 @@ static void M_ForwardJump(ITEM *const item, COLL_INFO *const coll)
 
     item->gravity = false;
     item->fall_speed = 0;
-    item->pos.y += coll->side_mid.floor;
+    Lara_Col_AlignToFloor(item, coll);
     item->speed = 0;
     if (g_Config.gameplay.wall_glitch_mode != WALL_GLITCH_FIXED
         || coll->side_front.type != COLL_FRONT) {
@@ -445,7 +461,7 @@ static void M_SideBackJump(ITEM *const item, COLL_INFO *const coll)
     }
     item->gravity = false;
     item->fall_speed = 0;
-    item->pos.y += coll->side_mid.floor;
+    Lara_Col_AlignToFloor(item, coll);
 }
 
 static void M_FallBack(ITEM *const item, COLL_INFO *const coll)
@@ -477,7 +493,7 @@ static void M_FallBack(ITEM *const item, COLL_INFO *const coll)
 
     item->gravity = false;
     item->fall_speed = 0;
-    item->pos.y += coll->side_mid.floor;
+    Lara_Col_AlignToFloor(item, coll);
 }
 
 static void M_Reach(ITEM *const item, COLL_INFO *const coll)
@@ -515,7 +531,7 @@ static void M_Reach(ITEM *const item, COLL_INFO *const coll)
 
     item->gravity = false;
     item->fall_speed = 0;
-    item->pos.y += coll->side_mid.floor;
+    Lara_Col_AlignToFloor(item, coll);
 }
 
 static void M_SwanDive(ITEM *const item, COLL_INFO *const coll)
@@ -536,7 +552,7 @@ static void M_SwanDive(ITEM *const item, COLL_INFO *const coll)
     item->goal_anim_state = LS(LS_STOP);
     item->gravity = false;
     item->fall_speed = 0;
-    item->pos.y += coll->side_mid.floor;
+    Lara_Col_AlignToFloor(item, coll);
 }
 
 static void M_FastDive(ITEM *const item, COLL_INFO *const coll)
@@ -562,7 +578,7 @@ static void M_FastDive(ITEM *const item, COLL_INFO *const coll)
     }
     item->gravity = false;
     item->fall_speed = 0;
-    item->pos.y += coll->side_mid.floor;
+    Lara_Col_AlignToFloor(item, coll);
 }
 
 static void M_FastFall(ITEM *const item, COLL_INFO *const coll)
@@ -594,7 +610,7 @@ static void M_FastFall(ITEM *const item, COLL_INFO *const coll)
     Sound_StopEffect(SFX_LARA_FALL);
     item->gravity = false;
     item->fall_speed = 0;
-    item->pos.y += coll->side_mid.floor;
+    Lara_Col_AlignToFloor(item, coll);
 }
 
 EDGE_CATCH Lara_Col_TestEdgeCatch(
@@ -753,7 +769,7 @@ LANDED_STATE Lara_Col_LandedBad(ITEM *const item)
             LARA_MAX_HITPOINTS * SQUARE(land_speed) / SQUARE(DAMAGE_LENGTH);
         // Item_TakeDamage clamps at zero, while the test below needs the
         // negative value that the plain subtraction leaves behind.
-        const int16_t hit_points = item->hit_points - damage;
+        const int16_t hit_points = item->hit_points - Lara_ScaleDamage(damage);
         Lara_TakeDamage(damage, false);
         // #675: Original bug to keep. Correct operator would be <=
         return alive && hit_points < 0 ? LANDED_BAD : LANDED_OK;

@@ -3,6 +3,7 @@
 #include <trx/core/memory.h>
 #include <trx/debug.h>
 #include <trx/game/output/shaders/generic.h>
+#include <trx/game/viewport.h>
 #include <trx/gl/utils.h>
 
 #include <trx/gl/gl_platform.h>
@@ -20,6 +21,7 @@ typedef enum {
     M_UNIFORM_DESATURATION,
     M_UNIFORM_GLOBAL_TINT,
     M_UNIFORM_DEST_RECT,
+    M_UNIFORM_BLUR,
     M_UNIFORM_NUMBER_OF,
 } M_UNIFORM;
 
@@ -68,6 +70,7 @@ struct OUTPUT_QUAD {
 
     float desaturation;
     RGB_F global_tint;
+    float blur;
 
     bool use_external_texture;
     GLuint external_texture_id;
@@ -114,6 +117,32 @@ static OUTPUT_QUAD_SURFACE_DESC M_NormalizeDesc(
 static void M_BindProgram(const OUTPUT_QUAD *const r)
 {
     Output_Shader_Bind(r->shader);
+}
+
+// Rebuild mipmaps before drawing when the blur is active.
+static void M_ApplyFilter(const OUTPUT_QUAD *const r)
+{
+    if (r->blur > 0.0f) {
+        glGenerateMipmap(GL_TEXTURE_2D);
+        glTexParameteri(
+            GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        return;
+    }
+
+    const GLint gl_filter =
+        r->filter_mode == TEXTURE_FILTER_BILINEAR ? GL_LINEAR : GL_NEAREST;
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter);
+}
+
+// The shader fits the source against the aspect ratio of VIEWPORT_GAME, so the
+// source aspect ratio is divided by the pixel aspect ratio of that space.
+static void M_UploadSrcAspect(const OUTPUT_QUAD *const r)
+{
+    glUniform1f(
+        r->loc[M_UNIFORM_SRC_ASPECT],
+        r->src_aspect / Viewport_GetPixelAspect(VIEWPORT_GAME));
 }
 
 static void M_UploadVertices(OUTPUT_QUAD *const r)
@@ -171,6 +200,7 @@ RESULT Output_Quad_Create(OUTPUT_QUAD **const out_quad)
 
     r->desaturation = 0.0f;
     r->global_tint = COLOR_RGB_F_WHITE;
+    r->blur = 0.0f;
 
     r->vertices = nullptr;
     r->vertex_count = 6;
@@ -220,6 +250,7 @@ RESULT Output_Quad_Create(OUTPUT_QUAD **const out_quad)
         Output_Shader_LookupUniform(r->shader, "uGlobalTint");
     r->loc[M_UNIFORM_DEST_RECT] =
         Output_Shader_LookupUniform(r->shader, "uDestRect");
+    r->loc[M_UNIFORM_BLUR] = Output_Shader_LookupUniform(r->shader, "uBlur");
 
     M_BindProgram(r);
     glUniform1i(r->loc[M_UNIFORM_TEXTURE_MAIN], 0);
@@ -236,6 +267,7 @@ RESULT Output_Quad_Create(OUTPUT_QUAD **const out_quad)
     glUniform4f(
         r->loc[M_UNIFORM_DEST_RECT], r->dest_rect.x0, r->dest_rect.y0,
         r->dest_rect.x1, r->dest_rect.y1);
+    glUniform1f(r->loc[M_UNIFORM_BLUR], r->blur);
     TRX_GL_CheckError();
 
     *out_quad = r;
@@ -462,6 +494,18 @@ void Output_Quad_SetGlobalTint(OUTPUT_QUAD *const r, const RGB_F tint)
     }
 }
 
+void Output_Quad_SetBlur(OUTPUT_QUAD *const r, const float blur)
+{
+    ASSERT(r != nullptr);
+
+    if (r->blur != blur) {
+        M_BindProgram(r);
+        glUniform1f(r->loc[M_UNIFORM_BLUR], blur);
+        TRX_GL_CheckError();
+        r->blur = blur;
+    }
+}
+
 void Output_Quad_SetDestRect(
     OUTPUT_QUAD *const r, const float x0, const float y0, const float x1,
     const float y1)
@@ -505,7 +549,6 @@ void Output_Quad_SetFit(
 
     M_BindProgram(r);
     glUniform1i(r->loc[M_UNIFORM_FIT_MODE], (int32_t)fit_mode);
-    glUniform1f(r->loc[M_UNIFORM_SRC_ASPECT], src_aspect);
     TRX_GL_CheckError();
 }
 
@@ -520,7 +563,6 @@ void Output_Quad_ClearFit(OUTPUT_QUAD *const r)
     r->src_aspect = 1.0f;
     M_BindProgram(r);
     glUniform1i(r->loc[M_UNIFORM_FIT_MODE], (int32_t)r->fit_mode);
-    glUniform1f(r->loc[M_UNIFORM_SRC_ASPECT], r->src_aspect);
     TRX_GL_CheckError();
 }
 
@@ -530,6 +572,7 @@ void Output_Quad_Render(OUTPUT_QUAD *const r)
 
     M_BindProgram(r);
     glUniform1i(r->loc[M_UNIFORM_EFFECT], r->effect);
+    M_UploadSrcAspect(r);
     glBindVertexArray(r->vao);
     glBindBuffer(GL_ARRAY_BUFFER, r->vbo);
 
@@ -539,10 +582,7 @@ void Output_Quad_Render(OUTPUT_QUAD *const r)
     } else {
         glBindTexture(GL_TEXTURE_2D, r->texture);
     }
-    const GLint gl_filter =
-        r->filter_mode == TEXTURE_FILTER_BILINEAR ? GL_LINEAR : GL_NEAREST;
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter);
+    M_ApplyFilter(r);
     // GL_SAMPLER_BINDING refers to the currently active texture unit
     // (already set to GL_TEXTURE0 above) and must be queried with the
     // plain getter, not the indexed one -- GLES rejects the indexed form
@@ -589,6 +629,7 @@ void Output_Quad_RenderWithBlend(OUTPUT_QUAD *const r)
 
     M_BindProgram(r);
     glUniform1i(r->loc[M_UNIFORM_EFFECT], r->effect);
+    M_UploadSrcAspect(r);
     glBindVertexArray(r->vao);
     glBindBuffer(GL_ARRAY_BUFFER, r->vbo);
 
@@ -598,10 +639,7 @@ void Output_Quad_RenderWithBlend(OUTPUT_QUAD *const r)
     } else {
         glBindTexture(GL_TEXTURE_2D, r->texture);
     }
-    const GLint gl_filter =
-        r->filter_mode == TEXTURE_FILTER_BILINEAR ? GL_LINEAR : GL_NEAREST;
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, gl_filter);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, gl_filter);
+    M_ApplyFilter(r);
     // GL_SAMPLER_BINDING refers to the currently active texture unit
     // (already set to GL_TEXTURE0 above) and must be queried with the
     // plain getter, not the indexed one -- GLES rejects the indexed form

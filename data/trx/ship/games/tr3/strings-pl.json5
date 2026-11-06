@@ -10,25 +10,32 @@
             "area_5": "Londyn",
             "area_6": "\\{Antarktyda",
         },
-        "inventory_ring": {
-            "heading_fmt": "\\{color 5}%s",
-            "item_count_fmt": "\\{color 3}%s",
-            "object_name_fmt": "\\{color 5}%s",
-        },
         "misc": {
             "empty_slot_fmt": "- Pusty Slot -",
+        }
+    },
+    "objects": {
+        "large_medipack_item": {
+            "name": "\\{review}Duża apteczka",
         },
-        "overlay": {
-            "item_count_fmt_pc": "%s",
-            "item_count_fmt_ps1": "\\{color 3}%s",
+        "quest_item_1": {
+            "name": "\\{review}Kamień Infada",
+            "description": "",
         },
-        "pause": {
-            "paused": "\\{color 5}Pauza",
+        "quest_item_2": {
+            "name": "\\{review}Pierwiastek 115",
+            "description": "",
         },
-        "stats": {
-            "assault_other_times_fmt": "\\{color 2}%s",
-            "gym_assault_course": "\\{color 5}Tor Przeszkód",
-            "gym_racetrack_course": "\\{color 5}Tor Wyścigowy",
+        "quest_item_3": {
+            "name": "\\{review}Oko Izydy",
+            "description": "",
+        },
+        "quest_item_4": {
+            "name": "\\{review}Sztylet Ora",
+            "description": "",
+        },
+        "small_medipack_item": {
+            "name": "\\{review}Mała apteczka",
         }
     },
     "cutscenes": [
@@ -302,6 +309,53 @@
                 },
                 "key_item_1": {
                     "name": "Klucz do skarbca",
+                }
+            }
+        }
+    ],
+    "demos": [
+        {
+            "title": "Aldwych",
+            "objects": {
+                "key_item_1": {
+                    "name": "Klucz konserwacyjny",
+                },
+                "key_item_2": {
+                    "name": "Klucz Salomona",
+                },
+                "key_item_3": {
+                    "name": "Klucz Salomona",
+                },
+                "puzzle_item_1": {
+                    "name": "Stara moneta",
+                },
+                "puzzle_item_2": {
+                    "name": "Bilet",
+                },
+                "puzzle_item_3": {
+                    "name": "Masoński młotek",
+                },
+                "puzzle_item_4": {
+                    "name": "Ozdobna gwiazda",
+                }
+            }
+        },
+        {
+            "title": "Rzeka Ganges",
+            "objects": {
+                "key_item_1": {
+                    "name": "Klucz do bramy",
+                }
+            }
+        },
+        {
+            "title": "Pustynia Nevady",
+            "objects": {
+                "key_item_1": {
+                    "name": "Dostęp do generatora",
+                },
+                "key_item_2": {
+                    "name": "Przełącznik detonatora",
                 }
             }
         }

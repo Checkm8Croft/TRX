@@ -1,0 +1,239 @@
+// Runs the shipped overlay module against a real scene and recorded draw calls.
+
+#include <fakes/game.h>
+#include <fakes/overlay.h>
+#include <fakes/sprites.h>
+#include <fakes/ui_draw.h>
+#include <harness/lua_surface.h>
+
+#include <trx/core/memory.h>
+#include <trx/core/strings.h>
+#include <trx/game/lua/common.h>
+#include <trx/game/lua/events.h>
+#include <trx/game/lua/events/ui.h>
+#include <trx/config/registry.h>
+#include <trx/config/types.h>
+#include <trx/core/log.h>
+#include <trx/game/ui/common.h>
+#include <trx/game/ui/draw.h>
+#include <trx/game/ui/text.h>
+#include <trx/game/viewport.h>
+
+#include <lauxlib.h>
+#include <stdarg.h>
+#include <stdio.h>
+#include <string.h>
+
+// Counts logged handler errors, because the dispatcher continues after them.
+static int32_t m_ErrorCount = 0;
+
+// fake.errors() -> integer
+static int M_FakeErrors(lua_State *const L)
+{
+    lua_pushinteger(L, m_ErrorCount);
+    return 1;
+}
+
+// fake.tick()
+//
+// The module reads much of its state once a tick, so nothing a setting or a
+// fake changes reaches a widget until a tick has gone by.
+static int M_FakeTick(lua_State *const L)
+{
+    LUA_Tick();
+    return 0;
+}
+
+// fake.show_pickup(object_id)
+//
+// What the engine does as it asks the interface to announce something.
+static int M_FakeShowPickup(lua_State *const L)
+{
+    LUA_FireEventInt32(LUA_EVENT_SHOW_PICKUP, (int32_t)luaL_checkinteger(L, 1));
+    return 0;
+}
+
+// fake.define_sprite(object_id, count, width, height)
+//
+// Gives an object sprites, which is what an announcement falls back to where
+// there is no model to draw.
+static int M_FakeDefineSprite(lua_State *const L)
+{
+    FakeSprites_Define(
+        (OBJECT_ID)luaL_checkinteger(L, 1), (int32_t)luaL_checkinteger(L, 2),
+        (int32_t)luaL_checkinteger(L, 3), (int32_t)luaL_checkinteger(L, 4));
+    return 0;
+}
+
+// fake.paint() -> description
+//
+// What the interface paints outside the region tree, which is where a pickup
+// drawn as a sprite goes.
+static int M_FakePaint(lua_State *const L)
+{
+    UI_BeginScene();
+    FakeUIDraw_Forget();
+    UI_BeginLayer(UI_LAYER_UNDER);
+    LUA_UI_SetPainting(true);
+    LUA_FireEvent(LUA_EVENT_UI_PAINT);
+    LUA_UI_SetPainting(false);
+    UI_EndLayer(UI_LAYER_UNDER);
+    char *description = FakeUIDraw_Describe();
+    LUA_UI_EndScene();
+    lua_pushstring(L, description);
+    Memory_FreePointer(&description);
+    return 1;
+}
+
+// fake.draw_regions() -> description
+//
+// Draws all overlay regions and returns the recorded scene.
+static int M_FakeDrawRegions(lua_State *const L)
+{
+    m_ErrorCount = 0;
+    UI_BeginScene();
+    LUA_UI_SetReserving(true);
+    LUA_UI_ReserveRegions();
+    LUA_UI_SetReserving(false);
+    LUA_UI_EndScene();
+
+    char *description = FakeUIDraw_Describe();
+    lua_pushstring(L, description);
+    Memory_FreePointer(&description);
+    return 1;
+}
+
+// fake.hide_next_frame() - the next frame is drawn for a screenshot.
+static int M_FakeHideNextFrame(lua_State *const L)
+{
+    LUA_UI_HideNextFrame();
+    return 0;
+}
+
+// fake.letterbox(depth) - where the cinematic bars are, as a fraction of the
+// screen height each.
+static int M_FakeLetterbox(lua_State *const L)
+{
+    FakeOverlay_SetLetterbox((float)luaL_checknumber(L, 1));
+    return 0;
+}
+
+static void M_Setup(lua_State *const L)
+{
+    Config_RegisterBuiltInOptions();
+}
+
+static void M_PushFake(lua_State *const L)
+{
+    FakeGame_PushLua(L);
+    lua_pushcfunction(L, M_FakeDrawRegions);
+    lua_setfield(L, -2, "draw_regions");
+    lua_pushcfunction(L, M_FakeErrors);
+    lua_setfield(L, -2, "errors");
+    lua_pushcfunction(L, M_FakeTick);
+    lua_setfield(L, -2, "tick");
+    lua_pushcfunction(L, M_FakeShowPickup);
+    lua_setfield(L, -2, "show_pickup");
+    lua_pushcfunction(L, M_FakeDefineSprite);
+    lua_setfield(L, -2, "define_sprite");
+    lua_pushcfunction(L, M_FakePaint);
+    lua_setfield(L, -2, "paint");
+    lua_pushcfunction(L, M_FakeLetterbox);
+    lua_setfield(L, -2, "letterbox");
+    lua_pushcfunction(L, M_FakeHideNextFrame);
+    lua_setfield(L, -2, "hide_next_frame");
+}
+
+CONFIG g_ConfigStorage = {};
+
+void Log_StackTrace(void)
+{
+}
+
+LOG_LEVEL Log_GetMinLevel(void)
+{
+    return LOG_LEVEL_WARNING;
+}
+
+void Log_Message(
+    const LOG_LEVEL level, const char *const file, const int32_t line,
+    const char *const func, const char *const fmt, ...)
+{
+    if (level == LOG_LEVEL_ERROR) {
+        m_ErrorCount++;
+    }
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(stderr, fmt, args);
+    va_end(args);
+    fputc('\n', stderr);
+}
+
+int main(void)
+{
+    const LUA_SURFACE_TEST test = {
+        .module = "ui",
+        .deps = { "config",    "events",       "signal",     "lara",
+                  "items",     "objects",      "weapons",    "camera",
+                  "rooms",     "catalog",      "locale",     "rules",
+                  "inventory", "game",         "cutscenes",  "overlay",
+                  "input",     "ui.primitive", "ui.widgets", "ui.regions",
+                  "ui.tween",  nullptr },
+        .seal = true,
+        .setup_extra = M_Setup,
+        .push_fake = M_PushFake,
+        .tests = "modules/ui/hud/overlay",
+    };
+    return LuaSurface_Run(&test);
+}
+
+// Leaf widgets are recorded through fakes/ui_draw.c.
+
+void UI_InitText(void)
+{
+}
+
+void UI_ShutdownText(void)
+{
+}
+
+void Console_LogEx(
+    const LOG_LEVEL level, const char *const file, const int line,
+    const char *const func, const char *const fmt, ...)
+{
+}
+
+int32_t Viewport_GetWidth(const VIEWPORT_SPACE space)
+{
+    return 640;
+}
+
+int32_t Viewport_GetHeight(const VIEWPORT_SPACE space)
+{
+    return 480;
+}
+
+void UI_Text_Draw(
+    const char *const text, const float x, const float y,
+    const UI_TEXT_SETTINGS settings)
+{
+    FakeUIDraw_Record(String_FormatStatic(
+        "text x=%d y=%d text=%s", (int32_t)x, (int32_t)y, text));
+}
+
+void UI_Text_Measure(
+    const char *const text, float *const out_w, float *const out_h,
+    const UI_TEXT_SETTINGS settings)
+{
+    if (out_w != nullptr) {
+        *out_w = (float)strlen(text) * 8.0f * settings.scale;
+    }
+    if (out_h != nullptr) {
+        *out_h = 16.0f * settings.scale;
+    }
+}
+
+float UI_Text_GetBaseline(const UI_TEXT_SETTINGS settings)
+{
+    return 16.0f * settings.scale;
+}

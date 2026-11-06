@@ -1,5 +1,6 @@
 #include <trx/config.h>
 #include <trx/game/camera.h>
+#include <trx/game/console/common.h>
 #include <trx/game/cutseq.h>
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/input/backends/base.h>
@@ -7,6 +8,7 @@
 #include <trx/game/input/backends/keyboard.h>
 #include <trx/game/input/backends/touch.h>
 #include <trx/game/input/common.h>
+#include <trx/game/input/raw.h>
 #include <trx/game/lara.h>
 #include <trx/version.h>
 
@@ -18,15 +20,32 @@ static int32_t m_LookFrames = 0;
 static bool m_IsLookHeld = false;
 static INPUT_STATE m_HoldOff = {};
 static INPUT_STATE m_HoldOffLinger = {};
+static INPUT_STATE m_Suppressed = {};
+// What the devices say while a script holds them, which the game does not see.
+static INPUT_STATE m_GrabInput = {};
+static INPUT_STATE m_GrabInputDB = {};
 
+// Each device answers on its own before the answers are merged, so that one
+// can tell its own menu keys from its game keys.
 static void M_UpdateFromBackend(
     INPUT_STATE *const s, const INPUT_BACKEND_IMPL *const backend,
     const int32_t layout)
 {
-#define X_INPUT_ROLE(role, state) s->state |= backend->is_held(layout, role);
+    INPUT_STATE b = {};
+#define X_INPUT_ROLE(role, state) b.state = backend->is_held(layout, role);
 #include <trx/game/input/roles.def>
 #undef X_INPUT_ROLE
-    backend->custom_update(s, layout);
+
+    b.menu_up |= b.forward;
+    b.menu_down |= b.back;
+    b.menu_left |= b.left;
+    b.menu_right |= b.right;
+    b.menu_back |= b.option;
+    backend->custom_update(&b, layout);
+
+#define X_INPUT_ROLE(role, state) s->state |= b.state;
+#include <trx/game/input/roles.def>
+#undef X_INPUT_ROLE
 }
 
 // TR4 changes target off the look input rather than one of its own. With
@@ -36,6 +55,16 @@ static void M_UpdateTargetChange(void)
 {
     const TARGET_CHANGE_MODE mode = g_Config.gameplay.target_change_mode;
     const bool is_ready = Lara_GetLaraInfo()->gun_status == LGS_READY;
+
+    // The laser sight view holds no target, so look closes it at once. The
+    // press that closes it counts as held, so that letting go of it does not
+    // change target.
+    if (Camera_Binoculars_IsLaserSight()) {
+        g_Input.change_target = 0;
+        m_LookFrames = 0;
+        m_IsLookHeld = g_Input.look;
+        return;
+    }
 
     if (mode != TARGET_CHANGE_MODE_TR4 || !is_ready) {
         m_LookFrames = 0;
@@ -82,12 +111,33 @@ void Input_HoldOffMenu(void)
     }
 }
 
-void Input_HoldOffSkip(void)
+void Input_SuppressRole(const INPUT_ROLE role, const bool enabled)
+{
+    InputState_SetRole(&m_Suppressed, role, enabled);
+}
+
+bool Input_IsRoleSuppressed(const INPUT_ROLE role)
+{
+    return InputState_GetRole(m_Suppressed, role);
+}
+
+void Input_ClearSuppressedRoles(void)
+{
+    InputState_Clear(&m_Suppressed);
+}
+
+void Input_HoldOffSkip(const INPUT_SKIP_CONTEXT context)
 {
     Input_HoldOffRole(INPUT_ROLE_INVENTORY);
     Input_HoldOffRole(INPUT_ROLE_MENU_BACK);
     Input_HoldOffRole(INPUT_ROLE_MENU_CONFIRM);
     Input_HoldOffRole(INPUT_ROLE_MENU_SKIP);
+    if (context != INPUT_SKIP_TO_GAME) {
+        Input_HoldOffRole(INPUT_ROLE_ACTION);
+    }
+    if (context != INPUT_SKIP_IN_GAME) {
+        Input_HoldOffRole(INPUT_ROLE_LOOK);
+    }
 }
 
 void Input_Update(void)
@@ -114,16 +164,13 @@ void Input_Update(void)
             g_Config.input.layout[backend], &g_Input);
     }
 
+    g_Input.menu_skip |= g_Input.menu_back || g_Input.menu_confirm
+        || g_Input.action || g_Input.look;
+
     // What the devices say, before the game has its way with it.
     const INPUT_STATE raw = g_Input;
 
     g_Input.camera_reset |= g_Input.look;
-    g_Input.menu_up |= g_Input.forward;
-    g_Input.menu_down |= g_Input.back;
-    g_Input.menu_left |= g_Input.left;
-    g_Input.menu_right |= g_Input.right;
-    g_Input.menu_back |= g_Input.option;
-    g_Input.menu_skip |= g_Input.menu_back;
     // A cutscene holds the option ring shut from the moment it is requested,
     // which is before it takes the camera.
     g_Input.option &= g_Camera.type != CAM_CINEMATIC && !CutSeq_IsActive();
@@ -157,15 +204,34 @@ void Input_Update(void)
         // option role while it plays. The grace update covers the keyboard
         // firing a deferred combination key once it comes up.
         const uint64_t held = m_HoldOff.any[i] & raw.any[i];
-        g_Input.any[i] &= ~(m_HoldOff.any[i] | m_HoldOffLinger.any[i]);
+        g_Input.any[i] &=
+            ~(m_HoldOff.any[i] | m_HoldOffLinger.any[i] | m_Suppressed.any[i]);
         m_HoldOffLinger.any[i] = m_HoldOff.any[i] & ~held;
         m_HoldOff.any[i] = held;
     }
 
     g_InputDB = Input_GetDebounced(g_Input);
 
-    if (Input_IsInListenMode()) {
+    InputState_Clear(&m_GrabInput);
+    InputState_Clear(&m_GrabInputDB);
+    // The console holds the devices too while it is open, and what the player
+    // types into it is not for the script that grabbed them.
+    if (InputRaw_IsHeldByScript() && !Console_IsOpened()) {
+        m_GrabInput = g_Input;
+        m_GrabInputDB = g_InputDB;
+    }
+    if (Input_IsInListenMode() || InputRaw_IsHeldByScript()) {
         InputState_Clear(&g_Input);
         InputState_Clear(&g_InputDB);
     }
+}
+
+bool Input_Grab_IsHeld(const INPUT_ROLE role)
+{
+    return InputState_GetRole(m_GrabInput, role);
+}
+
+bool Input_Grab_IsPressed(const INPUT_ROLE role)
+{
+    return InputState_GetRole(m_GrabInputDB, role);
 }

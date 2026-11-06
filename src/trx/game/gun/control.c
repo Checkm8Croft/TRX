@@ -4,6 +4,7 @@
 #include <trx/debug.h>
 #include <trx/game/camera.h>
 #include <trx/game/collision/los.h>
+#include <trx/game/demo.h>
 #include <trx/game/game.h>
 #include <trx/game/gun/common.h>
 #include <trx/game/gun/flare.h>
@@ -344,8 +345,9 @@ static void M_UpdateGunState(void)
 
 static void M_RequestCombatCamera(void)
 {
+    // The laser sight view keeps the weapon ready and owns the camera.
     if (g_Camera.type != CAM_CINEMATIC && g_Camera.type != CAM_LOOK
-        && !Camera_IsLocked(g_Camera.num)) {
+        && !Camera_IsLocked(g_Camera.num) && !Camera_Binoculars_IsActive()) {
         g_Camera.type = CAM_COMBAT;
     }
 }
@@ -488,11 +490,16 @@ int32_t Gun_FireWeapon(
     Stats_AddAmmoUsed();
     lara->has_fired = true;
 
-    const XYZ_32 view_pos = {
+    XYZ_32 view_pos = {
         .x = src->pos.x,
         .y = src->pos.y - weapon->gun_height,
         .z = src->pos.z,
     };
+    if (g_TRVersion >= 4) {
+        XYZ_32 arm_pos = {};
+        Lara_GetJointAbsPosition(&arm_pos, LM_UARM_L);
+        view_pos.y = arm_pos.y;
+    }
     const XYZ_16 view_rot = {
         .x = angles[1]
             + weapon->shot_accuracy * (Random_GetControl() - DEG_90) / DEG_360,
@@ -501,6 +508,12 @@ int32_t Gun_FireWeapon(
         .z = 0,
     };
     Matrix_GenerateW2V(&view_pos, &view_rot);
+
+    // The PS1 release tests the hit against the target as seen on its
+    // squashed screen, and its demos depend on it.
+    if (Demo_UsesPS1Rules()) {
+        Matrix_SquashW2V();
+    }
 
     SPHERE spheres[33];
     int32_t sphere_count = Collide_GetSpheres(target, spheres, false);
@@ -543,12 +556,15 @@ int32_t Gun_FireWeapon(
             };
         Room_GetSector(hit_pos.pos, &hit_pos.room_num);
         const bool object_on_los = LOS_Check(&start, &hit_pos, true);
+        if (Gun_ShootStatic(start, hit_pos)) {
+            return -1;
+        }
         if (Gun_SmashItems(start, hit_pos, &hit_pos.pos, NO_OBJECT)
             == PROJECTILE_HIT_STOP) {
             Room_GetSector(hit_pos.pos, &hit_pos.room_num);
         }
         if (!object_on_los) {
-            Spawn_RicochetRay(start, hit_pos, 8);
+            Spawn_RicochetRay(start, hit_pos, 8, false);
         }
         return -1;
     }
@@ -561,6 +577,9 @@ int32_t Gun_FireWeapon(
         .room_num = start.room_num,
     };
     Room_GetSector(hit_pos.pos, &hit_pos.room_num);
+    if (Gun_ShootStatic(start, hit_pos)) {
+        return 1;
+    }
     Gun_SmashItems(start, hit_pos, nullptr, NO_OBJECT);
     Gun_HitTarget(target, &start, &hit_pos, weapon->damage);
     M_CheckSmashablesBehindTarget(target, start, hit_pos, weapon->target_dist);

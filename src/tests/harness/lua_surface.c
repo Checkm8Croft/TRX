@@ -2,9 +2,10 @@
 
 #include <harness/fake_calls.h>
 #include <trx/core/subsystem.h>
+#include <trx/game/lua/api.h>
 #include <trx/game/lua/registry.h>
 #include <trx/game/lua/sandbox.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/caller.h>
 
 #include <ctype.h>
 #include <stdio.h>
@@ -129,7 +130,8 @@ static void M_DiscoverRequired(lua_State *const L, const char *const source)
 
         char name[64];
         size_t len = 0;
-        while ((isalnum((unsigned char)*cursor) || *cursor == '_')
+        while ((isalnum((unsigned char)*cursor) || *cursor == '_'
+                || *cursor == '.')
                && len + 1 < sizeof(name)) {
             name[len++] = *cursor++;
         }
@@ -147,8 +149,8 @@ static void M_DiscoverRequired(lua_State *const L, const char *const source)
 static void M_PathFromName(
     char *const out, const size_t size, const char *const name)
 {
-    snprintf(out, size, REPO_ROOT "/src/lua/api/%s.lua", name);
-    for (char *c = out + strlen(REPO_ROOT "/src/lua/api/"); *c != '\0'; c++) {
+    snprintf(out, size, REPO_ROOT "/src/lua/trx/%s.lua", name);
+    for (char *c = out + strlen(REPO_ROOT "/src/lua/trx/"); *c != '\0'; c++) {
         if (*c == '.') {
             *c = '/';
         }
@@ -158,6 +160,15 @@ static void M_PathFromName(
     if (len > 4) {
         out[len - 4] = '.';
     }
+
+    // A module the build generates, such as trx.internal.signatures, is not in
+    // the tree.
+    FILE *const fp = fopen(out, "rb");
+    if (fp != nullptr) {
+        fclose(fp);
+        return;
+    }
+    snprintf(out, size, LUA_GEN_ROOT "/%s.lua", name);
 }
 
 static void M_Discover(
@@ -183,6 +194,7 @@ static void M_Discover(
 // Runs a module under the chunk name the engine would give it.
 // LUA_GetCallerInfo tells the engine's own frames from a script's by that name,
 // so loading a module as its path would test a naming the engine never uses.
+// A value the module returns is what require returns for it, as in the engine.
 static void M_RunModule(lua_State *const L, const char *const name)
 {
     char path[512];
@@ -190,7 +202,23 @@ static void M_RunModule(lua_State *const L, const char *const name)
     M_PathFromName(path, sizeof(path), name);
     snprintf(
         chunk_name, sizeof(chunk_name), LUA_API_CHUNK_PREFIX "%s.lua", name);
-    M_RunFileAs(L, path, chunk_name);
+    size_t size;
+    char *const source = M_ReadFile(path, &size);
+    if (luaL_loadbuffer(L, source, size, chunk_name) != LUA_OK
+        || lua_pcall(L, 0, 1, 0) != LUA_OK) {
+        M_Fail(L, path);
+    }
+    free(source);
+    if (lua_isnil(L, -1)) {
+        lua_pop(L, 1);
+        return;
+    }
+    lua_getglobal(L, "package");
+    lua_getfield(L, -1, "loaded");
+    lua_pushfstring(L, "trx.%s", name);
+    lua_pushvalue(L, -4);
+    lua_settable(L, -3);
+    lua_pop(L, 3);
 }
 
 // Every module's preload first, then the bodies in order, as LUA_Init does.
@@ -305,7 +333,14 @@ int LuaSurface_Run(const LUA_SURFACE_TEST *const test)
     // From here to the tests, the order is LUA_Init's: seal, then the runtime
     // scripts, then harden.
     if (test->seal) {
-        if (luaL_dostring(L, "trx.api.seal({ partial = true })") != LUA_OK) {
+        if (!LUA_API_PushEntrypoint(L, "seal")) {
+            fprintf(stderr, "api.lua handed over no seal\n");
+            exit(EXIT_FAILURE);
+        }
+        lua_createtable(L, 0, 1);
+        lua_pushboolean(L, true);
+        lua_setfield(L, -2, "partial");
+        if (lua_pcall(L, 1, 0, 0) != LUA_OK) {
             M_Fail(L, "sealing");
         }
         lua_pushnil(L);

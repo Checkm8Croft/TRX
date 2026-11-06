@@ -226,7 +226,8 @@ static bool M_CanBeExploded(const ITEM *const item)
 
 static void M_TriggerSummonSmoke(const XYZ_32 pos)
 {
-    SPARK *const spark = Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION);
+    SPARK *const spark =
+        Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION, SPARK_CONTEXT_SMOKE);
     if (spark == nullptr) {
         return;
     }
@@ -357,8 +358,7 @@ static void M_TriggerElectricSparks(
 
     p->trig_dynamics[1] = pos;
 
-    SPARK *const spark = Sparks_GetFreeSpark();
-    spark->on = true;
+    SPARK *const spark = Sparks_InitialiseSpark(SPARK_CONTEXT_ELECTRICITY);
     spark->src_color.r = 255;
     spark->src_color.g = 255;
     spark->src_color.b = 255;
@@ -927,10 +927,10 @@ static bool M_GunHit(
     return true;
 }
 
-static bool M_ShouldSpawnBlood(const ITEM *const item)
+static ITEM_HIT_EFFECT M_GetHitEffect(const ITEM *const item)
 {
     M_PRIV *const p = item->priv;
-    return !p->shield_on;
+    return p->shield_on ? ITEM_HIT_RICOCHET : ITEM_HIT_BLOOD;
 }
 
 static void M_UpdateShield(ITEM *const item)
@@ -1011,7 +1011,7 @@ static void M_DrawShield(const ITEM *const item)
 static bool M_Draw(const ITEM *const item)
 {
     M_PRIV *const p = item->priv;
-    Object_DrawAnimatingItem(item);
+    Item_DrawAnimating(item);
 
     if (p->explode_count == 0) {
         M_TriggerHeadElectricity(item, false, false, true);
@@ -1446,7 +1446,7 @@ static void M_Setup(OBJECT *const obj)
     obj->collision_func = Creature_Collision;
     obj->draw_func = M_Draw;
     obj->gun_hit_func = M_GunHit;
-    obj->should_spawn_blood_func = M_ShouldSpawnBlood;
+    obj->get_hit_effect_func = M_GetHitEffect;
     obj->can_drop_items_func = M_CanDropItems;
     obj->can_be_exploded_func = M_CanBeExploded;
 

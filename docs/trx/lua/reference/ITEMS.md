@@ -5,9 +5,9 @@ order: 2
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/items.lua. Edit it there.
+  src/lua/trx/items.lua. Edit it there.
 -->
 
 ## <a id="items" name="items"></a>Items module
@@ -16,7 +16,8 @@ Module for controlling all moveables.
 
 ### Indexing
 
-Indexing the module reaches an item, and `#trx.items` is how many the level has. `pairs()` walks them in order, keyed by the item number.
+Indexing the module reaches an item, and `#trx.items` is how many the level
+has. `pairs()` walks them in order, keyed by the item number.
 
 - <a id="items[]" name="items[]"></a>**`trx.items[key]`** (key: [trx.items.Num](#items.Num) or string, value: [trx.items.Item](#items.Item) or `nil`). An item's unique name reaches it as well.
 - **`#trx.items`** (integer). How many there are.
@@ -34,74 +35,111 @@ end
 
 ### Enums
 
+- <a id="items.EarthquakeMode" name="items.EarthquakeMode"></a>[lua]`trx.items.EarthquakeMode`
+
+    The values the `earthquake_mode` item property
+    can take. It selects the behavior of the camera shake and sound effects of
+    active earthquakes.
+
+    - `trx.items.EarthquakeMode.RANDOM_1`  
+        Per TR1 - the camera shakes at random, and sound effects earthquake_1 and earthquake_2 are played at random intervals.
+    - `trx.items.EarthquakeMode.RANDOM_2`  
+        Per TR2 - similar to TR1, with less randomness and only the earthquake_1 sound effect is played.
+    - `trx.items.EarthquakeMode.RAMPED`  
+        Per TR3 - the camera shakes on a ramped scale and the earthquake_loop sound effect plays throughout.
+    - `trx.items.EarthquakeMode.BASIC`  
+        Per TR4 - the camera shakes and the earthquake_loop sound effect plays on each frame.
+
 - <a id="items.PickupMode" name="items.PickupMode"></a>[lua]`trx.items.PickupMode`
 
-    The values the `pickup_mode` item property can take. It selects the animation Lara plays when collecting the item.
+    The values the `pickup_mode` item property can
+    take. It selects the animation Lara plays when collecting the item.
 
-    - `trx.items.PickupMode.NORMAL` = `0`  
+    - `trx.items.PickupMode.NORMAL`  
         Picked up off the floor.
-    - `trx.items.PickupMode.PLINTH_LOW` = `1`  
+    - `trx.items.PickupMode.PLINTH_LOW`  
         Picked up from a low pedestal.
-    - `trx.items.PickupMode.PLINTH_HIGH` = `2`  
+    - `trx.items.PickupMode.PLINTH_HIGH`  
         Picked up from a high pedestal.
-    - `trx.items.PickupMode.HIDDEN` = `3`  
+    - `trx.items.PickupMode.HIDDEN`  
         Hidden behind an object Lara can reach into.
-    - `trx.items.PickupMode.CROWBAR` = `4`  
+    - `trx.items.PickupMode.CROWBAR`  
         Pried off the wall using a crowbar.
-    - `trx.items.PickupMode.SARCOPHAGUS` = `5`  
+    - `trx.items.PickupMode.SARCOPHAGUS`  
         Hidden inside a sarcophagus.
-    - `trx.items.PickupMode.PLINTH_SCION` = `6`  
+    - `trx.items.PickupMode.PLINTH_SCION`  
         Similar to PLINTH_HIGH; invokes Lara's extra animation as in Tomb of Qualopec.
+
+- <a id="items.HitEffect" name="items.HitEffect"></a>[lua]`trx.items.HitEffect`
+
+    The values the `hit_effect` item property can take.
+    It chooses what a bullet hitting the item spawns.
+
+    - `trx.items.HitEffect.DEFAULT`  
+        The object chooses, as it does without a script.
+    - `trx.items.HitEffect.NONE`  
+        Nothing.
+    - `trx.items.HitEffect.BLOOD`  
+        A spray of blood.
+    - `trx.items.HitEffect.RICOCHET`  
+        A ricochet spark.
+    - `trx.items.HitEffect.SMOKE`  
+        A puff of smoke.
 
 - <a id="items.ScaledSpikesMode" name="items.ScaledSpikesMode"></a>[lua]`trx.items.ScaledSpikesMode`
 
-    The values the `scaled_spikes_mode` item property can take. It determines how spikes behave when triggered.
+    The values the `scaled_spikes_mode` item
+    property can take. It determines how spikes behave when triggered.
 
-    - `trx.items.ScaledSpikesMode.LOOPING` = `0`  
+    - `trx.items.ScaledSpikesMode.LOOPING`  
         Spikes will extend, wait a brief period, retract, and then the loop will repeat.
-    - `trx.items.ScaledSpikesMode.EXTENDED` = `1`  
+    - `trx.items.ScaledSpikesMode.EXTENDED`  
         Spikes will extend and remain as-is indefinitely.
-    - `trx.items.ScaledSpikesMode.ONE_SHOT` = `2`  
+    - `trx.items.ScaledSpikesMode.ONE_SHOT`  
         Spikes will extend, wait a brief period, retract, and then stop.
 
 - <a id="items.SwitchMode" name="items.SwitchMode"></a>[lua]`trx.items.SwitchMode`
 
-    The values the `switch_mode` item property can take. It selects the animation Lara plays when interacting with the item.
+    The values the `switch_mode` item property can
+    take. It selects the animation Lara plays when interacting with the item.
 
-    - `trx.items.SwitchMode.NORMAL` = `0`  
+    - `trx.items.SwitchMode.NORMAL`  
         A regular/classic wall lever.
-    - `trx.items.SwitchMode.HIDDEN_REACH` = `1`  
+    - `trx.items.SwitchMode.HIDDEN_REACH`  
         Lara reaches in to activate.
-    - `trx.items.SwitchMode.HIDDEN_PICKUP` = `2`  
+    - `trx.items.SwitchMode.HIDDEN_PICKUP`  
         Lara reaches in to collect a pickup.
-    - `trx.items.SwitchMode.SHOVE` = `3`  
+    - `trx.items.SwitchMode.SHOVE`  
         A single-use button that requires a shove to activate.
 
 - <a id="items.TriggerType" name="items.TriggerType"></a>[lua]`trx.items.TriggerType`
 
-    The kind of trigger [`trx.items.Item:trigger`](#items.Item.trigger) fires, matching the trigger types a level editor offers. Most are forward triggers that differ only in what trips them in a level; from a script they behave alike, and `TRIGGER` is the one to reach for.
+    The kind of trigger [`trx.items.Item:trigger`](#items.Item.trigger) fires, matching the trigger
+    types a level editor offers. Most are forward triggers that differ only in
+    what trips them in a level; from a script they behave alike, and `TRIGGER`
+    is the one to reach for.
 
-    - `trx.items.TriggerType.TRIGGER` = `0`  
+    - `trx.items.TriggerType.TRIGGER`  
         A plain trigger: sets the code bits and, once they are all set, starts the item.
-    - `trx.items.TriggerType.HEAVY` = `1`  
-        A forward trigger a heavy object trips. A falling block reads this to know it was set off by weight.
-    - `trx.items.TriggerType.SWITCH` = `2`  
-        Toggles the code bits, so firing it a second time takes the trigger back.
-    - `trx.items.TriggerType.HEAVY_SWITCH` = `3`  
-        A switch a heavy object trips.
-    - `trx.items.TriggerType.ANTITRIGGER` = `4`  
+    - `trx.items.TriggerType.ANTITRIGGER`  
         Takes the trigger back, clearing the code bits. The item is left running so it can stand itself down, which is how a door animates shut.
+    - `trx.items.TriggerType.SWITCH`  
+        Toggles the code bits, so firing it a second time takes the trigger back.
+    - `trx.items.TriggerType.HEAVY`  
+        A forward trigger a heavy object trips. A falling block reads this to know it was set off by weight.
+    - `trx.items.TriggerType.HEAVY_SWITCH`  
+        A switch a heavy object trips.
 
 - <a id="items.WaterfallSound" name="items.WaterfallSound"></a>[lua]`trx.items.WaterfallSound`
 
-    The values the `loop_sound` item property can take. It selects the
-    sound a waterfall loops while it runs.
+    The values the `loop_sound` item property can take.
+    It selects the sound a waterfall loops while it runs.
 
-    - `trx.items.WaterfallSound.NONE` = `0`  
+    - `trx.items.WaterfallSound.NONE`  
         The waterfall runs silently.
-    - `trx.items.WaterfallSound.SAND` = `1`  
+    - `trx.items.WaterfallSound.SAND`  
         A pouring sand loop.
-    - `trx.items.WaterfallSound.WATER` = `2`  
+    - `trx.items.WaterfallSound.WATER`  
         A running water loop.
 
 ### Structures
@@ -116,7 +154,9 @@ end
 
 - <a id="items.AnimState" name="items.AnimState"></a>[lua]`trx.items.AnimState`
 
-    An animation state, as the object's own animations number them. What a state means is the object's business: the numbers of a wolf are not the numbers of a door. Counted from 0.
+    An animation state, as the object's own animations number them. What a state
+    means is the object's business: the numbers of a wolf are not the numbers of
+    a door. Counted from 0.
 
 - <a id="items.Num" name="items.Num"></a>[lua]`trx.items.Num`
 
@@ -143,6 +183,7 @@ end
     Properties:
     - <a id="items.Item.anim_num" name="items.Item.anim_num"></a>**`anim_num`**: [trx.items.AnimNum](#items.AnimNum).
     - <a id="items.Item.anim_state" name="items.Item.anim_state"></a>**`anim_state`**: [trx.items.AnimState](#items.AnimState). The state the item is in.
+    - <a id="items.Item.can_take_damage" name="items.Item.can_take_damage"></a>**`can_take_damage`**: boolean. Whether weapons and explosions can damage the item right now. Some objects never take damage, such as Winston or the TR4 enemy jeep. *(read-only)*
     - <a id="items.Item.collidable" name="items.Item.collidable"></a>**`collidable`**: boolean. Whether Lara can collide with this item.
     - <a id="items.Item.fall_speed" name="items.Item.fall_speed"></a>**`fall_speed`**: integer. Vertical speed.
     - <a id="items.Item.frame_num" name="items.Item.frame_num"></a>**`frame_num`**: [trx.items.FrameNum](#items.FrameNum). Negative values count back from the end.
@@ -161,9 +202,10 @@ end
     - <a id="items.Item.is_simulated" name="items.Item.is_simulated"></a>**`is_simulated`**: boolean. Whether the item's control routine runs each frame. Call [`activate`](#items.Item.activate) to start it. *(read-only)*
     - <a id="items.Item.is_targetable" name="items.Item.is_targetable"></a>**`is_targetable`**: boolean. Whether Lara's auto-aim can lock onto the item right now. *(read-only)*
     - <a id="items.Item.is_triggered" name="items.Item.is_triggered"></a>**`is_triggered`**: boolean. Whether the item's trigger currently says go. This is what a door, a switch or an alarm reads to decide whether to act; a creature ignores it and goes by whether it is running.
-      It is a verdict on [`trigger_mask`](#items.Item.trigger_mask), [`timer`](#items.Item.timer) and [`is_reversed`](#items.Item.is_reversed) together, not a field of its own. *(read-only)*
+      It is a verdict on [`trigger_mask`](#items.Item.trigger_mask), [`timer`](#items.Item.timer)
+      and [`is_reversed`](#items.Item.is_reversed) together, not a field of its own. *(read-only)*
     - <a id="items.Item.is_visible" name="items.Item.is_visible"></a>**`is_visible`**: boolean. Whether the item is drawn. It can be present in the world but not visible, like an ambush enemy waiting to appear.
-    - <a id="items.Item.max_hit_points" name="items.Item.max_hit_points"></a>**`max_hit_points`**: integer. Maximum hit points. Set the `max_hit_points` entry of [`properties`](#items.Item.properties) to change it. *(read-only)*
+    - <a id="items.Item.max_hit_points" name="items.Item.max_hit_points"></a>**`max_hit_points`**: integer. Maximum hit points: the `max_hit_points` entry of [`properties`](#items.Item.properties), scaled by [`trx.rules.health.scale`](RULES.md#rules.health.scale). Set the entry to change it; the maximum follows on the next frame. *(read-only)*
     - <a id="items.Item.mesh_bits" name="items.Item.mesh_bits"></a>**`mesh_bits`**: integer. Bitmask of which of the item's meshes are drawn.
     - <a id="items.Item.name" name="items.Item.name"></a>**`name`**: string. Unique item name, or `nil`. Assigning a name already in use raises an error.
     - <a id="items.Item.num" name="items.Item.num"></a>**`num`**: [trx.items.Num](#items.Num). An item handed over by a query can say where it lives. *(read-only)*
@@ -179,36 +221,53 @@ end
 
     Computed properties (derived, not stored on the object):
     - <a id="items.Item.bounds" name="items.Item.bounds"></a>**`bounds`**: [trx.math.Box](MATH.md#math.Box). The item's bounding box for the frame it is on. The numbers are in the item's own frame, so they say how far the model reaches around [`pos`](#items.Item.pos) before [`rot`](#items.Item.rot) turns it, and they change as the item animates.
+    - <a id="items.Item.joint_count" name="items.Item.joint_count"></a>**`joint_count`**: integer. How many joints the item's model is built from. A joint number runs from `0` up to one less than this.
     - <a id="items.Item.properties" name="items.Item.properties"></a>**`properties`**: table. Typed, object-specific item properties. Writing here overrides the object's default for this item only; reads fall back to the object. Iterable with `pairs()`. See [Objects](../../OBJECTS.md).
     - <a id="items.Item.room" name="items.Item.room"></a>**`room`**: [trx.rooms.Room](ROOMS.md#rooms.Room). The room containing this item.
 
     Methods:
 
     - <a id="items.Item.activate" name="items.Item.activate"></a>[lua]`item:activate()`  
-      Brings the item to life, exactly as tripping a trigger on it would: its control routine starts running, and a creature also gets its AI, without which it would stand there and ignore Lara.
+      Brings the item to life, exactly as tripping a trigger on it would: its
+      control routine starts running, and a creature also gets its AI, without
+      which it would stand there and ignore Lara.
 
-      Objects with no control routine cannot be activated, and an item that is already active is left alone.
+      Objects with no control routine cannot be activated, and an item that is
+      already active is left alone.
 
     - <a id="items.Item.deactivate" name="items.Item.deactivate"></a>[lua]`item:deactivate()`  
-      Stops the item: its control routine no longer runs, and a creature loses its AI and stands down. The item stays where it is and keeps its hit points, so this is not a way of getting rid of it - use [`destroy`](#items.Item.destroy) for that.
+      Stops the item: its control routine no longer runs, and a creature loses its
+      AI and stands down. The item stays where it is and keeps its hit points, so
+      this is not a way of getting rid of it - use [`destroy`](#items.Item.destroy) for
+      that.
 
       A trigger can still bring it back, and so can [`activate`](#items.Item.activate).
 
     - <a id="items.Item.destroy" name="items.Item.destroy"></a>[lua]`item:destroy()`  
       Removes the item from the game. Any other handle to it becomes stale.
 
-    - <a id="items.Item.die" name="items.Item.die"></a>[lua]`item:die([explode], [flame_variant], [sender])`  
-      Runs the object's creature death handling: the corpse stays, and [`explode`](#items.Item.die.explode) bursts its meshes as a rocket or grenade would. For creatures; [`destroy`](#items.Item.destroy) simply removes any item from the game.
+    - <a id="items.Item.die" name="items.Item.die"></a>[lua]`item:die([opts])`  
+      Runs the object's creature death handling: the corpse stays, and `explode`
+       bursts its meshes as a rocket or grenade would. For
+      creatures; [`destroy`](#items.Item.destroy) simply removes any item from the game.
 
       Parameters:
-      - <a id="items.Item.die.explode" name="items.Item.die.explode"></a>**`explode`** (boolean, optional, default `false`). Whether to burst the meshes as it dies.
-      - <a id="items.Item.die.flame_variant" name="items.Item.die.flame_variant"></a>**`flame_variant`** (integer, optional, default `0`). Flame color for flying body parts, as
-        [`trx.fx.sparks.fire_flame`](FX.md#fx.sparks.fire_flame) defines it: `0` orange, `2` pale, and
-        `254` green. Only TR3 and TR4 body parts burn; TR1 and TR2 ignore
-        this.
-      - <a id="items.Item.die.sender" name="items.Item.die.sender"></a>**`sender`** ([trx.items.Item](#items.Item), optional). Item to credit the death to. Pass [`trx.lara.item`](LARA.md#lara.item) to include the
-        kill in Lara's level statistics. Without it, the kill counts for
-        nobody.
+      - <a id="items.Item.die.opts" name="items.Item.die.opts"></a>**`opts`** (table, optional). How the creature dies.
+
+        Keys:
+        - <a id="items.Item.die.opts.explode" name="items.Item.die.opts.explode"></a>**`explode`** (boolean, optional, default `false`). Whether to burst the meshes as it dies.
+        - <a id="items.Item.die.opts.gibs" name="items.Item.die.opts.gibs"></a>**`gibs`** (table, optional). Sets the effects for the flying body parts. TR1 and TR2 support `blast`. TR3 supports `flame` and `smoke`.
+        - <a id="items.Item.die.opts.flame_variant" name="items.Item.die.opts.flame_variant"></a>**`flame_variant`** (integer, optional, default `0`). Flame color for body parts that burn, as [`trx.fx.sparks.fire_flame`](FX.md#fx.sparks.fire_flame) defines it: `0` orange, `2` pale, and `254` green.
+        - <a id="items.Item.die.opts.sender" name="items.Item.die.opts.sender"></a>**`sender`** ([trx.items.Item](#items.Item), optional). Item to credit the death to. Pass [`trx.lara.item`](LARA.md#lara.item) to include the kill in Lara's level statistics. Without it, the kill counts for nobody.
+
+      Example:
+      ```lua
+      trx.items[12]:die({
+        explode = true,
+        gibs = { flame = true, smoke = true },
+        sender = trx.lara.item,
+      })
+      ```
 
     - <a id="items.Item.distance_to" name="items.Item.distance_to"></a>[lua]`item:distance_to(pos)`  
       Distance from this item to a world position.
@@ -219,7 +278,8 @@ end
       Returns: [trx.math.Distance](MATH.md#math.Distance). Measured between the two positions.
 
     - <a id="items.Item.get_property" name="items.Item.get_property"></a>[lua]`item:get_property(name)`  
-      Reads an object property, falling back to the object's default. Prefer `item.properties.<name>`.
+      Reads an object property, falling back to the object's default. Prefer
+      `item.properties.<name>`.
 
       Parameters:
       - <a id="items.Item.get_property.name" name="items.Item.get_property.name"></a>**`name`** (string). Which property, as the object declares it.
@@ -232,7 +292,9 @@ end
       Returns: a list of string.
 
     - <a id="items.Item.is_valid" name="items.Item.is_valid"></a>[lua]`item:is_valid()`  
-      Whether the handle still refers to a live item. Reading or writing a field on a stale handle raises an error rather than silently operating on an unrelated item, so check this for a handle held across time.
+      Whether the handle still refers to a live item. Reading or writing a field
+      on a stale handle raises an error rather than silently operating on an
+      unrelated item, so check this for a handle held across time.
 
       Returns: boolean. False once the item it named is gone.
 
@@ -246,8 +308,27 @@ end
       end)
       ```
 
+    - <a id="items.Item.joint_pos" name="items.Item.joint_pos"></a>[lua]`item:joint_pos(joint, [offset])`  
+      Where one of the item's joints has reached, for the frame it is on. The
+      position follows the item as it moves and animates, so a script can hang
+      something off a hand or a muzzle without naming a place in the world.
+
+      Raises if the model has no such joint.
+
+      Parameters:
+      - <a id="items.Item.joint_pos.joint" name="items.Item.joint_pos.joint"></a>**`joint`** (integer). Which joint, from `0` to [`joint_count`](#items.Item.joint_count) less one.
+      - <a id="items.Item.joint_pos.offset" name="items.Item.joint_pos.offset"></a>**`offset`** ([trx.math.Vec3](MATH.md#math.Vec3), optional). Offset from the joint, in the joint's own axes. Defaults to the joint itself.
+
+      Returns: [trx.math.Vec3](MATH.md#math.Vec3). World position.
+
+      Example:
+      ```lua
+      local muzzle = actor:joint_pos(12, { x = 0, y = 0, z = 180 })
+      ```
+
     - <a id="items.Item.on_activate" name="items.Item.on_activate"></a>[lua]`item:on_activate(callback)`  
-      Happens when this item is activated through the lifecycle front door during play. [`trx.events.on_activate`](EVENTS.md#events.on_activate), narrowed to this item.
+      Happens when this item is activated through the lifecycle front door during
+      play. [`trx.events.on_activate`](EVENTS.md#events.on_activate), narrowed to this item.
 
       Parameters:
       - <a id="items.Item.on_activate.callback" name="items.Item.on_activate.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -264,7 +345,8 @@ end
       ```
 
     - <a id="items.Item.on_deactivate" name="items.Item.on_deactivate"></a>[lua]`item:on_deactivate(callback)`  
-      Happens when this item is deactivated through the lifecycle front door during play. [`trx.events.on_deactivate`](EVENTS.md#events.on_deactivate), narrowed to this item.
+      Happens when this item is deactivated through the lifecycle front door
+      during play. [`trx.events.on_deactivate`](EVENTS.md#events.on_deactivate), narrowed to this item.
 
       Parameters:
       - <a id="items.Item.on_deactivate.callback" name="items.Item.on_deactivate.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -281,7 +363,9 @@ end
       ```
 
     - <a id="items.Item.on_destroy" name="items.Item.on_destroy"></a>[lua]`item:on_destroy(callback)`  
-      Happens as this item is removed from the game during play. It can still be read from the handler, but not after. [`trx.events.on_destroy`](EVENTS.md#events.on_destroy), narrowed to this item.
+      Happens as this item is removed from the game during play. It can still be
+      read from the handler, but not after. [`trx.events.on_destroy`](EVENTS.md#events.on_destroy), narrowed to
+      this item.
 
       Parameters:
       - <a id="items.Item.on_destroy.callback" name="items.Item.on_destroy.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -298,7 +382,8 @@ end
       ```
 
     - <a id="items.Item.on_enter_sim" name="items.Item.on_enter_sim"></a>[lua]`item:on_enter_sim(callback)`  
-      Happens when this item starts being simulated during play. [`trx.events.on_enter_sim`](EVENTS.md#events.on_enter_sim), narrowed to this item.
+      Happens when this item starts being simulated during play.
+      [`trx.events.on_enter_sim`](EVENTS.md#events.on_enter_sim), narrowed to this item.
 
       Parameters:
       - <a id="items.Item.on_enter_sim.callback" name="items.Item.on_enter_sim.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -315,7 +400,8 @@ end
       ```
 
     - <a id="items.Item.on_enter_world" name="items.Item.on_enter_world"></a>[lua]`item:on_enter_world(callback)`  
-      Happens when this item enters the world during play, such as a runtime spawn. [`trx.events.on_enter_world`](EVENTS.md#events.on_enter_world), narrowed to this item.
+      Happens when this item enters the world during play, such as a runtime
+      spawn. [`trx.events.on_enter_world`](EVENTS.md#events.on_enter_world), narrowed to this item.
 
       Parameters:
       - <a id="items.Item.on_enter_world.callback" name="items.Item.on_enter_world.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -332,7 +418,8 @@ end
       ```
 
     - <a id="items.Item.on_finish" name="items.Item.on_finish"></a>[lua]`item:on_finish(callback)`  
-      Happens when this item finishes its run during play. [`trx.events.on_finish`](EVENTS.md#events.on_finish), narrowed to this item.
+      Happens when this item finishes its run during play. [`trx.events.on_finish`](EVENTS.md#events.on_finish),
+      narrowed to this item.
 
       Parameters:
       - <a id="items.Item.on_finish.callback" name="items.Item.on_finish.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -349,7 +436,8 @@ end
       ```
 
     - <a id="items.Item.on_hide" name="items.Item.on_hide"></a>[lua]`item:on_hide(callback)`  
-      Happens when this item becomes hidden during play. [`trx.events.on_hide`](EVENTS.md#events.on_hide), narrowed to this item.
+      Happens when this item becomes hidden during play. [`trx.events.on_hide`](EVENTS.md#events.on_hide),
+      narrowed to this item.
 
       Parameters:
       - <a id="items.Item.on_hide.callback" name="items.Item.on_hide.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -366,7 +454,8 @@ end
       ```
 
     - <a id="items.Item.on_hit" name="items.Item.on_hit"></a>[lua]`item:on_hit(callback)`  
-      Happens when this item takes damage. [`trx.events.on_hit`](EVENTS.md#events.on_hit), narrowed to this item.
+      Happens when this item takes damage. [`trx.events.on_hit`](EVENTS.md#events.on_hit), narrowed to this
+      item.
 
       Parameters:
       - <a id="items.Item.on_hit.callback" name="items.Item.on_hit.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -384,7 +473,8 @@ end
       ```
 
     - <a id="items.Item.on_kill" name="items.Item.on_kill"></a>[lua]`item:on_kill(callback)`  
-      Happens when damage takes this item's hit points to zero. [`trx.events.on_kill`](EVENTS.md#events.on_kill), narrowed to this item.
+      Happens when damage takes this item's hit points to zero.
+      [`trx.events.on_kill`](EVENTS.md#events.on_kill), narrowed to this item.
 
       Parameters:
       - <a id="items.Item.on_kill.callback" name="items.Item.on_kill.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -401,7 +491,8 @@ end
       ```
 
     - <a id="items.Item.on_leave_sim" name="items.Item.on_leave_sim"></a>[lua]`item:on_leave_sim(callback)`  
-      Happens when this item stops being simulated during play. [`trx.events.on_leave_sim`](EVENTS.md#events.on_leave_sim), narrowed to this item.
+      Happens when this item stops being simulated during play.
+      [`trx.events.on_leave_sim`](EVENTS.md#events.on_leave_sim), narrowed to this item.
 
       Parameters:
       - <a id="items.Item.on_leave_sim.callback" name="items.Item.on_leave_sim.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -418,7 +509,8 @@ end
       ```
 
     - <a id="items.Item.on_leave_world" name="items.Item.on_leave_world"></a>[lua]`item:on_leave_world(callback)`  
-      Happens when this item leaves the world during play. [`trx.events.on_leave_world`](EVENTS.md#events.on_leave_world), narrowed to this item.
+      Happens when this item leaves the world during play.
+      [`trx.events.on_leave_world`](EVENTS.md#events.on_leave_world), narrowed to this item.
 
       Parameters:
       - <a id="items.Item.on_leave_world.callback" name="items.Item.on_leave_world.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -435,7 +527,8 @@ end
       ```
 
     - <a id="items.Item.on_show" name="items.Item.on_show"></a>[lua]`item:on_show(callback)`  
-      Happens when this item becomes visible during play. [`trx.events.on_show`](EVENTS.md#events.on_show), narrowed to this item.
+      Happens when this item becomes visible during play. [`trx.events.on_show`](EVENTS.md#events.on_show),
+      narrowed to this item.
 
       Parameters:
       - <a id="items.Item.on_show.callback" name="items.Item.on_show.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -452,7 +545,8 @@ end
       ```
 
     - <a id="items.Item.on_trigger" name="items.Item.on_trigger"></a>[lua]`item:on_trigger(callback)`  
-      Happens every time a trigger is aimed at this item, of any kind. [`trx.events.on_trigger`](EVENTS.md#events.on_trigger), narrowed to this item.
+      Happens every time a trigger is aimed at this item, of any kind.
+      [`trx.events.on_trigger`](EVENTS.md#events.on_trigger), narrowed to this item.
 
       Parameters:
       - <a id="items.Item.on_trigger.callback" name="items.Item.on_trigger.callback"></a>**`callback`** (function). What to run when it happens to this item.
@@ -470,31 +564,43 @@ end
       ```
 
     - <a id="items.Item.set_property" name="items.Item.set_property"></a>[lua]`item:set_property(name, value)`  
-      Overrides an object property for this item. Prefer `item.properties.<name> = ...`.
+      Overrides an object property for this item. Prefer
+      `item.properties.<name> = ...`.
 
       Parameters:
       - <a id="items.Item.set_property.name" name="items.Item.set_property.name"></a>**`name`** (string). Which property, as the object declares it.
       - <a id="items.Item.set_property.value" name="items.Item.set_property.value"></a>**`value`** (any). What to write, of the type the property is declared with.
 
-    - <a id="items.Item.shatter" name="items.Item.shatter"></a>[lua]`item:shatter([damage], [flame_variant])`  
-      Bursts the item's meshes into flying debris, the visual [`die`](#items.Item.die) produces with [`die.explode`](#items.Item.die.explode), on its own. It does not kill or remove the item.
+    - <a id="items.Item.shatter" name="items.Item.shatter"></a>[lua]`item:shatter([opts])`  
+      Bursts the item's meshes into flying debris, the visual [`die`](#items.Item.die)
+      produces with [`die.opts.explode`](#items.Item.die.opts.explode), on its own. It does not
+      kill or remove the item.
 
       Parameters:
-      - <a id="items.Item.shatter.damage" name="items.Item.shatter.damage"></a>**`damage`** (integer, optional, default `0`). Splash damage dealt to nearby items.
-      - <a id="items.Item.shatter.flame_variant" name="items.Item.shatter.flame_variant"></a>**`flame_variant`** (integer, optional, default `0`). Flame color for flying body parts, as
-        [`trx.fx.sparks.fire_flame`](FX.md#fx.sparks.fire_flame) defines it. Only TR3 and TR4 body parts
-        burn; TR1 and TR2 ignore this.
+      - <a id="items.Item.shatter.opts" name="items.Item.shatter.opts"></a>**`opts`** (table, optional). How the meshes come apart.
+
+        Keys:
+        - <a id="items.Item.shatter.opts.gibs" name="items.Item.shatter.opts.gibs"></a>**`gibs`** (table, optional). Sets the effects for the flying body parts, as [`die.opts.gibs`](#items.Item.die.opts.gibs) takes it.
+        - <a id="items.Item.shatter.opts.mesh_bits" name="items.Item.shatter.opts.mesh_bits"></a>**`mesh_bits`** (integer, optional, default `-1`). Which meshes to burst, a bit to a mesh. `-1` bursts them all. Use the complement of the meshes to spare for a narrower set.
+        - <a id="items.Item.shatter.opts.speed" name="items.Item.shatter.opts.speed"></a>**`speed`** (integer, optional, default `0`). The fastest a part is thrown out, and `fall_speed` the fastest it drops. `0` takes the usual speed.
+        - <a id="items.Item.shatter.opts.fall_speed" name="items.Item.shatter.opts.fall_speed"></a>**`fall_speed`** (integer, optional, default `0`). The fastest a part drops.
+        - <a id="items.Item.shatter.opts.damage" name="items.Item.shatter.opts.damage"></a>**`damage`** (integer, optional, default `0`). Damage a flying body part deals to Lara.
+        - <a id="items.Item.shatter.opts.flame_variant" name="items.Item.shatter.opts.flame_variant"></a>**`flame_variant`** (integer, optional, default `0`). Flame color for body parts that burn, as [`trx.fx.sparks.fire_flame`](FX.md#fx.sparks.fire_flame) defines it.
+
+      Example:
+      ```lua
+      trx.items[12]:shatter({ gibs = { blast = true }, damage = 5 })
+      ```
 
     - <a id="items.Item.take_damage" name="items.Item.take_damage"></a>[lua]`item:take_damage(damage, [sender])`  
       Hurts the item the way a weapon does, and reports through
-      [`trx.events.on_hit`](EVENTS.md#events.on_hit), and [`trx.events.on_kill`](EVENTS.md#events.on_kill) where the blow takes the
-      last hit point. Writing [`hit_points`](#items.Item.hit_points) reports neither.
-      Without `sender`, the kill counts for the environment rather than Lara.
+      [`trx.events.on_hit`](EVENTS.md#events.on_hit), and [`trx.events.on_kill`](EVENTS.md#events.on_kill) where the blow takes the last
+      hit point. Writing [`hit_points`](#items.Item.hit_points) reports neither. Without
+      `sender`, the kill counts for the environment rather than Lara.
 
       Parameters:
       - <a id="items.Item.take_damage.damage" name="items.Item.take_damage.damage"></a>**`damage`** (integer). Hit points to take.
-      - <a id="items.Item.take_damage.sender" name="items.Item.take_damage.sender"></a>**`sender`** ([trx.items.Item](#items.Item), optional). Item to credit the blow to. Pass [`trx.lara.item`](LARA.md#lara.item) to include the
-        kill in Lara's level statistics.
+      - <a id="items.Item.take_damage.sender" name="items.Item.take_damage.sender"></a>**`sender`** ([trx.items.Item](#items.Item), optional). Item to credit the blow to. Pass [`trx.lara.item`](LARA.md#lara.item) to include the kill in Lara's level statistics.
 
       Example:
       ```lua
@@ -503,9 +609,13 @@ end
       ```
 
     - <a id="items.Item.trigger" name="items.Item.trigger"></a>[lua]`item:trigger([opts])`  
-      Fires a trigger at the item, exactly as a floor trigger in the level would: sets the code bits, and once they are all set, starts the item running.
+      Fires a trigger at the item, exactly as a floor trigger in the level would:
+      sets the code bits, and once they are all set, starts the item running.
 
-      This is the one to reach for on anything a level would trigger - a door, a switch, an alarm - because those read their trigger before they act, and merely activating one leaves it running but doing nothing. Pass `type = trx.items.TriggerType.ANTITRIGGER` to take the trigger back instead.
+      This is the one to reach for on anything a level would trigger - a door, a
+      switch, an alarm - because those read their trigger before they act, and
+      merely activating one leaves it running but doing nothing. Pass
+      `type = trx.items.TriggerType.ANTITRIGGER` to take the trigger back instead.
 
       Parameters:
       - <a id="items.Item.trigger.opts" name="items.Item.trigger.opts"></a>**`opts`** (table, optional). What the trigger carries.
@@ -533,30 +643,35 @@ end
 
 - <a id="items.ItemQuery" name="items.ItemQuery"></a>[lua]`trx.items.ItemQuery`
 
-    A [`trx.query.Query`](QUERY.md#query.Query) over the items a level holds, with the narrowings below on top of the ones every query has. Items answer to no names of their own, so [`of_object`](#items.ItemQuery.of_object) is how a name reaches them.
+    A [`trx.query.Query`](QUERY.md#query.Query) over the items a level holds, with the narrowings below
+    on top of the ones every query has. Items answer to no names of their own,
+    so [`of_object`](#items.ItemQuery.of_object) is how a name reaches them.
 
     Methods:
 
     - <a id="items.ItemQuery.alive" name="items.ItemQuery.alive"></a>[lua]`itemquery:alive()`  
       The item still has hit points.
 
-      Returns: [trx.query.Query](QUERY.md#query.Query). The narrowed query.
+      Returns: [trx.items.ItemQuery](#items.ItemQuery). The narrowed query.
 
     - <a id="items.ItemQuery.finished" name="items.ItemQuery.finished"></a>[lua]`itemquery:finished()`  
       The item has run its course.
 
-      Returns: [trx.query.Query](QUERY.md#query.Query). The narrowed query.
+      Returns: [trx.items.ItemQuery](#items.ItemQuery). The narrowed query.
 
     - <a id="items.ItemQuery.in_box" name="items.ItemQuery.in_box"></a>[lua]`itemquery:in_box(min, max)`  
       The item stands inside a world-space box. The corners may come in any order.
 
-      An item is tested by its position, the point it stands at, rather than by the box it fills. Position is all this asks after, so the rest of the query says what else the item must be: `trx.items.query:in_box(min, max):present()` asks for the ones that are in the world as well.
+      An item is tested by its position, the point it stands at, rather than by
+      the box it fills. Position is all this asks after, so the rest of the query
+      says what else the item must be: `trx.items.query:in_box(min,
+      max):present()` asks for the ones that are in the world as well.
 
       Parameters:
       - <a id="items.ItemQuery.in_box.min" name="items.ItemQuery.in_box.min"></a>**`min`** ([trx.math.Vec3](MATH.md#math.Vec3)). One corner of the box.
       - <a id="items.ItemQuery.in_box.max" name="items.ItemQuery.in_box.max"></a>**`max`** ([trx.math.Vec3](MATH.md#math.Vec3)). The opposite corner.
 
-      Returns: [trx.query.Query](QUERY.md#query.Query). The narrowed query.
+      Returns: [trx.items.ItemQuery](#items.ItemQuery). The narrowed query.
 
       Example:
       ```lua
@@ -569,7 +684,7 @@ end
     - <a id="items.ItemQuery.in_play" name="items.ItemQuery.in_play"></a>[lua]`itemquery:in_play()`  
       The item is part of the game rather than set aside.
 
-      Returns: [trx.query.Query](QUERY.md#query.Query). The narrowed query.
+      Returns: [trx.items.ItemQuery](#items.ItemQuery). The narrowed query.
 
     - <a id="items.ItemQuery.in_room" name="items.ItemQuery.in_room"></a>[lua]`itemquery:in_room(room_num)`  
       The item is in the given room.
@@ -577,24 +692,26 @@ end
       Parameters:
       - <a id="items.ItemQuery.in_room.room_num" name="items.ItemQuery.in_room.room_num"></a>**`room_num`** ([trx.rooms.Num](ROOMS.md#rooms.Num)).
 
-      Returns: [trx.query.Query](QUERY.md#query.Query). The narrowed query.
+      Returns: [trx.items.ItemQuery](#items.ItemQuery). The narrowed query.
 
     - <a id="items.ItemQuery.in_sphere" name="items.ItemQuery.in_sphere"></a>[lua]`itemquery:in_sphere(centre, radius)`  
-      The item stands within a radius of a point. As with [`in_box`](#items.ItemQuery.in_box), the item's position is the whole of the test.
+      The item stands within a radius of a point. As with
+      [`in_box`](#items.ItemQuery.in_box), the item's position is the whole of the test.
 
       Parameters:
       - <a id="items.ItemQuery.in_sphere.centre" name="items.ItemQuery.in_sphere.centre"></a>**`centre`** ([trx.math.Vec3](MATH.md#math.Vec3)). Middle of the sphere.
       - <a id="items.ItemQuery.in_sphere.radius" name="items.ItemQuery.in_sphere.radius"></a>**`radius`** ([trx.math.Distance](MATH.md#math.Distance)). How far out it reaches.
 
-      Returns: [trx.query.Query](QUERY.md#query.Query). The narrowed query.
+      Returns: [trx.items.ItemQuery](#items.ItemQuery). The narrowed query.
 
     - <a id="items.ItemQuery.of_object" name="items.ItemQuery.of_object"></a>[lua]`itemquery:of_object(key)`  
-      The item is of the given object, named the way a player would name it or by its id.
+      The item is of the given object, named the way a player would name it or by
+      its id.
 
       Parameters:
       - <a id="items.ItemQuery.of_object.key" name="items.ItemQuery.of_object.key"></a>**`key`** (any). Object id, or a name [`trx.objects.query`](OBJECTS.md#objects.query) resolves.
 
-      Returns: [trx.query.Query](QUERY.md#query.Query). The narrowed query.
+      Returns: [trx.items.ItemQuery](#items.ItemQuery). The narrowed query.
 
       Example:
       ```lua
@@ -604,22 +721,22 @@ end
     - <a id="items.ItemQuery.present" name="items.ItemQuery.present"></a>[lua]`itemquery:present()`  
       The item is in the world, whether or not anything is simulating it.
 
-      Returns: [trx.query.Query](QUERY.md#query.Query). The narrowed query.
+      Returns: [trx.items.ItemQuery](#items.ItemQuery). The narrowed query.
 
     - <a id="items.ItemQuery.simulated" name="items.ItemQuery.simulated"></a>[lua]`itemquery:simulated()`  
       The item is being simulated: its control routine runs every frame.
 
-      Returns: [trx.query.Query](QUERY.md#query.Query). The narrowed query.
+      Returns: [trx.items.ItemQuery](#items.ItemQuery). The narrowed query.
 
     - <a id="items.ItemQuery.targetable" name="items.ItemQuery.targetable"></a>[lua]`itemquery:targetable()`  
       Lara's guns can lock onto the item.
 
-      Returns: [trx.query.Query](QUERY.md#query.Query). The narrowed query.
+      Returns: [trx.items.ItemQuery](#items.ItemQuery). The narrowed query.
 
     - <a id="items.ItemQuery.visible" name="items.ItemQuery.visible"></a>[lua]`itemquery:visible()`  
       The item is drawn.
 
-      Returns: [trx.query.Query](QUERY.md#query.Query). The narrowed query.
+      Returns: [trx.items.ItemQuery](#items.ItemQuery). The narrowed query.
 
 ### Functions
 

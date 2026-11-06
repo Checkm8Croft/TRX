@@ -13,6 +13,7 @@
 #include <trx/game/output/sources/poly_fx.h>
 #include <trx/game/rooms.h>
 #include <trx/game/sound.h>
+#include <trx/version.h>
 
 #include <stdlib.h>
 #include <string.h>
@@ -153,6 +154,14 @@ static void M_Draw(void)
         return;
     }
 
+    // TR3 darkens a footprint four times over to make up for multiplying the
+    // scene rather than subtracting from it. TR4 and the PlayStation blending
+    // subtract it once, as the PlayStation versions do.
+    const int32_t passes =
+        g_TRVersion >= 4 || g_Config.rendering.enable_ps1_blending ? 1 : 4;
+    // TR4 footprints are tuned as light on the 128-neutral scale.
+    const uint16_t scale_flags = g_TRVersion == 4 ? VERT_OVERBRIGHT : 0;
+
     const XYZ_32 corners[3] = {
         { .x = 0, .y = 0, .z = -64 },
         { .x = -128, .y = 0, .z = 64 },
@@ -177,10 +186,10 @@ static void M_Draw(void)
         const RGBA_8888 color = { c, c, c, 255 };
         const RGBA_8888 tri_color[3] = { color, color, color };
 
-        for (int32_t j = 0; j < 4; j++) {
+        for (int32_t j = 0; j < passes; j++) {
             OutputSource_PolyFX_StageSpriteTriWorldDepth(
-                sprite_idx, world, tri_color, M_FOOTPRINT_Z_DEPTH_ADJUST,
-                DRAW_BLEND_SUB);
+                sprite_idx, world, tri_color, scale_flags,
+                M_FOOTPRINT_Z_DEPTH_ADJUST, DRAW_BLEND_SUB);
         }
     }
 }

@@ -2,12 +2,18 @@
 
 #include <trx/config.h>
 #include <trx/game/camera.h>
+#include <trx/game/demo.h>
 #include <trx/game/game.h>
 #include <trx/game/lara.h>
 #include <trx/game/music.h>
-#include <trx/game/output/vars.h>
+#include <trx/game/output/func.h>
 #include <trx/game/rooms.h>
 #include <trx/game/sound.h>
+#include <trx/game/viewport.h>
+
+#define M_PC_SCREEN_WIDTH 640
+#define M_PS1_SCREEN_WIDTH 512
+#define M_PS1_FOV (80 * DEG_1)
 
 typedef enum {
     TARGET_UNKNOWN,
@@ -30,6 +36,9 @@ static void M_AdjustMusicVolume(const bool is_underwater)
         : is_ambient ? g_Config.audio.underwater_ambient_volume
                      : g_Config.audio.underwater_music_volume;
     Music_SetVolume(base_volume * multiplier);
+    Music_SetMuffle(
+        is_underwater && !is_cutscene ? g_Config.audio.underwater_muffle
+                                      : UNDERWATER_MUFFLE_OFF);
 }
 
 static inline M_TARGET_STATUS M_HandleCameraTrigger(
@@ -167,8 +176,16 @@ void Camera_UpdateMicPosition(void)
         g_Camera.actual_angle = Math_Atan(
             g_Camera.target.z - g_Camera.pos.z,
             g_Camera.target.x - g_Camera.pos.x);
-        g_Camera.mic_pos.pos = XYZ_32_OffsetYaw(
-            g_Camera.pos.pos, g_Camera.actual_angle, g_PhdPersp);
+        // The listener sits at the projection distance of the original
+        // screen, so that the window size and supersampling do not move it.
+        // The PS1 release also fixes the field of view, and its demos depend
+        // on it.
+        const int32_t distance = Demo_UsesPS1Rules()
+            ? Output_GetPerspective(M_PS1_SCREEN_WIDTH, M_PS1_FOV)
+            : Output_GetPerspective(
+                  M_PC_SCREEN_WIDTH, Viewport_GetEffectiveFOV());
+        g_Camera.mic_pos.pos =
+            XYZ_32_OffsetYaw(g_Camera.pos.pos, g_Camera.actual_angle, distance);
         g_Camera.mic_pos.room_num = g_Camera.pos.room_num;
     }
 }

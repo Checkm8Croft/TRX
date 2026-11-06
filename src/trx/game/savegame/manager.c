@@ -76,6 +76,7 @@ static void M_ClearSlot(SAVEGAME_INFO *const savegame_info)
     savegame_info->counter = -1;
     savegame_info->level_num = -1;
     savegame_info->is_quick = false;
+    savegame_info->saved_at = 0;
     Memory_FreePointer(&savegame_info->full_path);
     Memory_FreePointer(&savegame_info->level_title);
 }
@@ -534,10 +535,6 @@ bool SG_Manager_Delete(const SAVEGAME_SLOT_REF slot)
         return false;
     }
 
-    M_ClearSlot(savegame_info);
-    if (m_SavedGames > 0) {
-        m_SavedGames--;
-    }
     if (m_BoundSlot.pool == slot.pool && m_BoundSlot.index == slot.index) {
         m_BoundSlot = SG_Manager_InvalidSlot();
     }
@@ -545,9 +542,8 @@ bool SG_Manager_Delete(const SAVEGAME_SLOT_REF slot)
         && m_MostRecentlyUsedSlot.index == slot.index) {
         m_MostRecentlyUsedSlot = SG_Manager_InvalidSlot();
     }
-    if (m_MostRecentlyCreatedSlot.pool == slot.pool
-        && m_MostRecentlyCreatedSlot.index == slot.index) {
-        m_MostRecentlyCreatedSlot = SG_Manager_InvalidSlot();
-    }
+    // Another save directory can hold a save for the same slot, which the
+    // deleted save hid until now.
+    SG_Manager_ScanSavedGames();
     return true;
 }

@@ -1,4 +1,4 @@
-require("common.overlay")
+require("common.ui.hud.overlay").setup()
 require("common.water_color").declare({
   order = { "tombati", "dos", "custom" },
   modes = {
@@ -8,3 +8,4 @@ require("common.water_color").declare({
 })
 
 require("common.save_crystal").initialise()
+require("common.ngplus").initialise()

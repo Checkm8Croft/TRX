@@ -16,12 +16,8 @@ ALLOWANCE = {
     "data/trx/ship/games/tr4/scripts/ang_race.lua": 3,
     "data/trx/ship/games/tr4/scripts/angkor1.lua": 2,
     "data/trx/ship/games/tr4/scripts/title.lua": 1,
-    "src/lua/api/api.lua": 34,
-    "src/lua/api/events.lua": 2,
-    "src/lua/api/items.lua": 4,
-    "src/lua/api/rooms.lua": 2,
-    "src/lua/api/ui/regions.lua": 1,
-    "src/lua/api/zones.lua": 8,
+    "src/lua/trx/ui/regions.lua": 1,
+    "src/lua/trx/zones.lua": 7,
     "src/lua/commands/winston.lua": 2,
 }
 

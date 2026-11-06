@@ -51,6 +51,7 @@
 static bool m_IsEnabled = true;
 static CAMERA_TYPE m_PrevCameraType = CAM_CHASE;
 static double m_Rate = 0.0;
+static double m_UIRate = 0.0;
 static double m_WorldRate = 0.0;
 static double m_CameraRate = 0.0;
 
@@ -85,6 +86,8 @@ static XYZ_32 M_GetItemMaxDelta(const ITEM *const item)
     case O_KAYAK:
     case O_UPV:
     case O_TRAIN:
+    case O_JEEP:
+    case O_ENEMY_JEEP:
         max_xz = 300;
         break;
 
@@ -101,6 +104,7 @@ static XYZ_32 M_GetItemMaxDelta(const ITEM *const item)
         break;
 
     case O_SOPHIA_LASER_BOLT:
+    case O_CROSSBOW_BOLT:
         max_xz = 1000;
         max_y = 1000;
         break;
@@ -108,6 +112,10 @@ static XYZ_32 M_GetItemMaxDelta(const ITEM *const item)
     case O_HARPOON_BOLT:
         max_xz = 300;
         max_y = 200;
+        break;
+
+    case O_HENCHMAN_2:
+        max_xz = 352;
         break;
 
     case O_LARA:
@@ -161,6 +169,7 @@ static void M_RememberCamera(void)
         g_Camera.interp.prev.rot = Camera_PhotoMode_GetRot();
     }
     REMEMBER(&g_Camera, fov);
+    REMEMBER(&g_Camera, roll);
     REMEMBER(&g_Camera, shift);
     REMEMBER(&g_Camera, pos.x);
     REMEMBER(&g_Camera, pos.y);
@@ -173,6 +182,7 @@ static void M_RememberCamera(void)
 static void M_CommitCamera(void)
 {
     COMMIT(&g_Camera, fov);
+    COMMIT(&g_Camera, roll);
     COMMIT(&g_Camera, shift);
     COMMIT(&g_Camera, pos.x);
     COMMIT(&g_Camera, pos.y);
@@ -191,6 +201,7 @@ static void M_InterpolateCamera(const double ratio)
     INTERPOLATE_F(&g_Camera, target.x, ratio);
     INTERPOLATE_F(&g_Camera, target.y, ratio);
     INTERPOLATE_F(&g_Camera, target.z, ratio);
+    INTERPOLATE_ROT(&g_Camera, roll, ratio, DEG_45);
 }
 
 static void M_RememberLara(LARA_INFO *const lara)
@@ -439,10 +450,11 @@ bool Interpolation_IsActive(void)
 
 double Interpolation_GetWorldRate(void)
 {
-    // Photo mode steps the world itself and keeps its own rate, so the frozen
-    // gameplay state must not force the rate back to 1.0.
+    // Photo mode steps the world itself and keeps its own rate, and the title
+    // level runs behind the menu, so neither is frozen gameplay.
     if (!Interpolation_IsActive()
-        || (!Game_IsPlaying() && !PhotoMode_IsActive())) {
+        || (!Game_IsPlaying() && !Game_IsLiveScene()
+            && !PhotoMode_IsActive())) {
         return 1.0;
     }
     return m_WorldRate;
@@ -464,6 +476,17 @@ double Interpolation_GetRate(void)
 void Interpolation_SetRate(double rate)
 {
     m_Rate = rate;
+    m_UIRate = rate;
+}
+
+double Interpolation_GetUIRate(void)
+{
+    return m_UIRate;
+}
+
+void Interpolation_SetUIRate(const double rate)
+{
+    m_UIRate = rate;
 }
 
 void Interpolation_Remember(void)

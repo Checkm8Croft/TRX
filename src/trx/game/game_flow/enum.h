@@ -30,6 +30,7 @@ typedef enum {
     GFSC_RESTART,
     GFSC_SELECT,
     GFSC_STORY,
+    GFSC_LEVEL_END,
 } GF_SEQUENCE_CONTEXT;
 
 typedef enum {
@@ -47,6 +48,7 @@ typedef enum {
     GF_SELECT_GAME,
     GF_GLOBE_SELECT,
     GF_STORY_SO_FAR,
+    GF_NEW_GAME,
 } GF_ACTION;
 
 typedef enum {
@@ -61,6 +63,7 @@ typedef enum {
     GFS_GLOBE_SELECT,
     GFS_LEVEL_COMPLETE,
     GFS_LOADING_SCREEN,
+    GFS_LOADING_CAMERA,
     GFS_ADD_ITEM,
     GFS_ADD_SECRET_REWARD,
     GFS_REMOVE_WEAPONS,

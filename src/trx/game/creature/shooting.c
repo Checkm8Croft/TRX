@@ -8,6 +8,7 @@
 #include <trx/game/objects.h>
 #include <trx/game/random.h>
 #include <trx/game/rooms.h>
+#include <trx/game/sound.h>
 #include <trx/game/sparks/spawners.h>
 #include <trx/game/spawn.h>
 #include <trx/version.h>
@@ -40,7 +41,7 @@ static void M_CalcShootVectors(
 static void M_TriggerTR3GunShell(
     const ITEM *const item, const CREATURE_GUN *const gun)
 {
-    const int16_t effect_num = Effect_Create(item->room_num);
+    const int16_t effect_num = Effect_Create(O_GUN_SHELL, item->room_num);
     if (effect_num == NO_EFFECT) {
         return;
     }
@@ -59,7 +60,6 @@ static void M_TriggerTR3GunShell(
     effect->rot.y = 0;
     effect->rot.z = (int16_t)Random_GetControl();
     effect->speed = (int16_t)((Random_GetControl() & 0x1F) + 16);
-    effect->object_id = O_GUN_SHELL;
     effect->fall_speed = (int16_t)(-48 - (Random_GetControl() & 7));
     effect->frame_num = Object_Get(O_GUN_SHELL)->mesh_idx;
     effect->shade = 0x4210;
@@ -203,4 +203,20 @@ bool Creature_Shoot(
         nullptr, NO_OBJECT);
 
     return is_targetable;
+}
+
+void Creature_FireFinalShot(
+    ITEM *const item, const CREATURE_GUN *const gun, const int32_t damage,
+    const SAMPLE_ID sfx, int16_t *const head, int16_t *const torso_y)
+{
+    AI_INFO info = {};
+    Creature_AIInfo(item, &info);
+    if (!Creature_CanTargetEnemy(item, &info) || ABS(info.angle) >= DEG_45) {
+        return;
+    }
+
+    *head = info.angle;
+    *torso_y = info.angle;
+    Creature_Shoot(item, &info, gun, info.angle, damage);
+    Sound_Effect(sfx, &item->pos, SPM_NORMAL);
 }

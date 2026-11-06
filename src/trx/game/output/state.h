@@ -73,8 +73,6 @@ void Output_SetFogEnd(int32_t dist);
 
 int32_t Output_GetNearZ(void);
 int32_t Output_GetFarZ(void);
-int32_t Output_GetNearZ_UI(void);
-int32_t Output_GetFarZ_UI(void);
 
 void Output_SetCurrentRoom(const ROOM *room_num);
 const ROOM *Output_GetCurrentRoom(void);
@@ -90,6 +88,8 @@ XYZ_32 Output_GetLightVectorView(void);
 OUTPUT_LIGHT_INFO Output_GetLightInfo(void);
 void Output_SetLightAdder(int32_t adder);
 void Output_SetLightDivider(int32_t divider);
+// Sets the direction a model is lit from, as the view sees it.
+void Output_SetLightVectorView(XYZ_32 dir);
 void Output_RotateLight(int16_t pitch, int16_t yaw);
 void Output_SetTR3Light(
     RGB_F ambient, const RGB_F colors[3], const XYZ_32 dirs_view[3]);

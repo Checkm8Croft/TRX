@@ -13,6 +13,7 @@
 #include <trx/game/game_flow.h>
 #include <trx/game/gym.h>
 #include <trx/game/level.h>
+#include <trx/game/locale/common.h>
 #include <trx/game/music.h>
 #include <trx/game/music/backend_cdaudio.h>
 #include <trx/game/music/backend_cdaudio_wad.h>
@@ -23,6 +24,9 @@
 #include <trx/version.h>
 
 #include <string.h>
+
+#define M_CROSSFADE_TIME 2.0
+#define M_MUFFLE_CUTOFF 700.0f
 
 typedef struct {
     int32_t audio_stream_id;
@@ -45,6 +49,7 @@ static MUSIC_SLOT m_TrackLastLooped = MX_INACTIVE;
 // has asked yet, and a negative value where the answer was that nothing knows.
 static double m_TrackDurations[MAX_MUSIC_TRACKS] = {};
 static float m_MusicVolume = 0.0f;
+static UNDERWATER_MUFFLE_MODE m_Muffle = UNDERWATER_MUFFLE_OFF;
 static MUSIC_BACKEND *m_Backend = nullptr;
 static M_MUSIC_STREAM m_MainStream = {
     .audio_stream_id = -1,
@@ -53,6 +58,13 @@ static M_MUSIC_STREAM m_MainStream = {
     .active = false,
 };
 static M_MUSIC_STREAM m_OverlayStreams[MUSIC_MAX_OVERLAY_TRACKS] = {};
+// The ambience that a new one has taken over from, still fading out.
+static M_MUSIC_STREAM m_FadingStream = {
+    .audio_stream_id = -1,
+    .track_id = MX_INACTIVE,
+    .mode = MPM_ONCE,
+    .active = false,
+};
 
 static MUSIC_BACKEND *M_FindBackend(void)
 {
@@ -69,12 +81,12 @@ static MUSIC_BACKEND *M_FindBackend(void)
     }
 
     if (g_TRVersion >= 2) {
-        const char *const cdaudio_dat_path =
-            GamePath_PeekResolve(GAME_DYNAMIC_PATH_CDAUDIO_FILE, "cdaudio.dat");
-        const char *const cdaudio_wav_path =
-            GamePath_PeekResolve(GAME_DYNAMIC_PATH_CDAUDIO_FILE, "cdaudio.wav");
-        const char *const cdaudio_mp3_path =
-            GamePath_PeekResolve(GAME_DYNAMIC_PATH_CDAUDIO_FILE, "cdaudio.mp3");
+        char *cdaudio_dat_path = Locale_Resolve(
+            LOCALE_ROLE_AUDIO, GAME_DYNAMIC_PATH_CDAUDIO_FILE, "cdaudio.dat");
+        char *cdaudio_wav_path = Locale_Resolve(
+            LOCALE_ROLE_AUDIO, GAME_DYNAMIC_PATH_CDAUDIO_FILE, "cdaudio.wav");
+        char *cdaudio_mp3_path = Locale_Resolve(
+            LOCALE_ROLE_AUDIO, GAME_DYNAMIC_PATH_CDAUDIO_FILE, "cdaudio.mp3");
 
         if (cdaudio_dat_path != nullptr && cdaudio_wav_path != nullptr) {
             Vector_Add(
@@ -88,16 +100,20 @@ static MUSIC_BACKEND *M_FindBackend(void)
                 &(MUSIC_BACKEND *) { Music_Backend_CDAudio_Factory(
                     cdaudio_mp3_path, cdaudio_dat_path) });
         }
+        Memory_FreePointer(&cdaudio_mp3_path);
+        Memory_FreePointer(&cdaudio_wav_path);
+        Memory_FreePointer(&cdaudio_dat_path);
     }
     if (g_TRVersion >= 3) {
-        const char *const cdaudio_wad_path =
-            GamePath_PeekResolve(GAME_DYNAMIC_PATH_CDAUDIO_FILE, "cdaudio.wad");
+        char *cdaudio_wad_path = Locale_Resolve(
+            LOCALE_ROLE_AUDIO, GAME_DYNAMIC_PATH_CDAUDIO_FILE, "cdaudio.wad");
         if (cdaudio_wad_path != nullptr) {
             Vector_Add(
                 all_backends,
                 &(MUSIC_BACKEND *) {
                     Music_Backend_CDAudioWad_Factory(cdaudio_wad_path) });
         }
+        Memory_FreePointer(&cdaudio_wad_path);
     }
 
     MUSIC_BACKEND *backend = nullptr;
@@ -157,11 +173,13 @@ static void M_StopOverlayStreams(void)
     for (int32_t i = 0; i < MUSIC_MAX_OVERLAY_TRACKS; i++) {
         M_StreamClose(&m_OverlayStreams[i]);
     }
+    M_StreamClose(&m_FadingStream);
 }
 
 static void M_ResetStreamState(void)
 {
     M_StreamReset(&m_MainStream);
+    M_StreamReset(&m_FadingStream);
     for (int32_t i = 0; i < MUSIC_MAX_OVERLAY_TRACKS; i++) {
         M_StreamReset(&m_OverlayStreams[i]);
     }
@@ -229,14 +247,34 @@ static void M_SyncVolume(const M_MUSIC_STREAM *const stream)
         ? g_Config.audio.music_volume * g_Config.audio.master_volume
         : m_MusicVolume;
     SHOULD(Audio_Stream_SetVolume(stream->audio_stream_id, volume));
+    const bool is_muffled = stream->mode != MPM_OVERLAY
+        && (m_Muffle == UNDERWATER_MUFFLE_ALL
+            || (m_Muffle == UNDERWATER_MUFFLE_AMBIENT
+                && stream->mode == MPM_LOOP));
+    SHOULD(Audio_Stream_SetLowPass(
+        stream->audio_stream_id, is_muffled ? M_MUFFLE_CUTOFF : 0.0f));
 }
 
 static void M_SyncVolumes(void)
 {
     M_SyncVolume(&m_MainStream);
+    M_SyncVolume(&m_FadingStream);
     for (int32_t i = 0; i < MUSIC_MAX_OVERLAY_TRACKS; i++) {
         M_SyncVolume(&m_OverlayStreams[i]);
     }
+}
+
+// Hands the playing ambience over to the fading slot, which ends it once it has
+// faded out, so that the next one can fade in over it.
+static void M_FadeOutMainStream(void)
+{
+    M_StreamClose(&m_FadingStream);
+    m_FadingStream = m_MainStream;
+    M_StreamReset(&m_MainStream);
+    SHOULD(Audio_Stream_SetFinishCallback(
+        m_FadingStream.audio_stream_id, M_StreamFinished, &m_FadingStream));
+    SHOULD(
+        Audio_Stream_FadeOut(m_FadingStream.audio_stream_id, M_CROSSFADE_TIME));
 }
 
 static int32_t M_GetFreeOverlaySlot(void)
@@ -431,7 +469,13 @@ static int32_t M_Play(
     }
 
     bool played = false;
-    M_StopMainStream();
+    const bool crossfade = is_looped && g_Config.audio.enable_ambient_crossfade
+        && m_MainStream.active && m_MainStream.mode == MPM_LOOP;
+    if (crossfade) {
+        M_FadeOutMainStream();
+    } else {
+        M_StopMainStream();
+    }
     if (Shell_GetArgs()->headless) {
         LOG_INFO("Not playing track %d out loud", track_id);
     } else if (m_Backend == nullptr) {
@@ -453,6 +497,9 @@ static int32_t M_Play(
                 stream_id, M_StreamFinished, &m_MainStream));
             if (timestamp > 0.0) {
                 SHOULD(Audio_Stream_SeekTimestamp(stream_id, timestamp));
+            }
+            if (crossfade) {
+                SHOULD(Audio_Stream_FadeIn(stream_id, M_CROSSFADE_TIME));
             }
             SHOULD(Audio_Stream_Unpause(stream_id));
             played = true;
@@ -588,6 +635,7 @@ double Music_GetTrackDuration(const MUSIC_SLOT track)
 
 void Music_Stop(void)
 {
+    m_Muffle = UNDERWATER_MUFFLE_OFF;
     m_TrackCurrent = MX_INACTIVE;
     m_TrackLastPlayed = MX_INACTIVE;
     m_TrackDelayed = MX_INACTIVE;
@@ -616,6 +664,9 @@ void Music_Pause(void)
     if (m_MainStream.active && m_MainStream.audio_stream_id >= 0) {
         SHOULD(Audio_Stream_Pause(m_MainStream.audio_stream_id));
     }
+    if (m_FadingStream.active && m_FadingStream.audio_stream_id >= 0) {
+        SHOULD(Audio_Stream_Pause(m_FadingStream.audio_stream_id));
+    }
     for (int32_t i = 0; i < MUSIC_MAX_OVERLAY_TRACKS; i++) {
         if (m_OverlayStreams[i].active
             && m_OverlayStreams[i].audio_stream_id >= 0) {
@@ -628,6 +679,9 @@ void Music_Unpause(void)
 {
     if (m_MainStream.active && m_MainStream.audio_stream_id >= 0) {
         SHOULD(Audio_Stream_Unpause(m_MainStream.audio_stream_id));
+    }
+    if (m_FadingStream.active && m_FadingStream.audio_stream_id >= 0) {
+        SHOULD(Audio_Stream_Unpause(m_FadingStream.audio_stream_id));
     }
     for (int32_t i = 0; i < MUSIC_MAX_OVERLAY_TRACKS; i++) {
         if (m_OverlayStreams[i].active
@@ -831,6 +885,14 @@ void Music_SetVolume(float volume)
     volume *= g_Config.audio.master_volume;
     if (volume != m_MusicVolume) {
         m_MusicVolume = volume;
+        M_SyncVolumes();
+    }
+}
+
+void Music_SetMuffle(const UNDERWATER_MUFFLE_MODE mode)
+{
+    if (mode != m_Muffle) {
+        m_Muffle = mode;
         M_SyncVolumes();
     }
 }

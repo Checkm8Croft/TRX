@@ -35,6 +35,7 @@
 #define FAKE_ANIM_COUNT 2
 #define FAKE_FRAME_COUNT 64
 #define FAKE_PROP_SLOTS 4
+#define M_MAX_DESCRIPTIONS 8
 
 typedef struct {
     OBJECT_ID object_id;
@@ -108,6 +109,18 @@ static const struct {
     { FAKE_OBJ_RECEPTACLE, "receptacle" },
     { FAKE_OBJ_DOOR, "door" },
 };
+
+// What the player reads on examining an object, which a test sets per object.
+static struct {
+    OBJECT_ID object_id;
+    char text[512];
+} m_Descriptions[M_MAX_DESCRIPTIONS];
+static int32_t m_DescriptionCount;
+
+static bool M_CannotTakeDamage(const ITEM *const item)
+{
+    return false;
+}
 
 static void M_AddFamilyByName(
     const OBJECT_ID object_id, const char *const family_key)
@@ -211,6 +224,7 @@ static const char *M_ObjectNames(const OBJECT_ID obj_id)
 
 static void M_Reset(void)
 {
+    m_DescriptionCount = 0;
     memset(m_Items, 0, sizeof(m_Items));
     memset(m_Used, 0, sizeof(m_Used));
     memset(m_Names, 0, sizeof(m_Names));
@@ -337,6 +351,31 @@ void FakeItems_PlaceScion(void)
         .object_id = FAKE_OBJ_SCION,
         .room_num = 1,
         .pos = { .x = 8 * 1024, .y = 0, .z = 0 },
+        .is_visible = true,
+        .is_present = true,
+    };
+    m_Count++;
+}
+
+// An enemy jeep two sectors out: an intelligent object that is hostile to
+// Lara but has no death of its own.
+void FakeItems_PlaceEnemyJeep(void)
+{
+    m_Objects[O_ENEMY_JEEP] = (OBJECT) {
+        .loaded = true,
+        .intelligent = true,
+        .can_take_damage_func = M_CannotTakeDamage,
+        .anim_idx = 0,
+        .anim_count = 1,
+        .mesh_count = 1,
+    };
+    m_Used[m_Count] = true;
+    m_Items[m_Count] = (ITEM) {
+        .object_id = O_ENEMY_JEEP,
+        .room_num = 0,
+        .pos = { .x = 2 * 1024, .y = 0, .z = 0 },
+        .hit_points = 40,
+        .max_hit_points = 40,
         .is_visible = true,
         .is_present = true,
     };
@@ -549,6 +588,15 @@ bool Item_IsTargetable(const ITEM *const item)
     return item->hit_points > 0 && Item_IsInPlay(item);
 }
 
+bool Item_CanTakeDamage(const ITEM *const item)
+{
+    const OBJECT *const obj = Object_Get(item->object_id);
+    if (obj->can_take_damage_func != nullptr) {
+        return obj->can_take_damage_func(item);
+    }
+    return Item_IsAlive(item);
+}
+
 bool Item_SetName(const int16_t item_num, const char *const name)
 {
     if (name == nullptr) {
@@ -600,6 +648,14 @@ const BOUNDS_16 *Item_GetBoundsAccurate(const ITEM *const item)
     return &m_Frames[item->frame_num % FAKE_FRAME_COUNT].bounds;
 }
 
+void Collide_GetJointAbsPosition(
+    const ITEM *const item, XYZ_32 *const pos, const int32_t joint)
+{
+    pos->x += item->pos.x;
+    pos->y += item->pos.y;
+    pos->z += item->pos.z;
+}
+
 ANIM *Anim_GetAnim(const int32_t anim_idx)
 {
     return &m_Anims[anim_idx];
@@ -608,6 +664,14 @@ ANIM *Anim_GetAnim(const int32_t anim_idx)
 int32_t Anim_GetTotalCount(void)
 {
     return FAKE_ANIM_COUNT;
+}
+
+ANIM *Object_GetAnim(const OBJECT *const object, const int32_t anim_idx)
+{
+    if (object == nullptr || anim_idx < 0 || anim_idx >= FAKE_ANIM_COUNT) {
+        return nullptr;
+    }
+    return &m_Anims[anim_idx];
 }
 
 // --- objects ---
@@ -645,6 +709,40 @@ const char *Object_GetName(const OBJECT_ID obj_id)
     // The fake level localizes nothing, so a lookup always takes the
     // compile-time fallback.
     return Object_GetDefaultName(obj_id);
+}
+
+void FakeItems_SetLoaded(const OBJECT_ID obj_id, const bool loaded)
+{
+    m_Objects[obj_id].loaded = loaded;
+}
+
+void FakeItems_SetDescription(const OBJECT_ID obj_id, const char *const text)
+{
+    for (int32_t i = 0; i < m_DescriptionCount; i++) {
+        if (m_Descriptions[i].object_id == obj_id) {
+            snprintf(
+                m_Descriptions[i].text, sizeof(m_Descriptions[i].text), "%s",
+                text);
+            return;
+        }
+    }
+    if (m_DescriptionCount < M_MAX_DESCRIPTIONS) {
+        m_Descriptions[m_DescriptionCount].object_id = obj_id;
+        snprintf(
+            m_Descriptions[m_DescriptionCount].text,
+            sizeof(m_Descriptions[m_DescriptionCount].text), "%s", text);
+        m_DescriptionCount++;
+    }
+}
+
+const char *Object_GetDescription(const OBJECT_ID obj_id)
+{
+    for (int32_t i = 0; i < m_DescriptionCount; i++) {
+        if (m_Descriptions[i].object_id == obj_id) {
+            return m_Descriptions[i].text;
+        }
+    }
+    return nullptr;
 }
 
 const char *Object_GetAliases(const OBJECT_ID obj_id)
@@ -862,7 +960,8 @@ void Creature_Die(const int16_t item_num, const CREATURE_DIE_ARGS args)
 {
     const bool explode = args.explode;
     const int16_t flame_variant = args.flame_variant;
-    FAKE_RECORD("creature_die", FV(explode), FV(flame_variant));
+    const int32_t gib_flags = args.gib_flags;
+    FAKE_RECORD("creature_die", FV(explode), FV(flame_variant), FV(gib_flags));
     m_Items[item_num].hit_points = 0;
 }
 
@@ -883,7 +982,10 @@ int32_t Item_Shatter(const int16_t item_num, const ITEM_SHATTER_ARGS args)
 {
     const int16_t damage = args.damage;
     const int16_t flame_variant = args.flame_variant;
-    FAKE_RECORD("shatter", FV(damage), FV(flame_variant));
+    const int32_t gib_flags = args.gib_flags;
+    const int32_t mesh_bits = args.mesh_bits;
+    FAKE_RECORD(
+        "shatter", FV(damage), FV(flame_variant), FV(gib_flags), FV(mesh_bits));
     return 0;
 }
 

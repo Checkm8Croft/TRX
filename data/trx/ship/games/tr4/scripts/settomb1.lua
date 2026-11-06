@@ -1,4 +1,12 @@
-trx.events.on_game_start(function()
+local function initialise_falling_blades()
+  for i = 1, 5 do
+    local delay = 4 + (i - 1) * 10
+    trx.items[87 + i].properties.delay = delay
+    trx.items[98 - i].properties.delay = delay
+  end
+end
+
+trx.events.on_game_start(function(is_save)
   trx.items[3].properties.pickup_mode = trx.items.PickupMode.PLINTH_LOW
   trx.items[4].properties.pickup_mode = trx.items.PickupMode.PLINTH_LOW
   trx.items[87].properties.pickup_mode = trx.items.PickupMode.PLINTH_LOW
@@ -13,9 +21,21 @@ trx.events.on_game_start(function()
   trx.items[0].properties.collidable_when_done = false
   trx.objects.scaled_spikes.properties.scaled_spikes_mode =
     trx.items.ScaledSpikesMode.EXTENDED
+  trx.objects.small_scorpion.properties.is_venomous = false
+
+  trx.items[43].properties.use_idle_pose = true
+  trx.items[44].properties.use_idle_pose = true
+
+  initialise_falling_blades()
 end)
 
 -- The caption the level opens with, which the level's strings carry.
-require("common.legend").setup(function()
-  return trx.locale.get("general/legend")
-end)
+require("common.ui.hud.legend").setup(trx.locale.text("general/legend"))
+
+require("tr4.inv_setup").apply({
+  -- Draw only the model mesh. The ring does not use the collision box.
+  puzzle_item_1 = { scale = 1280, offset_y = 23, meshes = 1 },
+  puzzle_item_2 = { scale = 768, offset_y = 24 },
+  puzzle_item_1_combo_1 = { scale = 1280, offset_y = 23 },
+  puzzle_item_1_combo_2 = { scale = 1280, offset_y = 23 },
+})

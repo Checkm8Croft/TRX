@@ -11,6 +11,8 @@ void Sparks_TriggerBubble(
 void Sparks_TriggerWaterfallMist(int32_t x, int32_t y, int32_t z, int32_t ang);
 
 void Sparks_TriggerSmallSplash(XYZ_32 pos, int32_t count);
+// Throws up a few tiny drops where rain hits the ground or the water.
+void Sparks_TriggerRainSplash(XYZ_32 pos);
 
 void Sparks_TriggerBreath(XYZ_32 pos, XYZ_32 vel, int16_t room_num);
 
@@ -20,6 +22,9 @@ void Sparks_TriggerExplosionBubble(XYZ_32 pos, int16_t room_num);
 void Sparks_TriggerExplosionSparks(
     XYZ_32 pos, int32_t extras, int32_t dynamic, int32_t uw, int16_t room_num);
 void Sparks_TriggerExplosionSmoke(XYZ_32 pos, bool uw, int16_t room_num);
+// Releases a puff of the bright smoke that a TR4 flash grenade gives off, or
+// a burst of bubbles under water.
+void Sparks_TriggerFlashSmoke(XYZ_32 pos, int16_t room_num);
 void Sparks_TriggerExplosionSmokeEnd(XYZ_32 pos, bool uw, int16_t room_num);
 
 void Sparks_TriggerFireFlame(XYZ_32 pos, int32_t body_part, int32_t type);
@@ -36,7 +41,7 @@ void Sparks_TriggerFlareSparks(XYZ_32 pos, XYZ_32 vel, bool smoke);
 
 void Sparks_TriggerRicochetTR3(GAME_VECTOR pos, int32_t angle, int32_t size);
 void Sparks_TriggerRicochetTR4(
-    GAME_VECTOR pos, int32_t angle, int32_t count, int32_t smoke_only);
+    GAME_VECTOR pos, int32_t angle, int32_t count, bool smoke_only);
 
 void Sparks_TriggerGunSmoke(
     GAME_VECTOR pos, bool initial, LARA_GUN_TYPE weapon, int32_t shade);

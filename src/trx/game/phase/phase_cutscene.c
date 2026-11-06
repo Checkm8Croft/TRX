@@ -9,6 +9,8 @@
 #include <trx/game/lua/events.h>
 #include <trx/game/output.h>
 #include <trx/game/output/overlay.h>
+#include <trx/game/ui/common.h>
+#include <trx/game/ui/draw.h>
 #include <trx/version.h>
 
 #define M_CROSS_FADE_DURATION 0.5f
@@ -18,9 +20,9 @@ typedef struct {
     FADER cross_fader;
 } M_PRIV;
 
-static bool M_UsesCrossFadeIn(PHASE *const phase)
+static bool M_UsesCrossFadeIn(const PHASE *const phase)
 {
-    M_PRIV *const p = phase->priv;
+    const M_PRIV *const p = phase->priv;
     return p->args.cross_fade_in && g_Config.visuals.enable_fade_effects
         && g_TRVersion == 3;
 }
@@ -87,7 +89,9 @@ static void M_Draw(PHASE *const phase)
     Cutscene_Draw();
     if (phase->uses_cross_fade_in != nullptr
         && phase->uses_cross_fade_in(phase)) {
-        Output_Overlay_DrawSnapshot(Fader_GetCurrentValue(&p->cross_fader));
+        UI_BeginLayer(UI_LAYER_BACKDROP);
+        UI_ScheduleDrawSnapshot(Fader_GetCurrentValue(&p->cross_fader));
+        UI_EndLayer(UI_LAYER_BACKDROP);
     }
 }
 

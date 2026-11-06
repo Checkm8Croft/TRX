@@ -8,6 +8,7 @@
 #include <trx/game/items/actions.h>
 #include <trx/game/lua/api.h>
 #include <trx/game/lua/common.h>
+#include <trx/game/lua/scripts.h>
 #include <trx/game/lua/embedded_scripts.h>
 #include <trx/game/lua/events.h>
 #include <trx/game/lua/guard.h>
@@ -229,23 +230,12 @@ void ItemAction_SetInterceptor(ITEM_ACTION_INTERCEPTOR interceptor)
 {
 }
 
-// The API registry that would answer is not linked here, and a boot that gets
+// The api.lua that would answer is not linked here, and a boot that gets
 // no sealer exits the game.
 bool LUA_API_PushEntrypoint(lua_State *const L, const char *const name)
 {
     lua_pushcfunction(L, M_L_Nothing);
     return true;
-}
-
-// The config bridge that keeps the watchers is not linked here; a script
-// lifecycle is what these tests are about, and no config exists to watch.
-void LUA_Config_ClearLevelWatchers(void)
-{
-}
-
-// Keep flip-group declarations outside the unlinked room bridge.
-void LUA_Rooms_ClearFlipGroups(void)
-{
 }
 
 void LUA_Guard_Install(lua_State *const L, const double budget_sec)

@@ -21,6 +21,7 @@
 #define M_LEDGE_JUMP_HEIGHT_UP   (LARA_HEIGHT + (STEP_L * 3) / 8) // = 858
 #define M_LEDGE_JUMP_HEIGHT_BACK (LARA_HEIGHT - (STEP_L * 5) / 4) // = 442
 #define M_HANG_SHIFT             (g_TRVersion >= 3 ? 4 : 2)
+#define M_CLIMB_HANG_SHIFT       (g_TRVersion < 4 ? M_HANG_SHIFT : STEP_L)
 #define M_CLIMB_WIDTH_CORNER     120
 #define M_CORNER_SIDE_SHIFT      16
 #define M_CORNER_FRONT_DIST      (LARA_RADIUS + M_CORNER_SIDE_SHIFT) // = 116
@@ -40,10 +41,10 @@ static int32_t M_GetDestinationClearance(const ITEM *const item)
 {
     XYZ_32 pos = {
         .x = 0,
-        .y = -M_CLIMB_HEIGHT,
+        .y = -STEP_L / 2,
         .z = 0,
     };
-    Lara_GetJointAbsPosition(&pos, LM_HAND_R);
+    Collide_GetJointAbsPosition(item, &pos, LM_HAND_R);
     int16_t room_num = item->room_num;
     Room_GetSector(pos, &room_num);
 
@@ -72,25 +73,25 @@ static M_CLIMB_RESULT M_TestClimbPos(
     case DIR_NORTH:
         x = item->pos.x + right;
         z = item->pos.z + front;
-        z_front = M_HANG_SHIFT;
+        z_front = M_CLIMB_HANG_SHIFT;
         break;
 
     case DIR_EAST:
         x = item->pos.x + front;
         z = item->pos.z - right;
-        x_front = M_HANG_SHIFT;
+        x_front = M_CLIMB_HANG_SHIFT;
         break;
 
     case DIR_SOUTH:
         x = item->pos.x - right;
         z = item->pos.z - front;
-        z_front = -M_HANG_SHIFT;
+        z_front = -M_CLIMB_HANG_SHIFT;
         break;
 
     case DIR_WEST:
         x = item->pos.x - front;
         z = item->pos.z + right;
-        x_front = -M_HANG_SHIFT;
+        x_front = -M_CLIMB_HANG_SHIFT;
         break;
 
     default:
@@ -731,7 +732,8 @@ static M_CLIMB_RESULT M_TestClimbUpPos(
     sample_pos.x = x2;
     sample_pos.z = z2;
     sector = Room_GetSector(sample_pos, &room_num);
-    height = Room_GetHeightEx(sector, sample_pos, true, NO_ITEM);
+    height = Room_GetHeightEx(
+        sector, sample_pos, &(ROOM_HEIGHT_CTX) { .fix_tilts = true });
     if (height == NO_HEIGHT) {
         *ledge = NO_HEIGHT;
         return CLIMB_RESULT_POS;

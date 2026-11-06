@@ -1,24 +1,24 @@
 ---
 title: Stats
-order: 28
+order: 29
 ---
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/stats.lua. Edit it there.
+  src/lua/trx/stats.lua. Edit it there.
 -->
 
 ## <a id="stats" name="stats"></a>Stats module
 
-Module for what a level keeps count of: what Lara has found in it, and how much
-there was to find.
+Module for what a level keeps count of: what Lara has found in it, and how
+much there was to find.
 
-The module is the level being played, so [`trx.stats.pickups.count`](#stats.Category.count) is what she
-has picked up in it. Any other level's counters are reached the same way through
-[`trx.game.Level.stats`](GAME.md#game.Level.stats). At the title screen there is no level, and everything
-here reads `nil`.
+The module is the level being played, so [`trx.stats.pickups.count`](#stats.Category.count) is what
+she has picked up in it. Any other level's counters are reached the same way
+through [`trx.game.Level.stats`](GAME.md#game.Level.stats). At the title screen there is no level, and
+everything here reads `nil`.
 
 ### Structures
 
@@ -28,7 +28,11 @@ here reads `nil`.
 
 - <a id="stats.Category" name="stats.Category"></a>[lua]`trx.stats.Category`
 
-    One thing a level is counted on, which is one row of the statistics screen. [`raw`](#stats.Category.raw) is [`max`](#stats.Category.max) plus [`unobtainable`](#stats.Category.unobtainable): the game flow can declare part of a level out of reach, and what it writes off is left out of what counts towards completion while still being in the level.
+    One thing a level is counted on, which is one row of the statistics screen.
+    [`raw`](#stats.Category.raw) is [`max`](#stats.Category.max) plus
+    [`unobtainable`](#stats.Category.unobtainable): the game flow can declare part of a level
+    out of reach, and what it writes off is left out of what counts towards
+    completion while still being in the level.
 
     Handles are live references: if the underlying object is destroyed,
     using the handle raises an error rather than silently reading an
@@ -42,7 +46,8 @@ here reads `nil`.
 
 - <a id="stats.Stats" name="stats.Stats"></a>[lua]`trx.stats.Stats`
 
-    What one level keeps count of. The counters are the level's own and can be written, which is what a script correcting or seeding them wants.
+    What one level keeps count of. The counters are the level's own and can be
+    written, which is what a script correcting or seeding them wants.
 
     Handles are live references: if the underlying object is destroyed,
     using the handle raises an error rather than silently reading an
@@ -75,11 +80,6 @@ here reads `nil`.
 
       Returns: boolean. `false` if the level has no such secret, or Lara already has it.
 
-      Example:
-      ```lua
-      trx.stats.give_secret(1)
-      ```
-
     - <a id="stats.Stats.secret_list" name="stats.Stats.secret_list"></a>[lua]`stats:secret_list()`  
       The level's secrets, in order.
 
@@ -88,13 +88,7 @@ here reads `nil`.
         Each entry:
         - <a id="stats.Stats.secret_list.num" name="stats.Stats.secret_list.num"></a>**`num`** ([trx.stats.SecretNum](#stats.SecretNum)). Which secret it is.
         - <a id="stats.Stats.secret_list.found" name="stats.Stats.secret_list.found"></a>**`found`** (boolean). Whether Lara has it.
-
-      Example:
-      ```lua
-      for _, secret in ipairs(trx.stats.secret_list()) do
-        trx.log.info(secret.num .. ": " .. tostring(secret.found))
-      end
-      ```
+        - <a id="stats.Stats.secret_list.icon" name="stats.Stats.secret_list.icon"></a>**`icon`** (integer, optional). Which secret glyph draws it, as `\\{secret N}` names one, or `nil` for a secret that is a place to reach rather than an item to pick up.
 
     - <a id="stats.Stats.take_secret" name="stats.Stats.take_secret"></a>[lua]`stats:take_secret(secret_num)`  
       Takes a secret back, leaving it to be found again.
@@ -103,3 +97,49 @@ here reads `nil`.
       - <a id="stats.Stats.take_secret.secret_num" name="stats.Stats.take_secret.secret_num"></a>**`secret_num`** ([trx.stats.SecretNum](#stats.SecretNum)).
 
       Returns: boolean. `false` if the level has no such secret, or Lara does not have it.
+
+### Functions
+
+- <a id="stats.secret_list" name="stats.secret_list"></a>[lua]`trx.stats.secret_list()`  
+  Asks [`trx.stats.Stats:secret_list`](#stats.Stats.secret_list) of the level being played. Where none is
+  being played, the list is empty.
+
+  Returns: a list of table. The secrets, one by one.
+
+    Each entry:
+    - <a id="stats.secret_list.num" name="stats.secret_list.num"></a>**`num`** ([trx.stats.SecretNum](#stats.SecretNum)). Which secret it is.
+    - <a id="stats.secret_list.found" name="stats.secret_list.found"></a>**`found`** (boolean). Whether Lara has it.
+    - <a id="stats.secret_list.icon" name="stats.secret_list.icon"></a>**`icon`** (integer, optional). Which secret glyph draws it, as `\\{secret N}` names one, or `nil` for a secret that is a place to reach rather than an item to pick up.
+
+  Example:
+  ```lua
+  for _, secret in ipairs(trx.stats.secret_list()) do
+    trx.log.info(secret.num .. ": " .. tostring(secret.found))
+  end
+  ```
+
+- <a id="stats.give_secret" name="stats.give_secret"></a>[lua]`trx.stats.give_secret(secret_num)`  
+  Asks [`trx.stats.Stats:give_secret`](#stats.Stats.give_secret) of the level being played.
+
+  Parameters:
+  - <a id="stats.give_secret.secret_num" name="stats.give_secret.secret_num"></a>**`secret_num`** ([trx.stats.SecretNum](#stats.SecretNum)).
+
+  Returns: boolean. `false` if no level is being played, the level has no such secret, or Lara already has it.
+
+  Example:
+  ```lua
+  trx.stats.give_secret(1)
+  ```
+
+- <a id="stats.take_secret" name="stats.take_secret"></a>[lua]`trx.stats.take_secret(secret_num)`  
+  Asks [`trx.stats.Stats:take_secret`](#stats.Stats.take_secret) of the level being played.
+
+  Parameters:
+  - <a id="stats.take_secret.secret_num" name="stats.take_secret.secret_num"></a>**`secret_num`** ([trx.stats.SecretNum](#stats.SecretNum)).
+
+  Returns: boolean. `false` if no level is being played, the level has no such secret, or Lara does not have it.
+
+- <a id="stats.has_crystals" name="stats.has_crystals"></a>[lua]`trx.stats.has_crystals()`  
+  Whether any level of the game holds a save crystal.
+
+  Returns: boolean. True where one does.

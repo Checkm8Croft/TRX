@@ -362,12 +362,51 @@ This page lists documented moveable object properties.
 </tbody>
 </table>
 
+#### enemy_jeep
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>max_hit_points</code></td><td colspan="3" align="center">40</td><td>Maximum hit points.</td></tr>
+</tbody>
+</table>
+
 #### fish_mutant
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (26)</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>max_hit_points</code></td><td colspan="3" align="center">12</td><td>Maximum hit points.</td></tr>
 <tr><td><code>damage</code></td><td colspan="3" align="center">100</td><td>Damage dealt by the barracuda bite.</td></tr>
+</tbody>
+</table>
+
+#### guide
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>max_hit_points</code></td><td colspan="3" align="center">15</td><td>Maximum hit points.</td></tr>
+<tr><td><code>guides_lara</code></td><td colspan="3" align="center">true</td><td>Whether he guides Lara or navigates the level on his own.</td></tr>
+</tbody>
+</table>
+
+#### henchman_1
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>max_hit_points</code></td><td colspan="3" align="center">25</td><td>Maximum hit points.</td></tr>
+<tr><td><code>seeks_equipment</code></td><td colspan="3" align="center">true</td><td>Whether the henchman will seek small medipack and uzi ammo pickups to replenish his kit.</td></tr>
+<tr><td><code>gun_damage</code></td><td colspan="3" align="center">15</td><td>Damage dealt by the henchman's gunshot.</td></tr>
+<tr><td><code>sword_damage</code></td><td colspan="3" align="center">120</td><td>Damage dealt by the henchman's sword.</td></tr>
+</tbody>
+</table>
+
+#### henchman_2
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>max_hit_points</code></td><td colspan="3" align="center">35</td><td>Maximum hit points.</td></tr>
+<tr><td><code>seeks_equipment</code></td><td colspan="3" align="center">true</td><td>Whether the henchman will seek small medipack and uzi ammo pickups to replenish his kit.</td></tr>
+<tr><td><code>gun_damage</code></td><td colspan="3" align="center">15</td><td>Damage dealt by the henchman's gunshot.</td></tr>
+<tr><td><code>sword_damage</code></td><td colspan="3" align="center">120</td><td>Damage dealt by the henchman's sword.</td></tr>
 </tbody>
 </table>
 
@@ -389,6 +428,17 @@ This page lists documented moveable object properties.
 <tr><td><code>jump_damage</code></td><td colspan="3" align="center">20</td><td>Damage dealt by the hybrid mutant jump attack.</td></tr>
 <tr><td><code>slash_damage</code></td><td colspan="3" align="center">100</td><td>Damage dealt by the hybrid mutant slash attack.</td></tr>
 <tr><td><code>kick_damage</code></td><td colspan="3" align="center">80</td><td>Damage dealt by the hybrid mutant kick attack.</td></tr>
+</tbody>
+</table>
+
+#### jackal
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>max_hit_points</code></td><td colspan="3" align="center">16</td><td>Maximum hit points.</td></tr>
+<tr><td><code>lunge_damage</code></td><td colspan="3" align="center">20</td><td>Damage dealt by the lunge attack.</td></tr>
+<tr><td><code>bite_damage</code></td><td colspan="3" align="center">10</td><td>Damage dealt by the bite attack.</td></tr>
+<tr><td><code>use_idle_pose</code></td><td colspan="3" align="center">false</td><td>Whether the creature is posed and visible before being activated.</td></tr>
 </tbody>
 </table>
 
@@ -507,6 +557,7 @@ This page lists documented moveable object properties.
 <tbody>
 <tr><td><code>max_hit_points</code></td><td colspan="3" align="center">28</td><td>Maximum hit points.</td></tr>
 <tr><td><code>damage</code></td><td colspan="3" align="center">32</td><td>Damage dealt by gun shots.</td></tr>
+<tr><td><code>final_shot_damage</code></td><td colspan="3" align="center">32</td><td>Damage dealt by the death-state final shot.</td></tr>
 </tbody>
 </table>
 
@@ -613,6 +664,7 @@ This page lists documented moveable object properties.
 <tbody>
 <tr><td><code>max_hit_points</code></td><td colspan="3" align="center">34</td><td>Maximum hit points.</td></tr>
 <tr><td><code>damage</code></td><td colspan="3" align="center">35</td><td>Damage dealt by shots.</td></tr>
+<tr><td><code>final_shot_damage</code></td><td colspan="3" align="center">105</td><td>Damage dealt by the death-state final shot.</td></tr>
 </tbody>
 </table>
 
@@ -679,6 +731,17 @@ This page lists documented moveable object properties.
 <tr><td><code>max_hit_points</code></td><td colspan="3" align="center">1</td><td>Maximum hit points.</td></tr>
 <tr><td><code>shot_damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt by shots when Lara is not mounted.</td></tr>
 <tr><td><code>mounted_shot_damage</code></td><td colspan="3" align="center">10</td><td>Damage dealt by shots when Lara is mounted.</td></tr>
+</tbody>
+</table>
+
+#### small_scorpion
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>max_hit_points</code></td><td colspan="3" align="center">8</td><td>Maximum hit points.</td></tr>
+<tr><td><code>pince_damage</code></td><td colspan="3" align="center">20</td><td>Damage dealt by the pincer.</td></tr>
+<tr><td><code>sting_damage</code></td><td colspan="3" align="center">20</td><td>Damage dealt by the sting.</td></tr>
+<tr><td><code>is_venomous</code></td><td colspan="3" align="center">true</td><td>Whether or not the sting poisons Lara.</td></tr>
 </tbody>
 </table>
 
@@ -826,6 +889,18 @@ This page lists documented moveable object properties.
 <tr><td><code>max_hit_points</code></td><td colspan="3" align="center">28</td><td>Maximum hit points.</td></tr>
 <tr><td><code>damage</code></td><td colspan="3" align="center">100</td><td>Damage dealt by melee attacks.</td></tr>
 <tr><td><code>enemy_damage</code></td><td colspan="3" align="center">5</td><td>Damage dealt to non-player targets.</td></tr>
+</tbody>
+</table>
+
+#### undead_mummy
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>max_hit_points</code></td><td colspan="3" align="center">15</td><td>Maximum hit points.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">100</td><td>Damage dealt by the mummy's attack.</td></tr>
+<tr><td><code>delay</code></td><td colspan="3" align="center">0</td><td>Delay before the mummy becomes active.</td></tr>
+<tr><td><code>start_lying_down</code></td><td colspan="3" align="center">false</td><td>Whether the mummy starts lying down.</td></tr>
+<tr><td><code>walk_straight</code></td><td colspan="3" align="center">false</td><td>Whether the mummy initially walks straight ahead.</td></tr>
 </tbody>
 </table>
 
@@ -1010,21 +1085,13 @@ This page lists documented moveable object properties.
 </tbody>
 </table>
 
-#### dart
+#### falling_blade
 <table width="100%">
-<thead><tr><th>Property</th><th align="center">TR1 (39)</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt on hit.</td></tr>
-<tr><td><code>poison</code></td><td colspan="3" align="center">false</td><td>Apply poison buildup in addition to hit damage.</td></tr>
-</tbody>
-</table>
-
-#### disc
-<table width="100%">
-<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2 (61)</th><th align="center">TR3</th><th>Description</th></tr></thead>
-<tbody>
-<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt on hit.</td></tr>
-<tr><td><code>poison</code></td><td colspan="3" align="center">false</td><td>Apply poison buildup in addition to hit damage.</td></tr>
+<tr><td><code>delay</code></td><td colspan="3" align="center">0</td><td>Delay before the blades activate.</td></tr>
+<tr><td><code>is_looped</code></td><td colspan="3" align="center">false</td><td>Whether the blades repeat while their trigger remains active.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">1000</td><td>Damage dealt when Lara is struck by the blades.</td></tr>
 </tbody>
 </table>
 
@@ -1065,6 +1132,14 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1 (54)</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>damage</code></td><td colspan="3" align="center">300</td><td>Damage dealt while Lara is touching the falling ceiling.</td></tr>
+</tbody>
+</table>
+
+#### fire_head
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (282)</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>blow_time</code></td><td colspan="3" align="center">2.33</td><td>The number of seconds the firehead blows flames for before resetting its animation and starting again.</td></tr>
 </tbody>
 </table>
 
@@ -1242,12 +1317,11 @@ This page lists documented moveable object properties.
 </tbody>
 </table>
 
-#### poison_dart
+#### plough
 <table width="100%">
-<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (90)</th><th>Description</th></tr></thead>
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>damage</code></td><td colspan="3" align="center">25</td><td>Damage dealt on hit.</td></tr>
-<tr><td><code>poison</code></td><td colspan="3" align="center">true</td><td>Apply poison buildup in addition to hit damage.</td></tr>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara is struck by the blades.</td></tr>
 </tbody>
 </table>
 
@@ -1315,6 +1389,14 @@ This page lists documented moveable object properties.
 </tbody>
 </table>
 
+#### rolling_spikes
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt when Lara is struck by the spikes.</td></tr>
+</tbody>
+</table>
+
 #### rotating_laser
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (291)</th><th>Description</th></tr></thead>
@@ -1333,28 +1415,11 @@ This page lists documented moveable object properties.
 </tbody>
 </table>
 
-#### security_laser_alarm
-<table width="100%">
-<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (66)</th><th>Description</th></tr></thead>
-<tbody>
-<tr><td><code>max_hit_points</code></td><td colspan="3" align="center">1</td><td>Maximum hit points.</td></tr>
-</tbody>
-</table>
-
 #### security_laser_deadly
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (67)</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>damage</code></td><td colspan="3" align="center">10</td><td>Damage dealt when Lara crosses the security laser.</td></tr>
-<tr><td><code>max_hit_points</code></td><td colspan="3" align="center">1</td><td>Maximum hit points.</td></tr>
-</tbody>
-</table>
-
-#### security_laser_killer
-<table width="100%">
-<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (68)</th><th>Description</th></tr></thead>
-<tbody>
-<tr><td><code>max_hit_points</code></td><td colspan="3" align="center">1</td><td>Maximum hit points.</td></tr>
 </tbody>
 </table>
 
@@ -1760,6 +1825,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>auto_open</code></td><td colspan="3" align="center">true</td><td>Whether the trapdoor opens automatically when triggered.</td></tr>
+<tr><td><code>blocks_portal</code></td><td colspan="3" align="center">false</td><td>Whether the trapdoor blocks any portals it sits on.</td></tr>
 </tbody>
 </table>
 
@@ -1768,6 +1834,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>auto_open</code></td><td colspan="3" align="center">true</td><td>Whether the trapdoor opens automatically when triggered.</td></tr>
+<tr><td><code>blocks_portal</code></td><td colspan="3" align="center">false</td><td>Whether the trapdoor blocks any portals it sits on.</td></tr>
 </tbody>
 </table>
 
@@ -1836,6 +1903,15 @@ This page lists documented moveable object properties.
 </tbody>
 </table>
 
+#### dart
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1 (39)</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt on hit.</td></tr>
+<tr><td><code>poison</code></td><td colspan="3" align="center">false</td><td>Apply poison buildup in addition to hit damage.</td></tr>
+</tbody>
+</table>
+
 #### desert_eagle_ammo_item
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (252)</th><th align="center">TR2 (289)</th><th align="center">TR3 (170)</th><th>Description</th></tr></thead>
@@ -1859,6 +1935,15 @@ This page lists documented moveable object properties.
 <tr><td><code>keep_simulated</code></td><td colspan="3" align="center">false</td><td>Simulate the item again once it becomes visible, so that it goes on rotating, glowing and showing its twinkle after a carrier drops it or a trigger brings it back.</td></tr>
 <tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
 <tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
+</tbody>
+</table>
+
+#### disc
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2 (61)</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>damage</code></td><td colspan="3" align="center">50</td><td>Damage dealt on hit.</td></tr>
+<tr><td><code>poison</code></td><td colspan="3" align="center">false</td><td>Apply poison buildup in addition to hit damage.</td></tr>
 </tbody>
 </table>
 
@@ -1934,6 +2019,17 @@ This page lists documented moveable object properties.
 </tbody>
 </table>
 
+#### earthquake
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1 (183)</th><th align="center">TR2 (264)</th><th align="center">TR3 (365)</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>mode</code></td><td align="center">0</td><td align="center">1</td><td align="center">2</td><td>Control mode - 0: random (TR1); 1: random (TR2); 2: ramped (TR3); 3: basic (TR4)</td></tr>
+<tr><td><code>shake_camera</code></td><td colspan="3" align="center">true</td><td>Whether or not the earthquake shakes the camera while it is active.</td></tr>
+<tr><td><code>lifetime</code></td><td colspan="3" align="center">0</td><td>The lifetime of the earthquake to remain active. Zero implies active until anti-triggered.</td></tr>
+<tr><td><code>trigger_items</code></td><td colspan="3" align="center">true</td><td>Whether or not the earthquake triggers falling ceiling and flame emitters placed in the same room at random.</td></tr>
+</tbody>
+</table>
+
 #### examine_item_1
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
@@ -1973,6 +2069,14 @@ This page lists documented moveable object properties.
 </tbody>
 </table>
 
+#### expanding_block
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>shake_camera</code></td><td colspan="3" align="center">false</td><td>Whether or not the camera should shake when the block is expanding or contracting.</td></tr>
+</tbody>
+</table>
+
 #### flares_box_item
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1 (187)</th><th align="center">TR2 (151)</th><th align="center">TR3 (178)</th><th>Description</th></tr></thead>
@@ -1999,6 +2103,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>auto_open</code></td><td colspan="3" align="center">true</td><td>Whether the trapdoor opens automatically when triggered.</td></tr>
+<tr><td><code>blocks_portal</code></td><td colspan="3" align="center">false</td><td>Whether the trapdoor blocks any portals it sits on.</td></tr>
 </tbody>
 </table>
 
@@ -2007,6 +2112,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>auto_open</code></td><td colspan="3" align="center">true</td><td>Whether the trapdoor opens automatically when triggered.</td></tr>
+<tr><td><code>blocks_portal</code></td><td colspan="3" align="center">false</td><td>Whether the trapdoor blocks any portals it sits on.</td></tr>
 </tbody>
 </table>
 
@@ -2085,6 +2191,19 @@ This page lists documented moveable object properties.
 <tr><td><code>keep_simulated</code></td><td colspan="3" align="center">false</td><td>Simulate the item again once it becomes visible, so that it goes on rotating, glowing and showing its twinkle after a carrier drops it or a trigger brings it back.</td></tr>
 <tr><td><code>rotation</code></td><td colspan="3" align="center">0</td><td>How much to rotate the item by each frame while it's active, in engine angle units. Value range: minimum -16384; maximum 16384.</td></tr>
 <tr><td><code>glow_color</code></td><td colspan="3" align="center">(0, 0, 0)</td><td>The color of the item's glow while it's active. Black infers no glow.</td></tr>
+</tbody>
+</table>
+
+#### jeep
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>track_1</code></td><td colspan="3" align="center">-1 (MX_JEEP_THEME)</td><td>Random music track pool, slot 1. -1 = disabled. Value range: minimum -1.</td></tr>
+<tr><td><code>track_2</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 2. -1 = disabled.</td></tr>
+<tr><td><code>track_3</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 3. -1 = disabled.</td></tr>
+<tr><td><code>track_4</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 4. -1 = disabled.</td></tr>
+<tr><td><code>is_heavy</code></td><td colspan="3" align="center">true</td><td>Whether or not this vehicle can activate heavy triggers.</td></tr>
+<tr><td><code>requires_key</code></td><td colspan="3" align="center">true</td><td>Whether or not Lara needs a key in order to use the jeep.</td></tr>
 </tbody>
 </table>
 
@@ -2573,10 +2692,20 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (17)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>track_1</code></td><td colspan="2" align="center">-1 (MX_MINE_CART_THEME)</td><td align="center">12 (MX_MINE_CART_THEME)</td><td>Random music track pool, slot 1. -1 = disabled.</td></tr>
+<tr><td><code>track_1</code></td><td colspan="2" align="center">-1 (MX_MINE_CART_THEME)</td><td align="center">12 (MX_MINE_CART_THEME)</td><td>Random music track pool, slot 1. -1 = disabled. Value range: minimum -1.</td></tr>
 <tr><td><code>track_2</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 2. -1 = disabled.</td></tr>
 <tr><td><code>track_3</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 3. -1 = disabled.</td></tr>
 <tr><td><code>track_4</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 4. -1 = disabled.</td></tr>
+</tbody>
+</table>
+
+#### moving_floor
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>is_pressure_plate</code></td><td colspan="3" align="center">false</td><td>Whether the floor acts as a pressure plate, moving down when Lara is on top and back up when she leaves it.</td></tr>
+<tr><td><code>travel_distance</code></td><td colspan="3" align="center">16</td><td>The vertical distance the floor will travel, in half-clicks. Value range: minimum 1.</td></tr>
+<tr><td><code>speed</code></td><td colspan="3" align="center">4</td><td>The speed at which the floor moves, in world units. Value range: minimum 1; maximum 64.</td></tr>
 </tbody>
 </table>
 
@@ -2766,7 +2895,7 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (338)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>range</code></td><td colspan="3" align="center">((XYZ_32) { 1, 1, 1 })</td><td>Swim range, in quarter tiles. Value range: minimum 1 on each axis.</td></tr>
+<tr><td><code>range</code></td><td colspan="3" align="center">(XYZ_32) { 1, 1, 1 }</td><td>Swim range, in quarter tiles. Value range: minimum 1 on each axis.</td></tr>
 <tr><td><code>use_room_lighting</code></td><td colspan="2" align="center">true</td><td align="center">false</td><td>Whether the shoal uses the surrounding room lighting.</td></tr>
 </tbody>
 </table>
@@ -2874,6 +3003,15 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2 (132)</th><th align="center">TR3 (157)</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>max_hit_points</code></td><td colspan="3" align="center">1</td><td>Maximum hit points.</td></tr>
+</tbody>
+</table>
+
+#### poison_dart
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (90)</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>damage</code></td><td colspan="3" align="center">25</td><td>Damage dealt on hit.</td></tr>
+<tr><td><code>poison</code></td><td colspan="3" align="center">true</td><td>Apply poison buildup in addition to hit damage.</td></tr>
 </tbody>
 </table>
 
@@ -3445,7 +3583,7 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (16)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>track_1</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 1. -1 = disabled.</td></tr>
+<tr><td><code>track_1</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 1. -1 = disabled. Value range: minimum -1.</td></tr>
 <tr><td><code>track_2</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 2. -1 = disabled.</td></tr>
 <tr><td><code>track_3</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 3. -1 = disabled.</td></tr>
 <tr><td><code>track_4</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 4. -1 = disabled.</td></tr>
@@ -3532,6 +3670,22 @@ This page lists documented moveable object properties.
 </tbody>
 </table>
 
+#### raising_block_1
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>shake_camera</code></td><td colspan="3" align="center">false</td><td>Whether or not the camera should shake when the block is expanding or contracting.</td></tr>
+</tbody>
+</table>
+
+#### raising_block_2
+<table width="100%">
+<thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td><code>shake_camera</code></td><td colspan="3" align="center">false</td><td>Whether or not the camera should shake when the block is expanding or contracting.</td></tr>
+</tbody>
+</table>
+
 #### revolver_ammo_item
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3</th><th>Description</th></tr></thead>
@@ -3562,7 +3716,7 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (15)</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>track_1</code></td><td colspan="2" align="center">-1 (MX_RIB_THEME)</td><td align="center">12 (MX_RIB_THEME)</td><td>Random music track pool, slot 1. -1 = disabled.</td></tr>
+<tr><td><code>track_1</code></td><td colspan="2" align="center">-1 (MX_RIB_THEME)</td><td align="center">12 (MX_RIB_THEME)</td><td>Random music track pool, slot 1. -1 = disabled. Value range: minimum -1.</td></tr>
 <tr><td><code>track_2</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 2. -1 = disabled.</td></tr>
 <tr><td><code>track_3</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 3. -1 = disabled.</td></tr>
 <tr><td><code>track_4</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 4. -1 = disabled.</td></tr>
@@ -3731,7 +3885,7 @@ This page lists documented moveable object properties.
 <table width="100%">
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2 (13)</th><th align="center">TR3</th><th>Description</th></tr></thead>
 <tbody>
-<tr><td><code>track_1</code></td><td align="center">-1 (MX_SKIDOO_THEME)</td><td align="center">48 (MX_SKIDOO_THEME)</td><td align="center">-1 (MX_SKIDOO_THEME)</td><td>Random music track pool, slot 1. -1 = disabled.</td></tr>
+<tr><td><code>track_1</code></td><td align="center">-1 (MX_SKIDOO_THEME)</td><td align="center">48 (MX_SKIDOO_THEME)</td><td align="center">-1 (MX_SKIDOO_THEME)</td><td>Random music track pool, slot 1. -1 = disabled. Value range: minimum -1.</td></tr>
 <tr><td><code>track_2</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 2. -1 = disabled.</td></tr>
 <tr><td><code>track_3</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 3. -1 = disabled.</td></tr>
 <tr><td><code>track_4</code></td><td colspan="3" align="center">-1</td><td>Random music track pool, slot 4. -1 = disabled.</td></tr>
@@ -3827,6 +3981,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1 (65)</th><th align="center">TR2 (114)</th><th align="center">TR3 (139)</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>auto_open</code></td><td colspan="3" align="center">true</td><td>Whether the trapdoor opens automatically when triggered.</td></tr>
+<tr><td><code>blocks_portal</code></td><td colspan="3" align="center">false</td><td>Whether the trapdoor blocks any portals it sits on.</td></tr>
 </tbody>
 </table>
 
@@ -3835,6 +3990,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1 (66)</th><th align="center">TR2 (115)</th><th align="center">TR3 (140)</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>auto_open</code></td><td colspan="3" align="center">true</td><td>Whether the trapdoor opens automatically when triggered.</td></tr>
+<tr><td><code>blocks_portal</code></td><td colspan="3" align="center">false</td><td>Whether the trapdoor blocks any portals it sits on.</td></tr>
 </tbody>
 </table>
 
@@ -3843,6 +3999,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1 (67)</th><th align="center">TR2 (116)</th><th align="center">TR3 (141)</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>auto_open</code></td><td colspan="3" align="center">true</td><td>Whether the trapdoor opens automatically when triggered.</td></tr>
+<tr><td><code>blocks_portal</code></td><td colspan="3" align="center">false</td><td>Whether the trapdoor blocks any portals it sits on.</td></tr>
 </tbody>
 </table>
 
@@ -3851,7 +4008,7 @@ This page lists documented moveable object properties.
 <thead><tr><th>Property</th><th align="center">TR1</th><th align="center">TR2</th><th align="center">TR3 (339)</th><th>Description</th></tr></thead>
 <tbody>
 <tr><td><code>sprite_offset</code></td><td colspan="3" align="center">0</td><td>Texture offset in `O_TROPICAL_FISH_GFX`.</td></tr>
-<tr><td><code>range</code></td><td colspan="3" align="center">((XYZ_32) { 1, 1, 1 })</td><td>Swim range, in quarter tiles. Value range: minimum 1 on each axis.</td></tr>
+<tr><td><code>range</code></td><td colspan="3" align="center">(XYZ_32) { 1, 1, 1 }</td><td>Swim range, in quarter tiles. Value range: minimum 1 on each axis.</td></tr>
 <tr><td><code>use_room_lighting</code></td><td colspan="2" align="center">true</td><td align="center">false</td><td>Whether the shoal uses the surrounding room lighting.</td></tr>
 </tbody>
 </table>

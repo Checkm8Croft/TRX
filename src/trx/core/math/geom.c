@@ -111,6 +111,14 @@ XYZ_32 XYZ_32_From16(const XYZ_16 src)
     return (XYZ_32) { src.x, src.y, src.z };
 }
 
+BOUNDS_32 BOUNDS_32_From16(const BOUNDS_16 *const src)
+{
+    return (BOUNDS_32) {
+        .min = XYZ_32_From16(src->min),
+        .max = XYZ_32_From16(src->max),
+    };
+}
+
 XYZ_32 XYZ_32_Add(const XYZ_32 a, const XYZ_32 b)
 {
     return (XYZ_32) {
@@ -123,6 +131,24 @@ XYZ_32 XYZ_32_Add(const XYZ_32 a, const XYZ_32 b)
 XYZ_32 XYZ_32_Subtract(const XYZ_32 a, const XYZ_32 b)
 {
     return (XYZ_32) {
+        .x = a.x - b.x,
+        .y = a.y - b.y,
+        .z = a.z - b.z,
+    };
+}
+
+XYZ_16 XYZ_16_Add(const XYZ_16 a, const XYZ_16 b)
+{
+    return (XYZ_16) {
+        .x = a.x + b.x,
+        .y = a.y + b.y,
+        .z = a.z + b.z,
+    };
+}
+
+XYZ_16 XYZ_16_Subtract(const XYZ_16 a, const XYZ_16 b)
+{
+    return (XYZ_16) {
         .x = a.x - b.x,
         .y = a.y - b.y,
         .z = a.z - b.z,

@@ -1,34 +1,41 @@
 ---
 title: Console
-order: 24
+order: 25
 ---
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/console.lua. Edit it there.
+  src/lua/trx/console.lua. Edit it there.
 -->
 
 ## <a id="console" name="console"></a>Console module
 
 Module for interacting with the developer console.
 
-[`trx.console.log`](#console.log) writes to the console overlay in-game, where [`trx.log`](LOG.md#log) writes only to the terminal and the log file.
+[`trx.console.log`](#console.log) writes to the console overlay in-game, where [`trx.log`](LOG.md#log)
+writes only to the terminal and the log file.
+
+### Properties
+
+- <a id="console.is_open" name="console.is_open"></a>**`trx.console.is_open`** (boolean). Whether the console is open.
+  Assigning opens or closes it, as the key the player bound to it does.
 
 ### Enums
 
 - <a id="console.Result" name="console.Result"></a>[lua]`trx.console.Result`
 
-    How a console command went. What a command's [`trx.console.register.spec.run`](#console.register.spec.run) gives back.
+    How a console command went. What a command's [`trx.console.register.spec.run`](#console.register.spec.run)
+    gives back.
 
-    - `trx.console.Result.OK` = `0`  
+    - `trx.console.Result.OK`  
         It worked.
-    - `trx.console.Result.FAILURE` = `1`  
+    - `trx.console.Result.FAILURE`  
         It ran and could not do what was asked.
-    - `trx.console.Result.UNAVAILABLE` = `2`  
+    - `trx.console.Result.UNAVAILABLE`  
         It cannot run here - no level is loaded, or the game is in a menu.
-    - `trx.console.Result.BAD_INVOCATION` = `3`  
+    - `trx.console.Result.BAD_INVOCATION`  
         The player typed it wrong.
 
 ### Structures
@@ -45,7 +52,9 @@ Module for interacting with the developer console.
 ### Functions
 
 - <a id="console.log" name="console.log"></a>[lua]`trx.console.log(message)`  
-  Logs a line to the developer console. Calling the group itself logs at `INFO`. Takes any value: a table is pretty-printed, anything else coerced to a string.
+  Logs a line to the developer console. Calling the group itself logs at
+  `INFO`. Takes any value: a table is pretty-printed, anything else coerced to
+  a string.
 
   Parameters:
   - <a id="console.log.message" name="console.log.message"></a>**`message`** (any). Any value; a table is pretty-printed.
@@ -95,7 +104,9 @@ Module for interacting with the developer console.
 - <a id="console.eval" name="console.eval"></a>[lua]`trx.console.eval(command, [opts])`  
   Runs a developer console command. Raises if the command fails.
 
-  Output appears only in the terminal and the log file by default. Pass `{ verbose = true }` to show it in the console, or `{ capture = true }` to return the logged text.
+  Output appears only in the terminal and the log file by default. Pass `{
+  verbose = true }` to show it in the console, or `{ capture = true }` to
+  return the logged text.
 
   Parameters:
   - <a id="console.eval.command" name="console.eval.command"></a>**`command`** (string). Command to run, as the player would type it.
@@ -115,6 +126,8 @@ Module for interacting with the developer console.
 - <a id="console.copy" name="console.copy"></a>[lua]`trx.console.copy(text)`  
   Puts text in the system clipboard. Raises if the platform refuses it.
 
+  Assigning [`trx.ui.clipboard`](UI.md#ui.clipboard) does the same thing.
+
   Parameters:
   - <a id="console.copy.text" name="console.copy.text"></a>**`text`** (string). What to put in the clipboard.
 
@@ -124,7 +137,8 @@ Module for interacting with the developer console.
   ```
 
 - <a id="console.complete" name="console.complete"></a>[lua]`trx.console.complete(line, caret)`  
-  Completes a console line with the same suggestions as the prompt. Use it when a Lua command wraps another console command.
+  Completes a console line with the same suggestions as the prompt. Use it
+  when a Lua command wraps another console command.
 
   Parameters:
   - <a id="console.complete.line" name="console.complete.line"></a>**`line`** (string). The line so far, without the key that opens the console.
@@ -135,16 +149,47 @@ Module for interacting with the developer console.
   - integer. Where the run they replace starts.
   - integer. Where that run ends.
 
+- <a id="console.history" name="console.history"></a>[lua]`trx.console.history()`  
+  The lines the player has entered, oldest first.
+
+  The list is a copy, so changing it changes nothing. Use
+  [`trx.console.remember`](#console.remember) to add to it.
+
+  Returns: a list of string. The lines entered so far.
+
+- <a id="console.remember" name="console.remember"></a>[lua]`trx.console.remember(line)`  
+  Adds a line to what the player has entered.
+
+  The console does this for every line the player runs, so a script needs it
+  only where it takes lines of its own.
+
+  Parameters:
+  - <a id="console.remember.line" name="console.remember.line"></a>**`line`** (string). The line to remember.
+
 - <a id="console.register" name="console.register"></a>[lua]`trx.console.register(spec)`  
   Registers a console command written in Lua.
 
-  Every command has a [`trx.argparse`](ARGPARSE.md#argparse) parser. [`spec.args`](#console.register.spec.args) is an optional function that shapes it - it receives the parser and declares the arguments the command takes. A command that omits [`spec.args`](#console.register.spec.args) takes none, and reports so when handed one. The console completes the arguments from the parser, and answers `-h`/`--help` from it.
+  Every command has a [`trx.argparse`](ARGPARSE.md#argparse) parser. [`spec.args`](#console.register.spec.args)
+  is an optional function that shapes it - it receives the parser and declares
+  the arguments the command takes. A command that omits
+  [`spec.args`](#console.register.spec.args) takes none, and reports so when handed one.
+  The console completes the arguments from the parser, and answers
+  `-h`/`--help` from it.
 
-  [`spec.run`](#console.register.spec.run) receives the parsed values, a table keyed by argument name. What it gives back is a [`trx.console.Result`](#console.Result), and returning nothing means `OK`. It may return a message after that, which is logged to the console - as an error, for any result but `OK`. A line the parser rejects is reported with what it expected, without reaching [`spec.run`](#console.register.spec.run).
+  [`spec.run`](#console.register.spec.run) receives the parsed values, a table keyed by
+  argument name. What it gives back is a [`trx.console.Result`](#console.Result), and returning
+  nothing means `OK`. It may return a message after that, which is logged to
+  the console - as an error, for any result but `OK`. A line the parser
+  rejects is reported with what it expected, without reaching
+  [`spec.run`](#console.register.spec.run).
 
-  The console completes arguments from the parser by default. [`spec.complete`](#console.register.spec.complete) replaces that behavior, so a command that wraps [`trx.console.eval`](#console.eval) can answer from [`trx.console.complete`](#console.complete).
+  The console completes arguments from the parser by default.
+  [`spec.complete`](#console.register.spec.complete) replaces that behavior, so a command
+  that wraps [`trx.console.eval`](#console.eval) can answer from [`trx.console.complete`](#console.complete).
 
-  A command lives for the whole run, so it can only be registered from a global script. A level script raises if it calls this: it runs again every time its level is loaded.
+  A command lives for the whole run, so it can only be registered from a
+  global script. A level script raises if it calls this: it runs again every
+  time its level is loaded.
 
   Parameters:
   - <a id="console.register.spec" name="console.register.spec"></a>**`spec`** (table). The command.
@@ -175,12 +220,14 @@ Module for interacting with the developer console.
   Clears the console.
 
 - <a id="console.commands" name="console.commands"></a>[lua]`trx.console.commands()`  
-  Every registered console command, in registration order. The help command is built on this.
+  Every registered console command, in registration order. The help command is
+  built on this.
 
   Returns: a list of [trx.console.Command](#console.Command).
 
 - <a id="console.command" name="console.command"></a>[lua]`trx.console.command(name)`  
-  The command a name reaches, by its own name or an alias, matched as the console matches when it dispatches.
+  The command a name reaches, by its own name or an alias, matched as the
+  console matches when it dispatches.
 
   Parameters:
   - <a id="console.command.name" name="console.command.name"></a>**`name`** (string). The word or alias to look up.

@@ -29,6 +29,7 @@ void Lara_Col_Register(
 void Lara_Col_Update(ITEM *item, COLL_INFO *coll);
 void Lara_Col_GetInfo(const ITEM *item, COLL_INFO *coll);
 void Lara_Col_Shift(COLL_INFO *coll);
+void Lara_Col_AlignToFloor(ITEM *item, const COLL_INFO *coll);
 bool Lara_Col_TestVault(ITEM *item, COLL_INFO *coll);
 bool Lara_Col_TestSlide(ITEM *item, COLL_INFO *coll);
 bool Lara_Col_TestLadderHang(ITEM *item, const COLL_INFO *coll);
@@ -44,10 +45,13 @@ LANDED_STATE Lara_Col_LandedBad(ITEM *item);
 void Lara_Col_MonkeySwingSnap(ITEM *item);
 bool Lara_Col_HangTest(ITEM *item, COLL_INFO *coll);
 bool Lara_Col_IsCornerShimmyActive(void);
-void Lara_Col_Push(
+bool Lara_Col_Push(
     const COLL_ITEM *item, COLL_INFO *coll, bool hit_on, bool big_push);
-void Lara_Col_ItemPush(
+bool Lara_Col_ItemPush(
     const ITEM *item, COLL_INFO *coll, bool hit_on, bool big_push);
-void Lara_Col_Static3DPush(const STATIC_MESH *mesh, COLL_INFO *coll);
+bool Lara_Col_ItemPushEx(
+    const ITEM *item, COLL_INFO *coll, bool hit_on, bool big_push,
+    const BOUNDS_16 *bounds);
+bool Lara_Col_Static3DPush(const STATIC_MESH *mesh, COLL_INFO *coll);
 void Lara_Col_WadeSplash(ITEM *item);
 void Lara_Col_CrawlTilt(ITEM *item);

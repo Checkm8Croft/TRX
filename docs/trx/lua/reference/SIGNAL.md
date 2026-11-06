@@ -1,13 +1,13 @@
 ---
 title: Signals
-order: 39
+order: 40
 ---
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/signal.lua. Edit it there.
+  src/lua/trx/signal.lua. Edit it there.
 -->
 
 ## <a id="signal" name="signal"></a>Signals module
@@ -15,34 +15,45 @@ order: 39
 A value that can notify listeners when it changes.
 
 A signal lets a script react to changes without polling every frame. You can
-read the current value, listen for changes, and combine signals with `&`, `|`
-and `~`.
+read the current value, listen for changes, and combine signals with `&`,
+`|` and `~`.
 
-Setting a signal to its current value does nothing: listeners do not run, and
-signals derived from it do not update. This keeps combined signals cheap to
-listen to. A combined signal fires only when its own result changes, not every
-time one of its inputs changes.
+Setting a signal to its current value does nothing: listeners do not run,
+and signals derived from it do not update. This keeps combined signals cheap
+to listen to. A combined signal fires only when its own result changes, not
+every time one of its inputs changes.
 
-A derived signal is read like any other signal, so one expression can provide
-both the current result and change notifications.
+A derived signal is read like any other signal, so one expression can
+provide both the current result and change notifications.
 
 Signals should carry numbers, strings or booleans, not handles. Handles are
 created fresh on each read, so two reads of the same handle do not compare
 equal and would make the signal report a change every frame. When a signal
-represents an engine-owned object, it carries the object's numeric id; listeners
-can then read the handle when they need it.
+represents an engine-owned object, it carries the object's numeric id;
+listeners can then read the handle when they need it.
 
-Signals stay idle until something uses them: a polled signal starts reading only
-when it is created.
+Signals stay idle until something uses them: a polled signal starts reading
+only when it is created.
+
+What a script makes lasts as follows:
+
+- A signal that a level script derives, with [`trx.signal.Signal:map`](#signal.Signal.map),
+ [`trx.signal.combine`](#signal.combine), an operator or [`trx.signal.polled`](#signal.polled), stops when the
+ level ends. One that a global script derives follows its sources while
+ something holds it or listens to it, or until [`trx.signal.Signal:stop`](#signal.Signal.stop).
+- An event handler follows the script that attached it, as [`trx.events`](EVENTS.md#events)
+ says.
+- A listener from [`trx.signal.Signal:on`](#signal.Signal.on) stays attached until
+ [`trx.signal.Listener:detach`](#signal.Listener.detach), whichever script attached it.
+- The engine's own signals, such as [`trx.game.signals`](GAME.md#game.signals), last the session.
 
 ### Properties
 
-- <a id="signal.tick" name="signal.tick"></a>**`trx.signal.tick`** ([trx.signal.Signal](#signal.Signal)). A signal that increments on every engine tick, regardless of what is on screen.
-  Anything listening to it runs every tick.
-
-  Use this when a script needs to poll state that has no dedicated signal, such as
-  Lara's current position. A dedicated signal is cheaper when one exists, because
-  this one wakes listeners even when the state they care about has not changed. *(read-only)*
+- <a id="signal.tick" name="signal.tick"></a>**`trx.signal.tick`** ([trx.signal.Signal](#signal.Signal)). A signal that increments on every engine tick, regardless of what is on screen. Anything listening to it runs every tick.
+  Use this when a script needs to poll state that has no dedicated signal,
+  such as Lara's current position. A dedicated signal is cheaper when one
+  exists, because this one wakes listeners even when the state they care
+  about has not changed. *(read-only)*
 
 ### Structures
 
@@ -56,14 +67,6 @@ when it is created.
     - **`signal | signal`**. Either signal is true. Fires when the result changes.
 
     Methods:
-
-    - <a id="signal.Signal.above" name="signal.Signal.above"></a>[lua]`signal:above(amount)`  
-      Whether the signal holds more than this number.
-
-      Parameters:
-      - <a id="signal.Signal.above.amount" name="signal.Signal.above.amount"></a>**`amount`** (number). What to compare against.
-
-      Returns: [trx.signal.Signal](#signal.Signal). The derived signal.
 
     - <a id="signal.Signal.eq" name="signal.Signal.eq"></a>[lua]`signal:eq(value)`  
       Whether the signal holds this value.
@@ -81,8 +84,8 @@ when it is created.
     - <a id="signal.Signal.map" name="signal.Signal.map"></a>[lua]`signal:map(fn)`  
       Creates a signal by applying a function to this signal's value.
 
-      Use this for derived values that are not simple boolean combinations, such as a
-      bar fill amount or resolved key text.
+      Use this for derived values that are not simple boolean combinations, such
+      as a bar fill amount or resolved key text.
 
       Parameters:
       - <a id="signal.Signal.map.fn" name="signal.Signal.map.fn"></a>**`fn`** (function). The function that computes the derived value.
@@ -92,7 +95,15 @@ when it is created.
       Returns: [trx.signal.Signal](#signal.Signal). The derived signal.
 
     - <a id="signal.Signal.on" name="signal.Signal.on"></a>[lua]`signal:on(fn)`  
-      Calls the handler with the new value whenever the signal changes. Attaching a listener does not call it immediately; read the signal directly when you need its current value.
+      Calls the handler with the new value whenever the signal changes. Attaching
+      a listener does not call it immediately; read the signal directly when you
+      need its current value.
+
+      The listener stays attached until [`trx.signal.Listener:detach`](#signal.Listener.detach), even when a
+      level script attaches it, so that it can follow an engine signal past the
+      level. A level script that needs the value for its own level only can
+      derive a signal instead, which stops with the level, or detach the listener
+      in [`trx.events.on_level_unload`](EVENTS.md#events.on_level_unload).
 
       Parameters:
       - <a id="signal.Signal.on.fn" name="signal.Signal.on.fn"></a>**`fn`** (function). The function to call when the signal changes.
@@ -102,7 +113,8 @@ when it is created.
       Returns: [trx.signal.Listener](#signal.Listener). The listener handle used to detach later.
 
     - <a id="signal.Signal.set" name="signal.Signal.set"></a>[lua]`signal:set(value)`  
-      Sets the signal's value. Setting the current value again does nothing, so repeated writes are cheap.
+      Sets the signal's value. Setting the current value again does nothing, so
+      repeated writes are cheap.
 
       Parameters:
       - <a id="signal.Signal.set.value" name="signal.Signal.set.value"></a>**`value`** (any). The new value.
@@ -110,7 +122,9 @@ when it is created.
       Returns: boolean. Whether the value changed and listeners ran.
 
     - <a id="signal.Signal.stop" name="signal.Signal.stop"></a>[lua]`signal:stop()`  
-      Stops a derived signal from following its sources. It keeps its last value and will not update again. Signals made by level scripts stop when the level ends; global scripts can call this to stop one earlier.
+      Stops a derived signal from following its sources. It keeps its last value
+      and will not update again. Signals made by level scripts stop when the level
+      ends; global scripts can call this to stop one earlier.
 
       Returns: boolean. Whether the signal was still following any sources.
 
@@ -128,38 +142,59 @@ when it is created.
 ### Functions
 
 - <a id="signal.polled" name="signal.polled"></a>[lua]`trx.signal.polled(read)`  
-  Creates a signal by reading a value once per tick and notifying listeners only
-  when that value changes.
+  Creates a signal by reading a value once per tick and notifying listeners
+  only when that value changes.
 
-  Use this for state that has no dedicated engine signal. The read function runs
-  every tick, but listeners run only on changes, so several listeners on one
-  polled signal share one read.
+  Use this for state that has no dedicated engine signal. The read function
+  runs every tick, but listeners run only on changes, so several listeners on
+  one polled signal share one read.
 
   Parameters:
   - <a id="signal.polled.read" name="signal.polled.read"></a>**`read`** (function). The function to read each tick. Tables compare by identity, so returning a fresh table every tick reports a change every tick.
 
   Returns: [trx.signal.Signal](#signal.Signal). The polled signal.
 
+- <a id="signal.polled_while" name="signal.polled_while"></a>[lua]`trx.signal.polled_while(shown, read, idle)`  
+  Creates a signal that reads a value once per tick while another signal is
+  true, and holds a fixed value while it is not.
+
+  Use this for state that has no dedicated engine signal and matters only
+  while something shows it, such as a readout that the player can turn off. A
+  reader that is off costs nothing per tick.
+
+  Parameters:
+  - <a id="signal.polled_while.shown" name="signal.polled_while.shown"></a>**`shown`** ([trx.signal.Signal](#signal.Signal)). Whether to read.
+  - <a id="signal.polled_while.read" name="signal.polled_while.read"></a>**`read`** (function). The function to read each tick while the first signal is true.
+  - <a id="signal.polled_while.idle" name="signal.polled_while.idle"></a>**`idle`** (any). The value to hold while the first signal is false.
+
+  Returns: [trx.signal.Signal](#signal.Signal). The signal.
+
+  Example:
+  ```lua
+  local shown = trx.signal.config("ui.enable_fps_counter")
+  local fps = trx.signal.polled_while(shown, trx.game.get_fps, 0)
+  ```
+
 - <a id="signal.config" name="signal.config"></a>[lua]`trx.signal.config(key)`  
   Returns a signal for a config setting.
 
-  The signal holds the setting's current value and updates whenever the player or
-  a script changes it. Asking for the same setting twice returns the same signal.
+  The signal holds the setting's current value and updates whenever the player
+  or a script changes it. Asking for the same setting twice returns the same
+  signal.
 
   Parameters:
   - <a id="signal.config.key" name="signal.config.key"></a>**`key`** (string). Dotted setting path, as accepted by [`trx.config.get`](CONFIG.md#config.get).
 
   Returns: [trx.signal.Signal](#signal.Signal). The setting's signal.
 
-- <a id="signal.combine" name="signal.combine"></a>[lua]`trx.signal.combine(..., fn)`  
+- <a id="signal.combine" name="signal.combine"></a>[lua]`trx.signal.combine(...)`  
   Creates a signal by applying a function to several source signals.
 
   Pass the signals first and the function last. [`trx.signal.Signal:map`](#signal.Signal.map) is the
   one-signal version. For boolean combinations, `&`, `|` and `~` are shorter.
 
   Parameters:
-  - <a id="signal.combine...." name="signal.combine...."></a>**`...`** ([trx.signal.Signal](#signal.Signal)). The signals to read, in the order the function takes them.
-  - <a id="signal.combine.fn" name="signal.combine.fn"></a>**`fn`** (function). The function that computes the derived value.
+  - <a id="signal.combine...." name="signal.combine...."></a>**`...`** ([trx.signal.Signal](#signal.Signal) or function). The signals to read, in the order the function takes them, then the function that computes the derived value.
 
   Returns: [trx.signal.Signal](#signal.Signal). The derived signal.
 
@@ -174,10 +209,10 @@ when it is created.
   )
   ```
 
-- <a id="signal.new" name="signal.new"></a>[lua]`trx.signal.new(value)`  
+- <a id="signal.new" name="signal.new"></a>[lua]`trx.signal.new([value])`  
   Creates a script-owned signal with an initial value.
 
   Parameters:
-  - <a id="signal.new.value" name="signal.new.value"></a>**`value`** (any). The initial value.
+  - <a id="signal.new.value" name="signal.new.value"></a>**`value`** (any, optional). The initial value.
 
   Returns: [trx.signal.Signal](#signal.Signal). The new signal.

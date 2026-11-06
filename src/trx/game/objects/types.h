@@ -38,6 +38,9 @@ typedef struct {
 
     float depth_adjustment;
     bool enable_reflections;
+    // Excludes the mesh from reflections, even when the mesh or its faces are
+    // reflective.
+    bool suppress_reflections;
     bool enable_caustics;
     // Draws every face in solid_color, texture and all.
     bool enable_solid_color;
@@ -51,6 +54,15 @@ typedef struct {
     } shift, rot;
     bool ignore_rot;
 } OBJECT_BOUNDS;
+
+// What a vehicle shows on its dashboard: how fast it goes, the speed its
+// dial marks red from, the most its dial shows, and whether it is in reverse.
+typedef struct {
+    int32_t speed;
+    int32_t top_speed;
+    int32_t turbo_speed;
+    bool reverse;
+} VEHICLE_DASHBOARD;
 
 typedef struct JSON_READ_IO JSON_READ_IO;
 typedef struct JSON_WRITE_IO JSON_WRITE_IO;
@@ -73,18 +85,23 @@ typedef struct OBJECT {
 
     void (*control_func)(int16_t item_num);
     bool (*draw_func)(const ITEM *item);
+    bool (*can_clip_func)(void);
 
     // Effects are counted in their own pool and drawn from their own struct,
     // so neither of these can be the item's: the number a control takes would
-    // name another item, and the default draw is Object_DrawAnimatingItem,
+    // name another item, and the default draw is Item_DrawAnimating,
     // which takes an ITEM.
+    void (*effect_initialise_func)(int16_t effect_num);
     void (*effect_control_func)(int16_t effect_num);
     bool (*effect_draw_func)(const EFFECT *effect);
 
     void (*collision_func)(int16_t item_num, ITEM *lara_item, COLL_INFO *coll);
-    int32_t (*floor_height_func)(const ITEM *item, XYZ_32 pos, int32_t height);
+    int32_t (*floor_height_func)(
+        const ITEM *item, XYZ_32 pos, int32_t height,
+        const ROOM_HEIGHT_CTX *ctx);
     int32_t (*ceiling_height_func)(
-        const ITEM *item, XYZ_32 pos, int32_t height);
+        const ITEM *item, XYZ_32 pos, int32_t height,
+        const ROOM_HEIGHT_CTX *ctx);
     // Whether the item bars the way from one place to another, for an item
     // that stands between sectors rather than filling one - a pane of glass, a
     // grate. The floor data has no way to say so, since it speaks of whole
@@ -105,6 +122,8 @@ typedef struct OBJECT {
     void (*handle_save_func)(ITEM *item, SAVEGAME_STAGE stage);
     RESULT (*priv_load_func)(ITEM *item, JSON_READ_IO *io);
     void (*priv_save_func)(const ITEM *item, JSON_WRITE_IO *io);
+    RESULT (*effect_priv_load_func)(EFFECT *effect, JSON_READ_IO *io);
+    void (*effect_priv_save_func)(const EFFECT *effect, JSON_WRITE_IO *io);
     const OBJECT_BOUNDS *(*bounds_func)(void);
     bool (*is_usable_func)(int16_t item_num);
     void (*add_walkable_func)(int16_t item_num);
@@ -112,13 +131,15 @@ typedef struct OBJECT {
     bool (*can_drop_items_func)(const ITEM *item);
     bool (*can_interpolate_func)(
         const ITEM *item, int32_t frame_a, int32_t frame_b);
-    bool (*should_spawn_blood_func)(const ITEM *item);
+    ITEM_HIT_EFFECT (*get_hit_effect_func)(const ITEM *item);
     bool (*is_alive_func)(const ITEM *item);
     bool (*is_targetable_func)(const ITEM *item);
     bool (*can_take_damage_func)(const ITEM *item);
     bool (*can_be_projectile_target_func)(const ITEM *item);
     bool (*can_be_exploded_func)(const ITEM *item);
     int32_t (*get_mesh_index_func)(const ITEM *item, int32_t mesh_idx);
+    // Reads the dashboard of a vehicle that has one.
+    void (*dashboard_func)(const ITEM *item, VEHICLE_DASHBOARD *out);
 
     int16_t anim_idx;
     int16_t anim_count;
@@ -156,6 +177,10 @@ typedef struct {
     int16_t mesh_idx;
     bool collidable;
     bool visible;
+    struct {
+        bool by_impact;
+        bool by_shot;
+    } shatter;
     BOUNDS_16 draw_bounds;
     BOUNDS_16 collision_bounds;
 } STATIC_OBJECT_3D;

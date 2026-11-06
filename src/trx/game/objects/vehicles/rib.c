@@ -651,7 +651,8 @@ static void M_TriggerMist(
     const XYZ_32 pos, const int32_t speed, const int16_t angle,
     const int32_t snow)
 {
-    SPARK *const spark = Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION);
+    SPARK *const spark = Sparks_InitialiseSpriteSpark(
+        SPARK_TYPE_EXPLOSION, SPARK_CONTEXT_WATER_MIST);
     if (spark == nullptr) {
         return;
     }
@@ -942,8 +943,8 @@ static void M_Control(const int16_t item_num)
 
     const int16_t x_rot = Math_Atan(M_FRONT, item->pos.y - height);
     const int16_t z_rot = Math_Atan(M_SIDE, height - fl.y);
-    item->rot.x += (x_rot - item->rot.x) / 2;
-    item->rot.z += (z_rot - item->rot.z) / 2;
+    item->rot.x += (x_rot - item->rot.x) >> 1;
+    item->rot.z += (z_rot - item->rot.z) >> 1;
 
     if (x_rot == 0 && ABS(item->rot.x) < 4) {
         item->rot.x = 0;
@@ -1042,7 +1043,7 @@ static void M_Control(const int16_t item_num)
 
 static bool M_Draw(const ITEM *const item)
 {
-    Object_DrawAnimatingItem(item);
+    Item_DrawAnimating(item);
     FX_Wake_Draw(item);
     return true;
 }
@@ -1072,7 +1073,8 @@ static void M_Setup(OBJECT *const obj)
         obj,
         OBJECT_PROPERTY_STORED(
             "track_1", Music_IDToSlot(MX_RIB_THEME),
-            "Random music track pool, slot 1. -1 = disabled."),
+            "Random music track pool, slot 1. -1 = disabled. Value range: "
+            "minimum -1."),
         OBJECT_PROPERTY_STORED(
             "track_2", -1, "Random music track pool, slot 2. -1 = disabled."),
         OBJECT_PROPERTY_STORED(

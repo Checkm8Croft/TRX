@@ -16,6 +16,7 @@
 #include <trx/game/lua/events.h>
 #include <trx/game/music/enum.h>
 #include <trx/game/music/ids.h>
+#include <trx/game/objects/general/earthquake.h>
 #include <trx/game/objects/general/generic_switch.h>
 #include <trx/game/objects/general/pickup.h>
 #include <trx/game/objects/general/waterfall.h>
@@ -30,10 +31,11 @@
 #include <trx/game/shell/mod.h>
 #include <trx/game/sound/ids.h>
 #include <trx/game/sparks/enum.h>
-#include <trx/game/ui/elements/frame.h>
-#include <trx/game/ui/elements/stack.h>
+#include <trx/game/ui/common.h>
+#include <trx/game/ui/menu.h>
 #include <trx/game/ui/regions.h>
-#include <trx/game/ui/settings.h>
+#include <trx/game/ui/takeover.h>
+#include <trx/game/ui/tween.h>
 
 static __attribute__((constructor)) void M_Init(void)
 {
@@ -46,6 +48,10 @@ static __attribute__((constructor)) void M_Init(void)
     // as, so this only reads what an older settings file holds.
     ENUM_MAP(
         INPUT_ROLE, INPUT_ROLE_CYCLE_LIGHTING_MODEL, "cycle_lighting_contrast");
+
+    ENUM_MAP(INPUT_SKIP_CONTEXT, INPUT_SKIP_TO_SCREEN, "to_screen");
+    ENUM_MAP(INPUT_SKIP_CONTEXT, INPUT_SKIP_TO_GAME, "to_game");
+    ENUM_MAP(INPUT_SKIP_CONTEXT, INPUT_SKIP_IN_GAME, "in_game");
 
     ENUM_MAP(CATALOG_CONTEXT, CATALOG_OBJECTS, "objects");
     ENUM_MAP(CATALOG_CONTEXT, CATALOG_MUSIC, "music");
@@ -80,6 +86,7 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(GAME_BUFFER, GBUF_ITEMS, "Items");
     ENUM_MAP(GAME_BUFFER, GBUF_ITEM_DATA, "Item data");
     ENUM_MAP(GAME_BUFFER, GBUF_EFFECTS, "Effects");
+    ENUM_MAP(GAME_BUFFER, GBUF_EFFECT_DATA, "Effect data");
     ENUM_MAP(GAME_BUFFER, GBUF_CAMERAS, "Cameras");
     ENUM_MAP(GAME_BUFFER, GBUF_SOUND_SOURCES, "Sound sources");
     ENUM_MAP(GAME_BUFFER, GBUF_BOXES, "Boxes");
@@ -115,36 +122,12 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(PHOTO_MODE, PHOTO_MODE_CAMERA, "camera");
     ENUM_MAP(PHOTO_MODE, PHOTO_MODE_LARA_POS, "lara");
 
-    ENUM_MAP(UI_FRAME_STYLE, UI_FRAME_DIALOG_BACKGROUND, "dialog");
-    ENUM_MAP(UI_FRAME_STYLE, UI_FRAME_DIALOG_BACKGROUND_HEAVY, "dialog_heavy");
-    ENUM_MAP(UI_FRAME_STYLE, UI_FRAME_DIALOG_HEADING, "heading");
-    ENUM_MAP(UI_FRAME_STYLE, UI_FRAME_SELECTED_OPTION, "selected");
-    ENUM_MAP(UI_FRAME_STYLE, UI_FRAME_OUTLINE_ONLY, "outline");
+    ENUM_MAP(TEXT_STYLE, TS_HEADING, "heading");
+    ENUM_MAP(TEXT_STYLE, TS_BACKGROUND, "background");
+    ENUM_MAP(TEXT_STYLE, TS_BACKGROUND_HEAVY, "background_heavy");
+    ENUM_MAP(TEXT_STYLE, TS_REQUESTED, "requested");
 
     // LUA_EVENT_NUMBER_OF is a sentinel, not an event.
-    ENUM_MAP(UI_STACK_ORIENTATION, UI_STACK_VERTICAL, "vertical");
-    ENUM_MAP(UI_STACK_ORIENTATION, UI_STACK_HORIZONTAL, "horizontal");
-
-    ENUM_MAP(UI_STACK_H_ALIGN, UI_STACK_H_ALIGN_LEFT, "left");
-    ENUM_MAP(UI_STACK_H_ALIGN, UI_STACK_H_ALIGN_CENTER, "center");
-    ENUM_MAP(UI_STACK_H_ALIGN, UI_STACK_H_ALIGN_RIGHT, "right");
-    ENUM_MAP(UI_STACK_H_ALIGN, UI_STACK_H_ALIGN_SPAN, "span");
-    ENUM_MAP(UI_STACK_H_ALIGN, UI_STACK_H_ALIGN_DISTRIBUTE, "distribute");
-
-    ENUM_MAP(UI_STACK_V_ALIGN, UI_STACK_V_ALIGN_TOP, "top");
-    ENUM_MAP(UI_STACK_V_ALIGN, UI_STACK_V_ALIGN_CENTER, "center");
-    ENUM_MAP(UI_STACK_V_ALIGN, UI_STACK_V_ALIGN_BOTTOM, "bottom");
-    ENUM_MAP(UI_STACK_V_ALIGN, UI_STACK_V_ALIGN_SPAN, "span");
-    ENUM_MAP(UI_STACK_V_ALIGN, UI_STACK_V_ALIGN_DISTRIBUTE, "distribute");
-
-    ENUM_MAP(UI_FRAME_STYLE, UI_FRAME_DIALOG_BACKGROUND, "dialog_background");
-    ENUM_MAP(
-        UI_FRAME_STYLE, UI_FRAME_DIALOG_BACKGROUND_HEAVY,
-        "dialog_background_heavy");
-    ENUM_MAP(UI_FRAME_STYLE, UI_FRAME_DIALOG_HEADING, "dialog_heading");
-    ENUM_MAP(UI_FRAME_STYLE, UI_FRAME_SELECTED_OPTION, "selected_option");
-    ENUM_MAP(UI_FRAME_STYLE, UI_FRAME_OUTLINE_ONLY, "outline_only");
-
     ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_GAME_START, "game_start");
     ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_TITLE_START, "title_start");
     ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_PICKUP, "pickup");
@@ -171,9 +154,60 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_CUTSCENE_FRAME, "cutscene_frame");
     ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_CUTSCENE_END, "cutscene_end");
     ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_LEVEL_UNLOAD, "level_unload");
-    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_UI_DRAW, "ui_draw");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_UI_RESERVE, "ui_reserve");
     ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_UI_PAINT, "ui_paint");
     ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_TICK, "tick");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_KEY_DOWN, "key_down");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_KEY_UP, "key_up");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_KEY_REPEAT, "key_repeat");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_BUTTON_DOWN, "button_down");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_BUTTON_UP, "button_up");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_TEXT_INPUT, "text_input");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_CONSOLE_LOG, "console_log");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_CONSOLE_CLEAR, "console_clear");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_CONSOLE_OPEN, "console_open");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_CONSOLE_CLOSE, "console_close");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_SHOW_PICKUP, "show_pickup");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_SCENE_PAINT, "scene_paint");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_UI_PAINT_CONSOLE, "ui_paint_console");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_UI_PAINT_BACKDROP, "ui_paint_backdrop");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_UI_PAINT_FADE, "ui_paint_fade");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_UI_PAINT_EXIT, "ui_paint_exit");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_EXIT, "exit");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_STARTUP, "startup");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_UI_LAYOUT, "ui_layout");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_SCREEN_CHANGE, "screen_change");
+    ENUM_MAP(LUA_EVENT_TYPE, LUA_EVENT_STRINGS_CHANGE, "strings_change");
+
+    ENUM_MAP(INVENTORY_MODE, INV_GAME_MODE, "game");
+    ENUM_MAP(INVENTORY_MODE, INV_TITLE_MODE, "title");
+    ENUM_MAP(INVENTORY_MODE, INV_KEYS_MODE, "keys");
+    ENUM_MAP(INVENTORY_MODE, INV_SAVE_MODE, "save");
+    ENUM_MAP(INVENTORY_MODE, INV_LOAD_MODE, "load");
+    ENUM_MAP(INVENTORY_MODE, INV_DEATH_MODE, "death");
+    ENUM_MAP(INVENTORY_MODE, INV_SAVE_CRYSTAL_MODE, "save_crystal");
+
+    ENUM_MAP(UI_EASE, UI_EASE_LINEAR, "linear");
+    ENUM_MAP(UI_EASE, UI_EASE_QUAD_IN, "quad_in");
+    ENUM_MAP(UI_EASE, UI_EASE_QUAD_OUT, "quad_out");
+    ENUM_MAP(UI_EASE, UI_EASE_QUAD_IN_OUT, "quad_in_out");
+
+    ENUM_MAP(UI_TAKEOVER, UI_TAKEOVER_RING_ENTRY, "ring_entry");
+    ENUM_MAP(UI_TAKEOVER, UI_TAKEOVER_PAUSE, "pause");
+    ENUM_MAP(UI_TAKEOVER, UI_TAKEOVER_SAVE_LOAD, "save_load");
+    ENUM_MAP(UI_TAKEOVER, UI_TAKEOVER_STATS, "stats");
+    ENUM_MAP(UI_TAKEOVER, UI_TAKEOVER_EXAMINE, "examine");
+    ENUM_MAP(UI_TAKEOVER, UI_TAKEOVER_COMBINE, "combine");
+    ENUM_MAP(UI_TAKEOVER, UI_TAKEOVER_GLOBE_SELECT, "globe_select");
+    ENUM_MAP(UI_TAKEOVER, UI_TAKEOVER_LEVEL_VIEW, "level_view");
+    ENUM_MAP(UI_TAKEOVER, UI_TAKEOVER_PICTURE, "picture");
+    ENUM_MAP(UI_TAKEOVER, UI_TAKEOVER_MENU, "menu");
+
+    ENUM_MAP(UI_TAKEOVER_CHOICE, UI_TAKEOVER_CHOICE_CANCEL, "cancel");
+    ENUM_MAP(UI_TAKEOVER_CHOICE, UI_TAKEOVER_CHOICE_CONFIRM, "confirm");
+    ENUM_MAP(UI_TAKEOVER_CHOICE, UI_TAKEOVER_CHOICE_RESUME, "resume");
+    ENUM_MAP(
+        UI_TAKEOVER_CHOICE, UI_TAKEOVER_CHOICE_EXIT_TO_TITLE, "exit_to_title");
 
     ENUM_MAP(UI_REGION, UI_REGION_TOP_LEFT, "top-left");
     ENUM_MAP(UI_REGION, UI_REGION_TOP_CENTER, "top-center");
@@ -184,6 +218,11 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(UI_REGION, UI_REGION_BOTTOM_LEFT, "bottom-left");
     ENUM_MAP(UI_REGION, UI_REGION_BOTTOM_CENTER, "bottom-center");
     ENUM_MAP(UI_REGION, UI_REGION_BOTTOM_RIGHT, "bottom-right");
+
+    ENUM_MAP(EARTHQUAKE_MODE, EARTHQUAKE_MODE_RANDOM_1, "random_1");
+    ENUM_MAP(EARTHQUAKE_MODE, EARTHQUAKE_MODE_RANDOM_2, "random_2");
+    ENUM_MAP(EARTHQUAKE_MODE, EARTHQUAKE_MODE_RAMPED, "ramped");
+    ENUM_MAP(EARTHQUAKE_MODE, EARTHQUAKE_MODE_BASIC, "basic");
 
     // LOG_LEVEL_MAX is a sentinel, not a level.
     ENUM_MAP(LOG_LEVEL, LOG_LEVEL_DEBUG, "debug");
@@ -204,6 +243,12 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(PICKUP_MODE, PICKUP_MODE_CROWBAR, "crowbar");
     ENUM_MAP(PICKUP_MODE, PICKUP_MODE_SARCOPHAGUS, "sarcophagus");
     ENUM_MAP(PICKUP_MODE, PICKUP_MODE_PLINTH_SCION, "plinth_scion");
+
+    ENUM_MAP(ITEM_HIT_EFFECT, ITEM_HIT_DEFAULT, "default");
+    ENUM_MAP(ITEM_HIT_EFFECT, ITEM_HIT_NONE, "none");
+    ENUM_MAP(ITEM_HIT_EFFECT, ITEM_HIT_BLOOD, "blood");
+    ENUM_MAP(ITEM_HIT_EFFECT, ITEM_HIT_RICOCHET, "ricochet");
+    ENUM_MAP(ITEM_HIT_EFFECT, ITEM_HIT_SMOKE, "smoke");
 
     ENUM_MAP(ROOM_FLIP_STATUS, RFS_NONE, "none");
     ENUM_MAP(ROOM_FLIP_STATUS, RFS_UNFLIPPED, "unflipped");
@@ -227,6 +272,7 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_PLAY_CUTSCENE, "play_cutscene");
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_PLAY_MUSIC, "play_music");
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_LOADING_SCREEN, "loading_screen");
+    ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_LOADING_CAMERA, "loading_camera");
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_DISPLAY_PICTURE, "display_picture");
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_LEVEL_STATS, "level_stats");
     ENUM_MAP(GF_SEQUENCE_EVENT_TYPE, GFS_TOTAL_STATS, "total_stats");
@@ -277,6 +323,22 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(SPARK_SPRITE_TYPE, SPARK_TYPE_REVERSE, "reverse");
     ENUM_MAP(SPARK_SPRITE_TYPE, SPARK_TYPE_RICOCHET, "ricochet");
     ENUM_MAP(SPARK_SPRITE_TYPE, SPARK_TYPE_BLOOD, "blood");
+
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_DEFAULT, "default");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_BLOOD, "blood");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_BREATH, "breath");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_BUBBLE, "bubble");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_ELECTRICITY, "electricity");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_EXPLOSION, "explosion");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_FIRE, "fire");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_GAS, "gas");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_PARTICLE, "particle");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_PICKUP_AID, "pickup_aid");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_PLASMA, "plasma");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_RICOCHET, "ricochet");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_SMOKE, "smoke");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_SPLASH, "splash");
+    ENUM_MAP(SPARK_CONTEXT, SPARK_CONTEXT_WATER_MIST, "water_mist");
 
     ENUM_MAP(DRAW_TYPE, DRAW_OPAQUE, "opaque");
     ENUM_MAP(DRAW_TYPE, DRAW_BLEND, "blend");
@@ -348,15 +410,6 @@ static __attribute__((constructor)) void M_Init(void)
     ENUM_MAP(STOW_PLACE, STOW_PLACE_NONE, "none");
     ENUM_MAP(STOW_PLACE, STOW_PLACE_HOLSTER, "holster");
     ENUM_MAP(STOW_PLACE, STOW_PLACE_BACK, "back");
-
-    ENUM_MAP(UI_BAR_TYPE, UI_BAR_LARA_HP, "lara_hp");
-    ENUM_MAP(UI_BAR_TYPE, UI_BAR_LARA_HP_POISON, "lara_hp_poison");
-    ENUM_MAP(UI_BAR_TYPE, UI_BAR_LARA_AIR, "lara_air");
-    ENUM_MAP(UI_BAR_TYPE, UI_BAR_LARA_STAMINA, "lara_stamina");
-    ENUM_MAP(UI_BAR_TYPE, UI_BAR_LARA_EXPOSURE, "lara_exposure");
-    ENUM_MAP(UI_BAR_TYPE, UI_BAR_ENEMY_HP, "enemy_hp");
-    ENUM_MAP(UI_BAR_TYPE, UI_BAR_ALLY_HP, "ally_hp");
-    ENUM_MAP(UI_BAR_TYPE, UI_BAR_PROGRESS, "progress");
 
     ENUM_MAP(LARA_MESH, LM_HIPS, "hips");
     ENUM_MAP(LARA_MESH, LM_THIGH_L, "thigh_l");

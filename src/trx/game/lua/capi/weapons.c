@@ -16,7 +16,7 @@
 #include <trx/game/lua/field.h>
 #include <trx/game/lua/registry.h>
 #include <trx/game/lua/struct.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/module.h>
 #include <trx/game/objects.h>
 #include <trx/game/objects/ids.h>
 #include <trx/game/objects/names.h>
@@ -46,6 +46,7 @@ static lua_State *m_L = nullptr;
 
 static const WEAPON_INFO *M_WeaponOfAnim(const void *anim);
 static bool M_GetID(const void *self, TRX_VALUE *out);
+static bool M_GetEquipKey(const void *self, TRX_VALUE *out);
 static const char *M_SetKind(void *self, const TRX_VALUE *in);
 static const char *M_SetSample(void *self, const TRX_VALUE *in);
 static const char *M_SetOverlaySample(void *self, const TRX_VALUE *in);
@@ -96,6 +97,9 @@ static const FIELD_DESC m_WeaponFields[] = {
     FIELD_SET(WEAPON_INFO, type, M_SetKind),
     FIELD(WEAPON_INFO, is_available),
     FIELD(WEAPON_INFO, given_in_ngplus),
+    FIELD_RO(WEAPON_INFO, is_machine_gun),
+    FIELD_RO(WEAPON_INFO, is_launcher),
+    FIELD_FN("equip_input_role", TVT_S32, M_GetEquipKey, nullptr),
 
     FIELD(WEAPON_INFO, aim_speed),
     FIELD(WEAPON_INFO, shot_accuracy),
@@ -148,6 +152,16 @@ static bool M_GetID(const void *const self, TRX_VALUE *const out)
         .type = TVT_S32,
         .as_int = ((const WEAPON_INFO *)self)->gun_type,
     };
+    return true;
+}
+
+static bool M_GetEquipKey(const void *const self, TRX_VALUE *const out)
+{
+    const INPUT_ROLE role = ((const WEAPON_INFO *)self)->equip_input_role;
+    if ((int32_t)role < 0) {
+        return false;
+    }
+    *out = (TRX_VALUE) { .type = TVT_S32, .as_int = role };
     return true;
 }
 
@@ -279,7 +293,7 @@ static void M_PushGroup(
         L, type, resolve, (TRX_HANDLE) { .id = weapon_id, .gen = which });
 }
 
-// trxc.weapons.get(weapon) -> WEAPON_INFO handle
+// trxc.weapons.get(weapon: trx.catalog.weapons): trx.weapons.Weapon
 static int M_L_WeaponGet(lua_State *const L)
 {
     LUA_Struct_Push(
@@ -373,7 +387,7 @@ static bool M_SpecNamesKind(lua_State *const L, const int idx)
     return named;
 }
 
-// trxc.weapons.declare(name or id, spec) -> weapon
+// trxc.weapons.declare(weapon: trx.catalog.weapons|string, spec: table): trx.weapons.Weapon
 static int M_L_WeaponDeclare(lua_State *const L)
 {
     LARA_GUN_TYPE gun_type = M_ResolveTarget(L, 1, true);
@@ -408,7 +422,7 @@ static int M_L_WeaponDeclare(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.patch(name or id, spec) -> weapon
+// trxc.weapons.patch(weapon: trx.catalog.weapons|string, spec: table): trx.weapons.Weapon
 static int M_L_WeaponPatch(lua_State *const L)
 {
     const LARA_GUN_TYPE gun_type = M_ResolveTarget(L, 1, false);
@@ -419,7 +433,7 @@ static int M_L_WeaponPatch(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.set_fire(gun_type, handler)
+// trxc.weapons.set_fire(weapon: trx.catalog.weapons|string, handler: fun(weapon: trx.weapons.Weapon, running: boolean))
 static int M_L_WeaponSetFire(lua_State *const L)
 {
     const LARA_GUN_TYPE gun_type = M_ResolveTarget(L, 1, false);
@@ -428,14 +442,14 @@ static int M_L_WeaponSetFire(lua_State *const L)
     return 0;
 }
 
-// trxc.weapons.is_available(weapon) -> bool
+// trxc.weapons.is_available(weapon: trx.catalog.weapons): boolean
 static int M_L_WeaponIsAvailable(lua_State *const L)
 {
     lua_pushboolean(L, Gun_Registry_Get(M_GetWeapon(L, 1))->is_available);
     return 1;
 }
 
-// trxc.weapons.get_object(weapon) -> object id or nil
+// trxc.weapons.get_object(weapon: trx.catalog.weapons): trx.catalog.objects?
 static int M_L_WeaponGetObject(lua_State *const L)
 {
     const OBJECT_ID object_id = Gun_GetGunObject(M_GetWeapon(L, 1));
@@ -447,7 +461,29 @@ static int M_L_WeaponGetObject(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.get_ammo_object(weapon) -> object id or nil
+// trxc.weapons.get_attachment(weapon: trx.catalog.weapons): { object: trx.catalog.objects, anim: trx.catalog.objects?, inventory_meshes: integer }?
+static int M_L_WeaponGetAttachment(lua_State *const L)
+{
+    const LARA_GUN_TYPE gun_type = M_GetWeapon(L, 1);
+    const WEAPON_ATTACHMENT_INFO *const attachment =
+        &Gun_Registry_Get(gun_type)->attachment;
+    if (attachment->object_id == NO_OBJECT) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_createtable(L, 0, 3);
+    lua_pushinteger(L, attachment->object_id);
+    lua_setfield(L, -2, "object");
+    if (attachment->anim_object_id != NO_OBJECT) {
+        lua_pushinteger(L, attachment->anim_object_id);
+        lua_setfield(L, -2, "anim");
+    }
+    lua_pushinteger(L, attachment->inventory_meshes);
+    lua_setfield(L, -2, "inventory_meshes");
+    return 1;
+}
+
+// trxc.weapons.get_ammo_object(weapon: trx.catalog.weapons): trx.catalog.objects?
 static int M_L_WeaponGetAmmoObject(lua_State *const L)
 {
     const OBJECT_ID object_id = Gun_GetAmmoObject(M_GetWeapon(L, 1));
@@ -459,14 +495,28 @@ static int M_L_WeaponGetAmmoObject(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.rounds_per_shot(weapon) -> int
+// trxc.weapons.get_ammo_objects(weapon: trx.catalog.weapons): trx.catalog.objects[]
+static int M_L_WeaponGetAmmoObjects(lua_State *const L)
+{
+    const LARA_GUN_TYPE gun_type = M_GetWeapon(L, 1);
+    OBJECT_ID kinds[MAX_AMMO_KINDS];
+    const int32_t count = Gun_GetAmmoKinds(gun_type, kinds);
+    lua_createtable(L, count, 0);
+    for (int32_t i = 0; i < count; i++) {
+        lua_pushinteger(L, kinds[i]);
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
+// trxc.weapons.rounds_per_shot(weapon: trx.catalog.weapons): integer
 static int M_L_WeaponRoundsPerShot(lua_State *const L)
 {
     lua_pushinteger(L, Gun_GetRoundsPerShot(M_GetWeapon(L, 1)));
     return 1;
 }
 
-// trxc.weapons.ammo_icon(weapon) -> string or nil
+// trxc.weapons.ammo_icon(weapon: trx.catalog.weapons): string?
 //
 // Returns the TR1 ammunition-count icon markup.
 static int M_L_WeaponAmmoIcon(lua_State *const L)
@@ -480,14 +530,14 @@ static int M_L_WeaponAmmoIcon(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.has_infinite_ammo(weapon) -> bool
+// trxc.weapons.has_infinite_ammo(weapon: trx.catalog.weapons): boolean
 static int M_L_WeaponHasInfiniteAmmo(lua_State *const L)
 {
     lua_pushboolean(L, Gun_HasInfiniteAmmo(M_GetWeapon(L, 1)));
     return 1;
 }
 
-// trxc.weapons.shots_per_box(weapon) -> int
+// trxc.weapons.shots_per_box(weapon: trx.catalog.weapons): integer
 static int M_L_WeaponShotsPerBox(lua_State *const L)
 {
     const LARA_GUN_TYPE gun_type = M_GetWeapon(L, 1);
@@ -499,7 +549,7 @@ static int M_L_WeaponShotsPerBox(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.get_lock(weapon) -> WEAPON_AIM_LIMITS handle
+// trxc.weapons.get_lock(weapon: trx.weapons.Weapon): trx.weapons.AimLimits
 static int M_L_WeaponGetLock(lua_State *const L)
 {
     M_PushGroup(
@@ -508,7 +558,7 @@ static int M_L_WeaponGetLock(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.get_left_arm(weapon) -> WEAPON_AIM_LIMITS handle
+// trxc.weapons.get_left_arm(weapon: trx.weapons.Weapon): trx.weapons.AimLimits
 static int M_L_WeaponGetLeftArm(lua_State *const L)
 {
     M_PushGroup(
@@ -517,7 +567,7 @@ static int M_L_WeaponGetLeftArm(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.get_right_arm(weapon) -> WEAPON_AIM_LIMITS handle
+// trxc.weapons.get_right_arm(weapon: trx.weapons.Weapon): trx.weapons.AimLimits
 static int M_L_WeaponGetRightArm(lua_State *const L)
 {
     M_PushGroup(
@@ -526,7 +576,7 @@ static int M_L_WeaponGetRightArm(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.get_muzzle_pos(weapon) -> WEAPON_HAND_POS handle
+// trxc.weapons.get_muzzle_pos(weapon: trx.weapons.Weapon): trx.weapons.HandPos
 static int M_L_WeaponGetMuzzlePos(lua_State *const L)
 {
     M_PushGroup(
@@ -535,7 +585,7 @@ static int M_L_WeaponGetMuzzlePos(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.get_shell_pos(weapon) -> WEAPON_HAND_POS handle
+// trxc.weapons.get_shell_pos(weapon: trx.weapons.Weapon): trx.weapons.HandPos
 static int M_L_WeaponGetShellPos(lua_State *const L)
 {
     M_PushGroup(
@@ -544,7 +594,7 @@ static int M_L_WeaponGetShellPos(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.get_ammo(weapon) -> WEAPON_AMMO_INFO handle
+// trxc.weapons.get_ammo(weapon: trx.weapons.Weapon): trx.weapons.Ammo
 static int M_L_WeaponGetAmmo(lua_State *const L)
 {
     M_PushGroup(
@@ -552,7 +602,7 @@ static int M_L_WeaponGetAmmo(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.get_flash(weapon) -> WEAPON_FLASH_INFO handle
+// trxc.weapons.get_flash(weapon: trx.weapons.Weapon): trx.weapons.Flash
 static int M_L_WeaponGetFlash(lua_State *const L)
 {
     M_PushGroup(
@@ -560,7 +610,7 @@ static int M_L_WeaponGetFlash(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.get_glow(weapon) -> WEAPON_GLOW_INFO handle
+// trxc.weapons.get_glow(weapon: trx.weapons.Weapon): trx.weapons.Glow
 static int M_L_WeaponGetGlow(lua_State *const L)
 {
     M_PushGroup(
@@ -568,7 +618,7 @@ static int M_L_WeaponGetGlow(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.get_anim(weapon) -> WEAPON_ANIM_INFO handle
+// trxc.weapons.get_anim(weapon: trx.weapons.Weapon): trx.weapons.Anim
 static int M_L_WeaponGetAnim(lua_State *const L)
 {
     M_PushGroup(
@@ -576,7 +626,7 @@ static int M_L_WeaponGetAnim(lua_State *const L)
     return 1;
 }
 
-// trxc.weapons.get_flash_pos(flash) -> WEAPON_HAND_POS handle
+// trxc.weapons.get_flash_pos(flash: trx.weapons.Flash): trx.weapons.HandPos
 //
 // Reached off the flash rather than the weapon, so it takes a flash handle.
 static int M_L_WeaponGetFlashPos(lua_State *const L)
@@ -597,6 +647,8 @@ static const luaL_Reg m_Module[] = {
     { "is_available", M_L_WeaponIsAvailable },
     { "get_object", M_L_WeaponGetObject },
     { "get_ammo_object", M_L_WeaponGetAmmoObject },
+    { "get_attachment", M_L_WeaponGetAttachment },
+    { "get_ammo_objects", M_L_WeaponGetAmmoObjects },
     { "rounds_per_shot", M_L_WeaponRoundsPerShot },
     { "ammo_icon", M_L_WeaponAmmoIcon },
     { "has_infinite_ammo", M_L_WeaponHasInfiniteAmmo },

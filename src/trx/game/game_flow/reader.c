@@ -13,15 +13,20 @@
 #include <trx/game/game_flow/common.h>
 #include <trx/game/game_flow/types.h>
 #include <trx/game/game_flow/vars.h>
-#include <trx/game/inventory_ring/types.h>
 #include <trx/game/lara/skin/storage.h>
 #include <trx/game/level/settings.h>
+#include <trx/game/locale/path.h>
 #include <trx/game/objects/names.h>
 #include <trx/game/output/sky.h>
 #include <trx/game/shell.h>
 #include <trx/version.h>
 
 #include <string.h>
+
+#define M_LOADING_CAMERA_DISPLAY_TIME 2.0
+#define M_LOADING_CAMERA_FADE_TIME 0.5
+#define M_LOADING_SCREEN_DISPLAY_TIME 2.0
+#define M_DISPLAY_PICTURE_DISPLAY_TIME 5.0
 
 #define M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(name)                            \
     int32_t name(                                                              \
@@ -63,6 +68,7 @@ static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleAddItemEvent);
 static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleGlobeSelectEvent);
 static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleSetupHorizonEvent);
 static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleSetupLensFlareEvent);
+static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleLoadingCameraEvent);
 
 static M_SEQUENCE_EVENT_HANDLER m_SequenceEventHandlers[] = {
     // clang-format off
@@ -98,6 +104,7 @@ static M_SEQUENCE_EVENT_HANDLER m_SequenceEventHandlers[] = {
     { GFS_ADD_SECRET_REWARD, M_HandleAddItemEvent, nullptr },
     { GFS_SETUP_HORIZON,     M_HandleSetupHorizonEvent, nullptr },
     { GFS_SETUP_LENS_FLARE,  M_HandleSetupLensFlareEvent, nullptr },
+    { GFS_LOADING_CAMERA,    M_HandleLoadingCameraEvent, nullptr },
 
     // Sentinel to mark the end of the table
     { (GF_SEQUENCE_EVENT_TYPE)-1, nullptr, nullptr },
@@ -464,8 +471,12 @@ static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandlePictureEvent)
         GF_DISPLAY_PICTURE_DATA *const event_data = extra_data;
         SHOULD(JSON_READ_D(io, "legal", &event_data->is_legal, false));
         SHOULD(JSON_READ_D(io, "credit", &event_data->is_credit, false));
-        SHOULD(
-            JSON_READ_D(io, "display_time", &event_data->display_time, 5.0f));
+        const double default_display_time = event->type == GFS_LOADING_SCREEN
+            ? M_LOADING_SCREEN_DISPLAY_TIME
+            : M_DISPLAY_PICTURE_DISPLAY_TIME;
+        SHOULD(JSON_READ_D(
+            io, "display_time", &event_data->display_time,
+            default_display_time));
         SHOULD(
             JSON_READ_D(io, "fade_in_time", &event_data->fade_in_time, 1.0f));
         SHOULD(JSON_READ_D(
@@ -590,6 +601,42 @@ static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleSetupLensFlareEvent)
         event->data = event_data;
     }
     return sizeof(GF_SETUP_LENS_FLARE_DATA);
+fail:
+    return -1;
+}
+
+static M_DECLARE_SEQUENCE_EVENT_HANDLER_FUNC(M_HandleLoadingCameraEvent)
+{
+    JSON_READ_IO *const io = ctx->io;
+    XYZ_32 source = {};
+    XYZ_32 target = {};
+    int32_t room_num = 0;
+    if (!Result_Absorb(JSON_READ(io, "source_x", &source.x))
+        || !Result_Absorb(JSON_READ(io, "source_y", &source.y))
+        || !Result_Absorb(JSON_READ(io, "source_z", &source.z))
+        || !Result_Absorb(JSON_READ(io, "target_x", &target.x))
+        || !Result_Absorb(JSON_READ(io, "target_y", &target.y))
+        || !Result_Absorb(JSON_READ(io, "target_z", &target.z))
+        || !Result_Absorb(JSON_READ(io, "room", &room_num))) {
+        return -1;
+    }
+    double display_time = M_LOADING_CAMERA_DISPLAY_TIME;
+    double fade_in_time = M_LOADING_CAMERA_FADE_TIME;
+    double fade_out_time = M_LOADING_CAMERA_FADE_TIME;
+    Result_Absorb(JSON_READ(io, "display_time", &display_time));
+    Result_Absorb(JSON_READ(io, "fade_in_time", &fade_in_time));
+    Result_Absorb(JSON_READ(io, "fade_out_time", &fade_out_time));
+    if (event != nullptr) {
+        GF_LOADING_CAMERA_DATA *const event_data = extra_data;
+        event_data->source = source;
+        event_data->target = target;
+        event_data->room_num = room_num;
+        event_data->display_time = display_time;
+        event_data->fade_in_time = fade_in_time;
+        event_data->fade_out_time = fade_out_time;
+        event->data = event_data;
+    }
+    return sizeof(GF_LOADING_CAMERA_DATA);
 fail:
     return -1;
 }
@@ -972,6 +1019,84 @@ static RESULT M_LoadTitleLevel(const M_CONTEXT *const ctx)
     return OK;
 }
 
+static RESULT M_ReadLocalizedNames(
+    JSON_READ_IO *const io, const char *const key,
+    LOCALE_PATH_ENTRY *const entry)
+{
+    MUST(JSON_PUSH(io, key));
+    RESULT result = OK;
+    const JSON_ARRAY *const name_array =
+        JSON_ValueAsArray(JSON_ReadIO_GetCurrentValue(io));
+    const int32_t count = name_array != nullptr ? JSON_ARRAY_LEN(io) : 1;
+    if (count <= 0) {
+        result = JSON_ReadIO_Fail(io, "'%s' names no file at all", key);
+    } else {
+        entry->names = Memory_Alloc(sizeof(char *) * (size_t)count);
+        for (int32_t i = 0; i < count; i++) {
+            const char *name = nullptr;
+            result = name_array != nullptr ? JSON_READ_A(io, i, &name)
+                                           : JSON_READ_CURRENT(io, &name);
+            if (!IS_OK(result)) {
+                break;
+            }
+            entry->names[entry->name_count++] = Memory_DupStr(name);
+        }
+    }
+
+    const RESULT popped = JSON_ReadIO_Pop(io);
+    if (!IS_OK(result)) {
+        IGNORE(popped);
+        return result;
+    }
+    return popped;
+}
+
+// Reads a path that names the files every language falls back to, or maps
+// each language's code to the names it gives the file, with "*" for the
+// fallback.
+static RESULT M_ReadLocalizedPath(
+    JSON_READ_IO *const io, const char *const key, LOCALE_PATH *const out)
+{
+    if (!JSON_ReadIO_HasKey(io, key)) {
+        return JSON_ReadIO_Fail(io, "there is no '%s' here", key);
+    }
+    MUST(JSON_PUSH(io, key));
+    const bool is_map =
+        JSON_ValueAsObject(JSON_ReadIO_GetCurrentValue(io)) != nullptr;
+    const int32_t key_count = is_map ? JSON_ReadIO_GetKeyCount(io) : 0;
+    if (!is_map) {
+        MUST(JSON_POP(io));
+        out->entries = Memory_Alloc(sizeof(LOCALE_PATH_ENTRY));
+        out->entry_count = 1;
+        return M_ReadLocalizedNames(io, key, &out->entries[0]);
+    }
+
+    RESULT result = OK;
+    if (key_count <= 0) {
+        result = JSON_ReadIO_Fail(io, "'%s' names no language at all", key);
+    } else {
+        out->entries =
+            Memory_Alloc(sizeof(LOCALE_PATH_ENTRY) * (size_t)key_count);
+        for (int32_t i = 0; i < key_count; i++) {
+            const char *const lang = JSON_ReadIO_GetKeyAt(io, i);
+            LOCALE_PATH_ENTRY *const entry = &out->entries[out->entry_count++];
+            entry->lang =
+                strcmp(lang, "*") != 0 ? Memory_DupStr(lang) : nullptr;
+            result = M_ReadLocalizedNames(io, lang, entry);
+            if (!IS_OK(result)) {
+                break;
+            }
+        }
+    }
+
+    const RESULT popped = JSON_ReadIO_Pop(io);
+    if (!IS_OK(result)) {
+        IGNORE(popped);
+        return result;
+    }
+    return popped;
+}
+
 static RESULT M_LoadFMV(
     const M_CONTEXT *const ctx, void *const target_elem, size_t idx,
     void *const user_arg)
@@ -979,10 +1104,18 @@ static RESULT M_LoadFMV(
     GF_FMV *const fmv = target_elem;
     ASSERT(user_arg == nullptr);
     JSON_READ_IO *const io = ctx->io;
-    char *path = nullptr;
-    SHOULD(M_ReadPath(
-        io, "path", false, GAME_DYNAMIC_PATH_FMV_FILE, &path, false));
-    fmv->path = path;
+    if (SHOULD(M_ReadLocalizedPath(io, "path", &fmv->localized_path))) {
+        const LOCALE_CHAIN retail = {};
+        fmv->path = LocalePath_Resolve(
+            &fmv->localized_path, &retail, GAME_DYNAMIC_PATH_FMV_FILE);
+        const LOCALE_PATH_ENTRY *const first = &fmv->localized_path.entries[0];
+        if (fmv->path == nullptr && first->name_count > 0) {
+            LOG_ERROR(
+                "No file named by FMV %zu's 'path' is installed, starting with "
+                "'%s'",
+                idx + 1, first->names[0]);
+        }
+    }
     MUST(JSON_READ_D(io, "legal", &fmv->is_legal, false));
     MUST(JSON_READ_D(io, "credit", &fmv->is_credit, false));
     MUST(JSON_READ_D(io, "intro", &fmv->is_intro, false));

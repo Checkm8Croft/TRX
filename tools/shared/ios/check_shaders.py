@@ -40,6 +40,9 @@ PREAMBLE = (
     "precision highp sampler2DArray;\n"
     "precision highp sampler3D;\n"
     "#define noperspective\n"
+    # Injected by M_GetVariantDefines() in game/output/shaders/mesh.c.
+    "#define MAX_INSTANCES 16\n"
+    "#define MAX_INSTANCE_LIGHTS 8\n"
 )
 
 

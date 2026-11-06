@@ -17,7 +17,6 @@
 #include <trx/game/lara/common.h>
 #include <trx/game/lara/skin/common.h>
 #include <trx/game/music.h>
-#include <trx/game/objects/draw.h>
 #include <trx/game/objects/property.h>
 #include <trx/game/output.h>
 #include <trx/game/output/overlay.h>
@@ -391,7 +390,7 @@ static void M_DoCutscene(ITEM *const item, CREATURE *const info)
     M_PRIV *const p = M_GetPriv(item);
     ITEM *const lara = Lara_GetItem();
 
-    const bool skip_requested = g_InputDB.menu_back || g_InputDB.look;
+    const bool skip_requested = g_InputDB.menu_skip;
 
     if (!Lara_IsControllable()) {
         InputState_Clear(&g_Input);
@@ -400,7 +399,7 @@ static void M_DoCutscene(ITEM *const item, CREATURE *const info)
 
     if (skip_requested && p->cut_phase == 2) {
         p->cut_phase = 3;
-        Input_HoldOffSkip();
+        Input_HoldOffSkip(INPUT_SKIP_IN_GAME);
     }
 
     if (Waypoint_GetPad() != 8 && Waypoint_GetPad() != 15) {
@@ -452,12 +451,13 @@ static void M_DoCutscene(ITEM *const item, CREATURE *const info)
         const int16_t angle = (int16_t)Math_Atan(
             lara->pos.z - item->pos.z, lara->pos.x - item->pos.x);
 
+        // He stays turned as the cutscene sets him, rather than turning
+        // towards his next marker while he talks.
+        info->maximum_turn = 0;
         if (p->waypoint == 14 || p->waypoint == 3) {
             item->rot.y = info->enemy->rot.y;
             info->lot.is_jumping = true;
-            info->maximum_turn = 0;
         } else if (p->waypoint == 43 || p->waypoint == 53) {
-            info->maximum_turn = 0;
             item->rot.y = -0x6000;
         } else {
             item->rot.y = angle;
@@ -591,27 +591,11 @@ static void M_Initialise(const int16_t item_num)
     p->flyby.talk_timer = 0;
 }
 
-// The path ahead, sampled a sector at a time along his facing. He jumps a gap
-// that reads as one sector across, and takes the long jump where it reads as
-// two.
-static void M_ProbeAhead(
-    const ITEM *const item, bool *const jump_ahead, bool *const long_jump_ahead)
+static void M_AttackEnemy(
+    const ITEM *const item, ITEM *const enemy, const int16_t damage)
 {
-    const int32_t y = item->pos.y;
-    XYZ_32 pos = item->pos;
-    int32_t heights[3];
-    for (int32_t i = 0; i < 3; i++) {
-        pos = XYZ_32_OffsetYaw(pos, item->rot.y, M_STEP_AHEAD);
-        pos.y = y;
-        int16_t room_num = item->room_num;
-        const SECTOR *const sector = Room_GetSector(pos, &room_num);
-        heights[i] = Room_GetHeight(sector, pos);
-    }
-
-    *jump_ahead =
-        y < heights[0] - 384 && y < heights[1] + 256 && y > heights[1] - 256;
-    *long_jump_ahead = y < heights[0] - 384 && y < heights[1] - 384
-        && y < heights[2] + 256 && y > heights[2] - 256;
+    Item_TakeDamage(enemy, damage, IDF_NONE, item);
+    Creature_Effect(item, &m_Bite, Spawn_Blood);
 }
 
 static void M_RaceControl(const int16_t item_num)
@@ -632,9 +616,8 @@ static void M_RaceControl(const int16_t item_num)
     int16_t torso_y = 0;
     int16_t advance = 0;
 
-    bool jump_ahead;
-    bool long_jump_ahead;
-    M_ProbeAhead(item, &jump_ahead, &long_jump_ahead);
+    CREATURE_PROBE probe = {};
+    Creature_ProbeAhead(item, M_STEP_AHEAD, &probe);
 
     Creature_GetAITarget(creature);
     // TR4's guides pick their marker by the OCB rather than by the tag the
@@ -837,12 +820,12 @@ static void M_RaceControl(const int16_t item_num)
             } else {
                 advance = 1;
             }
-        } else if (jump_ahead || long_jump_ahead) {
+        } else if (probe.jump_ahead || probe.long_jump_ahead) {
             creature->maximum_turn = 0;
             Item_SwitchToAnim(item, M_ANIM_JUMP_FORWARD_START, 0);
             item->current_anim_state = M_STATE_JUMP_FORWARD_1_BLOCK;
 
-            if (long_jump_ahead) {
+            if (probe.long_jump_ahead) {
                 item->goal_anim_state = M_STATE_JUMP_FORWARD_2_BLOCK;
             } else {
                 item->goal_anim_state = M_STATE_JUMP_FORWARD_1_BLOCK;
@@ -882,7 +865,7 @@ static void M_RaceControl(const int16_t item_num)
 
         if (Waypoint_Get() < p->waypoint) {
             item->goal_anim_state = M_STATE_STOP;
-        } else if (jump_ahead || long_jump_ahead) {
+        } else if (probe.jump_ahead || probe.long_jump_ahead) {
             creature->maximum_turn = 0;
             item->goal_anim_state = M_STATE_STOP;
         } else if (creature->monkey_ahead) {
@@ -917,9 +900,9 @@ static void M_RaceControl(const int16_t item_num)
         if (p->hold == 6) {
             creature->maximum_turn = 0;
             item->goal_anim_state = M_STATE_JUMP_FORWARD_2_BLOCK;
-        } else if (Waypoint_Get() < p->waypoint || jump_ahead) {
+        } else if (Waypoint_Get() < p->waypoint || probe.jump_ahead) {
             item->goal_anim_state = M_STATE_STOP;
-        } else if (long_jump_ahead) {
+        } else if (probe.long_jump_ahead) {
             creature->maximum_turn = 0;
             item->goal_anim_state = M_STATE_JUMP_FORWARD_2_BLOCK;
         } else if (creature->monkey_ahead) {
@@ -1004,7 +987,7 @@ static void M_RaceControl(const int16_t item_num)
         if (Item_TestAnimEqual(item, M_ANIM_JUMP_FORWARD_2_BLOCK)
             || Item_GetRelativeFrame(item) > 7) {
             creature->lot.is_jumping = true;
-        } else if (jump_ahead) {
+        } else if (probe.jump_ahead) {
             item->goal_anim_state = M_STATE_JUMP_FORWARD_1_BLOCK;
         } else if (!Object_Get(O_BAT)->loaded) {
             item->goal_anim_state = M_STATE_RUN;
@@ -1063,10 +1046,8 @@ static void M_RaceControl(const int16_t item_num)
                 if (ABS(enemy->pos.x - item->pos.x) < 512
                     && ABS(enemy->pos.y - item->pos.y) <= 512
                     && ABS(enemy->pos.z - item->pos.z) < 512) {
-                    enemy->hit_points -= 20;
-                    enemy->hit_status = true;
+                    M_AttackEnemy(item, enemy, 20);
                     creature->flags = 1;
-                    Creature_Effect(item, &m_Bite, Spawn_Blood);
                 }
             }
         }
@@ -1174,9 +1155,8 @@ static void M_GuideControl(const int16_t item_num)
     int16_t torso_y = 0;
     int16_t advance = 0;
 
-    bool jump_ahead;
-    bool long_jump_ahead;
-    M_ProbeAhead(item, &jump_ahead, &long_jump_ahead);
+    CREATURE_PROBE probe = {};
+    Creature_ProbeAhead(item, M_STEP_AHEAD, &probe);
 
     item->ai_bits = AI_FOLLOW;
     Creature_GetAITarget(creature);
@@ -1461,7 +1441,7 @@ static void M_GuideControl(const int16_t item_num)
                         Item_SwitchToAnim(item, M_ANIM_JUMP_FORWARD_START, 0);
                         item->current_anim_state = M_STATE_JUMP_FORWARD_1_BLOCK;
 
-                        if (long_jump_ahead) {
+                        if (probe.long_jump_ahead) {
                             item->goal_anim_state =
                                 M_STATE_JUMP_FORWARD_2_BLOCK;
                         } else {
@@ -1593,7 +1573,7 @@ static void M_GuideControl(const int16_t item_num)
             creature->maximum_turn = 0;
             item->goal_anim_state = M_STATE_JUMP_FORWARD_2_BLOCK;
         } else if (
-            Waypoint_Get() < p->waypoint || jump_ahead || m_LaraAI.bite) {
+            Waypoint_Get() < p->waypoint || probe.jump_ahead || m_LaraAI.bite) {
             item->goal_anim_state = M_STATE_STOP;
         } else if (creature->monkey_ahead) {
             item->goal_anim_state = M_STATE_STOP;
@@ -1688,7 +1668,7 @@ static void M_GuideControl(const int16_t item_num)
         if (Item_TestAnimEqual(item, M_ANIM_JUMP_FORWARD_2_BLOCK)
             || Item_GetRelativeFrame(item) > 5) {
             creature->lot.is_jumping = true;
-        } else if (jump_ahead) {
+        } else if (probe.jump_ahead) {
             item->goal_anim_state = M_STATE_JUMP_FORWARD_1_BLOCK;
         }
 
@@ -1723,15 +1703,11 @@ static void M_GuideControl(const int16_t item_num)
             if (ABS(enemy->pos.x - item->pos.x) < 512
                 && ABS(enemy->pos.y + 768 - item->pos.y) <= 512
                 && ABS(enemy->pos.z - item->pos.z) < 512) {
-                enemy->hit_points -= 40;
-
+                M_AttackEnemy(item, enemy, 40);
+                creature->flags = 1;
                 if (enemy->hit_points <= 0) {
                     item->ai_bits = AI_FOLLOW;
                 }
-
-                enemy->hit_status = true;
-                creature->flags = 1;
-                Creature_Effect(item, &m_Bite, Spawn_Blood);
             }
         }
 
@@ -1787,15 +1763,11 @@ static void M_GuideControl(const int16_t item_num)
             if (ABS(enemy->pos.x - item->pos.x) < 512
                 && ABS(enemy->pos.y - item->pos.y) <= 512
                 && ABS(enemy->pos.z - item->pos.z) < 512) {
-                enemy->hit_points -= 20;
-
+                M_AttackEnemy(item, enemy, 20);
+                creature->flags = 1;
                 if (enemy->hit_points <= 0) {
                     item->ai_bits = AI_FOLLOW;
                 }
-
-                enemy->hit_status = true;
-                creature->flags = 1;
-                Creature_Effect(item, &m_Bite, Spawn_Blood);
             }
         }
 
@@ -1986,7 +1958,7 @@ static bool M_Draw(const ITEM *const item)
     const OBJECT *const swap = Object_Get(O_MESH_SWAP_1);
     if (!swap->loaded
         || swap->mesh_count != Object_Get(item->object_id)->mesh_count) {
-        return Object_DrawUnclippedItem(item);
+        return Item_DrawUnclipped(item);
     }
 
     const int32_t left = g_PhdLeft;
@@ -1999,8 +1971,12 @@ static bool M_Draw(const ITEM *const item)
     g_PhdRight = Viewport_GetMaxX(VIEWPORT_GAME);
     g_PhdBottom = Viewport_GetMaxY(VIEWPORT_GAME);
 
-    const bool result = Object_DrawAnimatingItemWithSwap(
-        item, swap, item->mesh_bits & ~p->swap_bits);
+    const bool result = Item_DrawAnimatingEx(
+        item,
+        &(ITEM_DRAW_DESC) {
+            .mesh_mask = item->mesh_bits & ~p->swap_bits,
+            .mesh_swap = swap,
+        });
 
     g_PhdLeft = left;
     g_PhdTop = top;

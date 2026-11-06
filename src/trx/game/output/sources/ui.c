@@ -2,14 +2,23 @@
 
 #include <trx/config.h>
 #include <trx/core/math/const.h>
+#include <trx/core/math/func.h>
 #include <trx/core/memory.h>
 #include <trx/core/utils.h>
 #include <trx/core/vector.h>
+#include <trx/game/anims/walk.h>
+#include <trx/game/matrix.h>
 #include <trx/game/objects/common.h>
 #include <trx/game/output.h>
+#include <trx/game/output/const.h>
+#include <trx/game/output/func.h>
 #include <trx/game/output/scene_compositor.h>
 #include <trx/game/output/sources/objects.h>
+#include <trx/game/output/state.h>
+#include <trx/game/output/uniforms.h>
+#include <trx/game/output/vars.h>
 #include <trx/game/viewport.h>
+#include <trx/gl/renderer.h>
 #include <trx/gl/utils.h>
 #include <trx/version.h>
 
@@ -37,14 +46,20 @@ typedef struct {
 typedef struct {
     SCENE_SOURCE source;
     const SCENE_SOURCE *objects_source;
-    VECTOR *scheduled_pickups;
+    VECTOR *scheduled_meshes;
     VECTOR *vertices;
     bool binocular_mask;
+    bool laser_sight_mask;
     GLuint vao;
     GLuint vbo;
 } M_PRIV;
 
 static M_PRIV m_Priv = {};
+
+// What a model is lit by where the script gives no light.
+static const OUTPUT_UI_MESH_LIGHT m_PlainLight = {
+    .ambient = { 1.0f, 1.0f, 1.0f },
+};
 
 static RGBA_F M_ToRGBA_F(const RGBA_8888 color)
 {
@@ -56,8 +71,8 @@ static RGBA_F M_ToRGBA_F(const RGBA_8888 color)
     };
 }
 
-static float M_Get3DPickupScale(
-    const VIEWPORT_RECT pickup_rect, const ANIM_FRAME *const frame)
+static float M_GetMeshScale(
+    const VIEWPORT_RECT rect, const ANIM_FRAME *const frame)
 {
     const XYZ_F obj_size = {
         .x = MAX(1, frame->bounds.max.x - frame->bounds.min.x),
@@ -66,176 +81,486 @@ static float M_Get3DPickupScale(
     };
 
     // Reference scale that seems to works OK based on the following data:
-    // pickup_rect: 480×360 (changes with window resizes)
+    // rect: 480×360 (changes with window resizes)
     // key:         81  182 11
     // scion:       184 190 54
     // pistols:     215 57  146
     // shotgun:     365 123 147
-    const float ref_scale = pickup_rect.w / 200.0f;
+    const float ref_scale = rect.w / 200.0f;
 
-    // A scale factor to fit the mesh within pickup_rect,
+    // A scale factor to fit the mesh within the box,
     // ensuring it touches either side and is entirely contained.
     // clang-format off
     const float perfect_fit_scale = MIN3(
-        pickup_rect.w / obj_size.x,
-        pickup_rect.h / obj_size.y,
-        pickup_rect.w / obj_size.z);
+        rect.w / obj_size.x,
+        rect.h / obj_size.y,
+        rect.w / obj_size.z);
     // clang-format on
 
     // Some items are too big or too small – try to find a middle ground.
     return (ref_scale + perfect_fit_scale) / 2.0f;
 }
 
-static XYZ_32 M_VectorViewFromWorld(
-    const MATRIX *const view_matrix, const XYZ_32 vec_world)
+// The brightness of a colour, from 0 to 255.
+static int32_t M_GetGrey(const RGB_F color)
 {
+    return lroundf((color.r + color.g + color.b) / 3.0f * 255.0f);
+}
+
+static XYZ_32 M_Normalize(const XYZ_32 dir)
+{
+    const double length = sqrt(
+        (double)dir.x * dir.x + (double)dir.y * dir.y + (double)dir.z * dir.z);
+    if (length == 0.0) {
+        return dir;
+    }
+    const double scale = (1 << W2V_SHIFT) / length;
     return (XYZ_32) {
-        .x = (view_matrix->_00 * vec_world.x + view_matrix->_01 * vec_world.y
-              + view_matrix->_02 * vec_world.z)
-            >> W2V_SHIFT,
-        .y = (view_matrix->_10 * vec_world.x + view_matrix->_11 * vec_world.y
-              + view_matrix->_12 * vec_world.z)
-            >> W2V_SHIFT,
-        .z = (view_matrix->_20 * vec_world.x + view_matrix->_21 * vec_world.y
-              + view_matrix->_22 * vec_world.z)
-            >> W2V_SHIFT,
+        .x = (int32_t)lround(dir.x * scale),
+        .y = (int32_t)lround(dir.y * scale),
+        .z = (int32_t)lround(dir.z * scale),
     };
 }
 
-static void M_Draw3DPickups(const M_PRIV *const p)
+// Turns a direction by the rotation of the view matrix. Unlike a point, a
+// direction takes none of the matrix's translation.
+static XYZ_32 M_RotateToView(const XYZ_32 dir)
+{
+    const MATRIX *const m = &g_ViewMatrix;
+    return (XYZ_32) {
+        .x = (int32_t)(((int64_t)m->_00 * dir.x + (int64_t)m->_01 * dir.y
+                        + (int64_t)m->_02 * dir.z)
+                       >> W2V_SHIFT),
+        .y = (int32_t)(((int64_t)m->_10 * dir.x + (int64_t)m->_11 * dir.y
+                        + (int64_t)m->_12 * dir.z)
+                       >> W2V_SHIFT),
+        .z = (int32_t)(((int64_t)m->_20 * dir.x + (int64_t)m->_21 * dir.y
+                        + (int64_t)m->_22 * dir.z)
+                       >> W2V_SHIFT),
+    };
+}
+
+// Lights what is drawn next by the light the script gave, each game in its own
+// terms. In TR3 a mesh's own colour stands in for every light's.
+static void M_ApplyLight(
+    const OUTPUT_UI_MESH_LIGHT *const light, const RGB_F *const mesh_color)
+{
+    if (g_TRVersion == 4) {
+        Output_CalculateStaticLightRGB_F(light->ambient);
+    } else if (g_TRVersion == 3) {
+        RGB_F colors[3] = {};
+        XYZ_32 dirs[3] = {};
+        for (int32_t i = 0; i < light->light_count; i++) {
+            colors[i] =
+                mesh_color != nullptr ? *mesh_color : light->lights[i].color;
+            dirs[i] = light->lights[i].dir;
+        }
+        Output_SetTR3Light(light->ambient, colors, dirs);
+    } else {
+        // TR1 and TR2 shade a model by the ambient brightness, and lighten it
+        // towards the first light by that light's brightness.
+        Output_SetLightAdder(
+            SHADE_NEUTRAL * 2 - M_GetGrey(light->ambient) * 32);
+        const int32_t grey =
+            light->light_count > 0 ? M_GetGrey(light->lights[0].color) : 0;
+        if (grey > 0) {
+            Output_SetLightDivider((1 << W2V_SHIFT) * 256 / grey);
+            Output_SetLightVectorView(M_Normalize(light->lights[0].dir));
+        } else {
+            Output_SetLightVectorView((XYZ_32) {});
+        }
+    }
+}
+
+// Draws the model's meshes as Object_DrawStaticObject does, lighting each one
+// the light names in its own colour.
+static void M_DrawColoredMeshes(
+    const OUTPUT_UI_MESH *const mesh, const ANIM_FRAME *const frame,
+    const OUTPUT_UI_MESH_LIGHT *const light)
+{
+    const OBJECT *const obj = mesh->object;
+    Matrix_Push();
+    for (int32_t i = 0; i < obj->mesh_count && i < 32; i++) {
+        if (i > 0) {
+            const ANIM_BONE *const bone = Object_GetBone(obj, i - 1);
+            if (bone->matrix_pop) {
+                Matrix_Pop();
+            }
+            if (bone->matrix_push) {
+                Matrix_Push();
+            }
+            Matrix_TranslateRel32(bone->pos);
+            Matrix_Rot16(frame->mesh_rots[i]);
+        }
+        const uint32_t bit = 1u << i;
+        if ((mesh->mesh_mask & bit) == 0) {
+            continue;
+        }
+        M_ApplyLight(
+            light, (light->lit_mask & bit) != 0 ? &light->colors[i] : nullptr);
+        Object_DrawMesh(obj->mesh_idx + i, 0, false);
+    }
+    Matrix_Pop();
+}
+
+// Poses a model in its box on the canvas, seen flat.
+static void M_PoseOnCanvas(
+    const OUTPUT_UI_MESH *const mesh, const ANIM_FRAME *const frame)
+{
+    const VIEWPORT_RECT rect = mesh->rect;
+    const float scale = M_GetMeshScale(rect, frame);
+    const XYZ_32 origin = {
+        .x = rect.x + rect.w / 2,
+        .y = rect.y + rect.h / 2,
+        .z = (OUTPUT_UI_NEAR_Z + OUTPUT_UI_FAR_Z) / 2,
+    };
+
+    // Lighting routines needs a W2V matrix to work; set up something for
+    // it.
+    Matrix_LookAt(
+        origin.x, origin.y, origin.z - WALL_L, origin.x, origin.y, origin.z, 0);
+
+    Matrix_PushUnit();
+    Matrix_TranslateSet32(origin);
+    Matrix_RotX(mesh->tilt);
+    if (mesh->held) {
+        Matrix_RotX(DEG_1 * 15);
+        Matrix_RotY(-DEG_180);
+    }
+    Matrix_Rot16(mesh->rot);
+    Matrix_Scale((1 << W2V_SHIFT) * scale);
+
+    Matrix_TranslateRel16(frame->offset);
+    Matrix_TranslateRel32((XYZ_32) {
+        .x = -(frame->bounds.min.x + frame->bounds.max.x) / 2,
+        .y = -(frame->bounds.min.y + frame->bounds.max.y) / 2,
+        .z = -(frame->bounds.min.z + frame->bounds.max.z) / 2,
+    });
+    Matrix_Rot16(frame->mesh_rots[0]);
+}
+
+// Poses a model where it stands in a world of its own, as that world's camera
+// sees it, the way the engine places and views a model in its own world.
+static void M_PoseInWorld(const OUTPUT_UI_MESH_WORLD *const world)
+{
+    Viewport_AlterFOV(world->fov, FOV_MODE_PASSPORT);
+    Output_ApplyFOV();
+    int16_t angles[2];
+    Math_GetVectorAngles(
+        world->camera_target.x - world->camera_pos.x,
+        world->camera_target.y - world->camera_pos.y,
+        world->camera_target.z - world->camera_pos.z, angles);
+    const XYZ_16 view_rot = { .x = angles[1], .y = angles[0], .z = 0 };
+    Matrix_GenerateW2V(&world->camera_pos, &view_rot);
+    if (world->center_x != 0.5f || world->center_y != 0.5f) {
+        const float persp = (float)g_PhdPersp;
+        Matrix_ShearW2V(
+            (world->center_x - 0.5f) * Viewport_GetWidth(VIEWPORT_GAME) / persp,
+            (world->center_y - 0.5f) * Viewport_GetHeight(VIEWPORT_GAME)
+                / persp);
+    }
+    Output_Uniforms_UploadViewMatrix(Output_GetUniforms(), &g_ViewMatrix);
+
+    Matrix_Push();
+    Matrix_TranslateAbs32((XYZ_32) {});
+    for (int32_t i = 0; i < world->step_count; i++) {
+        const XYZ_32 vec = world->steps[i].vec;
+        switch (world->steps[i].kind) {
+        case OUTPUT_UI_MESH_STEP_TURN:
+            Matrix_Rot16((XYZ_16) {
+                .x = (int16_t)vec.x,
+                .y = (int16_t)vec.y,
+                .z = (int16_t)vec.z,
+            });
+            break;
+        case OUTPUT_UI_MESH_STEP_SCALE:
+            Matrix_Scale((1 << W2V_SHIFT) * vec.x / 1024);
+            break;
+        case OUTPUT_UI_MESH_STEP_MOVE:
+            Matrix_TranslateRel32(vec);
+            break;
+        }
+    }
+}
+
+// Returns the frame of a model's first animation, or nullptr past its last.
+static const ANIM_FRAME *M_GetWorldFrame(
+    const OBJECT *const object, const int32_t frame)
+{
+    const ANIM *const anim = Object_GetAnim(object, 0);
+    if (frame < 0 || frame > anim->frame_end - anim->frame_base) {
+        return nullptr;
+    }
+    return &object->frame_base[frame];
+}
+
+// Draws the joints in mesh_mask in a pose blended between two frames. At the
+// pivot, the frame offset is left out.
+static void M_DrawWorldPose(
+    const OBJECT *const obj, const uint32_t mesh_mask,
+    const int16_t *const extra_rotation, const ANIM_FRAME *const frame1,
+    const ANIM_FRAME *const frame2, const int32_t frac, const int32_t rate,
+    const bool at_pivot)
+{
+    BOUNDS_16 bounds = frame1->bounds;
+    if (at_pivot) {
+        bounds.min = XYZ_16_Subtract(bounds.min, frame1->offset);
+        bounds.max = XYZ_16_Subtract(bounds.max, frame1->offset);
+    }
+    const CLIP clip = Object_GetClip(obj, &bounds);
+    if (clip == CLIP_NOT_VISIBLE) {
+        return;
+    }
+
+    Matrix_Push();
+    ANIM_WALK walk;
+    Anim_Walk_Begin(
+        &walk,
+        &(ANIM_WALK_DESC) {
+            .obj = obj,
+            .pose = Anim_Pose_FromFrames(frame1, frame2, frac, rate),
+            .extra_rotations = extra_rotation,
+            .applies_base_rot = true,
+            .skips_frame_offset = at_pivot,
+        });
+    while (Anim_Walk_Next(&walk)) {
+        if ((mesh_mask & (1u << walk.joint)) != 0) {
+            Object_DrawMesh(
+                obj->mesh_idx + walk.joint, clip, walk.interpolated);
+        }
+    }
+    Anim_Walk_End(&walk);
+    Matrix_Pop();
+}
+
+// Draws a model in a world of its own in its frame, blended towards the next,
+// with the turns its bones take on top. The bones that take a turn keep the
+// axes they turn about, as the engine's own animated bones do.
+static void M_DrawWorldFrame(const OUTPUT_UI_MESH *const mesh)
+{
+    const OUTPUT_UI_MESH_WORLD *const world = mesh->world;
+    const OBJECT *const obj = mesh->object;
+    const ANIM_FRAME *const frame1 = M_GetWorldFrame(obj, world->frame);
+    const ANIM_FRAME *frame2 = M_GetWorldFrame(obj, world->next_frame);
+    if (frame1 == nullptr) {
+        return;
+    }
+    if (frame2 == nullptr) {
+        frame2 = frame1;
+    }
+
+    for (int32_t i = 0; i < world->bone_count; i++) {
+        const int32_t bone = world->bones[i].bone;
+        if (bone >= 0 && bone < obj->mesh_count - 1) {
+            ANIM_BONE *const anim_bone = Object_GetBone(obj, bone);
+            anim_bone->rot.x |= world->bones[i].axes.x;
+            anim_bone->rot.y |= world->bones[i].axes.y;
+            anim_bone->rot.z |= world->bones[i].axes.z;
+        }
+    }
+
+    // The turns go in the order the bones are walked, each bone's as yaw,
+    // pitch, then roll, which is the order the walk reads them back in.
+    int16_t extra_rotation[(OUTPUT_UI_MESH_BONES + 32) * 3] = {};
+    int32_t count = 0;
+    for (int32_t bone = 0; bone < obj->mesh_count - 1 && bone < 32; bone++) {
+        const ANIM_BONE *const anim_bone = Object_GetBone(obj, bone);
+        XYZ_16 rot = {};
+        for (int32_t i = 0; i < world->bone_count; i++) {
+            if (world->bones[i].bone == bone) {
+                rot = world->bones[i].rot;
+            }
+        }
+        if (anim_bone->rot.y) {
+            extra_rotation[count++] = rot.y;
+        }
+        if (anim_bone->rot.x) {
+            extra_rotation[count++] = rot.x;
+        }
+        if (anim_bone->rot.z) {
+            extra_rotation[count++] = rot.z;
+        }
+    }
+
+    const int32_t rate = 1024;
+    int32_t frac = (int32_t)(world->blend * rate + 0.5f);
+    CLAMP(frac, 0, rate);
+
+    // A mesh drawn see-through is drawn again on its own, so that the tint
+    // that carries how solid it is reaches that mesh alone.
+    const uint32_t faded_mask = world->faded_mask & mesh->mesh_mask;
+    for (int32_t i = -1; i < 32; i++) {
+        uint32_t mask = mesh->mesh_mask & ~faded_mask;
+        if (i >= 0) {
+            mask = 1u << i;
+            if ((faded_mask & mask) == 0) {
+                continue;
+            }
+            Output_PushTintOverride((RGBA_F) {
+                .r = 1.0f,
+                .g = 1.0f,
+                .b = 1.0f,
+                .a = world->mesh_opacity[i] * world->opacity,
+            });
+        }
+        M_DrawWorldPose(
+            obj, mask, extra_rotation, frame1, frame2, frac, rate,
+            world->at_pivot);
+        if (i >= 0) {
+            Output_PopTintOverride();
+        }
+    }
+}
+
+// Draws a model in a world of its own through the passes the scene draws
+// its own models through, so that it looks as the scene would have shown it.
+static void M_RenderWorldPasses(const M_PRIV *const p)
+{
+    OUTPUT_MESH_SHADER *const shader = Output_GetMeshShader();
+    Output_MeshShader_UploadAlphaDiscard(shader, true);
+    p->objects_source->render_pass(p->objects_source, SCENE_PASS_OPAQUE);
+    Output_MeshShader_UploadAlphaDiscard(shader, false);
+    glDepthMask(GL_FALSE);
+    p->objects_source->render_pass(p->objects_source, SCENE_PASS_TRANSPARENT);
+    SceneCompositor_SetSubtractiveBlend();
+    p->objects_source->render_pass(p->objects_source, SCENE_PASS_BLEND_SUB);
+    glBlendEquation(GL_FUNC_ADD);
+    // Adds light and leaves the coverage alone, so that the scene under the
+    // interface still shows through the face.
+    glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);
+    p->objects_source->render_pass(p->objects_source, SCENE_PASS_BLEND_ADD);
+    glDepthMask(GL_TRUE);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+}
+
+static void M_DrawMeshes(const M_PRIV *const p)
 {
     SceneCompositor_SetSamplerFilter(g_Config.rendering.texture_filter);
     Output_MeshShader_Bind(Output_GetMeshShader());
+    // A model on the canvas is lit by its own fog, not by the room's.
+    const int32_t old_fog_start = Output_GetFogStart();
+    const int32_t old_fog_end = Output_GetFogEnd();
+    Output_SetFogStart(20 * WALL_L);
+    Output_SetFogEnd(100 * WALL_L);
 
-    for (int32_t i = 0; i < p->scheduled_pickups->count; i++) {
-        if (p->objects_source->render_begin != nullptr) {
-            p->objects_source->render_begin(p->objects_source);
-        }
-
-        const OUTPUT_UI_PICKUP *const pickup =
-            Vector_Get(p->scheduled_pickups, i);
+    for (int32_t i = 0; i < p->scheduled_meshes->count; i++) {
+        const OUTPUT_UI_MESH *const mesh = Vector_Get(p->scheduled_meshes, i);
         const ANIM_FRAME *const frame =
-            Object_GetAnim(pickup->object, 0)->frame_ptr;
+            Object_GetAnim(mesh->object, 0)->frame_ptr;
+        // Tested before the batch opens, because the batch below is closed by
+        // the flush at the end of the loop body.
         if (frame == nullptr) {
             continue;
         }
 
-        const VIEWPORT_RECT pickup_rect = OutputSource_UI_GetPickupRect(pickup);
-        const XYZ_32 origin = {
-            .x = pickup_rect.x + pickup_rect.w / 2,
-            .y = pickup_rect.y + pickup_rect.h / 2,
-            .z = (Output_GetNearZ_UI() + Output_GetFarZ_UI()) / 2,
-        };
-
-        const float scale = M_Get3DPickupScale(pickup_rect, frame);
-
-        // Lighting routines needs a W2V matrix to work; set up something for
-        // it.
-        MATRIX pickup_view_matrix = {};
-        XYZ_32 camera = g_TRVersion >= 3 ?
-             (XYZ_32) {
-                .x = origin.x,
-                .y = origin.y - WALL_L,
-                .z = origin.z,
-            } :
-             (XYZ_32) {
-                .x = origin.x,
-                .y = origin.y,
-                .z = origin.z - WALL_L,
-            };
-        Matrix_LookAt(
-            camera.x, camera.y, camera.z, origin.x, origin.y, origin.z, 0);
-        pickup_view_matrix = g_ViewMatrix;
-
-        Matrix_PushUnit();
-        Matrix_TranslateSet32(origin);
-        Matrix_RotX(DEG_1 * 15);
-        Matrix_RotY(-DEG_180);
-        Matrix_RotY(pickup->rot_y);
-        Matrix_Scale((1 << W2V_SHIFT) * scale);
-
-        // Set up lighting for the pickup mesh.
-        if (g_TRVersion == 4) {
-            // The OG lights a HUD pickup by a flat brightness alone, with no
-            // room lights (output.cpp S_DrawPickup).
-            Output_CalculateStaticLightRGB_F((RGB_F) { 1.0f, 1.0f, 1.0f });
-        } else if (g_TRVersion == 3) {
-            // Port of OG TR3's SetPickupLight().
-            // ambient = (64, 64, 64)
-            // sun     = (3072, 1680, 640)
-            // spot    = (1024, 1024, 1024)
-            // dynamic = (640, 2432, 4080)
-            const float ambient_u8 = 64.0f / 255.0f;
-            const RGB_F ambient = { ambient_u8, ambient_u8, ambient_u8 };
-            const RGB_F colors[3] = {
-                {
-                    .r = 3072.0f / 4096.0f,
-                    .g = 1680.0f / 4096.0f,
-                    .b = 640.0f / 4096.0f,
-                },
-                {
-                    .r = 1024.0f / 4096.0f,
-                    .g = 1024.0f / 4096.0f,
-                    .b = 1024.0f / 4096.0f,
-                },
-                {
-                    .r = 640.0f / 4096.0f,
-                    .g = 2432.0f / 4096.0f,
-                    .b = 4080.0f / 4096.0f,
-                },
-            };
-
-            const XYZ_32 dirs_view[3] = {
-                M_VectorViewFromWorld(
-                    &pickup_view_matrix,
-                    (XYZ_32) { .x = 0x2000, .y = -0x2000, .z = 0x1800 }),
-                M_VectorViewFromWorld(
-                    &pickup_view_matrix,
-                    (XYZ_32) { .x = -0x2000, .y = -0x4000, .z = 0x3000 }),
-                M_VectorViewFromWorld(
-                    &pickup_view_matrix,
-                    (XYZ_32) { .x = 0, .y = 0x2000, .z = 0x3000 }),
-            };
-
-            Output_SetTR3Light(ambient, colors, dirs_view);
-        } else {
-            Output_SetLightDivider((1 << W2V_SHIFT) * 2);
-            Output_SetLightAdder(SHADE_LOW);
-            Output_RotateLight(DEG_1 * -30, DEG_1 * 45);
+        const bool own_target =
+            mesh->world != nullptr && TRX_GL_Renderer_BeginUiScenePass();
+        if (p->objects_source->render_begin != nullptr) {
+            p->objects_source->render_begin(p->objects_source);
         }
+        // Each model hides its own far side, and only its own.
+        glClear(GL_DEPTH_BUFFER_BIT);
 
-        Matrix_TranslateRel16(frame->offset);
-        Matrix_TranslateRel32((XYZ_32) {
-            .x = -(frame->bounds.min.x + frame->bounds.max.x) / 2,
-            .y = -(frame->bounds.min.y + frame->bounds.max.y) / 2,
-            .z = -(frame->bounds.min.z + frame->bounds.max.z) / 2,
-        });
-        Matrix_Rot16(frame->mesh_rots[0]);
-        Object_DrawStaticObject(pickup->object, frame);
+        const int16_t old_fov = Viewport_GetSystemFOV();
+        const FOV_MODE old_fov_mode = Viewport_GetFOVMode();
+        OUTPUT_UI_MESH_LIGHT light =
+            mesh->light != nullptr ? *mesh->light : m_PlainLight;
+        if (mesh->world != nullptr) {
+            M_PoseInWorld(mesh->world);
+            Output_PushTintOverride((RGBA_F) {
+                .r = 1.0f,
+                .g = 1.0f,
+                .b = 1.0f,
+                .a = mesh->world->opacity,
+            });
+            for (int32_t j = 0; j < light.light_count; j++) {
+                light.lights[j].dir = M_RotateToView(light.lights[j].dir);
+            }
+        } else {
+            M_PoseOnCanvas(mesh, frame);
+        }
+        if (light.lit_mask != 0 && g_TRVersion == 3) {
+            const ANIM_FRAME *posed = frame;
+            if (mesh->world != nullptr) {
+                posed = M_GetWorldFrame(mesh->object, mesh->world->frame);
+                if (posed == nullptr) {
+                    posed = frame;
+                }
+                Matrix_TranslateRel16(posed->offset);
+                Matrix_Rot16(posed->mesh_rots[0]);
+            }
+            M_DrawColoredMeshes(mesh, posed, &light);
+        } else if (mesh->world != nullptr) {
+            M_ApplyLight(&light, nullptr);
+            M_DrawWorldFrame(mesh);
+        } else {
+            M_ApplyLight(&light, nullptr);
+            Object_DrawStaticObject(mesh->object, frame, mesh->mesh_mask);
+        }
+        if (mesh->world != nullptr) {
+            Output_PopTintOverride();
+        }
         Matrix_Pop();
 
         // Immediately flush scheduled object, so that it gets rendered
         // in the target viewport
-        p->objects_source->render_pass(p->objects_source, SCENE_PASS_OPAQUE);
-        p->objects_source->render_pass(
-            p->objects_source, SCENE_PASS_TRANSPARENT);
-        glBlendFunc(GL_ONE, GL_ONE);
-        p->objects_source->render_pass(p->objects_source, SCENE_PASS_BLEND_ADD);
-        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        if (mesh->world != nullptr) {
+            M_RenderWorldPasses(p);
+        } else {
+            p->objects_source->render_pass(
+                p->objects_source, SCENE_PASS_OPAQUE);
+            p->objects_source->render_pass(
+                p->objects_source, SCENE_PASS_TRANSPARENT);
+            glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE);
+            p->objects_source->render_pass(
+                p->objects_source, SCENE_PASS_BLEND_ADD);
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        }
         if (p->objects_source->render_end != nullptr) {
             p->objects_source->render_end(p->objects_source);
         }
+        if (own_target) {
+            TRX_GL_Renderer_EndUiScenePass();
+            SceneCompositor_BindTextures();
+            Output_MeshShader_Bind(Output_GetMeshShader());
+            glEnable(GL_DEPTH_TEST);
+            glEnable(GL_CULL_FACE);
+        }
+        if (mesh->world != nullptr) {
+            Viewport_AlterFOV(old_fov, old_fov_mode);
+            Output_ApplyFOV();
+            Output_Uniforms_UploadOrthoMatrix(Output_GetUniforms());
+        }
     }
 
+    Output_SetFogStart(old_fog_start);
+    Output_SetFogEnd(old_fog_end);
     SceneCompositor_SetSamplerFilter(g_Config.rendering.ui_filter);
+}
+
+// Returns how wide the mask is drawn. The laser sight mask keeps the 4:3
+// shape of the original screen, so that its circle stays round on a wider
+// screen, and black bars fill the rest of it. The binocular mask spans the
+// whole viewport.
+static int32_t M_GetMaskWidth(
+    const VIEWPORT_RECT viewport, const bool laser_sight)
+{
+    return laser_sight ? MIN(viewport.w, viewport.h * 4 / 3) : viewport.w;
 }
 
 static void M_DrawBinocularMask(const M_PRIV *const p)
 {
-    const OBJECT *const obj = Object_Get(O_BINOCULAR_GFX);
+    const OBJECT *const obj =
+        Object_Get(p->laser_sight_mask ? O_TARGET_GFX : O_BINOCULAR_GFX);
     if (!obj->loaded) {
         return;
     }
+    // The original maps each mesh to a 512x240 screen through a pre-scale
+    // of its own (see tomb4's InitBinoculars and InitTarget): x*32/96,
+    // y*30/224 for the binoculars, and x*80/96, y*60/224 for the laser
+    // sight.
+    const int64_t scale_x = p->laser_sight_mask ? 80 : 32;
+    const int64_t scale_y = p->laser_sight_mask ? 60 : 30;
 
     Output_MeshShader_Bind(Output_GetMeshShader());
     if (p->objects_source->render_begin != nullptr) {
@@ -246,7 +571,7 @@ static void M_DrawBinocularMask(const M_PRIV *const p)
     const XYZ_32 origin = {
         .x = viewport.x + viewport.w / 2,
         .y = viewport.y + viewport.h / 2,
-        .z = (Output_GetNearZ_UI() + Output_GetFarZ_UI()) / 2,
+        .z = (OUTPUT_UI_NEAR_Z + OUTPUT_UI_FAR_Z) / 2,
     };
 
     // Lighting routines need a W2V matrix to work; set up something for it.
@@ -256,11 +581,13 @@ static void M_DrawBinocularMask(const M_PRIV *const p)
 
     Matrix_PushUnit();
     Matrix_TranslateSet32(origin);
-    // The original game maps the mesh to a 512x240 screen through a x*32/96,
-    // y*30/224 pre-scale (see tomb4's InitBinoculars); combined, that
-    // stretches the raw mesh over the whole viewport. Flatten the depth.
-    Matrix_ScaleX((1 << W2V_SHIFT) * viewport.w / 1536);
-    Matrix_ScaleY((1 << W2V_SHIFT) * viewport.h / 1792);
+    // Combined with the pre-scale, the mapping stretches the raw mesh over
+    // the whole viewport. Flatten the depth.
+    const int32_t mask_w = M_GetMaskWidth(viewport, p->laser_sight_mask);
+    Matrix_ScaleX(
+        (int32_t)(((int64_t)1 << W2V_SHIFT) * mask_w * scale_x / (512 * 96)));
+    Matrix_ScaleY((int32_t)(((int64_t)1 << W2V_SHIFT) * viewport.h * scale_y
+                            / (240 * 224)));
     Matrix_ScaleZ((1 << W2V_SHIFT) / 64);
 
     Object_DrawMesh(obj->mesh_idx, CLIP_FULLY_VISIBLE, false);
@@ -268,7 +595,7 @@ static void M_DrawBinocularMask(const M_PRIV *const p)
 
     p->objects_source->render_pass(p->objects_source, SCENE_PASS_OPAQUE);
     p->objects_source->render_pass(p->objects_source, SCENE_PASS_TRANSPARENT);
-    glBlendFunc(GL_ONE, GL_ONE);
+    glBlendFuncSeparate(GL_ONE, GL_ONE, GL_ZERO, GL_ONE);
     p->objects_source->render_pass(p->objects_source, SCENE_PASS_BLEND_ADD);
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     if (p->objects_source->render_end != nullptr) {
@@ -291,9 +618,10 @@ static void M_DrawVertices(const M_PRIV *const p)
 static void M_RenderBegin(const SCENE_SOURCE *const source)
 {
     M_PRIV *const p = &m_Priv;
-    Vector_Clear(p->scheduled_pickups);
+    Vector_Clear(p->scheduled_meshes);
     Vector_Clear(p->vertices);
     p->binocular_mask = false;
+    p->laser_sight_mask = false;
 }
 
 static void M_RenderPass(
@@ -304,7 +632,7 @@ static void M_RenderPass(
         return;
     }
 
-    if (p->scheduled_pickups->count == 0 && p->vertices->count == 0
+    if (p->scheduled_meshes->count == 0 && p->vertices->count == 0
         && !p->binocular_mask) {
         return;
     }
@@ -316,13 +644,16 @@ static void M_RenderPass(
     }
 
 #endif
+    // The flat interface stacks in the order it was drawn in, not by depth.
     if (p->vertices->count > 0) {
+        glDisable(GL_DEPTH_TEST);
         M_DrawVertices(p);
+        glEnable(GL_DEPTH_TEST);
     }
 
-    if (p->scheduled_pickups->count > 0) {
+    if (p->scheduled_meshes->count > 0) {
         glEnable(GL_CULL_FACE);
-        M_Draw3DPickups(p);
+        M_DrawMeshes(p);
         glDisable(GL_CULL_FACE);
         Output_UIShader_Bind(Output_GetUIShader());
     }
@@ -332,7 +663,7 @@ static bool M_IsDirty(const SCENE_SOURCE *const source, const SCENE_PASS pass)
 {
     const M_PRIV *const p = &m_Priv;
     return pass == SCENE_PASS_UI
-        && (p->scheduled_pickups->count > 0 || p->vertices->count > 0
+        && (p->scheduled_meshes->count > 0 || p->vertices->count > 0
             || p->binocular_mask);
 }
 
@@ -377,40 +708,37 @@ static void M_StageRingBand(
     }
 }
 
-VIEWPORT_RECT OutputSource_UI_GetPickupRect(
-    const OUTPUT_UI_PICKUP *const pickup)
+// Stages the band of a line between two distances from its middle, measured
+// along the normal, shaded from one color at the first to the other at the
+// second.
+static void M_StageLineBand(
+    M_PRIV *const p, const OUTPUT_UI_LINE *const line, const float nx,
+    const float ny, const float d0, const float d1, const RGBA_F color_0,
+    const RGBA_F color_1)
 {
-    const VIEWPORT_RECT viewport = Viewport_GetRect(VIEWPORT_UI);
+    const float z = (float)line->z;
+    M_VERTEX v[4] = {};
+    v[0].pos = (XYZW_F) { line->x0 + nx * d0, line->y0 + ny * d0, z, 0.0f };
+    v[1].pos = (XYZW_F) { line->x1 + nx * d0, line->y1 + ny * d0, z, 0.0f };
+    v[2].pos = (XYZW_F) { line->x0 + nx * d1, line->y0 + ny * d1, z, 0.0f };
+    v[3].pos = (XYZW_F) { line->x1 + nx * d1, line->y1 + ny * d1, z, 0.0f };
+    for (int32_t i = 0; i < 4; i++) {
+        v[i].flags = VERT_FLAT_SHADED;
+        v[i].color = i < 2 ? color_0 : color_1;
+    }
 
-    const float pickup_h = viewport.h * g_Config.ui.pickup_scale / 6;
-    const float pickup_w = pickup_h * 5 / 4;
-    const float window_padding_y = viewport.h / 16;
-    const float window_padding_x = window_padding_y * 4 / 3;
-    const float grid_padding_x = pickup_w / 8;
-    const float grid_padding_y = pickup_h / 8;
-
-    const float src_x = viewport.w + window_padding_x + pickup_w;
-    const float src_y = viewport.h - window_padding_y - pickup_h / 2;
-
-    const float dst_x = viewport.w - window_padding_x - pickup_w / 2
-        - (pickup_w + grid_padding_x) * pickup->grid_x;
-    const float dst_y = viewport.h - window_padding_y - pickup_h / 2
-        - (pickup_h + grid_padding_y) * pickup->grid_y;
-
-    const float x = src_x + (dst_x - src_x) * pickup->ease;
-    const float y = src_y + (dst_y - src_y) * pickup->ease;
-    return (VIEWPORT_RECT) {
-        .x = x - pickup_w / 2,
-        .y = y - pickup_h / 2,
-        .w = pickup_w,
-        .h = pickup_h,
-    };
+    Vector_Add(p->vertices, &v[0]);
+    Vector_Add(p->vertices, &v[1]);
+    Vector_Add(p->vertices, &v[2]);
+    Vector_Add(p->vertices, &v[2]);
+    Vector_Add(p->vertices, &v[1]);
+    Vector_Add(p->vertices, &v[3]);
 }
 
 void OutputSource_UI_Init(void)
 {
     M_PRIV *const p = &m_Priv;
-    p->scheduled_pickups = Vector_Create(sizeof(OUTPUT_UI_PICKUP));
+    p->scheduled_meshes = Vector_Create(sizeof(OUTPUT_UI_MESH));
     p->vertices = Vector_CreateAtCapacity(sizeof(M_VERTEX), 500);
     p->source.render_begin = M_RenderBegin;
     p->source.render_pass = M_RenderPass;
@@ -449,9 +777,9 @@ void OutputSource_UI_Init(void)
 void OutputSource_UI_Shutdown(void)
 {
     M_PRIV *const p = &m_Priv;
-    if (p->scheduled_pickups != nullptr) {
-        Vector_Free(p->scheduled_pickups);
-        p->scheduled_pickups = nullptr;
+    if (p->scheduled_meshes != nullptr) {
+        Vector_Free(p->scheduled_meshes);
+        p->scheduled_meshes = nullptr;
     }
     if (p->vertices != nullptr) {
         Vector_Free(p->vertices);
@@ -467,16 +795,52 @@ void OutputSource_UI_Shutdown(void)
     }
 }
 
-void OutputSource_UI_StagePickup(const OUTPUT_UI_PICKUP pickup)
+void OutputSource_UI_StageMesh(const OUTPUT_UI_MESH mesh)
 {
     M_PRIV *const p = &m_Priv;
-    Vector_Add(p->scheduled_pickups, &pickup);
+    Vector_Add(p->scheduled_meshes, &mesh);
 }
 
-void OutputSource_UI_StageBinocularMask(void)
+void OutputSource_UI_StageBinocularMask(const bool laser_sight)
 {
     M_PRIV *const p = &m_Priv;
     p->binocular_mask = true;
+    p->laser_sight_mask = laser_sight;
+
+    const VIEWPORT_RECT viewport = Viewport_GetRect(VIEWPORT_UI);
+    const int32_t bar_w =
+        (viewport.w - M_GetMaskWidth(viewport, laser_sight)) / 2;
+    if (bar_w <= 0) {
+        return;
+    }
+    const RGBA_8888 black = { .r = 0, .g = 0, .b = 0, .a = 255 };
+    const int32_t y0 = viewport.y;
+    const int32_t y1 = viewport.y + viewport.h;
+    // The bars reach a pixel into the mask, so that no seam shows between.
+    const int32_t left_x1 = viewport.x + bar_w + 1;
+    const int32_t right_x0 = viewport.x + viewport.w - bar_w - 1;
+    OutputSource_UI_StageQuad((OUTPUT_UI_QUAD) {
+        .x0 = viewport.x,
+        .y0 = y0,
+        .x1 = left_x1,
+        .y1 = y1,
+        .z = OUTPUT_UI_NEAR_Z,
+        .tl = black,
+        .tr = black,
+        .bl = black,
+        .br = black,
+    });
+    OutputSource_UI_StageQuad((OUTPUT_UI_QUAD) {
+        .x0 = right_x0,
+        .y0 = y0,
+        .x1 = viewport.x + viewport.w,
+        .y1 = y1,
+        .z = OUTPUT_UI_NEAR_Z,
+        .tl = black,
+        .tr = black,
+        .bl = black,
+        .br = black,
+    });
 }
 
 void OutputSource_UI_StageSprite(const OUTPUT_UI_SPRITE sprite)
@@ -519,6 +883,13 @@ void OutputSource_UI_StageSprite(const OUTPUT_UI_SPRITE sprite)
         const int32_t j = OUTPUT_QUAD_TO_FAN(i);
         Vector_Add(p->vertices, &vertices[j]);
     }
+}
+
+bool OutputSource_UI_HasStaged(void)
+{
+    const M_PRIV *const p = &m_Priv;
+    return p->scheduled_meshes->count > 0 || p->vertices->count > 0
+        || p->binocular_mask;
 }
 
 void OutputSource_UI_StageQuad(const OUTPUT_UI_QUAD quad)
@@ -586,65 +957,25 @@ void OutputSource_UI_StageCircle(const OUTPUT_UI_CIRCLE circle)
     M_StageRingBand(p, cx, cy, ro - fw, ro, z, col, col_0);
 }
 
-void OutputSource_UI_StagePhotoModeFrame(
-    const VIEWPORT_RECT rect, const RGBA_8888 color, const int32_t thickness)
+void OutputSource_UI_StageLine(const OUTPUT_UI_LINE line)
 {
-    const int32_t t = thickness;
-    if (t <= 0) {
+    M_PRIV *const p = &m_Priv;
+    const float dx = line.x1 - line.x0;
+    const float dy = line.y1 - line.y0;
+    const float length = sqrtf(dx * dx + dy * dy);
+    if (length <= 0.0f || line.width <= 0.0f) {
         return;
     }
 
-    const int32_t x0 = rect.x;
-    const int32_t y0 = rect.y;
-    const int32_t x1 = rect.x + rect.w;
-    const int32_t y1 = rect.y + rect.h;
-    const int32_t z = Output_GetNearZ_UI();
+    const float nx = -dy / length;
+    const float ny = dx / length;
+    const RGBA_F col = M_ToRGBA_F(line.color);
+    const RGBA_F col_0 = { .r = col.r, .g = col.g, .b = col.b, .a = 0.0f };
 
-    OutputSource_UI_StageQuad((OUTPUT_UI_QUAD) {
-        .x0 = x0,
-        .y0 = y0,
-        .x1 = x1,
-        .y1 = y0 + t,
-        .z = z,
-        .tl = color,
-        .tr = color,
-        .bl = color,
-        .br = color,
-    });
-
-    OutputSource_UI_StageQuad((OUTPUT_UI_QUAD) {
-        .x0 = x0,
-        .y0 = y1 - t,
-        .x1 = x1,
-        .y1 = y1,
-        .z = z,
-        .tl = color,
-        .tr = color,
-        .bl = color,
-        .br = color,
-    });
-
-    OutputSource_UI_StageQuad((OUTPUT_UI_QUAD) {
-        .x0 = x0,
-        .y0 = y0 + t,
-        .x1 = x0 + t,
-        .y1 = y1 - t,
-        .z = z,
-        .tl = color,
-        .tr = color,
-        .bl = color,
-        .br = color,
-    });
-
-    OutputSource_UI_StageQuad((OUTPUT_UI_QUAD) {
-        .x0 = x1 - t,
-        .y0 = y0 + t,
-        .x1 = x1,
-        .y1 = y1 - t,
-        .z = z,
-        .tl = color,
-        .tr = color,
-        .bl = color,
-        .br = color,
-    });
+    // A one pixel feather on either side keeps a thin slanted line smooth.
+    const float half_w = line.width * 0.5f;
+    const float feather = 1.0f;
+    M_StageLineBand(p, &line, nx, ny, -half_w, half_w, col, col);
+    M_StageLineBand(p, &line, nx, ny, half_w, half_w + feather, col, col_0);
+    M_StageLineBand(p, &line, nx, ny, -half_w, -half_w - feather, col, col_0);
 }

@@ -19,6 +19,9 @@ void Output_DrawLightningSegment(const LIGHTNING_SEGMENT segment);
 void Output_DrawScreenSprite(
     int32_t sx, int32_t sy, int32_t sz, int32_t scale_h, int32_t scale_v,
     int32_t sprite_idx, const RGBA_F colors[4]);
+// Covers the screen in black as part of the scene, from 0 for clear to 1 for
+// black.
+void Output_DrawScreenBlack(float opacity);
 void Output_DrawScreenFlatQuad(
     int32_t sx, int32_t sy, int32_t z, int32_t w, int32_t h, RGBA_8888 color);
 void Output_DrawScreenGradientQuad(
@@ -27,9 +30,8 @@ void Output_DrawScreenGradientQuad(
 void Output_DrawScreenFrame(
     int32_t sx, int32_t sy, int32_t w, int32_t h, RGBA_8888 col_dark,
     RGBA_8888 col_light, float thickness);
-void Output_DrawPhotoModeFrame(int32_t thickness);
 
-void Output_DrawSphere(XYZ_16 center, int32_t radius);
-void Output_DrawCuboid(const BOUNDS_16 *bounds);
-void Output_DrawSphereEx(XYZ_16 center, int32_t radius, RGBA_8888 color);
-void Output_DrawCuboidEx(const BOUNDS_16 *bounds, RGBA_8888 color);
+void Output_DrawSphere(XYZ_32 center, int32_t radius);
+void Output_DrawCuboid(const BOUNDS_32 *bounds);
+void Output_DrawSphereEx(XYZ_32 center, int32_t radius, RGBA_8888 color);
+void Output_DrawCuboidEx(const BOUNDS_32 *bounds, RGBA_8888 color);

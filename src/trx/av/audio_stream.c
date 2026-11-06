@@ -15,6 +15,7 @@
 #define RING_FLOATS (1 << 15)
 #define RING_MASK (RING_FLOATS - 1)
 #define RING_REFILL_FLOATS (RING_FLOATS / 2)
+#define MIX_CHUNK_FLOATS 1024
 
 // Written by the worker thread, read by the audio callback, and by nobody
 // else. Reset only while the device is locked.
@@ -35,6 +36,12 @@ typedef struct {
     bool is_read_done;
     bool is_looped;
     float volume;
+    // a gain on top of the volume that the mixer moves by fade_step every
+    // sample, ending the stream where it fades out to silence
+    float fade;
+    float fade_step;
+    bool is_fading_out;
+    AUDIO_FILTER filter;
     double speed;
     double duration;
     double decode_timestamp;
@@ -91,27 +98,46 @@ static uint32_t M_RingWrite(
     return count;
 }
 
-static uint32_t M_RingMix(
-    M_RING *const ring, float *dst, uint32_t count, const float gain)
+static uint32_t M_RingRead(M_RING *const ring, float *dst, uint32_t count)
 {
     count = MIN(count, M_RingUsed(ring));
+    count -= count % AUDIO_WORKING_CHANNELS;
     SDL_MemoryBarrierAcquire();
 
     const uint32_t read_pos = (uint32_t)SDL_AtomicGet(&ring->read_pos);
     const uint32_t offset = read_pos & RING_MASK;
     const uint32_t head = MIN(count, RING_FLOATS - offset);
-
-    const float *src = ring->data + offset;
-    for (uint32_t i = 0; i < head; i++) {
-        *dst++ += *src++ * gain;
-    }
-    src = ring->data;
-    for (uint32_t i = head; i < count; i++) {
-        *dst++ += *src++ * gain;
-    }
+    memcpy(dst, ring->data + offset, head * sizeof(float));
+    memcpy(dst + head, ring->data, (count - head) * sizeof(float));
 
     SDL_AtomicSet(&ring->read_pos, (int32_t)(read_pos + count));
     return count;
+}
+
+static uint32_t M_Mix(
+    AUDIO_STREAM_SOUND *const stream, float *dst, uint32_t count)
+{
+    float chunk[MIX_CHUNK_FLOATS];
+    uint32_t mixed = 0;
+    while (mixed < count) {
+        const uint32_t wanted = MIN(count - mixed, (uint32_t)MIX_CHUNK_FLOATS);
+        const uint32_t read = M_RingRead(&stream->ring, chunk, wanted);
+        Audio_Filter_Process(&stream->filter, chunk, read);
+
+        float f = stream->fade;
+        for (uint32_t i = 0; i < read; i++) {
+            *dst++ += chunk[i] * stream->volume * f;
+            f += stream->fade_step;
+            CLAMP(f, 0.0f, 1.0f);
+        }
+        stream->fade = f;
+
+        mixed += read;
+        if (read < wanted) {
+            break;
+        }
+    }
+    return mixed;
 }
 
 static void M_RingReset(M_RING *const ring)
@@ -229,6 +255,10 @@ static void M_Clear(AUDIO_STREAM_SOUND *const stream)
     stream->is_read_done = true;
     stream->is_looped = false;
     stream->volume = 0.0f;
+    stream->fade = 1.0f;
+    stream->fade_step = 0.0f;
+    stream->is_fading_out = false;
+    Audio_Filter_Reset(&stream->filter);
     stream->speed = 1.0;
     stream->duration = 0.0;
     stream->decode_timestamp = 0.0;
@@ -283,6 +313,10 @@ static bool M_Initialise(
     stream->is_read_done = false;
     stream->is_looped = false;
     stream->volume = 1.0f;
+    stream->fade = 1.0f;
+    stream->fade_step = 0.0f;
+    stream->is_fading_out = false;
+    Audio_Filter_Reset(&stream->filter);
     stream->speed = 1.0;
     stream->decode_timestamp = 0.0;
     stream->played_samples = 0;
@@ -298,6 +332,23 @@ static bool M_Initialise(
     Audio_UnlockDevice();
 
     return true;
+}
+
+static RESULT M_Fade(
+    const int32_t sound_id, const float from, const float to,
+    const double seconds)
+{
+    MUST(M_CheckID(sound_id));
+    FAIL_IF(seconds <= 0.0, "a fade cannot take %f seconds", seconds);
+    const float step = (to - from)
+        / (float)(seconds * AUDIO_WORKING_RATE * AUDIO_WORKING_CHANNELS);
+    Audio_LockDevice();
+    AUDIO_STREAM_SOUND *const stream = &m_Streams[sound_id];
+    stream->fade = from;
+    stream->fade_step = step;
+    stream->is_fading_out = to <= 0.0f;
+    Audio_UnlockDevice();
+    return OK;
 }
 
 void Audio_Stream_Init(void)
@@ -484,6 +535,26 @@ RESULT Audio_Stream_SetVolume(const int32_t sound_id, const float volume)
     return OK;
 }
 
+RESULT Audio_Stream_FadeIn(const int32_t sound_id, const double seconds)
+{
+    return M_Fade(sound_id, 0.0f, 1.0f, seconds);
+}
+
+RESULT Audio_Stream_FadeOut(const int32_t sound_id, const double seconds)
+{
+    MUST(M_CheckID(sound_id));
+    return M_Fade(sound_id, m_Streams[sound_id].fade, 0.0f, seconds);
+}
+
+RESULT Audio_Stream_SetLowPass(const int32_t sound_id, const float cutoff)
+{
+    MUST(M_CheckID(sound_id));
+    Audio_LockDevice();
+    Audio_Filter_SetCutoff(&m_Streams[sound_id].filter, cutoff);
+    Audio_UnlockDevice();
+    return OK;
+}
+
 RESULT Audio_Stream_SetSpeed(const int32_t sound_id, const double speed)
 {
     MUST(M_CheckID(sound_id));
@@ -542,13 +613,15 @@ void Audio_Stream_Mix(float *const dst_buffer, const size_t len)
             continue;
         }
 
-        const uint32_t mixed =
-            M_RingMix(&stream->ring, dst_buffer, requested, stream->volume);
+        const uint32_t mixed = M_Mix(stream, dst_buffer, requested);
         stream->played_samples += mixed / AUDIO_WORKING_CHANNELS;
 
         // Looping is handled by the worker, so a dry ring on a stream that has
         // read everything is a legitimate end of playback.
         if (mixed < requested && stream->is_read_done) {
+            SDL_AtomicSet(&stream->is_finished, 1);
+        }
+        if (stream->is_fading_out && stream->fade <= 0.0f) {
             SDL_AtomicSet(&stream->is_finished, 1);
         }
     }

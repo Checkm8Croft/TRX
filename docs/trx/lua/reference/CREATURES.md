@@ -1,13 +1,13 @@
 ---
 title: Creatures
-order: 11
+order: 12
 ---
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/creatures.lua. Edit it there.
+  src/lua/trx/creatures.lua. Edit it there.
 -->
 
 ## <a id="creatures" name="creatures"></a>Creatures module
@@ -32,7 +32,8 @@ Module for controlling certain creature behavior.
   ```
 
 - <a id="creatures.add_ally_target" name="creatures.add_ally_target"></a>[lua]`trx.creatures.add_ally_target(object_id)`  
-  Marks an object as one that will fight any of Lara's allies. Every item of that type will target them.
+  Marks an object as one that will fight any of Lara's allies. Every item of
+  that type will target them.
 
   Parameters:
   - <a id="creatures.add_ally_target.object_id" name="creatures.add_ally_target.object_id"></a>**`object_id`** ([trx.catalog.objects](CATALOG.md#catalog.objects)).

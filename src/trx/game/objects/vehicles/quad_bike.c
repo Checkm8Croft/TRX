@@ -5,6 +5,7 @@
 #include <trx/core/json/util/write_io.h>
 #include <trx/game/anims.h>
 #include <trx/game/camera.h>
+#include <trx/game/demo.h>
 #include <trx/game/game.h>
 #include <trx/game/game_buf.h>
 #include <trx/game/gun/common.h>
@@ -325,8 +326,6 @@ static void M_Collision(
     lara_item->rot.y = item->rot.y;
     lara->head_rot.y = 0;
     lara->head_rot.x = 0;
-    lara->torso_rot.y = 0;
-    lara->torso_rot.x = 0;
     lara->hit_direction = DIR_UNKNOWN;
     Item_Animate(lara_item);
 
@@ -462,7 +461,8 @@ static int32_t M_TestHeight(
 static void M_TriggerExhaustSmoke(
     XYZ_32 pos, int16_t angle, int32_t speed, const bool moving)
 {
-    SPARK *const spark = Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION);
+    SPARK *const spark =
+        Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION, SPARK_CONTEXT_SMOKE);
     if (spark == nullptr) {
         return;
     }
@@ -1289,6 +1289,12 @@ static bool M_UserControl(ITEM *item, int32_t height, int32_t *pitch)
             } else {
                 quad->velocity = 0xA000;
             }
+
+            // The PS1 release drags the quad by how far it slides sideways
+            // while accelerating, and its demos depend on it.
+            if (Demo_UsesPS1Rules()) {
+                quad->velocity -= ABS(item->rot.y - quad->momentum_angle) >> 6;
+            }
         } else if (quad->velocity > 256) {
             quad->velocity -= 256;
         } else if (quad->velocity < -256) {
@@ -1342,7 +1348,7 @@ static void M_Setup(OBJECT *const obj)
     obj->priv_load_func = M_LoadPriv;
     obj->priv_save_func = M_SavePriv;
     obj->collision_func = M_Collision;
-    obj->draw_func = Object_DrawAnimatingItem;
+    obj->draw_func = Item_DrawAnimating;
     obj->event_func = Vehicle_HandleEvent;
     obj->save_position = true;
     obj->save_flags = true;
@@ -1353,7 +1359,9 @@ static void M_Setup(OBJECT *const obj)
     OBJECT_PROPERTIES(
         obj,
         OBJECT_PROPERTY_STORED(
-            "track_1", -1, "Random music track pool, slot 1. -1 = disabled."),
+            "track_1", -1,
+            "Random music track pool, slot 1. -1 = disabled. Value range: "
+            "minimum -1."),
         OBJECT_PROPERTY_STORED(
             "track_2", -1, "Random music track pool, slot 2. -1 = disabled."),
         OBJECT_PROPERTY_STORED(

@@ -1,22 +1,92 @@
 #pragma once
 
+#include <trx/core/math/types.h>
 #include <trx/game/objects/types.h>
 #include <trx/game/output/textures.h>
 #include <trx/game/output/utils.h>
 #include <trx/game/viewport.h>
 
-#define OUTPUT_UI_MAX_PICKUP_ROWS 3
-#define OUTPUT_UI_MAX_PICKUP_COLUMNS 4
-#define OUTPUT_UI_MAX_PICKUPS                                                  \
-    (OUTPUT_UI_MAX_PICKUP_COLUMNS * OUTPUT_UI_MAX_PICKUP_ROWS)
+// The light a model is drawn in: an ambient light, up to three lights shining
+// from a direction in a colour of their own, and a colour some of the meshes,
+// one bit each, take from every light in place of the light's own. Each game
+// reads it its own way: TR3 lights in colour, TR4 by the ambient light alone,
+// and TR1 and TR2 by the ambient light's brightness and the first light's.
+typedef struct {
+    RGB_F ambient;
+    int32_t light_count;
+    struct {
+        XYZ_32 dir;
+        RGB_F color;
+    } lights[3];
+    uint32_t lit_mask;
+    RGB_F colors[32];
+} OUTPUT_UI_MESH_LIGHT;
+
+// Where a model stands in a world of its own, and the camera that sees it: the
+// model is placed by turns, moves and scales applied in order from the world's
+// origin, as the engine places a model, and the light's directions are in that
+// world.
+#define OUTPUT_UI_MESH_STEPS 16
+#define OUTPUT_UI_MESH_BONES 8
+typedef enum {
+    OUTPUT_UI_MESH_STEP_MOVE,
+    OUTPUT_UI_MESH_STEP_TURN,
+    // Scales the model by vec.x, in 1/1024ths.
+    OUTPUT_UI_MESH_STEP_SCALE,
+} OUTPUT_UI_MESH_STEP;
 
 typedef struct {
+    XYZ_32 camera_pos;
+    XYZ_32 camera_target;
+    int16_t fov;
+    int32_t step_count;
+    struct {
+        OUTPUT_UI_MESH_STEP kind;
+        XYZ_32 vec;
+    } steps[OUTPUT_UI_MESH_STEPS];
+    // The frame of its first animation that the model is posed in, and the
+    // frame it blends towards by the blend, from 0 to 1.
+    int32_t frame;
+    int32_t next_frame;
+    float blend;
+    // Turns that bones take on top of the frame, about the axes each names.
+    int32_t bone_count;
+    struct {
+        int32_t bone;
+        XYZ_BOOL axes;
+        XYZ_16 rot;
+    } bones[OUTPUT_UI_MESH_BONES];
+    // Whether the model is drawn about its pivot, without its frame offset.
+    bool at_pivot;
+    // The meshes drawn see-through, one bit each, and how solid each one is,
+    // from 0 to 1.
+    uint32_t faded_mask;
+    float mesh_opacity[32];
+    // Where the middle of the camera's sight lands, as a fraction of the
+    // screen's width and height. The middle of the screen is 0.5 each way.
+    float center_x;
+    float center_y;
+    // How solid the model is, from 0 to 1.
+    float opacity;
+} OUTPUT_UI_MESH_WORLD;
+
+// An object drawn as a model in a box on the canvas. The box says where it
+// goes and how large it is; the model is fitted into it and lit by the light
+// given, or by a plain white one where there is none.
+typedef struct {
     const OBJECT *object;
-    int32_t grid_x;
-    int32_t grid_y;
-    int32_t rot_y;
-    float ease;
-} OUTPUT_UI_PICKUP;
+    VIEWPORT_RECT rect;
+    uint32_t mesh_mask;
+    XYZ_16 rot;
+    // Tilted and turned first as the game holds up a pickup.
+    bool held;
+    // Tilted towards the viewer before anything else, about the screen's
+    // horizontal axis.
+    int16_t tilt;
+    const OUTPUT_UI_MESH_LIGHT *light;
+    // Where it stands in a world of its own instead of in the box, if at all.
+    const OUTPUT_UI_MESH_WORLD *world;
+} OUTPUT_UI_MESH;
 
 typedef struct {
     int32_t sprite_idx;
@@ -41,15 +111,25 @@ typedef struct {
     RGBA_8888 color;
 } OUTPUT_UI_CIRCLE;
 
+// A straight line between two points of the screen, with smooth edges.
+typedef struct {
+    float x0, y0;
+    float x1, y1;
+    float width;
+    int32_t z;
+    RGBA_8888 color;
+} OUTPUT_UI_LINE;
+
 void OutputSource_UI_Init(void);
 void OutputSource_UI_Shutdown(void);
 
-void OutputSource_UI_StagePickup(OUTPUT_UI_PICKUP pickup);
-void OutputSource_UI_StageBinocularMask(void);
+void OutputSource_UI_StageMesh(OUTPUT_UI_MESH mesh);
+// Stages the mask over the binocular view, or over the laser sight view
+// where laser_sight is true.
+void OutputSource_UI_StageBinocularMask(bool laser_sight);
 void OutputSource_UI_StageSprite(OUTPUT_UI_SPRITE sprite);
 void OutputSource_UI_StageQuad(OUTPUT_UI_QUAD quad);
+// Reports whether anything staged waits for the next flush.
+bool OutputSource_UI_HasStaged(void);
 void OutputSource_UI_StageCircle(OUTPUT_UI_CIRCLE circle);
-void OutputSource_UI_StagePhotoModeFrame(
-    VIEWPORT_RECT rect, RGBA_8888 color, int32_t thickness);
-
-VIEWPORT_RECT OutputSource_UI_GetPickupRect(const OUTPUT_UI_PICKUP *pickup);
+void OutputSource_UI_StageLine(OUTPUT_UI_LINE line);

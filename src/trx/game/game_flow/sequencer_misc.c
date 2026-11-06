@@ -8,15 +8,18 @@
 #include <trx/game/game.h>
 #include <trx/game/game_flow/common.h>
 #include <trx/game/game_flow/sequencer.h>
+#include <trx/game/game_flow/sequencer_events.h>
 #include <trx/game/game_flow/vars.h>
-#include <trx/game/game_strings/table.h>
+#include <trx/game/game_strings/manager.h>
 #include <trx/game/inventory.h>
-#include <trx/game/inventory_ring/control.h>
 #include <trx/game/level.h>
+#include <trx/game/locale/common.h>
 #include <trx/game/objects/links.h>
 #include <trx/game/phase.h>
+#include <trx/game/phase/phase_inventory.h>
 #include <trx/game/savegame.h>
 #include <trx/game/shell/common.h>
+#include <trx/game/ui/menu.h>
 
 static void M_PlayIntroFMVs(void)
 {
@@ -27,7 +30,11 @@ static void M_PlayIntroFMVs(void)
     for (int32_t i = 0; i < g_GameFlow.fmv_count; i++) {
         const GF_FMV *const fmv = &g_GameFlow.fmvs[i];
         if (fmv->is_intro) {
-            SHOULD(FMV_Play(fmv->path));
+            char *path = Locale_ResolvePath(
+                LOCALE_ROLE_AUDIO, GAME_DYNAMIC_PATH_FMV_FILE,
+                &fmv->localized_path);
+            SHOULD(FMV_Play(path));
+            Memory_FreePointer(&path);
         }
     }
 }
@@ -35,10 +42,12 @@ static void M_PlayIntroFMVs(void)
 RESULT GF_RunTitle(GF_COMMAND *const out_cmd)
 {
     SG_Manager_UnbindSlot();
-    GameStringTable_Apply(nullptr);
+    GameStringManager_Apply(nullptr);
     GF_ResetLevelSetup(GFSC_NORMAL);
     const GF_LEVEL *const title_level = GF_GetTitleLevel();
     MUST(Level_Initialise(title_level, GFSC_NORMAL), "the title level");
+    GF_SetupTitleSequences(title_level);
+    GF_ShowTitleLoadingCamera(title_level);
     *out_cmd = GF_ShowInventory(INV_TITLE_MODE);
     return OK;
 }
@@ -76,21 +85,20 @@ GF_COMMAND GF_ShowInventory(const INVENTORY_MODE mode)
 
 bool GF_ShowInventoryKeys(const OBJECT_ID receptacle_type_id)
 {
-    if (!InvRing_IsRingAvailable(RT_KEYS)) {
-        return false;
-    }
+    const OBJECT_ID key_id =
+        ObjectLink_GetInverse(receptacle_type_id, OBJ_LINK_KEY_TO_RECEPTACLE);
+    UI_RequestKey(key_id);
     if (g_Config.gameplay.enable_auto_item_selection) {
-        const OBJECT_ID obj_id = ObjectLink_GetInverse(
-            receptacle_type_id, OBJ_LINK_KEY_TO_RECEPTACLE);
-        InvRing_SetRequestedObjectID(obj_id);
-    } else {
-        InvRing_ClearSelection();
+        UI_RequestItem(key_id);
     }
-    const GF_COMMAND gf_cmd = GF_ShowInventory(INV_KEYS_MODE);
+    PHASE *const phase = Phase_Inventory_Create(INV_KEYS_MODE);
+    const GF_COMMAND gf_cmd = PhaseExecutor_Run(phase);
+    const bool is_shown = Phase_Inventory_IsShown(phase);
+    Phase_Inventory_Destroy(phase);
     if (gf_cmd.action != GF_NOOP) {
-        GF_OverrideCommand(gf_cmd);
+        GF_OverrideCommand(gf_cmd, true);
     }
-    return true;
+    return is_shown;
 }
 
 GF_COMMAND GF_RunDemo(const int32_t demo_num)
@@ -136,10 +144,13 @@ RESULT GF_DoFrontendSequence(GF_COMMAND *const out_cmd)
     const SHELL_ARGS *const args = Shell_GetArgs();
     if (args != nullptr) {
         if (args->startup.save_to_load >= 0) {
+            const int32_t index = args->startup.save_to_load;
             *out_cmd = (GF_COMMAND) {
                 .action = GF_START_SAVED_GAME,
                 .param = SG_Manager_SlotToParam(
-                    SG_Manager_NormalSlot(args->startup.save_to_load)),
+                    args->startup.save_is_quick
+                        ? SG_Manager_QuickFromVisualIndex(index)
+                        : SG_Manager_NormalSlot(index)),
             };
             return OK;
         }
@@ -204,9 +215,12 @@ RESULT GF_DoLevelSequence(
     const GF_LEVEL_TABLE_TYPE level_table_type =
         GF_GetLevelTableType(current_level->type);
     const int32_t level_count = GF_GetLevelTable(level_table_type)->count;
+    GF_SEQUENCE_CONTEXT level_seq_ctx = seq_ctx;
     while (true) {
         GF_COMMAND gf_cmd;
-        MUST(GF_InterpretSequence(current_level, seq_ctx, nullptr, &gf_cmd));
+        MUST(GF_InterpretSequence(
+            current_level, level_seq_ctx, nullptr, &gf_cmd));
+        level_seq_ctx = GFSC_NORMAL;
 
         if (gf_cmd.action != GF_NOOP && gf_cmd.action != GF_LEVEL_COMPLETE) {
             *out_cmd = gf_cmd;
@@ -363,6 +377,25 @@ RESULT GF_RunUntilExit(GF_COMMAND gf_cmd)
             gf_cmd = GF_RunGlobeSelect(nullptr);
             break;
 
+        case GF_NEW_GAME: {
+            const GF_LEVEL *const level = GF_GetFirstLevel();
+            if (level == nullptr) {
+                return FAIL("the game flow names no first level");
+            }
+            // Unloads the old level before the reset, so that what its unload
+            // handlers write is cleared with the rest of the old playthrough.
+            if (GF_GetCurrentLevel() != nullptr) {
+                Level_Unload();
+            }
+            Game_SetCurrentLevel(nullptr);
+            GF_SetCurrentLevel(nullptr);
+            Game_SetBonusFlag((GAME_BONUS_FLAG)gf_cmd.param);
+            SG_Resume_ResetAllEntries();
+            SG_Manager_UnbindSlot();
+            MUST(GF_DoLevelSequence(level, GFSC_NORMAL, &gf_cmd));
+            break;
+        }
+
         case GF_START_SAVED_GAME: {
             const SAVEGAME_SLOT_REF slot =
                 SG_Manager_SlotFromParam(gf_cmd.param);
@@ -373,7 +406,11 @@ RESULT GF_RunUntilExit(GF_COMMAND gf_cmd)
             } else {
                 SG_Manager_BindSlot(slot);
                 const GF_LEVEL *const level = GF_GetLevel(GFLT_MAIN, level_num);
-                MUST(GF_DoLevelSequence(level, GFSC_SAVED, &gf_cmd));
+                const SAVEGAME_INFO *const info =
+                    SG_Manager_GetSavegameInfo(slot);
+                MUST(GF_DoLevelSequence(
+                    level, info->is_level_end ? GFSC_LEVEL_END : GFSC_SAVED,
+                    &gf_cmd));
             }
             break;
         }

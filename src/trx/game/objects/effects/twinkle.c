@@ -7,17 +7,17 @@
 #include <trx/game/objects.h>
 #include <trx/game/random.h>
 #include <trx/game/spawn.h>
+#include <trx/version.h>
 
 #define M_DISAPPEAR_RANGE STEP_L
 
 static void M_SpawnTwinkle(const GAME_VECTOR *const pos)
 {
-    const int16_t effect_num = Effect_Create(pos->room_num);
+    const int16_t effect_num = Effect_Create(O_TWINKLE, pos->room_num);
     if (effect_num != NO_EFFECT) {
         EFFECT *const effect = Effect_Get(effect_num);
         effect->pos = pos->pos;
         effect->counter = Object_Get(O_TWINKLE)->mesh_count;
-        effect->object_id = O_TWINKLE;
         effect->frame_num = 0;
     }
 }
@@ -80,6 +80,7 @@ static void M_Control(const int16_t effect_num)
 static void M_Setup(OBJECT *const obj)
 {
     obj->effect_control_func = M_Control;
+    obj->semi_transparent = g_TRVersion == 1;
 }
 
 void Twinkle_SparkleItem(const ITEM *const item, const uint32_t mesh_mask)

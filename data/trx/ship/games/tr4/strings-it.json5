@@ -1,12 +1,54 @@
 {
     // For usage, refer to the documentation here:
     // https://lostartefacts.dev/trx/docs/stable/game_strings
+    "enums": {
+        "input_role": {
+            "equip_grenade_launcher": "Equipaggia Lanciagranate",
+            "equip_uzis": "Equipaggia Uzi",
+        }
+    },
     "objects": {
+        "crossbow_ammo_1_item": {
+            "name": "Dardi Normali per Balestra",
+        },
+        "crossbow_ammo_2_item": {
+            "name": "Dardi Avvelenati per Balestra",
+        },
+        "crossbow_ammo_3_item": {
+            "name": "Dardi Esplosivi per Balestra",
+        },
         "flare_item": {
             "name": "Razzi di Segnalazione",
         },
+        "grenade_ammo_2_item": {
+            "name": "Granate Potenziate per Lanciagranate",
+        },
+        "grenade_ammo_3_item": {
+            "name": "Granate Accecanti per Lanciagranate",
+        },
+        "grenade_ammo_item": {
+            "name": "Granate Normali per Lanciagranate",
+        },
         "grenade_gun_item": {
             "name": "Lanciagranate",
+        },
+        "pistols_ammo_item": {
+            "name": "Caricatori per Pistole",
+        },
+        "quest_item_1": {
+            "name": "Amuleto di Horus",
+        },
+        "shotgun_ammo_2_item": {
+            "name": "Cartucce a Rosata Ampia per Fucile a Pompa",
+        },
+        "shotgun_ammo_item": {
+            "name": "Cartucce Normali per Fucile a Pompa",
+        },
+        "uzis_ammo_item": {
+            "name": "Caricatori per Uzi",
+        },
+        "uzis_item": {
+            "name": "Uzi",
         }
     },
     "cutscenes": [],
@@ -112,9 +154,6 @@
                 "key_item_2": {
                     "name": "Chiave dell'Ipostilo",
                 },
-                "key_item_3": {
-                    "name": "Chiave del Tempio",
-                },
                 "puzzle_item_1": {
                     "name": "Talismano del Sole",
                 },
@@ -137,9 +176,6 @@
             "objects": {
                 "key_item_2": {
                     "name": "Chiave dell'Ipostilo",
-                },
-                "key_item_3": {
-                    "name": "Chiave del Tempio",
                 },
                 "puzzle_item_1": {
                     "name": "Talismano del Sole",
@@ -178,7 +214,7 @@
                 },
                 "examine_item_2": {
                     "name": "Regole del Senet",
-                    "description": "\\{color grey}Per vincere la partita, togli tutti i tuoi pezzi dalla scacchiera, facendoli arrivare sul riquadro ankh finale. Al tuo turno, fai girare i bastoncini. Il tuo lancio corrisponde al numero di facce bianche visibili.\n\nSe non vedi alcuna faccia bianca, il tuo lancio è un sei. In questo caso, o se finisci su una casella ankh, ottieni un turno extra. Se ti sposti su un pezzo avversario, quest'ultimo verrà riposto nella sua posizione iniziale.",
+                    "description": "Per vincere la partita, togli tutti i tuoi pezzi dalla scacchiera, facendoli arrivare sul riquadro ankh finale. Al tuo turno, fai girare i bastoncini. Il tuo lancio corrisponde al numero di facce bianche visibili.\n\nSe non vedi alcuna faccia bianca, il tuo lancio è un sei. In questo caso, o se finisci su una casella ankh, ottieni un turno extra. Se ti sposti su un pezzo avversario, quest'ultimo verrà riposto nella sua posizione iniziale.",
                 }
             }
         },
@@ -332,6 +368,9 @@
                 "puzzle_item_5": {
                     "name": "Guardiano del Portale",
                 },
+                "puzzle_item_6": {
+                    "name": "Gemma del Cavaliere",
+                },
                 "puzzle_item_10": {
                     "name": "Nodo di Faro",
                 },
@@ -404,6 +443,9 @@
                 },
                 "puzzle_item_3": {
                     "name": "Stella Dorata",
+                },
+                "puzzle_item_4": {
+                    "name": "Asta con Gancio",
                 },
                 "puzzle_item_5": {
                     "name": "Guardiano del Portale",
@@ -513,7 +555,7 @@
                 },
                 "examine_item_3": {
                     "name": "Pergamena del Cerchio di Fuoco",
-                    "description": "\\{color yellow}Perché i serpenti possano vivere, prima tutti devono essere placati. Provocali uno alla volta e il cerchio sarà completo.",
+                    "description": "Affinché i serpenti possano vivere, prima tutti devono essere placati. Provocali uno alla volta e il cerchio sarà completo.",
                 }
             }
         },

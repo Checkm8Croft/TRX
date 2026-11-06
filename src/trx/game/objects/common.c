@@ -8,6 +8,7 @@
 #include <trx/game/catalog/table.h>
 #include <trx/game/const.h>
 #include <trx/game/game_buf.h>
+#include <trx/game/items/actions/ids.h>
 #include <trx/game/lara/common.h>
 #include <trx/game/objects/links.h>
 #include <trx/game/objects/names.h>
@@ -32,6 +33,9 @@ static VECTOR *m_MeshPointers = nullptr;
 
 static VECTOR *m_UncatalogedSlots = nullptr;
 
+static void (**m_RegisteredSetups)(OBJECT *obj) = nullptr;
+static int32_t m_RegisteredSetupCount = 0;
+
 static M_MESH_PRIV *M_GetPriv(const OBJECT_MESH *const mesh)
 {
     return (M_MESH_PRIV *)mesh->priv;
@@ -49,6 +53,41 @@ static void M_RefreshRegistryIndex(OBJECT_MESH *const mesh)
     }
 }
 
+static int16_t M_FindReceptacle(
+    const OBJECT_ID object_id, const OBJECT_LINK link)
+{
+    // Iterate through all matching receptacles
+    const int32_t count = ObjectLink_GetCount(object_id, link);
+    for (int32_t i = 0; i < count; i++) {
+        // Iterate through all level items that match this receptacle
+        const OBJECT_ID receptacle_to_check =
+            ObjectLink_GetAt(object_id, link, i);
+        for (int16_t item_num = 0; item_num < Item_GetLevelCount();
+             item_num++) {
+            const ITEM *const item = Item_Get(item_num);
+            if (item->object_id != receptacle_to_check) {
+                continue;
+            }
+
+            const OBJECT *const obj = Object_Get(item->object_id);
+            if (obj->is_usable_func != nullptr
+                && !obj->is_usable_func(item_num)) {
+                continue;
+            }
+
+            // If Lara is standing near one, that's our receptacle. If no bounds
+            // are set, this assumes is_usable_func has been implemented for
+            // specific item tests.
+            if (obj->bounds_func == nullptr
+                || Lara_TestPosition(item, obj->bounds_func())) {
+                return item_num;
+            }
+        }
+    }
+
+    return NO_ITEM;
+}
+
 void Object_Reset(void)
 {
     CATALOG_FOR_EACH(CATALOG_OBJECTS, i)
@@ -56,6 +95,8 @@ void Object_Reset(void)
         OBJECT *const obj = Object_TryGet(i);
         ObjectProperty_ResetObject(obj);
         obj->loaded = false;
+        obj->setup_func =
+            i < m_RegisteredSetupCount ? m_RegisteredSetups[i] : nullptr;
     }
 
     m_StaticObjects3D = nullptr;
@@ -104,6 +145,16 @@ int32_t Object_GetStaticObjects2DCount(void)
 void Object_Register(
     const OBJECT_ID object_id, void (*const setup_func)(OBJECT *obj))
 {
+    if (object_id >= m_RegisteredSetupCount) {
+        m_RegisteredSetups = Memory_Realloc(
+            m_RegisteredSetups, sizeof(*m_RegisteredSetups) * (object_id + 1));
+        for (int32_t i = m_RegisteredSetupCount; i <= object_id; i++) {
+            m_RegisteredSetups[i] = nullptr;
+        }
+        m_RegisteredSetupCount = object_id + 1;
+    }
+    m_RegisteredSetups[object_id] = setup_func;
+
     OBJECT *const obj = CatalogTable_Claim(&m_Objects, object_id);
     obj->setup_func = setup_func;
 }
@@ -378,30 +429,15 @@ OBJECT_ID Object_FindReceptacleKey(const OBJECT_ID receptacle_obj_id)
 
 int16_t Object_FindReceptacle(const OBJECT_ID object_id)
 {
-    // Iterate through all matching receptacles
-    const int32_t count =
-        ObjectLink_GetCount(object_id, OBJ_LINK_KEY_TO_RECEPTACLE);
-    for (int32_t i = 0; i < count; i++) {
-        // Iterate through all level items that match this receptacle
-        const OBJECT_ID receptacle_to_check =
-            ObjectLink_GetAt(object_id, OBJ_LINK_KEY_TO_RECEPTACLE, i);
-        for (int16_t item_num = 0; item_num < Item_GetLevelCount();
-             item_num++) {
-            const ITEM *const item = Item_Get(item_num);
-            if (item->object_id != receptacle_to_check) {
-                continue;
-            }
+    const OBJECT_LINK links[2] = {
+        OBJ_LINK_KEY_TO_RECEPTACLE,
+        OBJ_LINK_KEY_TO_VEHICLE,
+    };
 
-            const OBJECT *const obj = Object_Get(item->object_id);
-            if (obj->is_usable_func != nullptr
-                && !obj->is_usable_func(item_num)) {
-                continue;
-            }
-
-            // If Lara is standing near one, that's our keyhole
-            if (Lara_TestPosition(item, obj->bounds_func())) {
-                return item_num;
-            }
+    for (size_t i = 0; i < ARRAY_SIZE(links); i++) {
+        const int16_t item_num = M_FindReceptacle(object_id, links[i]);
+        if (item_num != NO_ITEM) {
+            return item_num;
         }
     }
 
@@ -414,6 +450,25 @@ bool Object_CanInterpolate(
     const OBJECT *const obj = Object_Get(item->object_id);
     return item->enable_interpolation && obj->enable_interpolation
         && item->prev_frame_num != item->frame_num;
+}
+
+bool Object_CanBeExploded(const ITEM *const item)
+{
+    const OBJECT *const obj = Object_Get(item->object_id);
+    if (obj->can_be_exploded_func != nullptr) {
+        return obj->can_be_exploded_func(item);
+    }
+
+    const ITEM_ACTION_SLOT action =
+        ItemAction_IDToSlot(ITEM_ACTION_FINISH_LEVEL);
+    for (int32_t i = 0; i < obj->anim_count; i++) {
+        const ANIM *const anim = Object_GetAnim(obj, i);
+        if (Anim_HasFXCommand(anim, action)) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void Object_SetReflective(const OBJECT_ID obj_id, const bool enabled)
@@ -441,16 +496,19 @@ void Object_SetMeshReflective(
     Output_DispatchObjectMeshUpdate(abs_mesh_idx);
 }
 
-void Object_SetSemiTransparent(const OBJECT_ID obj_id, const bool enabled)
+void Object_SetMeshReflectionsSuppressed(
+    const OBJECT_ID obj_id, const int32_t mesh_idx, const bool suppressed)
 {
     const OBJECT *const obj = Object_Get(obj_id);
     if (!obj->loaded) {
         return;
     }
-    for (int32_t i = 0; i < obj->mesh_count; i++) {
-        OBJECT_MESH *const mesh = Object_GetMesh(obj->mesh_idx + i);
-        for (int32_t j = 0; j < mesh->all_faces.count; j++) {
-            mesh->all_faces.data[j].semi_transparent = enabled;
-        }
+
+    const int32_t abs_mesh_idx = obj->mesh_idx + mesh_idx;
+    OBJECT_MESH *const mesh = Object_GetMesh(abs_mesh_idx);
+    if (mesh->suppress_reflections == suppressed) {
+        return;
     }
+    mesh->suppress_reflections = suppressed;
+    Output_DispatchObjectMeshUpdate(abs_mesh_idx);
 }

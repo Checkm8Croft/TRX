@@ -8,19 +8,23 @@
 #include <trx/game/rooms.h>
 #include <trx/game/spawn.h>
 
+// clang-format off
 #define M_MONKEY_CEILING_SNAP 704
-#define M_PUSH_TIMEOUT 15
+#define M_PUSH_TIMEOUT        15
+#define M_MAX_PUSH_DIST       (STEP_L * 18) // = 4608
+// clang-format on
 
 typedef void (*M_COLLISION_ROUTINE)(ITEM *item, COLL_INFO *coll);
 
 CATALOG_TABLE_DEFINE(
     m_CollisionRoutines, CATALOG_LARA_STATES, M_COLLISION_ROUTINE);
 
-void Lara_Col_Push(
+bool Lara_Col_Push(
     const COLL_ITEM *const item, COLL_INFO *const coll, const bool hit_on,
     const bool big_push)
 {
-    ITEM *const target_item = Lara_GetItem();
+    ITEM *const target_item =
+        Lara_Vehicle_IsMounted() ? Lara_Vehicle_GetItem() : Lara_GetItem();
     const XYZ_32 delta = XYZ_32_Subtract(target_item->pos, item->pos);
     const XYZ_32 local = XYZ_32_UnrotateYaw(delta, item->rot.y);
     int32_t rx = local.x;
@@ -39,8 +43,9 @@ void Lara_Col_Push(
         min_x -= coll->radius;
     }
 
-    if (rx < min_x || rx > max_x || rz < min_z || rz > max_z) {
-        return;
+    if (ABS(delta.x) > M_MAX_PUSH_DIST || ABS(delta.z) > M_MAX_PUSH_DIST
+        || rx <= min_x || rx >= max_x || rz <= min_z || rz >= max_z) {
+        return false;
     }
 
     const int32_t l = rx - min_x;
@@ -99,6 +104,8 @@ void Lara_Col_Push(
         lara_info->interact_target.is_moving = false;
         lara_info->gun_status = LGS_ARMLESS;
     }
+
+    return true;
 }
 
 void Lara_Col_Register(
@@ -130,6 +137,14 @@ void Lara_Col_Shift(COLL_INFO *const coll)
     Collide_ShiftItem(Lara_GetItem(), coll);
 }
 
+void Lara_Col_AlignToFloor(ITEM *const item, const COLL_INFO *const coll)
+{
+    if (coll->side_mid.floor != NO_HEIGHT
+        || g_Config.gameplay.wall_glitch_mode != WALL_GLITCH_FIXED) {
+        item->pos.y += coll->side_mid.floor;
+    }
+}
+
 void Lara_Col_MonkeySwingSnap(ITEM *const item)
 {
     int16_t room_num = item->room_num;
@@ -140,30 +155,38 @@ void Lara_Col_MonkeySwingSnap(ITEM *const item)
     }
 }
 
-void Lara_Col_ItemPush(
+bool Lara_Col_ItemPush(
     const ITEM *const item, COLL_INFO *const coll, const bool hit_on,
     const bool big_push)
 {
+    const BOUNDS_16 bounds = Item_GetBestFrame(item)->bounds;
+    return Lara_Col_ItemPushEx(item, coll, hit_on, big_push, &bounds);
+}
+
+bool Lara_Col_ItemPushEx(
+    const ITEM *const item, COLL_INFO *const coll, const bool hit_on,
+    const bool big_push, const BOUNDS_16 *const bounds)
+{
     const COLL_ITEM src_item = {
-        .bounds = Item_GetBestFrame(item)->bounds,
+        .bounds = *bounds,
         .pos = item->pos,
         .rot = item->rot,
     };
-    Lara_Col_Push(
+    return Lara_Col_Push(
         &src_item, coll,
         hit_on
             && !ObjectFamily_Has(item->object_id, OBJ_FAMILY_NO_HIT_REACTION),
         big_push);
 }
 
-void Lara_Col_Static3DPush(const STATIC_MESH *const mesh, COLL_INFO *const coll)
+bool Lara_Col_Static3DPush(const STATIC_MESH *const mesh, COLL_INFO *const coll)
 {
     const COLL_ITEM src_item = {
         .bounds = Object_Get3DStatic(mesh->static_num)->collision_bounds,
         .pos = mesh->pos,
         .rot = { .y = mesh->rot.y },
     };
-    Lara_Col_Push(&src_item, coll, false, true);
+    return Lara_Col_Push(&src_item, coll, false, true);
 }
 
 void Lara_Col_WadeSplash(ITEM *const item)

@@ -12,9 +12,13 @@
 #include <trx/game/output/lights.h>
 #include <trx/game/output/sources/poly_fx.h>
 #include <trx/game/random.h>
+#include <trx/version.h>
 
 #define M_MAX_SPARKS 400
 #define M_MAX_SPARK_DYNAMICS 32
+
+// Half a turn in the 4096-unit angle space of the TR3 wind.
+#define M_TR3_WIND_START_ANGLE 2048
 
 typedef struct {
     bool on;
@@ -34,8 +38,9 @@ static int32_t m_NextSpark = 0;
 static XZ_32 m_SmokeWind = {};
 static int32_t m_HairWindZ = 0;
 static int32_t m_TR3Wind = 0;
-static int32_t m_TR3WindAngle = DEG_180;
-static int32_t m_TR3DWindAngle = DEG_180;
+static int32_t m_TR3WindAngle = M_TR3_WIND_START_ANGLE;
+static int32_t m_TR3DWindAngle = M_TR3_WIND_START_ANGLE;
+static bool m_TR3WindHeld = false;
 
 static const BITE m_NodeOffsets[16] = {
     { .pos = { 0, 340, 64 }, .mesh_num = 7 },
@@ -56,7 +61,7 @@ static const BITE m_NodeOffsets[16] = {
     { .pos = { 0, 0, 0 }, .mesh_num = 0 },
 };
 
-static int32_t M_GetFreeSpark(void)
+static int32_t M_GetFreeSparkIndex(void)
 {
     int32_t idx = m_NextSpark;
     for (int32_t i = 0; i < M_MAX_SPARKS; i++) {
@@ -82,6 +87,12 @@ static int32_t M_GetFreeSpark(void)
     m_NextSpark = (free + 1) & 0xBF;
     Handle_RegistryBump(&m_SparkHandles, free);
     return free;
+}
+
+static SPARK *M_GetFreeSpark(void)
+{
+    const int32_t idx = M_GetFreeSparkIndex();
+    return &m_Sparks[idx];
 }
 
 static void M_UpdateWind(void)
@@ -118,6 +129,13 @@ static void M_UpdateWind(void)
             .x = 0,
             .z = m_HairWindZ << 1,
         };
+        return;
+    }
+
+    if (m_TR3WindHeld) {
+        m_TR3WindHeld = false;
+        m_SmokeWind = (XZ_32) {};
+        m_HairWindZ = 0;
         return;
     }
 
@@ -180,6 +198,7 @@ void Sparks_SaveSpark(JSON_WRITE_IO *const io, const SPARK *const spark)
     JSONW_WRITE(io, "rot_angle", spark->rot_angle);
     JSONW_WRITE(io, "rot_add", spark->rot_add);
     JSONW_WRITE(io, "draw_type", (int32_t)spark->draw_type);
+    JSONW_WRITE(io, "context", (int32_t)spark->context);
 
     if ((spark->flags & SPARK_F_SPRITE) != 0U) {
         const OBJECT *const obj = Object_Get(spark->sprite_obj_id);
@@ -222,6 +241,7 @@ RESULT Sparks_LoadSpark(JSON_READ_IO *const io, SPARK *const spark)
     MUST(JSON_READ(io, "dynamic", &spark->dynamic));
     MUST(JSON_READ(io, "rot_angle", &spark->rot_angle));
     MUST(JSON_READ(io, "rot_add", &spark->rot_add));
+    SHOULD(JSON_READ(io, "context", &spark->context));
 
     int32_t draw_type = 0;
     MUST(JSON_READ(io, "draw_type", &draw_type));
@@ -306,12 +326,6 @@ XYZ_32 Sparks_GetWorldPos(const SPARK *const spark)
     return spark->pos;
 }
 
-SPARK *Sparks_GetFreeSpark(void)
-{
-    const int32_t idx = M_GetFreeSpark();
-    return &m_Sparks[idx];
-}
-
 SPARK *Sparks_GetSpark(const int32_t idx)
 {
     ASSERT(idx >= 0 && idx < M_MAX_SPARKS);
@@ -340,15 +354,23 @@ SPARK *Sparks_FromHandle(const TRX_HANDLE handle)
     return spark->on ? spark : nullptr;
 }
 
-SPARK *Sparks_InitialiseSpriteSpark(const SPARK_SPRITE_TYPE type)
+SPARK *Sparks_InitialiseSpark(const SPARK_CONTEXT context)
+{
+    SPARK *const spark = M_GetFreeSpark();
+    spark->on = true;
+    spark->context = context;
+    return spark;
+}
+
+SPARK *Sparks_InitialiseSpriteSpark(
+    const SPARK_SPRITE_TYPE type, const SPARK_CONTEXT context)
 {
     const int32_t sprite_idx = Sparks_GetSpriteIndex(type);
     if (sprite_idx == NO_ITEM) {
         return nullptr;
     }
 
-    SPARK *const spark = Sparks_GetFreeSpark();
-    spark->on = true;
+    SPARK *const spark = Sparks_InitialiseSpark(context);
     spark->sprite_idx = sprite_idx;
     spark->sprite_obj_id = O_SPARKS_GFX;
     return spark;
@@ -470,19 +492,25 @@ void Sparks_FreeDynamic(const int8_t idx)
 void Sparks_Reset(void)
 {
     for (int32_t i = 0; i < M_MAX_SPARKS; i++) {
-        m_Sparks[i].on = false;
+        m_Sparks[i] = (SPARK) {};
         m_Sparks[i].dynamic = -1;
     }
     for (int32_t i = 0; i < M_MAX_SPARK_DYNAMICS; i++) {
-        m_Dynamics[i].on = false;
+        m_Dynamics[i] = (M_SPARK_DYNAMIC) {};
     }
     Handle_RegistryBumpAll(&m_SparkHandles);
     m_NextSpark = 0;
     m_SmokeWind = (XZ_32) {};
     m_HairWindZ = 0;
+    Sparks_ResetWind();
+}
+
+void Sparks_ResetWind(void)
+{
     m_TR3Wind = 0;
-    m_TR3WindAngle = DEG_180;
-    m_TR3DWindAngle = DEG_180;
+    m_TR3WindAngle = M_TR3_WIND_START_ANGLE;
+    m_TR3DWindAngle = M_TR3_WIND_START_ANGLE;
+    m_TR3WindHeld = true;
 }
 
 XZ_32 Sparks_GetSmokeWind(void)
@@ -500,9 +528,16 @@ int32_t Sparks_GetHairWindZ(void)
     return m_HairWindZ;
 }
 
-void Sparks_Control(void)
+void Sparks_UpdateWind(void)
 {
     M_UpdateWind();
+}
+
+void Sparks_Control(void)
+{
+    if (g_TRVersion != 3) {
+        M_UpdateWind();
+    }
 
     for (int32_t i = 0; i < M_MAX_SPARKS; i++) {
         SPARK *const spark = &m_Sparks[i];
@@ -732,7 +767,7 @@ void Sparks_Control(void)
     }
 }
 
-void Sparks_Draw(void)
+void Sparks_DrawAll(void)
 {
     for (int32_t i = 0; i < M_MAX_SPARKS; i++) {
         SPARK *const spark = &m_Sparks[i];

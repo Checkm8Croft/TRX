@@ -5,12 +5,14 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 4032,
-        "x_rot_sel": -7296,
         "y_rot_sel": -4096,
         "z_trans_sel": 216,
+        "scale": 1.56,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 14,
+        "base_rot_x": 20480,
+        "base_rot_y": -32768,
     },
 
     {
@@ -19,12 +21,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 3616,
-        "x_rot_sel": -8160,
         "y_rot_sel": -4096,
         "z_trans_sel": 352,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 13,
+        "base_rot_y": -32768,
     },
 
     {
@@ -35,9 +37,12 @@
         "x_rot_pt_sel": 3200,
         "y_rot_sel": -8192,
         "z_trans_sel": 296,
+        "scale": 0.73,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 12,
+        "base_rot_y": -16384,
+        "is_used_at_once": true,
     },
 
     {
@@ -46,13 +51,16 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 3200,
-        "x_rot_sel": 2848,
         "y_rot_sel": -32768,
         "y_trans_sel": 38,
         "z_trans_sel": 352,
+        "scale": 0.8,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 1,
+        "base_rot_x": -21172,
+        "base_rot_y": -16384,
+        "base_rot_z": -17088,
     },
 
     {
@@ -61,12 +69,14 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 3200,
-        "x_rot_sel": 5120,
         "y_rot_sel": 30720,
         "z_trans_sel": 228,
-        "meshes_sel": -1,
-        "meshes_drawn": -1,
+        "scale": 1.25,
+        "meshes_sel": 1,
+        "meshes_drawn": 1,
         "inv_pos": 2,
+        "base_rot_x": -16384,
+        "base_rot_z": 8192,
     },
 
     {
@@ -120,13 +130,16 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 3200,
-        "x_rot_sel": 2336,
         "y_rot_sel": -32768,
         "y_trans_sel": 56,
         "z_trans_sel": 322,
+        "scale": 0.8,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 6,
+        "base_rot_x": 24576,
+        "base_rot_y": -16384,
+        "base_rot_z": 16384,
     },
 
     {
@@ -199,13 +212,14 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 3200,
-        "x_rot_sel": -224,
         "y_rot_sel": 14336,
         "y_trans_sel": 56,
         "z_trans_sel": 296,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 10,
+        "base_rot_y": -16384,
+        "base_rot_z": 11980,
     },
 
     {
@@ -214,11 +228,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 3200,
-        "x_rot_sel": -3808,
         "z_trans_sel": 296,
+        "scale": 1.14,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 1,
+        "base_rot_x": 16384,
+        "base_rot_y": -32768,
     },
 
     {
@@ -227,11 +243,26 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 3200,
-        "x_rot_sel": -3808,
         "z_trans_sel": 296,
+        "scale": 1.6,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 2,
+        "base_rot_y": -16384,
+    },
+
+    {
+        "object_id": "shotgun_ammo_2_option",
+        "frames_total": 1,
+        "anim_direction": 1,
+        "anim_speed": 1,
+        "x_rot_pt_sel": 3200,
+        "z_trans_sel": 296,
+        "scale": 1.6,
+        "meshes_sel": -1,
+        "meshes_drawn": -1,
+        "inv_pos": 2,
+        "base_rot_y": -16384,
     },
 
     {
@@ -279,11 +310,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 3200,
-        "x_rot_sel": -3808,
         "z_trans_sel": 296,
+        "scale": 1.14,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 6,
+        "base_rot_x": 5384,
+        "base_rot_y": -32768,
     },
 
     {
@@ -344,11 +377,37 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 3200,
-        "x_rot_sel": -3808,
         "z_trans_sel": 296,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 10,
+        "base_rot_y": -16384,
+    },
+
+    {
+        "object_id": "grenade_ammo_2_option",
+        "frames_total": 1,
+        "anim_direction": 1,
+        "anim_speed": 1,
+        "x_rot_pt_sel": 3200,
+        "z_trans_sel": 296,
+        "meshes_sel": -1,
+        "meshes_drawn": -1,
+        "inv_pos": 10,
+        "base_rot_y": -16384,
+    },
+
+    {
+        "object_id": "grenade_ammo_3_option",
+        "frames_total": 1,
+        "anim_direction": 1,
+        "anim_speed": 1,
+        "x_rot_pt_sel": 3200,
+        "z_trans_sel": 296,
+        "meshes_sel": -1,
+        "meshes_drawn": -1,
+        "inv_pos": 10,
+        "base_rot_y": -16384,
     },
 
     {
@@ -384,11 +443,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 111,
+        "base_rot_y": -32768,
     },
 
     {
@@ -397,11 +457,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 110,
+        "base_rot_y": -32768,
     },
 
     {
@@ -410,11 +471,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 108,
+        "base_rot_y": -32768,
     },
 
     {
@@ -423,11 +485,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 1.33,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 107,
+        "base_rot_x": -16384,
+        "base_rot_y": -32768,
     },
 
     {
@@ -436,11 +500,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 106,
+        "base_rot_y": -32768,
     },
 
     {
@@ -449,11 +514,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 105,
+        "base_rot_y": -32768,
     },
 
     {
@@ -462,11 +528,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 101,
+        "base_rot_y": -32768,
     },
 
     {
@@ -475,11 +542,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 102,
+        "base_rot_y": -32768,
     },
 
     {
@@ -488,11 +556,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 103,
+        "base_rot_y": -32768,
     },
 
     {
@@ -501,11 +570,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 104,
+        "base_rot_y": -32768,
     },
 
     {
@@ -522,16 +592,18 @@
 
     {
         "object_id": "compass_option",
-        "frames_total": 1,
+        "frames_total": 25,
+        "open_frame": 10,
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 4352,
         "x_rot_sel": 8192,
-        "y_rot_sel": -32768,
-        "y_trans_sel": -128,
-        "z_trans_sel": 256,
+        "z_trans_sel": 240,
         "meshes_sel": -1,
         "meshes_drawn": -1,
+        "base_rot_y": -32768,
+        // The original game also pitches the compass with "base_rot_x": 14000.
+        // The ring keeps its own pitch here.
     },
 
     {
@@ -608,6 +680,51 @@
     },
 
     {
+        "object_id": "controls_option_saturn",
+        "frames_total": 1,
+        "anim_direction": 1,
+        "anim_speed": 1,
+        "x_rot_pt_sel": 5504,
+        "x_rot_sel": 1536,
+        "z_trans_sel": 352,
+        "meshes_sel": -1,
+        "meshes_drawn": -1,
+        "inv_pos": 203,
+    },
+
+    {
+        "object_id": "controls_option_keys",
+        "frames_total": 1,
+        "anim_direction": 1,
+        "anim_speed": 1,
+        "x_rot_pt_sel": 5504,
+        "x_rot_sel": -2560,
+        "x_rot_nosel": 5632,
+        "y_rot_sel": 13312,
+        "y_trans_sel": 46,
+        "z_trans_sel": 508,
+        "meshes_sel": -1,
+        "meshes_drawn": -1,
+        "inv_pos": 203,
+    },
+
+    {
+        "object_id": "controls_option_ps1",
+        "frames_total": 1,
+        "anim_direction": 1,
+        "anim_speed": 1,
+        "x_rot_pt_sel": 5504,
+        "x_rot_sel": -2560,
+        "x_rot_nosel": 5632,
+        "y_rot_sel": 13312,
+        "y_trans_sel": 46,
+        "z_trans_sel": 508,
+        "meshes_sel": -1,
+        "meshes_drawn": -1,
+        "inv_pos": 203,
+    },
+
+    {
         "object_id": "photo_option",
         "frames_total": 1,
         "anim_direction": 1,
@@ -638,11 +755,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 112,
+        "base_rot_x": -16384,
     },
 
     {
@@ -651,8 +769,8 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.78,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 113,
@@ -664,11 +782,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.62,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 114,
+        "base_rot_y": 16384,
+        "base_rot_z": -16384,
     },
 
     {
@@ -677,11 +797,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.62,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 115,
+        "base_rot_y": -16384,
+        "base_rot_z": -16384,
     },
 
     {
@@ -690,11 +812,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
-        "meshes_sel": -1,
-        "meshes_drawn": -1,
+        "scale": 1.04,
+        "meshes_sel": 1,
+        "meshes_drawn": 1,
         "inv_pos": 15,
+        "base_rot_x": 6144,
+        "base_rot_y": -24576,
     },
 
     {
@@ -703,11 +827,40 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.73,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 15,
+        "base_rot_y": -16384,
+    },
+
+    {
+        "object_id": "crossbow_ammo_2_option",
+        "frames_total": 1,
+        "anim_direction": 1,
+        "anim_speed": 1,
+        "x_rot_pt_sel": 7200,
+        "z_trans_sel": 256,
+        "scale": 0.73,
+        "meshes_sel": -1,
+        "meshes_drawn": -1,
+        "inv_pos": 15,
+        "base_rot_y": -16384,
+    },
+
+    {
+        "object_id": "crossbow_ammo_3_option",
+        "frames_total": 1,
+        "anim_direction": 1,
+        "anim_speed": 1,
+        "x_rot_pt_sel": 7200,
+        "z_trans_sel": 256,
+        "scale": 0.73,
+        "meshes_sel": -1,
+        "meshes_drawn": -1,
+        "inv_pos": 15,
+        "base_rot_y": -16384,
     },
 
     {
@@ -716,11 +869,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
-        "meshes_sel": -1,
-        "meshes_drawn": -1,
+        "meshes_sel": 1,
+        "meshes_drawn": 1,
         "inv_pos": 16,
+        "base_rot_x": 10922,
+        "base_rot_y": -16384,
+        "base_rot_z": 15298,
     },
 
     {
@@ -729,11 +884,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 1.14,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 16,
+        "base_rot_x": -3000,
+        "base_rot_y": -16384,
     },
 
     {
@@ -742,11 +899,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 1.14,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 17,
+        "base_rot_x": 2000,
+        "base_rot_y": -16384,
     },
 
     {
@@ -755,11 +914,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 1.14,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 18,
+        "base_rot_x": 2000,
+        "base_rot_y": -28672,
     },
 
     {
@@ -768,11 +929,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.5,
         "meshes_sel": -1,
         "meshes_drawn": -1,
-        "inv_pos": 19,
+        "inv_pos": 180,
+        "base_rot_x": -14000,
+        "base_rot_y": -32768,
     },
 
     {
@@ -781,11 +944,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.5,
         "meshes_sel": -1,
         "meshes_drawn": -1,
-        "inv_pos": 20,
+        "inv_pos": 181,
+        "base_rot_x": -14000,
+        "base_rot_y": -32768,
     },
 
     {
@@ -794,11 +959,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 116,
+        "base_rot_y": -32768,
     },
 
     {
@@ -807,11 +973,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 117,
+        "base_rot_y": -32768,
     },
 
     {
@@ -820,11 +987,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 118,
+        "base_rot_y": -32768,
     },
 
     {
@@ -833,11 +1001,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 119,
+        "base_rot_y": -32768,
     },
 
     {
@@ -846,11 +1015,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 120,
+        "base_rot_y": -32768,
     },
 
     {
@@ -859,11 +1029,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 121,
+        "base_rot_y": -32768,
     },
 
     {
@@ -872,11 +1043,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 122,
+        "base_rot_y": -32768,
     },
 
     {
@@ -885,11 +1057,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 123,
+        "base_rot_y": -32768,
     },
 
     {
@@ -898,11 +1071,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 124,
+        "base_rot_y": -32768,
     },
 
     {
@@ -911,11 +1085,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 125,
+        "base_rot_y": -32768,
     },
 
     {
@@ -924,11 +1099,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 126,
+        "base_rot_y": -32768,
     },
 
     {
@@ -937,11 +1113,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 127,
+        "base_rot_y": -32768,
     },
 
     {
@@ -950,11 +1127,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 128,
+        "base_rot_y": -32768,
     },
 
     {
@@ -963,11 +1141,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 129,
+        "base_rot_y": -32768,
     },
 
     {
@@ -976,11 +1155,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 130,
+        "base_rot_y": -32768,
     },
 
     {
@@ -989,11 +1169,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 131,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1002,11 +1183,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 132,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1015,11 +1197,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 133,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1028,11 +1211,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 1.04,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 134,
+        "base_rot_y": -32768,
+        "base_rot_z": 8192,
     },
 
     {
@@ -1041,11 +1226,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 1.04,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 135,
+        "base_rot_z": 8192,
     },
 
     {
@@ -1054,11 +1240,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.62,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 136,
+        "base_rot_x": 16384,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1067,11 +1255,14 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 137,
+        "text_color": "#808080 #101010",
+        "base_rot_x": 16384,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1080,11 +1271,14 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 138,
+        "text_color": "#e0c000 #402000",
+        "base_rot_x": 16384,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1093,11 +1287,13 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.42,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 139,
+        "base_rot_x": 16384,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1106,11 +1302,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 140,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1119,11 +1316,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 141,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1132,11 +1330,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 142,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1145,11 +1344,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 143,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1158,11 +1358,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 144,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1171,11 +1372,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 145,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1184,11 +1386,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 146,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1197,11 +1400,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 147,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1210,11 +1414,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 148,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1223,11 +1428,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 149,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1236,11 +1442,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 150,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1249,11 +1456,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 151,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1262,11 +1470,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 152,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1275,11 +1484,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 153,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1288,11 +1498,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 154,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1301,11 +1512,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 155,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1314,11 +1526,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 156,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1327,11 +1540,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 157,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1340,11 +1554,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 158,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1353,11 +1568,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 159,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1366,11 +1582,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 160,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1379,11 +1596,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 161,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1392,11 +1610,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 162,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1405,11 +1624,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 163,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1418,11 +1638,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 164,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1431,11 +1652,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 165,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1444,11 +1666,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 166,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1457,11 +1680,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 167,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1470,11 +1694,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 168,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1483,11 +1708,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 169,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1496,11 +1722,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 170,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1509,11 +1736,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 171,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1522,11 +1750,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 172,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1535,11 +1764,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 173,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1548,11 +1778,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 174,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1561,11 +1792,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 175,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1574,11 +1806,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 176,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1587,11 +1820,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 177,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1600,11 +1834,12 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 178,
+        "base_rot_y": -32768,
     },
 
     {
@@ -1613,10 +1848,61 @@
         "anim_direction": 1,
         "anim_speed": 1,
         "x_rot_pt_sel": 7200,
-        "x_rot_sel": -4352,
         "z_trans_sel": 256,
+        "scale": 0.67,
         "meshes_sel": -1,
         "meshes_drawn": -1,
         "inv_pos": 179,
+        "base_rot_y": -32768,
     },
+
+    // The original game also poses the burning torch and the clockwork beetle.
+    // Object slots 247 to 250 carry no TRX equivalent yet, so the catalog
+    // omits them and the ring has nowhere to hold these entries. Restore them
+    // once the catalog names those objects, and check the ids below against it.
+    //
+    // {
+    //     "object_id": "burning_torch_option",
+    //     "frames_total": 1,
+    //     "anim_direction": 1,
+    //     "anim_speed": 1,
+    //     "scale": 0.67,
+    //     "meshes_sel": -1,
+    //     "meshes_drawn": -1,
+    //     "base_rot_x": 16384,
+    //     "base_rot_y": -32768,
+    // },
+    //
+    // {
+    //     "object_id": "clockwork_beetle_option",
+    //     "frames_total": 1,
+    //     "anim_direction": 1,
+    //     "anim_speed": 1,
+    //     "scale": 1.14,
+    //     "meshes_sel": -1,
+    //     "meshes_drawn": -1,
+    //     "base_rot_y": -16384,
+    // },
+    //
+    // {
+    //     "object_id": "clockwork_beetle_option_combo_1",
+    //     "frames_total": 1,
+    //     "anim_direction": 1,
+    //     "anim_speed": 1,
+    //     "scale": 1.14,
+    //     "meshes_sel": -1,
+    //     "meshes_drawn": -1,
+    //     "base_rot_y": -16384,
+    // },
+    //
+    // {
+    //     "object_id": "clockwork_beetle_option_combo_2",
+    //     "frames_total": 1,
+    //     "anim_direction": 1,
+    //     "anim_speed": 1,
+    //     "scale": 1.14,
+    //     "meshes_sel": -1,
+    //     "meshes_drawn": -1,
+    //     "base_rot_y": -16384,
+    // },
 ]

@@ -2,27 +2,27 @@
 // (specific/lighting.cpp). Room lights are baked per level into a compact
 // table (ProcessRoomData port); each item keeps current/previous light lists
 // with 8-frame fades (CreateLightList/FadeLightList/CalcAmbientLight ports);
-// each staged mesh instance resolves the lists into a flat view-space light
-// list (SetupLight port) consumed by the vertex shader.
+// each staged mesh instance resolves the lists into a flat light list
+// (SetupLight port) consumed by the vertex shader.
 
 #include <trx/core/colors.h>
 #include <trx/core/math/geom.h>
 #include <trx/core/memory.h>
 #include <trx/core/utils.h>
 #include <trx/core/vector.h>
+#include <trx/debug.h>
 #include <trx/game/camera/vars.h>
+#include <trx/game/catalog/manager.h>
 #include <trx/game/const.h>
 #include <trx/game/items/manager.h>
 #include <trx/game/level/settings.h>
 #include <trx/game/objects/common.h>
-#include <trx/game/objects/families.h>
 #include <trx/game/output.h>
 #include <trx/game/output/lights.h>
 #include <trx/game/output/lights/fog_bulbs.h>
 #include <trx/game/output/lights/priv.h>
 #include <trx/game/output/water.h>
 #include <trx/game/random.h>
-#include <trx/gl/utils.h>
 #include <trx/version.h>
 
 #include <math.h>
@@ -34,6 +34,12 @@
 // in the item pool.
 #define M_MAX_LOOSE_LIGHTS 16
 #define M_FADE_FRAMES 8
+// The TR4 object slot of GAME_PIECE1. Lara, the vehicles and the creatures
+// come before it; the OG lights every object from it on as a prop.
+#define M_FIRST_PROP_SLOT 108
+// How many of the light lists put in batches last a new list is matched
+// against.
+#define M_BATCH_RUNS 32
 
 // Room light baked at level load (the OG PCLIGHT_INFO, drawroom.cpp
 // ProcessRoomData).
@@ -57,6 +63,7 @@ typedef struct {
 typedef struct {
     XYZ_F pos;
     XYZ_32 ipos;
+    XYZ_32 rlp; // position relative to the item at the last list update
     float r, g, b; // current faded color
     float tr, tg, tb; // fade target color
     float rs, gs, bs; // per-frame fade step
@@ -83,17 +90,32 @@ typedef struct {
     M_ITEM_ROOM_LIGHT lights[2][M_MAX_ITEM_LIGHTS];
     int32_t n_lights[2];
     int32_t cur; // index of the current list; 1 - cur = previous
+    int32_t tick; // game frame of the last fade step
     bool used;
 } M_ITEM_LIGHT;
 
-// Fully resolved per-mesh-instance light list handed to the GPU.
+// Matches TR4_LIGHT_* in lights_tr4.glsl.
+typedef enum {
+    M_STAGED_POINT = 0,
+    M_STAGED_SPOT = 1,
+    M_STAGED_SUN = 2,
+} M_STAGED_TYPE;
+
+// Fully resolved per-mesh-instance light list handed to the GPU. The lights
+// stay in world space, so that the meshes of one item share one list in a
+// draw; the shader carries them into the object space of each mesh.
 typedef struct {
     float ambient[3]; // 0..255 scale (128 = OG neutral)
+    XYZ_32 item_pos;
     int32_t count;
     struct {
-        XYZ_F vec; // view space, attenuation-scaled (the OG convention)
-        float rad;
+        M_STAGED_TYPE type;
+        XYZ_F pos;
+        XYZ_F dir; // where a spot points or a sun shines
         float r, g, b; // 0..1
+        float range;
+        float att1;
+        float cone; // cosine of a spot's cone edge
     } lights[OUTPUT_TR4_MAX_STAGED_LIGHTS];
 } M_STAGED_LIST;
 
@@ -102,34 +124,25 @@ static int32_t m_RoomBakeCount = 0;
 
 static M_ITEM_LIGHT m_ItemLights[MAX_ITEMS] = {};
 static M_ITEM_LIGHT m_ScratchLight = {}; // the OG StaticMeshLightItem
+static int32_t m_Tick = 0;
 static const ITEM *m_LooseLightKeys[M_MAX_LOOSE_LIGHTS] = {};
 static M_ITEM_LIGHT m_LooseLights[M_MAX_LOOSE_LIGHTS] = {};
 static M_ITEM_LIGHT *m_CurrentItemLight = nullptr;
-static bool m_CurrentIsPickup = false; // the OG SetupLight_thing
+static bool m_CurrentIsProp = false; // the OG SetupLight_thing
 static bool m_CurrentHasList = false;
 static bool m_InventoryMode = false;
 
 static VECTOR *m_StagedPool = nullptr; // of M_STAGED_LIST
-static int32_t m_PoolGeneration = 0;
 
+// The lists put in batch light lists last, so that the meshes of one item
+// share the list of the item. A run counts only while the batch's list still
+// holds the same lights where it says.
 static struct {
-    int32_t generation;
-    int32_t handle;
-    RGB_F constant;
-    RGB_F own_ambient;
-    OUTPUT_LS_MODE mode;
-} m_UploadCache = { .handle = -2 };
-
-static XYZ_F M_ViewRotate(const XYZ_F v)
-{
-    const MATRIX *const m = &g_ViewMatrix;
-    const float s = 1.0f / (float)(1 << W2V_SHIFT);
-    return (XYZ_F) {
-        .x = (m->_00 * v.x + m->_01 * v.y + m->_02 * v.z) * s,
-        .y = (m->_10 * v.x + m->_11 * v.y + m->_12 * v.z) * s,
-        .z = (m->_20 * v.x + m->_21 * v.y + m->_22 * v.z) * s,
-    };
-}
+    int32_t first;
+    int32_t count;
+    uint32_t hash;
+} m_BatchRuns[M_BATCH_RUNS] = {};
+static int32_t m_BatchRunNext = 0;
 
 static void M_SetConstantLight(const RGB_F ambient)
 {
@@ -394,6 +407,7 @@ static void M_CreateLightList(M_ITEM_LIGHT *const il, const int16_t room_num)
         }
 
         light->range = range;
+        light->rlp = (XYZ_32) { (int32_t)dx, (int32_t)dy, (int32_t)dz };
 
         if (in_range) {
             if (!light->active) {
@@ -420,36 +434,34 @@ static void M_CreateLightList(M_ITEM_LIGHT *const il, const int16_t room_num)
     M_FadeLightList(il->lights[1 - il->cur], il->n_lights[1 - il->cur]);
 }
 
-// Port of the OG SetupLight (lighting.cpp:85). Emits into `list`; the shadow
-// lights only darken the ambient.
-static void M_StageLight(
-    const M_ITEM_ROOM_LIGHT *const light, const XYZ_F mesh_pos,
-    M_STAGED_LIST *const list)
+static bool M_HasRoom(const M_STAGED_LIST *const list)
 {
-    if (list->count >= OUTPUT_TR4_MAX_STAGED_LIGHTS
-        && light->type != LIGHT_TYPE_SHADOW) {
-        return;
-    }
+    return list->count < OUTPUT_TR4_MAX_STAGED_LIGHTS;
+}
+
+// Port of the retail SetupLight. Every light sits where it is relative to
+// the item, which the shader carries into the object space of the mesh being
+// drawn; the shadow lights only darken the ambient. A light fading out of the
+// previous room keeps the position it had when the item left that room.
+static void M_StageLight(
+    const M_ITEM_ROOM_LIGHT *const light, M_STAGED_LIST *const list)
+{
+    const XYZ_F pos = {
+        (float)(list->item_pos.x + light->rlp.x),
+        (float)(list->item_pos.y + light->rlp.y),
+        (float)(list->item_pos.z + light->rlp.z),
+    };
+    const XYZ_F dir = { light->nx, light->ny, light->nz };
 
     switch (light->type) {
     case LIGHT_TYPE_SUN: {
-        const float len =
-            sqrtf(SQUARE(light->nx) + SQUARE(light->ny) + SQUARE(light->nz));
-        if (len <= 0.0f) {
+        if (!M_HasRoom(list)) {
             break;
         }
-        const float num = -1.0f / len;
-        const float mul = m_InventoryMode ? 2.0f : 0.75f;
-        const XYZ_F vec = M_ViewRotate((XYZ_F) {
-            light->nx * num,
-            light->ny * num,
-            light->nz * num,
-        });
+        const float mul = m_InventoryMode ? 2.0f : 1.0f;
         list->lights[list->count++] = (typeof(list->lights[0])) {
-            .vec = vec,
-            .rad = 1.0f,
-            // Premultiplied so the shader needs no sun-specific branch:
-            // the OG scales the sun dot by 0.75 in-game and 2.0 in inventory.
+            .type = M_STAGED_SUN,
+            .dir = dir,
             .r = light->r * mul,
             .g = light->g * mul,
             .b = light->b * mul,
@@ -457,70 +469,62 @@ static void M_StageLight(
         break;
     }
 
-    case LIGHT_TYPE_POINT:
-    case LIGHT_TYPE_SPOT: {
-        float x = light->pos.x - mesh_pos.x;
-        float y = light->pos.y - mesh_pos.y;
-        float z = light->pos.z - mesh_pos.z;
-        if (x == 0.0f || y == 0.0f || z == 0.0f) {
-            // Avoid degenerate vectors when the light shares an axis plane
-            // with the mesh origin (the OG does the same).
-            x += 1.0f;
-            y += 1.0f;
-            z += 1.0f;
-        }
-
-        const float dist = sqrtf(SQUARE(x) + SQUARE(y) + SQUARE(z));
-        float rad;
-        float scale;
-        if (light->type == LIGHT_TYPE_POINT) {
-            scale = 2.0f / dist;
-            rad = (light->outer - dist) / light->outer;
-        } else {
-            scale = (m_CurrentIsPickup ? 2.0f : 1.0f) / dist;
-            // The cone test already happened in the light list; from here
-            // spots shade exactly like point lights.
-            rad = 1.0f - dist / light->cutoff;
-        }
-        CLAMPL(rad, 0.0f);
-
-        if (light->type == LIGHT_TYPE_POINT && m_CurrentIsPickup
-            && rad < 1.0f) {
-            // Pickups fold nearby point lights into the ambient so they
-            // glow; halve the radius to avoid double-counting the color.
-            for (int32_t i = 0; i < 3; i++) {
-                const float c =
-                    i == 0 ? light->r : (i == 1 ? light->g : light->b);
-                list->ambient[i] += rad * c * 255.0f;
-                CLAMPG(list->ambient[i], 255.0f);
+    case LIGHT_TYPE_POINT: {
+        if (m_CurrentIsProp) {
+            // A prop takes a point light it is inside into its ambient as
+            // well, by how far into the light it stands.
+            const float rad =
+                (light->outer - sqrtf((float)light->range)) / light->outer;
+            if (rad < 1.0f) {
+                const float c[3] = { light->r, light->g, light->b };
+                for (int32_t i = 0; i < 3; i++) {
+                    list->ambient[i] += rad * c[i] * 255.0f;
+                    CLAMP(list->ambient[i], 0.0f, 255.0f);
+                }
             }
-            rad /= 2.0f;
         }
-
-        const XYZ_F vec =
-            M_ViewRotate((XYZ_F) { x * scale, y * scale, z * scale });
+        if (!M_HasRoom(list)) {
+            break;
+        }
         list->lights[list->count++] = (typeof(list->lights[0])) {
-            .vec = vec,
-            .rad = rad,
+            .type = M_STAGED_POINT,
+            .pos = pos,
             .r = light->r,
             .g = light->g,
             .b = light->b,
+            .range = light->outer,
+            .att1 = 2.0f,
         };
         break;
     }
 
+    case LIGHT_TYPE_SPOT:
+        if (!M_HasRoom(list)) {
+            break;
+        }
+        list->lights[list->count++] = (typeof(list->lights[0])) {
+            .type = M_STAGED_SPOT,
+            .pos = pos,
+            .dir = dir,
+            .r = light->r,
+            .g = light->g,
+            .b = light->b,
+            .range = light->cutoff,
+            .att1 = m_CurrentIsProp ? 2.0f : 1.0f,
+            .cone = light->outer,
+        };
+        break;
+
     case LIGHT_TYPE_SHADOW: {
-        const float val = sqrtf((float)light->range);
+        const float val = (float)(int32_t)sqrtf((float)light->range);
         int32_t val2 = light->shadow >> 3;
         if (val >= light->inner) {
             val2 = (int32_t)((val - light->outer)
                              / ((light->outer - light->inner) / (float)-val2));
         }
-        CLAMPL(val2, 0);
-        val2 >>= 1;
         for (int32_t i = 0; i < 3; i++) {
             list->ambient[i] -= (float)val2;
-            CLAMPL(list->ambient[i], 0.0f);
+            CLAMP(list->ambient[i], 0.0f, 255.0f);
         }
         break;
     }
@@ -530,37 +534,34 @@ static void M_StageLight(
     }
 }
 
-// Port of the OG SetupDynamicLight (lighting.cpp:58).
-static void M_StageDynamicLights(
-    const XYZ_F mesh_pos, M_STAGED_LIST *const list)
+// Port of the retail dynamic lights in InitItemDynamicLighting.
+static void M_StageDynamicLights(M_STAGED_LIST *const list)
 {
     VECTOR *const dynamic_lights = Output_GetDynamicLights();
     for (int32_t i = 0; i < dynamic_lights->count; i++) {
-        if (list->count >= OUTPUT_TR4_MAX_STAGED_LIGHTS) {
+        if (!M_HasRoom(list)) {
             break;
         }
         const OUTPUT_DYNAMIC_LIGHT *const entry = Vector_Get(dynamic_lights, i);
         const LIGHT *const light = &entry->light;
         const int32_t raw_falloff = light->u.legacy.falloff.value_1;
-        const float falloff = (raw_falloff >> 1) + (raw_falloff >> 3);
-
-        const float x = light->pos.x - mesh_pos.x;
-        const float y = light->pos.y - mesh_pos.y;
-        const float z = light->pos.z - mesh_pos.z;
-        const float dist = sqrtf(SQUARE(x) + SQUARE(y) + SQUARE(z));
-        if (dist > falloff || falloff <= 0.0f) {
+        const float range = (raw_falloff >> 1) + (raw_falloff >> 3);
+        if (range <= 0.0f) {
             continue;
         }
 
-        const float scale = 1.0f / dist;
-        const XYZ_F vec =
-            M_ViewRotate((XYZ_F) { x * scale, y * scale, z * scale });
         list->lights[list->count++] = (typeof(list->lights[0])) {
-            .vec = vec,
-            .rad = (falloff - dist) / falloff,
+            .type = M_STAGED_POINT,
+            .pos = {
+                (float)light->pos.x,
+                (float)light->pos.y,
+                (float)light->pos.z,
+            },
             .r = light->color.r / 255.0f,
             .g = light->color.g / 255.0f,
             .b = light->color.b / 255.0f,
+            .range = range,
+            .att1 = 1.0f,
         };
     }
 }
@@ -608,30 +609,54 @@ static void M_PrepareItemLight(M_ITEM_LIGHT *const il)
         il->used = true;
         il->amb_fcnt = -1; // snap the first ambient update
         il->light_room_num = NO_ROOM;
+        il->tick = m_Tick - 1;
         il->n_lights[0] = 0;
         il->n_lights[1] = 0;
     }
 }
 
-static void M_CalculateObjectLightingAt(
-    const ITEM *const item, const GAME_VECTOR sample_pos)
+static void M_CalculateItemLighting(
+    const ITEM *const item, const GAME_VECTOR sample_pos,
+    const bool use_sample_room)
 {
     M_ITEM_LIGHT *const il = M_GetItemLight(item);
     M_PrepareItemLight(il);
     il->item_pos = sample_pos.pos;
 
-    int16_t room_num = sample_pos.room_num;
-    Room_GetSector(sample_pos.pos, &room_num);
-    M_CalcAmbientLight(il, Room_Get(room_num)->ambient_rgb);
-
-    M_CreateLightList(il, item != nullptr ? item->room_num : room_num);
+    // Steps the fades once per game frame, as the original does, so that the
+    // frame rate and repeated draws do not speed them up. The scratch state
+    // serves many objects in one frame, so it updates on every call.
+    if (il == &m_ScratchLight || il->tick != m_Tick) {
+        il->tick = m_Tick;
+        int16_t room_num = sample_pos.room_num;
+        Room_GetSector(sample_pos.pos, &room_num);
+        M_CalcAmbientLight(il, Room_Get(room_num)->ambient_rgb);
+        M_CreateLightList(
+            il,
+            item != nullptr && !use_sample_room ? item->room_num : room_num);
+    }
 
     m_CurrentItemLight = il;
-    m_CurrentIsPickup =
-        item != nullptr && ObjectFamily_Has(item->object_id, OBJ_FAMILY_PICKUP);
+    m_CurrentIsProp = item != nullptr
+        && Catalog_IDToSlot(CATALOG_OBJECTS, item->object_id, -1)
+            >= M_FIRST_PROP_SLOT;
     m_CurrentHasList = true;
 
     M_SetScalarFallback(il->ambient);
+}
+
+static void M_CalculateObjectLightingAt(
+    const ITEM *const item, const GAME_VECTOR sample_pos)
+{
+    M_CalculateItemLighting(item, sample_pos, false);
+}
+
+// Port of the OG CalculateObjectLightingLaraCutSeq, which takes the lights of
+// the room at the sample position.
+static void M_CalculateActorLightingAt(
+    const ITEM *const item, const GAME_VECTOR sample_pos)
+{
+    M_CalculateItemLighting(item, sample_pos, true);
 }
 
 // For effects and other list-less callers: ambient only, like the OG
@@ -648,14 +673,13 @@ static void M_CalculateLight(const XYZ_32 pos, const int16_t room_num)
     il->light_room_num = NO_ROOM;
 
     m_CurrentItemLight = il;
-    m_CurrentIsPickup = false;
+    m_CurrentIsProp = false;
     m_CurrentHasList = true;
 
     M_SetScalarFallback(il->ambient);
 }
 
-static void M_FillInstanceLight(
-    OUTPUT_LIGHT_INFO *const info, const MATRIX *const wmatrix)
+static void M_FillInstanceLight(OUTPUT_LIGHT_INFO *const info)
 {
     info->tr4.handle = -1;
     if (!m_CurrentHasList || m_CurrentItemLight == nullptr) {
@@ -663,12 +687,6 @@ static void M_FillInstanceLight(
     }
 
     const M_ITEM_LIGHT *const il = m_CurrentItemLight;
-    const float inv_scale = 1.0f / (float)(1 << W2V_SHIFT);
-    const XYZ_F mesh_pos = {
-        wmatrix->_03 * inv_scale,
-        wmatrix->_13 * inv_scale,
-        wmatrix->_23 * inv_scale,
-    };
 
     // Selects a Lara mesh's ambient light from the room it sits in. The
     // original lights all of Lara from one room.
@@ -677,6 +695,7 @@ static void M_FillInstanceLight(
         mesh_ambient != nullptr ? *mesh_ambient : il->ambient;
     M_STAGED_LIST list = {
         .ambient = { ambient.r, ambient.g, ambient.b },
+        .item_pos = il->item_pos,
         .count = 0,
     };
 
@@ -684,103 +703,117 @@ static void M_FillInstanceLight(
         const M_ITEM_ROOM_LIGHT *const lights = il->lights[l];
         for (int32_t i = 0; i < il->n_lights[l]; i++) {
             if (lights[i].active) {
-                M_StageLight(&lights[i], mesh_pos, &list);
+                M_StageLight(&lights[i], &list);
             }
         }
     }
-    M_StageDynamicLights(mesh_pos, &list);
+    M_StageDynamicLights(&list);
 
     info->tr4.handle = m_StagedPool->count;
     Vector_Add(m_StagedPool, &list);
 }
 
-static void M_UploadList(
-    const OUTPUT_UNIFORMS *const uniforms, const M_STAGED_LIST *const list)
+static uint32_t M_HashInstanceLights(
+    const OUTPUT_MESH_LIGHT *const lights, const int32_t count)
 {
-    OUTPUT_UNIFORM_LS_TR4 ls = {};
-    for (int32_t i = 0; i < 3; i++) {
-        ls.ambient[i] = list->ambient[i] / 255.0f;
+    const uint8_t *const bytes = (const uint8_t *)lights;
+    uint32_t hash = 2166136261u;
+    for (size_t i = 0; i < count * sizeof(OUTPUT_MESH_LIGHT); i++) {
+        hash = (hash ^ bytes[i]) * 16777619u;
     }
-    ls.num_lights = list->count;
-    for (int32_t i = 0; i < list->count; i++) {
-        ls.lights[i].vec[0] = list->lights[i].vec.x;
-        ls.lights[i].vec[1] = list->lights[i].vec.y;
-        ls.lights[i].vec[2] = list->lights[i].vec.z;
-        ls.lights[i].vec[3] = 0.0f;
-        ls.lights[i].color[0] = list->lights[i].r;
-        ls.lights[i].color[1] = list->lights[i].g;
-        ls.lights[i].color[2] = list->lights[i].b;
-        ls.lights[i].color[3] = list->lights[i].rad;
-    }
-
-    const size_t size = offsetof(OUTPUT_UNIFORM_LS_TR4, lights)
-        + list->count * sizeof(ls.lights[0]);
-    glBindBuffer(GL_UNIFORM_BUFFER, uniforms->ls);
-    TRX_GL_TRACK_SUBDATA(glBufferSubData, GL_UNIFORM_BUFFER, 0, size, &ls);
-    TRX_GL_CheckError();
+    return hash;
 }
 
-static void M_UploadCPULight(
-    const OUTPUT_UNIFORMS *const uniforms, const OUTPUT_LIGHT_INFO *const info)
+// Returns where the lights start in the draw's list, adding them unless the
+// list already holds them.
+static int32_t M_PlaceInstanceLights(
+    OUTPUT_MESH_LIGHT_LIST *const lights, const OUTPUT_MESH_LIGHT *const src,
+    const int32_t count)
 {
-    if (info->tr4.handle >= 0) {
-        if (m_UploadCache.mode == LS_MODE_FULL
-            && m_UploadCache.generation == m_PoolGeneration
-            && m_UploadCache.handle == info->tr4.handle) {
-            return;
+    const uint32_t hash = M_HashInstanceLights(src, count);
+    for (int32_t i = 0; i < M_BATCH_RUNS; i++) {
+        const typeof(m_BatchRuns[0]) *const run = &m_BatchRuns[i];
+        if (run->count == count && run->hash == hash
+            && run->first + count <= lights->count
+            && memcmp(
+                   &lights->data[run->first], src,
+                   count * sizeof(OUTPUT_MESH_LIGHT))
+                == 0) {
+            return run->first;
         }
-        m_UploadCache.mode = LS_MODE_FULL;
-        m_UploadCache.generation = m_PoolGeneration;
-        m_UploadCache.handle = info->tr4.handle;
-        M_UploadList(uniforms, Vector_Get(m_StagedPool, info->tr4.handle));
-        return;
     }
 
-    // Constant light (Output_CalculateStaticLight* paths): treat the
-    // multiplier as a pure ambient with no light list. 128 = neutral.
-    if (m_UploadCache.mode == LS_MODE_FULL && m_UploadCache.handle == -1
-        && m_UploadCache.constant.r == info->tr3_ambient.r
-        && m_UploadCache.constant.g == info->tr3_ambient.g
-        && m_UploadCache.constant.b == info->tr3_ambient.b) {
-        return;
-    }
-    m_UploadCache.mode = LS_MODE_FULL;
-    m_UploadCache.handle = -1;
-    m_UploadCache.constant = info->tr3_ambient;
-
-    const M_STAGED_LIST list = {
-        .ambient = {
-            info->tr3_ambient.r * 128.0f,
-            info->tr3_ambient.g * 128.0f,
-            info->tr3_ambient.b * 128.0f,
-        },
-        .count = 0,
+    ASSERT(lights->count + count <= lights->capacity);
+    const int32_t first = lights->count;
+    memcpy(&lights->data[first], src, count * sizeof(OUTPUT_MESH_LIGHT));
+    lights->count += count;
+    m_BatchRuns[m_BatchRunNext] = (typeof(m_BatchRuns[0])) {
+        .first = first,
+        .count = count,
+        .hash = hash,
     };
-    M_UploadList(uniforms, &list);
+    m_BatchRunNext = (m_BatchRunNext + 1) % M_BATCH_RUNS;
+    return first;
 }
 
-static void M_UploadOwnLight(
-    const OUTPUT_UNIFORMS *const uniforms, const OUTPUT_LIGHT_INFO *const info)
+// Fills the slot with the light of the instance. Row 0 holds the ambient,
+// row 1 the item position, and row 2 where the lights start in the draw's
+// list and how many there are.
+static void M_FillSlotLight(
+    const OUTPUT_LIGHT_INFO *const info, const bool own, float out[7][4],
+    OUTPUT_MESH_LIGHT_LIST *const lights)
 {
-    if (m_UploadCache.mode == LS_MODE_OWN
-        && m_UploadCache.own_ambient.r == info->tr3_ambient.r
-        && m_UploadCache.own_ambient.g == info->tr3_ambient.g
-        && m_UploadCache.own_ambient.b == info->tr3_ambient.b) {
+    if (own) {
+        out[0][0] = info->tr3_ambient.r;
+        out[0][1] = info->tr3_ambient.g;
+        out[0][2] = info->tr3_ambient.b;
         return;
     }
-    m_UploadCache.mode = LS_MODE_OWN;
-    m_UploadCache.own_ambient = info->tr3_ambient;
 
-    const float ambient[4] = {
-        info->tr3_ambient.r,
-        info->tr3_ambient.g,
-        info->tr3_ambient.b,
-        0.0f,
-    };
-    glBindBuffer(GL_UNIFORM_BUFFER, uniforms->ls);
-    TRX_GL_TRACK_SUBDATA(
-        glBufferSubData, GL_UNIFORM_BUFFER,
-        offsetof(OUTPUT_UNIFORM_LS_TR4, ambient), sizeof(ambient), ambient);
+    // Constant light (Output_CalculateStaticLight* paths) is a pure ambient
+    // with no light list. 128 = neutral.
+    if (info->tr4.handle < 0) {
+        out[0][0] = info->tr3_ambient.r * 128.0f / 255.0f;
+        out[0][1] = info->tr3_ambient.g * 128.0f / 255.0f;
+        out[0][2] = info->tr3_ambient.b * 128.0f / 255.0f;
+        return;
+    }
+
+    const M_STAGED_LIST *const list =
+        Vector_Get(m_StagedPool, info->tr4.handle);
+    for (int32_t i = 0; i < 3; i++) {
+        out[0][i] = list->ambient[i] / 255.0f;
+    }
+    out[1][0] = (float)list->item_pos.x;
+    out[1][1] = (float)list->item_pos.y;
+    out[1][2] = (float)list->item_pos.z;
+    if (list->count == 0) {
+        return;
+    }
+
+    OUTPUT_MESH_LIGHT src[OUTPUT_TR4_MAX_STAGED_LIGHTS] = {};
+    for (int32_t i = 0; i < list->count; i++) {
+        const typeof(list->lights[0]) *const light = &list->lights[i];
+        src[i] = (OUTPUT_MESH_LIGHT) {
+            .pos = { light->pos.x, light->pos.y, light->pos.z,
+                     (float)light->type },
+            .color = { light->r, light->g, light->b, light->range },
+            .dir = { light->dir.x, light->dir.y, light->dir.z, light->att1 },
+            .cone = { light->cone },
+        };
+    }
+    out[2][0] = (float)M_PlaceInstanceLights(lights, src, list->count);
+    out[2][1] = (float)list->count;
+}
+
+static int32_t M_GetSlotLightCount(const OUTPUT_LIGHT_INFO *const info)
+{
+    if (info->tr4.handle < 0) {
+        return 0;
+    }
+    const M_STAGED_LIST *const list =
+        Vector_Get(m_StagedPool, info->tr4.handle);
+    return list->count;
 }
 
 static void M_CalculateStaticLight(const int16_t adder)
@@ -889,12 +922,28 @@ static void M_ObserveLevelLoad(void)
     }
 }
 
+static void M_ObserveRoomFlip(const ROOM *const room)
+{
+    if (m_RoomBake == nullptr || room->flip_status != RFS_UNFLIPPED
+        || room->flipped_room == NO_ROOM) {
+        return;
+    }
+    const int16_t room_1 = Room_GetIndex(room);
+    const int16_t room_2 = room->flipped_room;
+    SWAP(m_RoomBake[room_1], m_RoomBake[room_2]);
+}
+
+static void M_Animate(const int32_t num_frames)
+{
+    m_Tick += num_frames;
+    Output_FogBulbs_Animate(num_frames);
+}
+
 static void M_BeginScene(void)
 {
     if (m_StagedPool != nullptr) {
         Vector_Clear(m_StagedPool);
     }
-    m_PoolGeneration++;
 }
 
 void Output_SetInventoryLightingMode(const bool enabled)
@@ -906,8 +955,10 @@ const LIGHTING_MODEL g_LightingModelTR4 = {
     .init = M_Init,
     .shutdown = M_Shutdown,
     .observe_level_load = M_ObserveLevelLoad,
+    .observe_room_flip = M_ObserveRoomFlip,
     .calculate_light = M_CalculateLight,
     .calculate_object_lighting_at = M_CalculateObjectLightingAt,
+    .calculate_actor_lighting_at = M_CalculateActorLightingAt,
     .calculate_static_light = M_CalculateStaticLight,
     .calculate_static_light_rgb15 = M_CalculateStaticLightRGB15,
     .calculate_static_light_rgb_f = M_CalculateStaticLightRGB_F,
@@ -916,9 +967,9 @@ const LIGHTING_MODEL g_LightingModelTR4 = {
     .add_dynamic_light_rgb = M_AddDynamicLightRGB,
     .begin_scene = M_BeginScene,
     .prepare_scene = Output_FogBulbs_PrepareScene,
-    .animate = Output_FogBulbs_Animate,
+    .animate = M_Animate,
     .fill_instance_light = M_FillInstanceLight,
-    .upload_cpu_light = M_UploadCPULight,
-    .upload_own_light = M_UploadOwnLight,
+    .fill_slot_light = M_FillSlotLight,
+    .get_slot_light_count = M_GetSlotLightCount,
     .shader_variant = 2,
 };

@@ -1,4 +1,57 @@
-trx.events.on_game_start(function()
+local cutscenes = require("tr4.cutscenes")
+
+local AMULET_CUTSCENE = 14
+local AMULET_PULL_FRAME = 393
+local AMULET_STORE_FRAME = 486
+local SETH_IDLE_BITS = 0x5
+local SETH_LIVE_BITS = 0x3
+
+---@type trx.items.Item?
+local seth_item = nil
+
+local function initialise_seth(is_save)
+  seth_item =
+    trx.items.query:of_object(trx.catalog.objects.seth_sarcophagus):first()
+  if seth_item ~= nil and seth_item:is_valid() and not is_save then
+    seth_item.mesh_bits = SETH_IDLE_BITS
+  end
+end
+
+local function pull_amulet()
+  if seth_item ~= nil and seth_item:is_valid() then
+    seth_item.mesh_bits = SETH_LIVE_BITS
+  end
+end
+
+local function store_amulet()
+  if not trx.inventory.has(trx.catalog.objects.quest_item_1) then
+    trx.inventory.give(trx.catalog.objects.quest_item_1)
+    trx.stats.pickups.count = trx.stats.pickups.count + 1
+    trx.overlay.show_pickup(trx.catalog.objects.quest_item_1)
+  end
+end
+
+local function end_amulet_scene()
+  pull_amulet()
+  store_amulet()
+  trx.rooms.flip(1)
+end
+
+cutscenes.register(AMULET_CUTSCENE, {
+  frames = {
+    [AMULET_PULL_FRAME] = pull_amulet,
+    [AMULET_STORE_FRAME] = store_amulet,
+  },
+  on_end = end_amulet_scene,
+})
+
+trx.events.on_cutscene_start(function(cutscene)
+  if cutscene.num == AMULET_CUTSCENE then
+    trx.cutscenes.set_lara_return({ x = 27282, y = 256, z = 65654 }, 0)
+  end
+end)
+
+trx.events.on_game_start(function(is_save)
   trx.items[3].properties.pickup_mode = trx.items.PickupMode.PLINTH_LOW
   trx.items[135].properties.pickup_mode = trx.items.PickupMode.PLINTH_LOW
 
@@ -123,4 +176,37 @@ trx.events.on_game_start(function()
   trx.items[111].properties.orientation = 4
   trx.items[112].properties.orientation = 4
   trx.items[116].properties.orientation = 4
+
+  trx.items[214].properties.use_idle_pose = true
+  trx.items[215].properties.use_idle_pose = true
+
+  for i = 183, 186 do
+    trx.items[i].properties.speed = 7
+    trx.items[i].properties.travel_distance = 20
+  end
+  for i = 226, 229 do
+    trx.items[i].properties.speed = 3
+    trx.items[i].properties.travel_distance = 32
+  end
+
+  trx.objects.undead_mummy.properties.start_lying_down = true
+  for _, i in ipairs({ 20, 35 }) do
+    local mummy = trx.items[i]
+    mummy.properties.delay = 60
+    mummy.properties.start_lying_down = false
+  end
+
+  trx.objects.earthquake.properties.mode = trx.items.EarthquakeMode.BASIC
+  trx.objects.earthquake.properties.lifetime = 495
+  trx.objects.earthquake.properties.shake_camera = false
+  trx.objects.earthquake.properties.trigger_items = false
+
+  initialise_seth(is_save)
 end)
+
+require("tr4.inv_setup").apply({
+  puzzle_item_1 = { scale = 1024, rot_x = -90, rot_y = 180 },
+  puzzle_item_2 = { scale = 1024, rot_x = -90, rot_y = 180 },
+  puzzle_item_3 = { scale = 1024, rot_y = 180 },
+  puzzle_item_4 = { scale = 1280, offset_y = 5, rot_y = 180 },
+})

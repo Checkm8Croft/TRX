@@ -1,12 +1,10 @@
-#define MAX_LIGHTS 32
+// Matches OUTPUT_MAX_DYNAMIC_LIGHTS in src/trx/game/output/lights.h.
+#define MAX_LIGHTS 64
 
 #define RLM_NORMAL  0
 #define RLM_FLICKER 1
 #define RLM_GLOW    2
 #define RLM_SUNSET  3
-
-uniform int uWaterEffect;
-uniform vec3 uWaterEffectParams; // x=choppy amp, y=shimmer amp, z=abs intensity
 
 struct Light {
     vec4 pos;
@@ -19,7 +17,6 @@ struct Light {
 
 layout(std140) uniform Lights {
     int uNumLights;
-    int uRoomLightMode;
     Light uLights[MAX_LIGHTS];
 };
 
@@ -51,21 +48,21 @@ float ogPhaseTurns(vec3 worldPos, int scheme)
 
 float effectChoppy(vec3 worldPos)
 {
-    int scheme = clamp(uWaterEffect - 2, 0, 21);
+    int scheme = clamp(I_WATER_EFFECT - 2, 0, 21);
     float angle = fract(ogPhaseTurns(worldPos, scheme)) * 2.0 * PI;
-    return -sin(angle) * uWaterEffectParams.x / 2.0;
+    return -sin(angle) * I_WATER_EFFECT_PARAMS.x / 2.0;
 }
 
 float effectShimmer(vec3 worldPos)
 {
-    int scheme = clamp(uWaterEffect - 2, 0, 21);
+    int scheme = clamp(I_WATER_EFFECT - 2, 0, 21);
     float angle = fract(ogPhaseTurns(worldPos, scheme)) * 2.0 * PI;
-    return sin(angle) * uWaterEffectParams.y * 8.0;
+    return sin(angle) * I_WATER_EFFECT_PARAMS.y * 8.0;
 }
 
 float effectAbs()
 {
-    return uWaterEffectParams.z * 8.0;
+    return I_WATER_EFFECT_PARAMS.z * 8.0;
 }
 
 int lightFlicker(float t) {

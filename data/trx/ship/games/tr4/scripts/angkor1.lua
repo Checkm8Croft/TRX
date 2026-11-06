@@ -67,7 +67,11 @@ cutscenes.register(BACKPACK_CUTSCENE, {
 -- the engine dresses her in the one the level asks for.
 trx.config.on_change("visuals.lara_outfit", function(outfit)
   if outfit == nil or outfit == "" then
-    outfit = trx.game.current_level.lara_outfit
+    local level = trx.game.current_level
+    if level == nil then
+      return
+    end
+    outfit = level.lara_outfit
   end
   dress(outfit)
 end)
@@ -107,6 +111,8 @@ cutscenes.register(ENTRANCE_CUTSCENE, {
 })
 
 -- The caption the level opens with, which the level's strings carry.
-require("common.legend").setup(function()
-  return trx.locale.get("general/legend")
-end)
+require("common.ui.hud.legend").setup(trx.locale.text("general/legend"))
+
+require("tr4.inv_setup").apply({
+  puzzle_item_1 = { scale = 384, offset_y = 1, rot_y = -157.5 },
+})

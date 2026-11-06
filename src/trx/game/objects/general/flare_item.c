@@ -1,5 +1,7 @@
 #include <trx/game/objects/general/flare_item.h>
 
+#include <trx/core/json/util/read_io.h>
+#include <trx/core/json/util/write_io.h>
 #include <trx/core/utils.h>
 #include <trx/game/gun.h>
 #include <trx/game/items/anim.h>
@@ -32,6 +34,19 @@
 typedef struct {
     int32_t raw_age;
 } M_PRIV;
+
+static RESULT M_LoadPriv(ITEM *const item, JSON_READ_IO *const io)
+{
+    M_PRIV *const p = item->priv;
+    MUST(JSON_READ_OPT(io, "age", &p->raw_age));
+    return OK;
+}
+
+static void M_SavePriv(const ITEM *const item, JSON_WRITE_IO *const io)
+{
+    const M_PRIV *const p = item->priv;
+    JSONW_WRITE(io, "age", p->raw_age);
+}
 
 static double M_GetBurnTimeSeconds(void)
 {
@@ -128,9 +143,9 @@ static void M_Control(const int16_t item_num)
                 M_TransformLocalOffset(flare_pos, item->rot, tip_local);
 
             const XYZ_32 vel_local = {
-                .x = (Random_GetControl() & 0x7F) - 64,
-                .y = (Random_GetControl() & 0x7F) - 64,
-                .z = (Random_GetControl() & 0x1FF) + 512,
+                .x = (Random_GetDraw() & 0x7F) - 64,
+                .y = (Random_GetDraw() & 0x7F) - 64,
+                .z = (Random_GetDraw() & 0x1FF) + 512,
             };
             const XYZ_32 vel_pos =
                 M_TransformLocalOffset(flare_pos, item->rot, vel_local);
@@ -140,7 +155,7 @@ static void M_Control(const int16_t item_num)
                 .z = vel_pos.z - flare_pos.z,
             };
 
-            for (int32_t i = 0; i < (Random_GetControl() & 3) + 4; i++) {
+            for (int32_t i = 0; i < (Random_GetDraw() & 3) + 4; i++) {
                 const bool smoke = (i >> 2) != 0;
                 Sparks_TriggerFlareSparks(tip_pos, vel, smoke);
             }
@@ -395,6 +410,8 @@ static void M_Setup(OBJECT *const obj)
     obj->control_func = M_Control;
     obj->draw_func = M_Draw;
     obj->priv_size = sizeof(M_PRIV);
+    obj->priv_load_func = M_LoadPriv;
+    obj->priv_save_func = M_SavePriv;
     obj->save_position = true;
     obj->save_flags = true;
     OBJECT_PROPERTIES(

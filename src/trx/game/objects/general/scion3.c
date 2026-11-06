@@ -13,9 +13,10 @@ typedef struct {
     int32_t counter;
 } M_PRIV;
 
-static bool M_ShouldSpawnBlood(const ITEM *const item)
+static ITEM_HIT_EFFECT M_GetHitEffect(const ITEM *const item)
 {
-    return !g_Config.visuals.fix_texture_issues;
+    return g_Config.visuals.fix_texture_issues ? ITEM_HIT_RICOCHET
+                                               : ITEM_HIT_BLOOD;
 }
 
 static bool M_CanTakeDamage(const ITEM *const item)
@@ -49,7 +50,7 @@ static void M_Control(const int16_t item_num)
     }
 
     if (p->counter % 10 == 0) {
-        int16_t effect_num = Effect_Create(item->room_num);
+        int16_t effect_num = Effect_Create(O_EXPLOSION_1, item->room_num);
         if (effect_num != NO_EFFECT) {
             EFFECT *effect = Effect_Get(effect_num);
             effect->pos.x = item->pos.x + (Random_GetControl() - 0x4000) / 32;
@@ -58,7 +59,6 @@ static void M_Control(const int16_t item_num)
             effect->pos.z = item->pos.z + (Random_GetControl() - 0x4000) / 32;
             effect->speed = 0;
             effect->frame_num = 0;
-            effect->object_id = O_EXPLOSION_1;
             effect->counter = 0;
             Sound_Effect(SFX_EXPLOSION_1, &effect->pos, SPM_NORMAL);
             g_Camera.bounce = -200;
@@ -75,7 +75,7 @@ static void M_Setup(OBJECT *const obj)
 {
     obj->control_func = M_Control;
     obj->can_take_damage_func = M_CanTakeDamage;
-    obj->should_spawn_blood_func = M_ShouldSpawnBlood;
+    obj->get_hit_effect_func = M_GetHitEffect;
 
     obj->priv_size = sizeof(M_PRIV);
     obj->save_flags = true;

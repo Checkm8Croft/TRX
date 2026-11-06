@@ -1,6 +1,7 @@
 #pragma once
 
 #include <trx/core/result.h>
+#include <trx/core/vector.h>
 #include <trx/game/savegame/types.h>
 
 // Loading a saved game is divided into two phases. First, the game reads the
@@ -20,10 +21,21 @@ void Savegame_SetInitialVersion(SAVEGAME_VERSION version);
 bool Savegame_IsManualSaveAllowed(void);
 bool Savegame_RestartAvailable(SAVEGAME_SLOT_REF slot);
 
+// Every slot the level owns, destroyed or not, and every other live item,
+// apart from those whose creator makes them again and Lara's weapon, which is
+// saved with her.
+bool Savegame_IsSavedItem(int32_t item_num);
 void Savegame_ProcessItemsBeforeLoad(void);
 void Savegame_ProcessItemsBeforeSave(void);
 RESULT Savegame_Load(SAVEGAME_SLOT_REF slot);
+// Loads the playthrough from a save made as a level ended. Leaves the level
+// itself unloaded.
+RESULT Savegame_LoadLevelEnd(SAVEGAME_SLOT_REF slot);
 bool Savegame_Save(SAVEGAME_SLOT_REF slot);
 RESULT Savegame_UpdateDeathCounters(
     SAVEGAME_SLOT_REF slot, int32_t death_count);
 RESULT Savegame_LoadOnlyResumeInfo(SAVEGAME_SLOT_REF slot);
+
+// Add each reached main level up to the saved level to `levels`. Preserve the
+// resume entries of the running game.
+RESULT Savegame_ReadReachedLevels(SAVEGAME_SLOT_REF slot, VECTOR *levels);

@@ -1,71 +1,109 @@
 #include <trx/config.h>
+#include <trx/core/enum_map.h>
+#include <trx/core/memory.h>
 #include <trx/core/utils.h>
+#include <trx/game/anims/types.h>
+#include <trx/game/interpolation.h>
+#include <trx/game/lua/events/ui.h>
+#include <trx/game/lua/field.h>
 #include <trx/game/lua/registry.h>
-#include <trx/game/lua/ui.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/struct.h>
+#include <trx/game/lua/utils/args.h>
+#include <trx/game/lua/utils/module.h>
 #include <trx/game/objects/common.h>
 #include <trx/game/output/const.h>
 #include <trx/game/output/textures.h>
 #include <trx/game/paths.h>
 #include <trx/game/ui/common.h>
 #include <trx/game/ui/draw.h>
-#include <trx/game/ui/elements.h>
-#include <trx/game/ui/elements/frame.h>
+#include <trx/game/ui/keys.h>
 #include <trx/game/ui/regions.h>
 #include <trx/game/ui/scaler.h>
-#include <trx/game/ui/settings.h>
 #include <trx/game/ui/text.h>
+#include <trx/game/viewport.h>
 
 #include <lauxlib.h>
 #include <math.h>
 
-static bool m_Drawing = false;
+static bool m_Reserving = false;
 static bool m_Painting = false;
 
-static void M_CheckDrawing(lua_State *const L)
+static void M_CheckReserving(lua_State *const L)
 {
-    if (!m_Drawing) {
-        luaL_error(L, "trx.ui is only available from trx.events.on_ui_draw");
+    if (!m_Reserving) {
+        luaL_error(
+            L, "trx.ui.primitive.reserve works only during trx.ui.on_reserve");
     }
 }
 
-static float M_OptNumberField(
-    lua_State *const L, const int arg, const char *const key,
-    const float fallback)
-{
-    lua_getfield(L, arg, key);
-    const float value = (float)luaL_optnumber(L, -1, fallback);
-    lua_pop(L, 1);
-    return value;
-}
-
+// trxc.ui.get_canvas_width(): number
 static int M_L_UICanvasWidth(lua_State *const L)
 {
     lua_pushnumber(L, UI_GetCanvasWidth());
     return 1;
 }
 
+// trxc.ui.get_canvas_height(): number
 static int M_L_UICanvasHeight(lua_State *const L)
 {
     lua_pushnumber(L, UI_GetCanvasHeight());
     return 1;
 }
 
+// trxc.ui.get_screen_width(): number
+static int M_L_UIScreenWidth(lua_State *const L)
+{
+    lua_pushnumber(
+        L,
+        UI_Scaler_CalcInverse(
+            Viewport_GetWidth(VIEWPORT_UI), UI_SCALER_TARGET_GENERIC));
+    return 1;
+}
+
+// trxc.ui.get_screen_height(): number
+static int M_L_UIScreenHeight(lua_State *const L)
+{
+    lua_pushnumber(
+        L,
+        UI_Scaler_CalcInverse(
+            Viewport_GetHeight(VIEWPORT_UI), UI_SCALER_TARGET_GENERIC));
+    return 1;
+}
+
+// trxc.ui.get_safe_width(): number
 static int M_L_UISafeWidth(lua_State *const L)
 {
     lua_pushnumber(L, UI_GetSafeCanvasWidth());
     return 1;
 }
 
-static int M_L_UISafeTop(lua_State *const L)
+// trxc.ui.get_working_top(): number
+static int M_L_UIWorkingTop(lua_State *const L)
 {
-    lua_pushnumber(L, UI_GetSafeCanvasTop());
+    lua_pushnumber(L, UI_GetWorkingCanvasTop());
     return 1;
 }
 
+// trxc.ui.get_working_bottom(): number
+static int M_L_UIWorkingBottom(lua_State *const L)
+{
+    lua_pushnumber(L, UI_GetWorkingCanvasBottom());
+    return 1;
+}
+
+// trxc.ui.get_safe_top(width?: number): number
+static int M_L_UISafeTop(lua_State *const L)
+{
+    lua_pushnumber(
+        L, UI_GetSafeCanvasTopFor((float)luaL_optnumber(L, 1, -1.0)));
+    return 1;
+}
+
+// trxc.ui.get_safe_bottom(width?: number): number
 static int M_L_UISafeBottom(lua_State *const L)
 {
-    lua_pushnumber(L, UI_GetSafeCanvasBottom());
+    lua_pushnumber(
+        L, UI_GetSafeCanvasBottomFor((float)luaL_optnumber(L, 1, -1.0)));
     return 1;
 }
 
@@ -74,6 +112,19 @@ static void M_CheckPainting(lua_State *const L)
     if (!LUA_UI_IsPainting()) {
         luaL_error(L, "only available while a scene is being painted");
     }
+}
+
+// Keeps a z between the near and far planes of the UI view, so that drawing
+// pushed too far stays visible at the nearest or farthest depth.
+static int32_t M_ClampZ(int64_t z)
+{
+    CLAMP(z, 0, OUTPUT_UI_FAR_Z - OUTPUT_UI_NEAR_Z - 1);
+    return (int32_t)z;
+}
+
+static int32_t M_OptZ(lua_State *const L, const int arg)
+{
+    return M_ClampZ(luaL_optinteger(L, arg, 0));
 }
 
 // Accepts any numeric channel and clamps it to uint8_t range.
@@ -112,6 +163,25 @@ static RGBA_F M_CheckColorF(lua_State *const L, const int arg)
     };
 }
 
+// Reads the colour of a light, keeping a channel's fraction: a light may be a
+// shade no whole byte gives. A channel may reach twice the full value, which
+// brightens a model past its own colour.
+static RGB_F M_CheckLightColor(lua_State *const L, const int arg)
+{
+    luaL_checktype(L, arg, LUA_TTABLE);
+    RGB_F color;
+    float *const channels[] = { &color.r, &color.g, &color.b };
+    const char *const keys[] = { "r", "g", "b" };
+    for (int32_t i = 0; i < 3; i++) {
+        lua_getfield(L, arg, keys[i]);
+        double value = luaL_optnumber(L, -1, 0.0);
+        lua_pop(L, 1);
+        CLAMP(value, 0.0, 510.0);
+        *channels[i] = (float)(value / 255.0);
+    }
+    return color;
+}
+
 // Resolves a script object and sprite number to a sprite index.
 static int32_t M_CheckSpriteIdx(lua_State *const L)
 {
@@ -127,15 +197,41 @@ static int32_t M_CheckSpriteIdx(lua_State *const L)
     return object->mesh_idx + sprite_num;
 }
 
-// trxc.ui.sprite_count(object_id) -> number
+// trxc.ui.mesh_bounds(object: trx.catalog.objects): trx.math.Distance?, trx.math.Distance, trx.math.Distance, trx.math.Distance, trx.math.Distance, trx.math.Distance
+// The returns are min x, y, z, then max x, y, z.
+static int M_L_UIMeshBounds(lua_State *const L)
+{
+    const OBJECT_ID object_id = LUA_CheckObjectID(L, 1);
+    const OBJECT *const object = Object_Get(object_id);
+    if (!object->loaded) {
+        return luaL_error(L, "object %d is not loaded", (int32_t)object_id);
+    }
+    const ANIM *const anim = Object_GetAnim(object, 0);
+    if (anim == nullptr || anim->frame_ptr == nullptr) {
+        lua_pushnil(L);
+        return 1;
+    }
+    const BOUNDS_16 bounds = anim->frame_ptr->bounds;
+    lua_pushinteger(L, bounds.min.x);
+    lua_pushinteger(L, bounds.min.y);
+    lua_pushinteger(L, bounds.min.z);
+    lua_pushinteger(L, bounds.max.x);
+    lua_pushinteger(L, bounds.max.y);
+    lua_pushinteger(L, bounds.max.z);
+    return 6;
+}
+
+// trxc.ui.sprite_count(object: trx.catalog.objects): integer
 static int M_L_UISpriteCount(lua_State *const L)
 {
     const OBJECT *const object = Object_Get(LUA_CheckObjectID(L, 1));
-    lua_pushinteger(L, object->loaded ? ABS(object->mesh_count) : 0);
+    const bool is_sprite = object->loaded && object->mesh_count < 0;
+    lua_pushinteger(L, is_sprite ? -object->mesh_count : 0);
     return 1;
 }
 
-// trxc.ui.sprite_bounds(object_id, sprite_num) -> x0, y0, x1, y1
+// trxc.ui.sprite_bounds(object: trx.catalog.objects, sprite_num: integer): number, number, number, number
+// The returns are x0, y0, x1, y1.
 static int M_L_UISpriteBounds(lua_State *const L)
 {
     const SPRITE_TEXTURE *const sprite =
@@ -150,14 +246,14 @@ static int M_L_UISpriteBounds(lua_State *const L)
     return 4;
 }
 
-// trxc.ui.sprite(object_id, sprite_num, x, y, z, scale, color)
+// trxc.ui.sprite(object: trx.catalog.objects, sprite_num: integer, x: number, y: number, z?: integer, scale?: number, color: trx.math.Color|table)
 static int M_L_UISprite(lua_State *const L)
 {
     M_CheckPainting(L);
     const int32_t sprite_idx = M_CheckSpriteIdx(L);
     const int32_t x = lroundf(UI_ScaleX((float)luaL_checknumber(L, 3)));
     const int32_t y = lroundf(UI_ScaleY((float)luaL_checknumber(L, 4)));
-    const int32_t z = (int32_t)luaL_optinteger(L, 5, 0);
+    const int32_t z = M_OptZ(L, 5);
     const int32_t scale =
         lroundf(UI_ScaleX((float)luaL_optnumber(L, 6, 1.0)) * PHD_ONE);
     const RGBA_F color = M_CheckColorF(L, 7);
@@ -166,15 +262,344 @@ static int M_L_UISprite(lua_State *const L)
     return 0;
 }
 
-// trxc.ui.gradient_sprite(object_id, sprite_num, x, y, z, scale, tl, tr, bl,
-// br)
+// trxc.ui.sprite_rect(object: trx.catalog.objects, sprite_num: integer, x: number, y: number, z?: integer, w: number, h: number, color: trx.math.Color|table)
+static int M_L_UISpriteRect(lua_State *const L)
+{
+    M_CheckPainting(L);
+    const int32_t sprite_idx = M_CheckSpriteIdx(L);
+    const float x = (float)luaL_checknumber(L, 3);
+    const float y = (float)luaL_checknumber(L, 4);
+    const int32_t z = M_OptZ(L, 5);
+    const float w = (float)luaL_checknumber(L, 6);
+    const float h = (float)luaL_checknumber(L, 7);
+    UI_ScheduleDrawScreenSpriteRect(
+        sprite_idx, lroundf(UI_ScaleX(x)), lroundf(UI_ScaleY(y)),
+        lroundf(UI_ScaleX(x + w)), lroundf(UI_ScaleY(y + h)), z,
+        M_CheckColorF(L, 8));
+    return 0;
+}
+
+// The light a script gives a model: an ambient colour and a colour for each
+// mesh it names, counted from 0.
+// Reads a number field of a table, or the fallback where it is absent.
+static float M_OptNumberField(
+    lua_State *const L, const int arg, const char *const key,
+    const float fallback)
+{
+    const int table = lua_absindex(L, arg);
+    lua_getfield(L, table, key);
+    const float value = (float)luaL_optnumber(L, -1, fallback);
+    lua_pop(L, 1);
+    return value;
+}
+
+static UI_MODEL_LIGHT M_CheckMeshLight(lua_State *const L, const int arg)
+{
+    luaL_checktype(L, arg, LUA_TTABLE);
+    UI_MODEL_LIGHT light = {};
+    lua_getfield(L, arg, "ambient");
+    if (!lua_isnil(L, -1)) {
+        light.ambient = M_CheckLightColor(L, lua_absindex(L, -1));
+    }
+    lua_pop(L, 1);
+    lua_getfield(L, arg, "lights");
+    if (!lua_isnil(L, -1)) {
+        luaL_checktype(L, -1, LUA_TTABLE);
+        const int lights = lua_absindex(L, -1);
+        const int32_t count = (int32_t)lua_rawlen(L, lights);
+        luaL_argcheck(
+            L, count <= UI_MODEL_LIGHTS, arg,
+            "a model takes up to three lights");
+        for (int32_t i = 0; i < count; i++) {
+            lua_rawgeti(L, lights, i + 1);
+            luaL_checktype(L, -1, LUA_TTABLE);
+            const int source = lua_absindex(L, -1);
+            lua_getfield(L, source, "dir");
+            light.lights[i].dir = LUA_CheckXYZ(L, lua_absindex(L, -1));
+            lua_pop(L, 1);
+            lua_getfield(L, source, "color");
+            light.lights[i].color = M_CheckLightColor(L, lua_absindex(L, -1));
+            lua_pop(L, 2);
+        }
+        light.light_count = count;
+    }
+    lua_pop(L, 1);
+    lua_getfield(L, arg, "meshes");
+    if (!lua_isnil(L, -1)) {
+        luaL_checktype(L, -1, LUA_TTABLE);
+        const int meshes = lua_absindex(L, -1);
+        lua_pushnil(L);
+        while (lua_next(L, meshes) != 0) {
+            const lua_Integer idx = luaL_checkinteger(L, -2);
+            luaL_argcheck(
+                L, idx >= 0 && idx < 32, arg, "a mesh is counted from 0 to 31");
+            light.colors[idx] = M_CheckLightColor(L, lua_absindex(L, -1));
+            light.lit_mask |= 1u << idx;
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+    return light;
+}
+
+// trxc.ui.draw_model(object: trx.catalog.objects, x: number, y: number, w: number, h: number, opts?: trx.ui.primitive.model.opts)
+static int M_L_UIDrawModel(lua_State *const L)
+{
+    M_CheckPainting(L);
+    const OBJECT_ID object_id = LUA_CheckObjectID(L, 1);
+    const float x = (float)luaL_checknumber(L, 2);
+    const float y = (float)luaL_checknumber(L, 3);
+    const float w = (float)luaL_checknumber(L, 4);
+    const float h = (float)luaL_checknumber(L, 5);
+
+    XYZ_16 rot = {};
+    // Read as an integer, because a mask of every mesh does not survive a
+    // float.
+    uint32_t mesh_mask = UINT32_MAX;
+    UI_MODEL_LIGHT light;
+    bool has_light = false;
+    bool held = true;
+    int16_t tilt = 0;
+    if (!lua_isnoneornil(L, 6)) {
+        luaL_checktype(L, 6, LUA_TTABLE);
+        lua_getfield(L, 6, "rot");
+        if (!lua_isnil(L, -1)) {
+            luaL_checktype(L, -1, LUA_TTABLE);
+            rot.x = (int16_t)(int32_t)M_OptNumberField(L, -1, "x", 0.0f);
+            rot.y = (int16_t)(int32_t)M_OptNumberField(L, -1, "y", 0.0f);
+            rot.z = (int16_t)(int32_t)M_OptNumberField(L, -1, "z", 0.0f);
+        }
+        lua_pop(L, 1);
+        lua_getfield(L, 6, "mesh_mask");
+        mesh_mask = (uint32_t)luaL_optinteger(L, -1, (lua_Integer)UINT32_MAX);
+        lua_pop(L, 1);
+        lua_getfield(L, 6, "light");
+        if (!lua_isnil(L, -1)) {
+            light = M_CheckMeshLight(L, lua_absindex(L, -1));
+            has_light = true;
+        }
+        lua_pop(L, 1);
+        lua_getfield(L, 6, "held");
+        held = lua_isnil(L, -1) || lua_toboolean(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, 6, "tilt");
+        tilt = (int16_t)(int32_t)luaL_optnumber(L, -1, 0);
+        lua_pop(L, 1);
+    }
+
+    const int32_t sx = lroundf(UI_ScaleX(x));
+    const int32_t sy = lroundf(UI_ScaleY(y));
+    UI_ScheduleDrawModel(
+        object_id, mesh_mask, sx, sy, lroundf(UI_ScaleX(x + w)) - sx,
+        lroundf(UI_ScaleY(y + h)) - sy, rot, held, tilt,
+        has_light ? &light : nullptr);
+    return 0;
+}
+
+// trxc.ui.draw_world_model(object: trx.catalog.objects, opts: trx.ui.primitive.world_model.opts)
+static int M_L_UIDrawWorldModel(lua_State *const L)
+{
+    M_CheckPainting(L);
+    const OBJECT_ID object_id = LUA_CheckObjectID(L, 1);
+    luaL_checktype(L, 2, LUA_TTABLE);
+
+    UI_MODEL_WORLD world = {};
+    lua_getfield(L, 2, "camera");
+    luaL_checktype(L, -1, LUA_TTABLE);
+    const int camera = lua_absindex(L, -1);
+    lua_getfield(L, camera, "pos");
+    world.camera_pos = LUA_CheckXYZ(L, lua_absindex(L, -1));
+    lua_pop(L, 1);
+    lua_getfield(L, camera, "target");
+    world.camera_target = LUA_CheckXYZ(L, lua_absindex(L, -1));
+    lua_pop(L, 1);
+    lua_getfield(L, camera, "fov");
+    world.fov = (int16_t)luaL_checkinteger(L, -1);
+    lua_pop(L, 1);
+    world.center_x = 0.5f;
+    world.center_y = 0.5f;
+    lua_getfield(L, camera, "center");
+    if (!lua_isnil(L, -1)) {
+        luaL_checktype(L, -1, LUA_TTABLE);
+        lua_getfield(L, -1, "x");
+        world.center_x = (float)(luaL_checknumber(L, -1) / UI_GetCanvasWidth());
+        lua_getfield(L, -2, "y");
+        world.center_y =
+            (float)(luaL_checknumber(L, -1) / UI_GetCanvasHeight());
+        lua_pop(L, 2);
+    }
+    lua_pop(L, 2);
+
+    lua_getfield(L, 2, "pose");
+    luaL_checktype(L, -1, LUA_TTABLE);
+    const int pose = lua_absindex(L, -1);
+    const int32_t count = (int32_t)lua_rawlen(L, pose);
+    luaL_argcheck(
+        L, count <= UI_MODEL_STEPS, 2, "a pose takes up to sixteen steps");
+    for (int32_t i = 0; i < count; i++) {
+        lua_rawgeti(L, pose, i + 1);
+        luaL_checktype(L, -1, LUA_TTABLE);
+        const int step = lua_absindex(L, -1);
+        lua_getfield(L, step, "turn");
+        lua_getfield(L, step, "scale");
+        if (!lua_isnil(L, -2)) {
+            world.steps[i].kind = UI_MODEL_STEP_TURN;
+            world.steps[i].vec = LUA_CheckXYZ(L, lua_absindex(L, -2));
+        } else if (!lua_isnil(L, -1)) {
+            world.steps[i].kind = UI_MODEL_STEP_SCALE;
+            world.steps[i].vec.x =
+                (int32_t)lround(luaL_checknumber(L, -1) * 1024.0);
+        } else {
+            lua_getfield(L, step, "move");
+            world.steps[i].kind = UI_MODEL_STEP_MOVE;
+            world.steps[i].vec = LUA_CheckXYZ(L, lua_absindex(L, -1));
+            lua_pop(L, 1);
+        }
+        lua_pop(L, 3);
+    }
+    world.step_count = count;
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "frame");
+    world.frame = (int32_t)luaL_optinteger(L, -1, 0);
+    lua_getfield(L, 2, "next_frame");
+    world.next_frame = (int32_t)luaL_optinteger(L, -1, world.frame);
+    lua_getfield(L, 2, "blend");
+    world.blend = (float)luaL_optnumber(L, -1, 0.0);
+    lua_getfield(L, 2, "at_pivot");
+    world.at_pivot = lua_toboolean(L, -1);
+    lua_getfield(L, 2, "opacity");
+    world.opacity = (float)luaL_optnumber(L, -1, 1.0);
+    CLAMP(world.opacity, 0.0f, 1.0f);
+    lua_pop(L, 5);
+
+    lua_getfield(L, 2, "bones");
+    if (!lua_isnil(L, -1)) {
+        luaL_checktype(L, -1, LUA_TTABLE);
+        const int bones = lua_absindex(L, -1);
+        const int32_t bone_count = (int32_t)lua_rawlen(L, bones);
+        luaL_argcheck(
+            L, bone_count <= UI_MODEL_BONES, 2,
+            "a model takes up to eight bone turns");
+        for (int32_t i = 0; i < bone_count; i++) {
+            lua_rawgeti(L, bones, i + 1);
+            luaL_checktype(L, -1, LUA_TTABLE);
+            const int turn = lua_absindex(L, -1);
+            lua_getfield(L, turn, "bone");
+            world.bones[i].bone = (int32_t)luaL_checkinteger(L, -1);
+            lua_pop(L, 1);
+#define M_READ_AXIS(axis)                                                      \
+    lua_getfield(L, turn, #axis);                                              \
+    if (!lua_isnil(L, -1)) {                                                   \
+        world.bones[i].axes.axis = true;                                       \
+        world.bones[i].rot.axis = (int16_t)luaL_checkinteger(L, -1);           \
+    }                                                                          \
+    lua_pop(L, 1);
+            M_READ_AXIS(x);
+            M_READ_AXIS(y);
+            M_READ_AXIS(z);
+#undef M_READ_AXIS
+            lua_pop(L, 1);
+        }
+        world.bone_count = bone_count;
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "mesh_opacity");
+    if (!lua_isnil(L, -1)) {
+        luaL_checktype(L, -1, LUA_TTABLE);
+        const int faded = lua_absindex(L, -1);
+        lua_pushnil(L);
+        while (lua_next(L, faded) != 0) {
+            const lua_Integer mesh = luaL_checkinteger(L, -2);
+            luaL_argcheck(
+                L, mesh >= 0 && mesh < 32, 2,
+                "a mesh to fade is counted from 0 to 31");
+            float opacity = (float)luaL_checknumber(L, -1);
+            CLAMP(opacity, 0.0f, 1.0f);
+            world.faded_mask |= 1u << mesh;
+            world.mesh_opacity[mesh] = opacity;
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+
+    lua_getfield(L, 2, "mesh_mask");
+    const uint32_t mesh_mask =
+        (uint32_t)luaL_optinteger(L, -1, (lua_Integer)UINT32_MAX);
+    lua_pop(L, 1);
+    UI_MODEL_LIGHT light;
+    bool has_light = false;
+    lua_getfield(L, 2, "light");
+    if (!lua_isnil(L, -1)) {
+        light = M_CheckMeshLight(L, lua_absindex(L, -1));
+        has_light = true;
+    }
+    lua_pop(L, 1);
+
+    UI_ScheduleDrawModelInWorld(
+        object_id, mesh_mask, &world, has_light ? &light : nullptr);
+    return 0;
+}
+
+// trxc.ui.darken(opacity: number)
+static int M_L_UIDarken(lua_State *const L)
+{
+    M_CheckPainting(L);
+    float opacity = (float)luaL_checknumber(L, 1);
+    CLAMP(opacity, 0.0f, 1.0f);
+    UI_ScheduleDrawDarken(opacity);
+    return 0;
+}
+
+// trxc.ui.draw_backdrop(style: string, opacity: number, path?: string)
+//
+// A picture comes in from black, so the overlay takes how dark it is; every
+// other style takes how far it has come in.
+static int M_L_UIDrawBackdrop(lua_State *const L)
+{
+    M_CheckPainting(L);
+    const int32_t style =
+        ENUM_MAP_GET(BACKGROUND_TYPE, luaL_checkstring(L, 1), -1);
+    luaL_argcheck(L, style != -1, 1, "unknown backdrop");
+    float opacity = (float)luaL_checknumber(L, 2);
+    CLAMP(opacity, 0.0f, 1.0f);
+    UI_ScheduleDrawBackdrop(
+        (BACKGROUND_TYPE)style, style == BK_IMAGE ? 1.0f - opacity : opacity,
+        luaL_optstring(L, 3, nullptr));
+    return 0;
+}
+
+// trxc.ui.draw_background(path?: string, mono?: boolean, dim?: number): boolean
+static int M_L_UIDrawBackground(lua_State *const L)
+{
+    M_CheckPainting(L);
+    const char *const name = luaL_optstring(L, 1, nullptr);
+    const char *const path = name != nullptr
+        ? GamePath_PeekResolve(GAME_DYNAMIC_PATH_IMAGE_FILE, name)
+        : nullptr;
+    float dim = (float)luaL_optnumber(L, 3, 0.0);
+    CLAMP(dim, 0.0f, 1.0f);
+    UI_ScheduleDrawBackground(path, lua_toboolean(L, 2), dim);
+    lua_pushboolean(L, path != nullptr);
+    return 1;
+}
+
+// trxc.ui.interpolation_rate(): number
+static int M_L_UIInterpolationRate(lua_State *const L)
+{
+    lua_pushnumber(L, Interpolation_GetUIRate());
+    return 1;
+}
+
+// trxc.ui.gradient_sprite(object: trx.catalog.objects, sprite_num: integer, x: number, y: number, z?: integer, scale?: number, tl: trx.math.Color|table, tr: trx.math.Color|table, bl: trx.math.Color|table, br: trx.math.Color|table)
 static int M_L_UIGradientSprite(lua_State *const L)
 {
     M_CheckPainting(L);
     const int32_t sprite_idx = M_CheckSpriteIdx(L);
     const int32_t x = lroundf(UI_ScaleX((float)luaL_checknumber(L, 3)));
     const int32_t y = lroundf(UI_ScaleY((float)luaL_checknumber(L, 4)));
-    const int32_t z = (int32_t)luaL_optinteger(L, 5, 0);
+    const int32_t z = M_OptZ(L, 5);
     const int32_t scale =
         lroundf(UI_ScaleX((float)luaL_optnumber(L, 6, 1.0)) * PHD_ONE);
     const RGBA_F colors[4] = {
@@ -187,10 +612,10 @@ static int M_L_UIGradientSprite(lua_State *const L)
     return 0;
 }
 
-// trxc.ui.reserve(region, w, h) -> slot
+// trxc.ui.reserve(region: trx.ui.Region, w: number, h: number): integer
 static int M_L_UIReserve(lua_State *const L)
 {
-    M_CheckDrawing(L);
+    M_CheckReserving(L);
     const lua_Integer region = luaL_checkinteger(L, 1);
     if (region < 0 || region >= UI_REGION_NUMBER_OF) {
         return luaL_error(L, "unknown region");
@@ -203,7 +628,8 @@ static int M_L_UIReserve(lua_State *const L)
     return 1;
 }
 
-// trxc.ui.slot_box(slot) -> x, y, w, h or nil
+// trxc.ui.slot_box(slot: integer): number?, number, number, number
+// The returns are x, y, w, h.
 static int M_L_UISlotBox(lua_State *const L)
 {
     float x;
@@ -222,62 +648,189 @@ static int M_L_UISlotBox(lua_State *const L)
     return 4;
 }
 
-// trxc.ui.measure_text(text, scale) -> w, h
+// trxc.ui.measure_text(text: string|trx.locale.Text, scale?: number): number, number, number
 static int M_L_UIMeasureText(lua_State *const L)
 {
     float w;
     float h;
-    UI_Text_Measure(
-        luaL_checkstring(L, 1), &w, &h,
-        (UI_TEXT_SETTINGS) { .scale = (float)luaL_optnumber(L, 2, 1.0) });
+    const UI_TEXT_SETTINGS settings = {
+        .scale = (float)luaL_optnumber(L, 2, 1.0),
+    };
+    UI_Text_Measure(LUA_CheckText(L, 1), &w, &h, settings);
     lua_pushnumber(L, w);
     lua_pushnumber(L, h);
-    return 2;
+    lua_pushnumber(L, UI_Text_GetBaseline(settings));
+    return 3;
 }
 
-// trxc.ui.draw_text(text, x, y, scale, z)
+// trxc.ui.wrap_text(text: string|trx.locale.Text, width: number, scale?: number): string
+static int M_L_UIWrapText(lua_State *const L)
+{
+    char *wrapped = UI_Text_WordWrap(
+        LUA_CheckText(L, 1), (float)luaL_optnumber(L, 3, 1.0),
+        (float)luaL_checknumber(L, 2));
+    lua_pushstring(L, wrapped != nullptr ? wrapped : "");
+    Memory_FreePointer(&wrapped);
+    return 1;
+}
+
+// trxc.ui.draw_text(text: string|trx.locale.Text, x: number, y: number, scale?: number, z?: integer)
 static int M_L_UIDrawText(lua_State *const L)
 {
     M_CheckPainting(L);
     UI_Text_Draw(
-        luaL_checkstring(L, 1), (float)luaL_checknumber(L, 2),
+        LUA_CheckText(L, 1), (float)luaL_checknumber(L, 2),
         (float)luaL_checknumber(L, 3),
         (UI_TEXT_SETTINGS) {
             .scale = (float)luaL_optnumber(L, 4, 1.0),
-            .z = (int32_t)luaL_optinteger(L, 5, 0),
+            .z = M_OptZ(L, 5),
         });
     return 0;
 }
 
-// trxc.ui.panel(x, y, z, w, h, style)
-static int M_L_UIPanel(lua_State *const L)
+// Reads one color of a menu style table into `out`. A missing table leaves
+// the color clear.
+static void M_ReadMenuColor(
+    lua_State *const L, const int idx, const char *const key,
+    RGBA_8888 *const out)
+{
+    lua_getfield(L, idx, key);
+    if (lua_istable(L, -1)) {
+        *out = M_CheckColor(L, lua_gettop(L));
+    }
+    lua_pop(L, 1);
+}
+
+static void M_ReadMenuColorPair(
+    lua_State *const L, const int idx, const char *const key, RGBA_8888 out[2])
+{
+    lua_getfield(L, idx, key);
+    if (lua_istable(L, -1)) {
+        for (int32_t i = 0; i < 2; i++) {
+            lua_rawgeti(L, -1, i + 1);
+            if (lua_istable(L, -1)) {
+                out[i] = M_CheckColor(L, lua_gettop(L));
+            }
+            lua_pop(L, 1);
+        }
+    }
+    lua_pop(L, 1);
+}
+
+// Reads the menu colors of the style the player chose from a table that holds
+// a `pc` and a `ps1` table. Without one, every color is clear.
+static UI_MENU_COLORS M_ReadMenuColors(
+    lua_State *const L, const int arg, const UI_STYLE ui_style)
+{
+    UI_MENU_COLORS colors = {};
+    if (!lua_istable(L, arg)) {
+        return colors;
+    }
+    lua_getfield(L, arg, ui_style == UI_STYLE_PC ? "pc" : "ps1");
+    const int idx = lua_gettop(L);
+    if (!lua_istable(L, idx)) {
+        lua_pop(L, 1);
+        return colors;
+    }
+    if (ui_style == UI_STYLE_PC) {
+        UI_MENU_COLORS_PC *const c = &colors.pc;
+        M_ReadMenuColorPair(L, idx, "background", c->background);
+        M_ReadMenuColorPair(L, idx, "background_heavy", c->background_heavy);
+        M_ReadMenuColor(L, idx, "outline_light", &c->outline_light);
+        M_ReadMenuColor(L, idx, "outline_dark", &c->outline_dark);
+    } else {
+        UI_MENU_COLORS_PS1 *const c = &colors.ps1;
+        M_ReadMenuColor(L, idx, "background_edge", &c->background_edge);
+        M_ReadMenuColor(L, idx, "background_center", &c->background_center);
+        M_ReadMenuColor(
+            L, idx, "background_heavy_edge", &c->background_heavy_edge);
+        M_ReadMenuColor(
+            L, idx, "background_heavy_center", &c->background_heavy_center);
+        M_ReadMenuColor(L, idx, "heading_edge", &c->heading_edge);
+        M_ReadMenuColor(L, idx, "heading_center", &c->heading_center);
+        M_ReadMenuColor(L, idx, "requested_edge", &c->requested_edge);
+        M_ReadMenuColor(L, idx, "requested_center", &c->requested_center);
+        M_ReadMenuColor(
+            L, idx, "requested_outline_ch", &c->requested_outline_ch);
+        M_ReadMenuColor(
+            L, idx, "requested_outline_cv", &c->requested_outline_cv);
+        M_ReadMenuColor(
+            L, idx, "requested_outline_edge", &c->requested_outline_edge);
+        M_ReadMenuColor(L, idx, "outline_tl", &c->outline_tl);
+        M_ReadMenuColor(L, idx, "outline_tr", &c->outline_tr);
+        M_ReadMenuColor(L, idx, "outline_bl", &c->outline_bl);
+        M_ReadMenuColor(L, idx, "outline_br", &c->outline_br);
+        M_ReadMenuColor(L, idx, "heading_outline", &c->heading_outline);
+    }
+    lua_pop(L, 1);
+    return colors;
+}
+
+// trxc.ui.set_text_color(color?: string): string?
+//
+// Sets the colour text is drawn in where it names none, as a colour marker
+// names it, or the plain colour where it names none. Returns the colour it
+// replaces, or nil for the plain colour.
+static int M_L_UISetTextColor(lua_State *const L)
+{
+    const char *const spec = luaL_optstring(L, 1, nullptr);
+    if (spec != nullptr && !UI_Text_IsColor(spec)) {
+        return luaL_argerror(L, 1, "names no colour");
+    }
+    const char *const previous = UI_Text_SetDefaultColor(spec);
+    if (previous == nullptr) {
+        lua_pushnil(L);
+    } else {
+        lua_pushstring(L, previous);
+    }
+    return 1;
+}
+
+// trxc.ui.horizontal_line(x0: number, x1: number, y: number, z?: integer, colors?: table)
+static int M_L_UIHorizontalLine(lua_State *const L)
 {
     M_CheckPainting(L);
-    const lua_Integer style = luaL_checkinteger(L, 6);
-    if (style < 0 || style > UI_FRAME_OUTLINE_ONLY) {
-        return luaL_error(L, "unknown frame style");
-    }
-
-    const float x = (float)luaL_checknumber(L, 1);
-    const float y = (float)luaL_checknumber(L, 2);
-    const int32_t z = (int32_t)luaL_optinteger(L, 3, 0);
-    const int32_t x0 = lroundf(UI_ScaleX(x));
-    const int32_t y0 = lroundf(UI_ScaleY(y));
-    const int32_t w =
-        (int32_t)lroundf(UI_ScaleX(x + (float)luaL_checknumber(L, 4))) - x0;
-    const int32_t h =
-        (int32_t)lroundf(UI_ScaleY(y + (float)luaL_checknumber(L, 5))) - y0;
-
     const UI_STYLE ui_style = g_Config.ui.menu_style;
-    const TEXT_STYLE text_style = UI_Frame_GetTextStyle((UI_FRAME_STYLE)style);
-    if (UI_Frame_HasBackground((UI_FRAME_STYLE)style)) {
-        UI_ScheduleDrawTextBackground(ui_style, x0, y0, z, w, h, text_style);
-    }
-    UI_ScheduleDrawTextOutline(ui_style, x0, y0, z, w, h, text_style);
+    const UI_MENU_COLORS colors = M_ReadMenuColors(L, 5, ui_style);
+    UI_ScheduleDrawHorizontalLine(
+        ui_style, &colors, lroundf(UI_ScaleX((float)luaL_checknumber(L, 1))),
+        lroundf(UI_ScaleX((float)luaL_checknumber(L, 2))),
+        lroundf(UI_ScaleY((float)luaL_checknumber(L, 3))), M_OptZ(L, 4));
     return 0;
 }
 
-// trxc.ui.push_text_scale(factor)
+// trxc.ui.panel(x: number, y: number, z?: integer, w: number, h: number, look: integer, fill: boolean, colors?: table)
+static int M_L_UIPanel(lua_State *const L)
+{
+    M_CheckPainting(L);
+    const lua_Integer look = luaL_checkinteger(L, 6);
+    if (look < 0 || look > TS_REQUESTED) {
+        return luaL_error(L, "unknown text style");
+    }
+    luaL_checktype(L, 7, LUA_TBOOLEAN);
+
+    const float x = (float)luaL_checknumber(L, 1);
+    const float y = (float)luaL_checknumber(L, 2);
+    const int32_t z = M_OptZ(L, 3);
+    // Cut to whole pixels as the engine's own frames are, so that a frame a
+    // script draws lands where the engine would put it.
+    const int32_t x0 = UI_ScaleX(x);
+    const int32_t y0 = UI_ScaleY(y);
+    const int32_t w = UI_ScaleX((float)luaL_checknumber(L, 4));
+    const int32_t h = UI_ScaleY((float)luaL_checknumber(L, 5));
+
+    const UI_STYLE ui_style = g_Config.ui.menu_style;
+    const UI_MENU_COLORS colors = M_ReadMenuColors(L, 8, ui_style);
+    const TEXT_STYLE text_style = (TEXT_STYLE)look;
+    if (lua_toboolean(L, 7)) {
+        UI_ScheduleDrawTextBackground(
+            ui_style, &colors, x0, y0, z, w, h, text_style);
+    }
+    UI_ScheduleDrawTextOutline(ui_style, &colors, x0, y0, z, w, h, text_style);
+    return 0;
+}
+
+// trxc.ui.push_text_scale(factor: number)
 static int M_L_UIPushTextScale(lua_State *const L)
 {
     UI_Scaler_PushTextScale((float)luaL_checknumber(L, 1));
@@ -291,13 +844,13 @@ static int M_L_UIPopTextScale(lua_State *const L)
     return 0;
 }
 
-// trxc.ui.flat_quad(x, y, z, w, h, color)
+// trxc.ui.flat_quad(x: number, y: number, z?: integer, w: number, h: number, color: trx.math.Color|table)
 static int M_L_UIFlatQuad(lua_State *const L)
 {
     M_CheckPainting(L);
     const float x = (float)luaL_checknumber(L, 1);
     const float y = (float)luaL_checknumber(L, 2);
-    const int32_t z = (int32_t)luaL_optinteger(L, 3, 0);
+    const int32_t z = M_OptZ(L, 3);
     const int32_t x0 = lroundf(UI_ScaleX(x));
     const int32_t y0 = lroundf(UI_ScaleY(y));
     const int32_t w =
@@ -308,13 +861,27 @@ static int M_L_UIFlatQuad(lua_State *const L)
     return 0;
 }
 
-// trxc.ui.gradient_quad(x, y, z, w, h, tl, tr, bl, br)
+// trxc.ui.line(x0: number, y0: number, x1: number, y1: number, z?: integer, width: number, color: trx.math.Color|table)
+static int M_L_UILine(lua_State *const L)
+{
+    M_CheckPainting(L);
+    UI_ScheduleDrawScreenLine(
+        UI_ScaleX((float)luaL_checknumber(L, 1)),
+        UI_ScaleY((float)luaL_checknumber(L, 2)),
+        UI_ScaleX((float)luaL_checknumber(L, 3)),
+        UI_ScaleY((float)luaL_checknumber(L, 4)),
+        UI_ScaleY((float)luaL_checknumber(L, 6)), M_OptZ(L, 5),
+        M_CheckColor(L, 7));
+    return 0;
+}
+
+// trxc.ui.gradient_quad(x: number, y: number, z?: integer, w: number, h: number, tl: trx.math.Color|table, tr: trx.math.Color|table, bl: trx.math.Color|table, br: trx.math.Color|table)
 static int M_L_UIGradientQuad(lua_State *const L)
 {
     M_CheckPainting(L);
     const float x = (float)luaL_checknumber(L, 1);
     const float y = (float)luaL_checknumber(L, 2);
-    const int32_t z = (int32_t)luaL_optinteger(L, 3, 0);
+    const int32_t z = M_OptZ(L, 3);
     const int32_t x0 = lroundf(UI_ScaleX(x));
     const int32_t y0 = lroundf(UI_ScaleY(y));
     const int32_t w =
@@ -327,7 +894,7 @@ static int M_L_UIGradientQuad(lua_State *const L)
     return 0;
 }
 
-// trxc.ui.image(path, x, y, w, h, opacity) -> boolean
+// trxc.ui.image(path: string, x: number, y: number, w: number, h: number, opacity?: number): boolean
 static int M_L_UIImage(lua_State *const L)
 {
     M_CheckPainting(L);
@@ -350,14 +917,34 @@ static int M_L_UIImage(lua_State *const L)
     return 1;
 }
 
-// trxc.ui.to_screen(canvas) -> number
+// trxc.ui.image_size(path: string): integer?, integer?
+static int M_L_UIImageSize(lua_State *const L)
+{
+    const char *const path = GamePath_PeekResolve(
+        GAME_DYNAMIC_PATH_IMAGE_FILE, luaL_checkstring(L, 1));
+    if (path == nullptr) {
+        return 0;
+    }
+    int32_t width = 0;
+    int32_t height = 0;
+    const RESULT result = UI_GetImageSize(path, &width, &height);
+    if (!IS_OK(result)) {
+        IGNORE(result);
+        return 0;
+    }
+    lua_pushinteger(L, width);
+    lua_pushinteger(L, height);
+    return 2;
+}
+
+// trxc.ui.to_screen(length: number): number
 static int M_L_UIToScreen(lua_State *const L)
 {
     lua_pushnumber(L, UI_ScaleY((float)luaL_checknumber(L, 1)));
     return 1;
 }
 
-// trxc.ui.to_canvas(screen) -> number
+// trxc.ui.to_canvas(pixels: number): number
 static int M_L_UIToCanvas(lua_State *const L)
 {
     const float per_unit = UI_ScaleY(1.0f);
@@ -366,112 +953,81 @@ static int M_L_UIToCanvas(lua_State *const L)
     return 1;
 }
 
-// Pushes a trx.math.Color table.
-static void M_PushColor(lua_State *const L, const RGBA_8888 color)
-{
-    lua_createtable(L, 0, 4);
-    lua_pushinteger(L, color.r);
-    lua_setfield(L, -2, "r");
-    lua_pushinteger(L, color.g);
-    lua_setfield(L, -2, "g");
-    lua_pushinteger(L, color.b);
-    lua_setfield(L, -2, "b");
-    lua_pushinteger(L, color.a);
-    lua_setfield(L, -2, "a");
-}
-
-static void M_PushRamp(
-    lua_State *const L, const RGBA_8888 *const ramp, const char *const name)
-{
-    lua_createtable(L, UI_BAR_COLOR_STEPS, 0);
-    for (int32_t i = 0; i < UI_BAR_COLOR_STEPS; i++) {
-        M_PushColor(L, ramp[i]);
-        lua_rawseti(L, -2, i + 1);
-    }
-    lua_setfield(L, -2, name);
-}
-
-// trxc.ui.bar_theme(type) -> table or nil
-static int M_L_UIBarTheme(lua_State *const L)
-{
-    const lua_Integer type = luaL_checkinteger(L, 1);
-    if (type < 0 || type >= UI_BAR_NUMBER_OF) {
-        return luaL_error(L, "unknown bar type");
-    }
-    const UI_BAR_THEME *const theme =
-        UI_Settings_GetBarTheme((UI_BAR_TYPE)type);
-    if (theme == nullptr) {
-        lua_pushnil(L);
-        return 1;
-    }
-
-    lua_createtable(L, 0, 9);
-    lua_pushstring(L, theme->kind == UI_BAR_THEME_PS1_KIND ? "ps1" : "pc");
-    lua_setfield(L, -2, "kind");
-    lua_pushnumber(L, theme->basic_scale);
-    lua_setfield(L, -2, "basic_scale");
-    M_PushColor(L, theme->border_light);
-    lua_setfield(L, -2, "border_light");
-    M_PushColor(L, theme->border_dark);
-    lua_setfield(L, -2, "border_dark");
-    M_PushColor(L, theme->border_tl);
-    lua_setfield(L, -2, "border_tl");
-    M_PushColor(L, theme->border_tr);
-    lua_setfield(L, -2, "border_tr");
-    M_PushColor(L, theme->border_bl);
-    lua_setfield(L, -2, "border_bl");
-    M_PushColor(L, theme->border_br);
-    lua_setfield(L, -2, "border_br");
-    M_PushRamp(L, theme->ramp, "ramp");
-    M_PushRamp(L, theme->ramp_left, "ramp_left");
-    M_PushRamp(L, theme->ramp_right, "ramp_right");
-    return 1;
-}
-
-// trxc.ui.bar_scale() -> number
+// trxc.ui.bar_scale(): number
 static int M_L_UIBarScale(lua_State *const L)
 {
     lua_pushnumber(L, UI_Scaler_GetScale(UI_SCALER_TARGET_BAR));
     return 1;
 }
 
-// trxc.ui.drawn_text_scale() -> number
+// trxc.ui.drawn_text_scale(): number
 static int M_L_UIDrawnTextScale(lua_State *const L)
 {
     lua_pushnumber(L, UI_Scaler_GetTextScale());
     return 1;
 }
 
-// trxc.ui.text_scale() -> number
-static int M_L_UITextScale(lua_State *const L)
+// trxc.ui.get_clipboard(): string
+static int M_L_UIGetClipboard(lua_State *const L)
 {
-    lua_pushnumber(L, UI_Scaler_GetScale(UI_SCALER_TARGET_TEXT));
+    lua_pushstring(L, UI_GetClipboardText());
     return 1;
+}
+
+// trxc.ui.set_clipboard(text: string)
+static int M_L_UISetClipboard(lua_State *const L)
+{
+    const char *const text = luaL_checkstring(L, 1);
+    RESULT result = UI_SetClipboardText(text);
+    if (!IS_OK(result)) {
+        lua_pushstring(
+            L, result.msg != nullptr ? result.msg : "the clipboard refused it");
+        IGNORE(result);
+        return lua_error(L);
+    }
+    return 0;
 }
 
 static const luaL_Reg m_Module[] = {
     { "get_canvas_height", M_L_UICanvasHeight },
     { "get_canvas_width", M_L_UICanvasWidth },
+    { "get_clipboard", M_L_UIGetClipboard },
+    { "set_clipboard", M_L_UISetClipboard },
     { "get_safe_bottom", M_L_UISafeBottom },
     { "get_safe_top", M_L_UISafeTop },
+    { "get_screen_height", M_L_UIScreenHeight },
+    { "get_screen_width", M_L_UIScreenWidth },
+    { "get_working_bottom", M_L_UIWorkingBottom },
+    { "get_working_top", M_L_UIWorkingTop },
     { "get_safe_width", M_L_UISafeWidth },
-    { "bar_theme", M_L_UIBarTheme },
     { "bar_scale", M_L_UIBarScale },
-    { "text_scale", M_L_UITextScale },
     { "drawn_text_scale", M_L_UIDrawnTextScale },
     { "reserve", M_L_UIReserve },
     { "slot_box", M_L_UISlotBox },
     { "measure_text", M_L_UIMeasureText },
+    { "wrap_text", M_L_UIWrapText },
     { "draw_text", M_L_UIDrawText },
     { "flat_quad", M_L_UIFlatQuad },
+    { "line", M_L_UILine },
+    { "horizontal_line", M_L_UIHorizontalLine },
     { "panel", M_L_UIPanel },
     { "push_text_scale", M_L_UIPushTextScale },
     { "pop_text_scale", M_L_UIPopTextScale },
     { "gradient_quad", M_L_UIGradientQuad },
     { "image", M_L_UIImage },
+    { "image_size", M_L_UIImageSize },
     { "sprite", M_L_UISprite },
+    { "sprite_rect", M_L_UISpriteRect },
     { "sprite_bounds", M_L_UISpriteBounds },
     { "sprite_count", M_L_UISpriteCount },
+    { "interpolation_rate", M_L_UIInterpolationRate },
+    { "set_text_color", M_L_UISetTextColor },
+    { "draw_background", M_L_UIDrawBackground },
+    { "draw_backdrop", M_L_UIDrawBackdrop },
+    { "draw_model", M_L_UIDrawModel },
+    { "draw_world_model", M_L_UIDrawWorldModel },
+    { "darken", M_L_UIDarken },
+    { "mesh_bounds", M_L_UIMeshBounds },
     { "gradient_sprite", M_L_UIGradientSprite },
     { "to_screen", M_L_UIToScreen },
     { "to_canvas", M_L_UIToCanvas },
@@ -485,7 +1041,7 @@ static void M_Create(lua_State *const L)
 
 static void M_Shutdown(void)
 {
-    m_Drawing = false;
+    m_Reserving = false;
     m_Painting = false;
 }
 
@@ -499,14 +1055,14 @@ void LUA_UI_SetPainting(const bool painting)
     m_Painting = painting;
 }
 
-void LUA_UI_SetDrawing(const bool drawing)
+void LUA_UI_SetReserving(const bool reserving)
 {
-    m_Drawing = drawing;
+    m_Reserving = reserving;
 }
 
-bool LUA_UI_IsDrawing(void)
+bool LUA_UI_IsReserving(void)
 {
-    return m_Drawing;
+    return m_Reserving;
 }
 
 REGISTER_LUA_CAPI(.create = M_Create, .shutdown = M_Shutdown)

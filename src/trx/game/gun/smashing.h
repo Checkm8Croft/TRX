@@ -1,6 +1,7 @@
 #pragma once
 
 #include <trx/game/items.h>
+#include <trx/game/rooms/types.h>
 
 typedef enum {
     PROJECTILE_HIT_NONE,
@@ -18,6 +19,11 @@ typedef enum {
 GUN_SMASH_POLICY Gun_GetSmashPolicy(const ITEM *item);
 
 void Gun_SmashItem(int16_t item_num);
+void Gun_ShatterStatic(const STATIC_MESH *mesh, GAME_VECTOR hit_pos);
+// Gives the shot to the nearest shatterable static in its path. Returns whether
+// a static took it. Smashables in front of the static still take the shot
+// first.
+bool Gun_ShootStatic(GAME_VECTOR start, GAME_VECTOR target);
 
 PROJECTILE_HIT Gun_SmashItems(
     GAME_VECTOR start, GAME_VECTOR target, XYZ_32 *out_hit_pos,

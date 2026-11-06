@@ -115,8 +115,54 @@ default game flow for examples.
       Shows a picture prior to loading a level. Functions identically to
       <code>display_picture</code>, except these pictures can be
       enabled/disabled by the user with the loading screen option in the config
-      tool.
+      tool, and <code>display_time</code> defaults to 2 rather than 5.
     </td>
+  </tr>
+  <tr valign="top">
+    <td><code>display_time</code></td>
+    <td>Double</td>
+  </tr>
+  <tr valign="top">
+    <td><code>fade_in_time</code></td>
+    <td>Double</td>
+  </tr>
+  <tr valign="top">
+    <td><code>fade_out_time</code></td>
+    <td>Double</td>
+  </tr>
+  <tr valign="top">
+    <td rowspan="10"><code>loading_camera</code></td>
+    <td><code>source_x</code></td>
+    <td>Integer</td>
+    <td rowspan="10">
+      Shows a fixed view of the level before play starts instead of a loading
+      picture. The loading screen option enables or disables this view. This
+      sequence matches the TR4 <code>LoadCamera</code> command.
+    </td>
+  </tr>
+  <tr valign="top">
+    <td><code>source_y</code></td>
+    <td>Integer</td>
+  </tr>
+  <tr valign="top">
+    <td><code>source_z</code></td>
+    <td>Integer</td>
+  </tr>
+  <tr valign="top">
+    <td><code>target_x</code></td>
+    <td>Integer</td>
+  </tr>
+  <tr valign="top">
+    <td><code>target_y</code></td>
+    <td>Integer</td>
+  </tr>
+  <tr valign="top">
+    <td><code>target_z</code></td>
+    <td>Integer</td>
+  </tr>
+  <tr valign="top">
+    <td><code>room</code></td>
+    <td>Integer</td>
   </tr>
   <tr valign="top">
     <td><code>display_time</code></td>
@@ -245,7 +291,7 @@ default game flow for examples.
   </tr>
   <tr valign="top">
     <td><code>set_lara_start_anim</code></td>
-    <td><code>value</code></td>
+    <td><code>anim</code></td>
     <td>Integer</td>
     <td>
       Applies the selected animation to Lara when the level begins. This is
@@ -254,7 +300,7 @@ default game flow for examples.
   </tr>
   <tr valign="top">
     <td><code>disable_floor</code></td>
-    <td><code>value</code></td>
+    <td><code>height</code></td>
     <td>Integer</td>
     <td>
       Configures a specific height (with 256 representing 1 click and 1024

@@ -11,24 +11,13 @@
 #include <trx/game/lua/events.h>
 #include <trx/game/matrix.h>
 #include <trx/game/objects.h>
+#include <trx/game/objects/effects/body_part.h>
 #include <trx/game/objects/families.h>
 #include <trx/game/output.h>
 #include <trx/game/random.h>
 #include <trx/game/sparks/spawners.h>
 #include <trx/game/stats.h>
 #include <trx/version.h>
-
-static bool M_UseTR3ExplodingEffects(const ITEM *const item)
-{
-    if (g_TRVersion < 3) {
-        return false;
-    }
-
-    // TODO: potentially add a flag/function ptr to OBJECT
-    return item->object_id != O_CLAW_MUTANT
-        && !ObjectFamily_Has(item->object_id, OBJ_FAMILY_SHATTERABLE)
-        && !ObjectFamily_Has(item->object_id, OBJ_FAMILY_HEAVY_SHATTERABLE);
-}
 
 static bool M_IsFloating(const ITEM *const item)
 {
@@ -149,11 +138,15 @@ bool Item_CanBeProjectileTarget(const ITEM *const item)
 }
 
 void Item_TakeDamage(
-    ITEM *const item, const int16_t damage, const ITEM_DAMAGE_FLAGS flags,
+    ITEM *const item, int16_t damage, const ITEM_DAMAGE_FLAGS flags,
     const ITEM *const sender)
 {
     if (!Item_CanTakeDamage(item)) {
         return;
+    }
+
+    if (item == Lara_GetItem() && (flags & IDF_FATAL) == 0) {
+        damage = Lara_ScaleDamage(damage);
     }
 
     const bool was_alive = item->hit_points > 0;
@@ -187,7 +180,8 @@ void Item_TakeDamage(
 
 void Item_TakeFatalDamage(ITEM *const item, const ITEM *const sender)
 {
-    Item_TakeDamage(item, item->hit_points, IDF_NO_HIT_STATUS, sender);
+    Item_TakeDamage(
+        item, item->hit_points, IDF_NO_HIT_STATUS | IDF_FATAL, sender);
 }
 
 bool Item_IsMeshVisible(const ITEM *const item, const int32_t mesh_num)
@@ -260,9 +254,6 @@ int32_t Item_Shatter(const int16_t item_num, const ITEM_SHATTER_ARGS args)
     Matrix_PushUnit();
     Matrix_Rot16(item->rot);
 
-    const int32_t speed_shift = item->object_id == O_TORSO ? 7 : 8;
-    const bool is_tr3 = M_UseTR3ExplodingEffects(item);
-
     ANIM_WALK walk;
     Anim_Walk_Begin(
         &walk,
@@ -277,41 +268,19 @@ int32_t Item_Shatter(const int16_t item_num, const ITEM_SHATTER_ARGS args)
             continue;
         }
 
-        const int16_t effect_num = Effect_Create(item->room_num);
-        if (effect_num != NO_EFFECT) {
-            EFFECT *const effect = Effect_Get(effect_num);
-            const XYZ_32 local = Anim_Walk_GetPos(&walk, (XYZ_32) {});
-            effect->pos.x = item->pos.x + local.x;
-            effect->pos.y = item->pos.y + local.y;
-            effect->pos.z = item->pos.z + local.z;
-            effect->room_num = item->room_num;
-            if (g_TRVersion < 4) {
-                effect->rot.y = (Random_GetControl() - 0x4000) * 2;
-                effect->speed = Random_GetControl() >> speed_shift;
-                effect->fall_speed = -Random_GetControl() >> speed_shift;
-            } else {
-                effect->rot.y = Random_GetControl() * 2;
-                if ((damage & 0x20) != 0) {
-                    effect->speed = Random_GetControl() >> 12;
-                } else if ((damage & 0x10) == 0) {
-                    effect->speed = Random_GetControl() >> 8;
-                }
-                if ((damage & 0x80) != 0) {
-                    effect->speed = -Random_GetControl() >> 12;
-                } else if ((damage & 0x40) == 0) {
-                    effect->speed = -Random_GetControl() >> 8;
-                }
-
-                effect->flag1 = damage;
-            }
-
-            effect->counter =
-                is_tr3 ? ((damage << 2) | (Random_GetControl() & 3)) : damage;
-            effect->flame_variant = args.flame_variant;
-            effect->object_id = O_BODY_PART;
-            effect->frame_num = Object_GetItemMeshIndex(item, walk.joint);
-            effect->shade = Output_GetLightAdder() - 0x300;
-        }
+        const XYZ_32 local = Anim_Walk_GetPos(&walk, (XYZ_32) {});
+        BodyPart_Create(&(BODY_PART_ARGS) {
+            .pos = { item->pos.x + local.x, item->pos.y + local.y,
+                     item->pos.z + local.z },
+            .room_num = item->room_num,
+            .mesh_idx = Object_GetItemMeshIndex(item, walk.joint),
+            .shade = Output_GetLightAdder() - 0x300,
+            .gib_flags = args.gib_flags,
+            .speed = args.speed,
+            .fall_speed = args.fall_speed,
+            .flame_variant = args.flame_variant,
+            .damage = damage,
+        });
         item->mesh_bits &= ~bit;
     }
     Anim_Walk_End(&walk);
@@ -321,18 +290,23 @@ int32_t Item_Shatter(const int16_t item_num, const ITEM_SHATTER_ARGS args)
     return !(item->mesh_bits & (0x7FFFFFFF >> (31 - obj->mesh_count)));
 }
 
-bool Item_ShouldSpawnBlood(const ITEM *const item)
+ITEM_HIT_EFFECT Item_GetHitEffect(const ITEM *const item)
 {
     if (item == nullptr) {
-        return true;
+        return ITEM_HIT_NONE;
     }
 
     const OBJECT *const obj = Object_Get(item->object_id);
-    if (obj->should_spawn_blood_func != nullptr) {
-        return obj->should_spawn_blood_func(item);
+    if (obj->get_hit_effect_func != nullptr) {
+        return obj->get_hit_effect_func(item);
     }
 
-    return true;
+    return ITEM_HIT_BLOOD;
+}
+
+bool Item_ShouldSpawnBlood(const ITEM *const item)
+{
+    return Item_GetHitEffect(item) == ITEM_HIT_BLOOD;
 }
 
 ITEM *Item_Find(const OBJECT_ID obj_id)

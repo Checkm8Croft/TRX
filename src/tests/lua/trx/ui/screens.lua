@@ -1,0 +1,520 @@
+-- Screens: which definition answers, what holding a screen means to the
+-- engine, and every way a screen ends.
+
+local h = require("harness")
+local test = h.test
+
+local RING_ENTRY = trx.ui.Screen.RING_ENTRY
+local CHOICE_NONE = 0
+local CHOICE_CANCEL = 1
+local CHOICE_CONFIRM = 2
+
+local PASSPORT = trx.catalog.objects.PASSPORT_OPTION
+local COMPASS = trx.catalog.objects.COMPASS_OPTION
+-- Only the override case defines this entry, from a global script, because a
+-- global definition stays for the rest of the suite.
+local SOUND = trx.catalog.objects.SOUND_OPTION
+
+local function label(text)
+  return trx.ui.widgets.Label({ text = text })
+end
+
+-- Defines as a level script, so that ending the level clears the definition
+-- for the next case.
+local function define(screen, open, options)
+  fake.as_level_script(function()
+    trx.ui.screens.define(screen, open, options)
+  end)
+end
+
+local function finish_case()
+  fake.release(RING_ENTRY)
+  fake.release(trx.ui.Screen.SAVE_LOAD)
+  fake.release(trx.ui.Screen.STATS)
+  fake.release(trx.ui.Screen.EXAMINE)
+  fake.end_level()
+  assert(trx.ui.layers.count() == 0, "a layer outlived the case")
+end
+
+local function simple(on_ctx)
+  return function(ctx)
+    if on_ctx ~= nil then
+      on_ctx(ctx)
+    end
+    return ctx:push({ root = label("screen") })
+  end
+end
+
+test("a screen with no definition stays the engine's", function()
+  assert(fake.offer(RING_ENTRY, { object = PASSPORT }) == false)
+  assert(not fake.is_held(RING_ENTRY))
+  finish_case()
+end)
+
+test("a definition that pushes a layer holds the screen", function()
+  define(RING_ENTRY, simple())
+  assert(fake.offer(RING_ENTRY, { object = PASSPORT }) == true)
+  assert(fake.is_held(RING_ENTRY))
+  assert(trx.ui.layers.count() == 1)
+  finish_case()
+end)
+
+test("a definition that returns nothing leaves the screen", function()
+  define(RING_ENTRY, function(ctx)
+    ctx:push({ root = label("dropped") })
+    return nil
+  end)
+  assert(fake.offer(RING_ENTRY, { object = PASSPORT }) == false)
+  assert(trx.ui.layers.count() == 0, "the pushed layer was left open")
+  finish_case()
+end)
+
+test("a definition must return one of its own layers", function()
+  local stray
+  define(RING_ENTRY, function(ctx)
+    ctx:push({ root = label("own") })
+    stray = trx.ui.layers.push({ root = label("stray") })
+    return stray
+  end)
+  assert(fake.offer(RING_ENTRY, { object = PASSPORT }) == false)
+  assert(fake.errors() == 1)
+  stray:close()
+  finish_case()
+end)
+
+test("an error while opening leaves the screen", function()
+  define(RING_ENTRY, function()
+    error("broken")
+  end)
+  assert(fake.offer(RING_ENTRY, { object = PASSPORT }) == false)
+  assert(fake.errors() == 1)
+  finish_case()
+end)
+
+test("cancelling ends the screen and closes its layers", function()
+  local held
+  define(
+    RING_ENTRY,
+    simple(function(ctx)
+      held = ctx
+    end)
+  )
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  assert(held:cancel() == true)
+  assert(held:cancel() == false)
+  assert(not held.is_held)
+  assert(trx.ui.layers.count() == 0)
+  assert(fake.take_choice(RING_ENTRY) == CHOICE_CANCEL)
+  finish_case()
+end)
+
+test("confirming ends the screen as a choice", function()
+  local held
+  define(
+    RING_ENTRY,
+    simple(function(ctx)
+      held = ctx
+    end)
+  )
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  assert(held:confirm() == true)
+  assert(held:confirm() == false)
+  assert(held:cancel() == false)
+  assert(trx.ui.layers.count() == 0)
+  assert(fake.take_choice(RING_ENTRY) == CHOICE_CONFIRM)
+  finish_case()
+end)
+
+test("the screen ends when the layer it returned closes", function()
+  local layers = {}
+  define(RING_ENTRY, function(ctx)
+    layers[1] = ctx:push({ root = label("one") })
+    layers[2] = ctx:push({ root = label("two") })
+    return layers[1]
+  end)
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  layers[1]:close()
+  assert(fake.take_choice(RING_ENTRY) == CHOICE_CANCEL)
+  assert(not layers[2].is_open, "the other layer outlived the screen")
+  finish_case()
+end)
+
+test("closing another layer keeps the screen", function()
+  local layers = {}
+  define(RING_ENTRY, function(ctx)
+    layers[1] = ctx:push({ root = label("one") })
+    layers[2] = ctx:push({ root = label("two") })
+    return layers[1]
+  end)
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  layers[2]:close()
+  assert(fake.take_choice(RING_ENTRY) == CHOICE_NONE)
+  assert(fake.is_held(RING_ENTRY))
+  finish_case()
+end)
+
+test("an error in a screen's layer gives the screen back", function()
+  define(RING_ENTRY, function(ctx)
+    return ctx:push({
+      root = label("broken"),
+      on_input = function()
+        error("broken")
+      end,
+    })
+  end)
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  fake.tick()
+  fake.tick()
+  assert(fake.errors() == 1)
+  assert(fake.take_choice(RING_ENTRY) == CHOICE_CANCEL)
+  finish_case()
+end)
+
+test("a layer that closes as another fails to paint is not drawn", function()
+  define(RING_ENTRY, function(ctx)
+    local main = ctx:push({
+      root = trx.ui.widgets.Custom({
+        measure = function()
+          return 8, 8
+        end,
+        paint = function()
+          error("broken paint")
+        end,
+      }),
+    })
+    ctx:push({ root = label("after") })
+    return main
+  end)
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  for _, op in ipairs(fake.scene()) do
+    assert(not op:find(" text=after$"), "a closed layer was drawn: " .. op)
+  end
+  assert(fake.errors() == 1)
+  assert(trx.ui.layers.count() == 0, "a layer of the screen stayed open")
+  assert(fake.take_choice(RING_ENTRY) == CHOICE_CANCEL)
+  finish_case()
+end)
+
+test(
+  "an error as the main layer closes still gives the screen back",
+  function()
+    local main
+    define(RING_ENTRY, function(ctx)
+      main = ctx:push({
+        root = label("closing"),
+        on_close = function()
+          error("broken close")
+        end,
+      })
+      return main
+    end)
+    fake.offer(RING_ENTRY, { object = PASSPORT })
+    h.raises(function()
+      main:close()
+    end, "broken close")
+    assert(fake.take_choice(RING_ENTRY) == CHOICE_CANCEL)
+    assert(not fake.is_held(RING_ENTRY))
+    finish_case()
+  end
+)
+
+test("an engine release closes the layers without a choice", function()
+  local closed = false
+  local held
+  define(RING_ENTRY, function(ctx)
+    held = ctx
+    return ctx:push({
+      root = label("released"),
+      on_close = function()
+        closed = true
+      end,
+    })
+  end)
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  fake.release(RING_ENTRY)
+  assert(closed)
+  assert(not held.is_held)
+  assert(trx.ui.layers.count() == 0)
+  finish_case()
+end)
+
+test("a screen that has ended pushes no more layers", function()
+  local held
+  define(
+    RING_ENTRY,
+    simple(function(ctx)
+      held = ctx
+    end)
+  )
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  held:cancel()
+  h.raises(function()
+    held:push({ root = label("late") })
+  end, "the screen has ended")
+  finish_case()
+end)
+
+test("a screen runs its end callbacks once its layers have closed", function()
+  local order = {}
+  local held
+  define(RING_ENTRY, function(ctx)
+    held = ctx
+    ctx:on_end(function()
+      order[#order + 1] = "ended"
+    end)
+    return ctx:push({
+      root = label("ending"),
+      on_close = function()
+        order[#order + 1] = "closed"
+      end,
+    })
+  end)
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  held:cancel()
+  held:cancel()
+  assert(#order == 2, #order)
+  assert(order[1] == "closed" and order[2] == "ended")
+  h.raises(function()
+    held:on_end(function() end)
+  end, "the screen has ended")
+  finish_case()
+end)
+
+test("an error as a screen ends still closes the rest", function()
+  local held, last
+  local ended = false
+  define(RING_ENTRY, function(ctx)
+    held = ctx
+    ctx:on_end(function()
+      ended = true
+    end)
+    local main = ctx:push({
+      root = label("first"),
+      on_close = function()
+        error("broken close")
+      end,
+    })
+    last = ctx:push({ root = label("last") })
+    return main
+  end)
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  h.raises(function()
+    held:cancel()
+  end, "broken close")
+  assert(not last.is_open, "a layer outlived the screen")
+  assert(ended, "the end callback did not run")
+  finish_case()
+end)
+
+test("a ring entry definition draws only its own entry", function()
+  local seen
+  define(
+    RING_ENTRY,
+    simple(function(ctx)
+      seen = ctx.object
+    end),
+    { object = COMPASS }
+  )
+  assert(fake.offer(RING_ENTRY, { object = PASSPORT }) == false)
+  assert(fake.offer(RING_ENTRY, { object = COMPASS }) == true)
+  assert(seen == COMPASS)
+  finish_case()
+end)
+
+test("an entry's own definition comes before the general one", function()
+  local which
+  define(
+    RING_ENTRY,
+    simple(function()
+      which = "general"
+    end)
+  )
+  define(
+    RING_ENTRY,
+    simple(function()
+      which = "compass"
+    end),
+    { object = COMPASS }
+  )
+  fake.offer(RING_ENTRY, { object = COMPASS })
+  assert(which == "compass")
+  fake.release(RING_ENTRY)
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  assert(which == "general")
+  finish_case()
+end)
+
+test("defining a screen twice needs an override", function()
+  define(RING_ENTRY, simple())
+  h.raises(function()
+    define(RING_ENTRY, simple())
+  end, "override = true")
+  finish_case()
+end)
+
+test("an override answers until its level ends", function()
+  local which
+  trx.ui.screens.define(
+    RING_ENTRY,
+    simple(function()
+      which = "shipped"
+    end),
+    { object = SOUND }
+  )
+  define(
+    RING_ENTRY,
+    simple(function()
+      which = "mod"
+    end),
+    { object = SOUND, override = true }
+  )
+  fake.offer(RING_ENTRY, { object = SOUND })
+  assert(which == "mod")
+  fake.release(RING_ENTRY)
+  fake.end_level()
+  fake.offer(RING_ENTRY, { object = SOUND })
+  assert(which == "shipped")
+  finish_case()
+end)
+
+test("only the pause screen resumes the game", function()
+  local held
+  define(
+    RING_ENTRY,
+    simple(function(ctx)
+      held = ctx
+    end)
+  )
+  fake.offer(RING_ENTRY, { object = PASSPORT })
+  assert(held.resume == nil, "a ring entry resumes the game")
+  assert(held.exit_to_title == nil, "a ring entry leaves for the title")
+  assert(held.is_held)
+  finish_case()
+end)
+
+test("the quick save and load screen reports what it opened for", function()
+  local seen
+  define(
+    trx.ui.Screen.SAVE_LOAD,
+    simple(function(ctx)
+      seen = { mode = ctx.mode, object = ctx.object }
+    end)
+  )
+  assert(fake.offer(trx.ui.Screen.SAVE_LOAD, { mode = 3 }) == true)
+  assert(seen.mode == 3)
+  assert(seen.object == nil)
+  finish_case()
+end)
+
+test("the statistics screen reports what it shows", function()
+  local seen = {}
+  define(
+    trx.ui.Screen.STATS,
+    simple(function(ctx)
+      seen[#seen + 1] = {
+        is_final = ctx.is_final,
+        is_bare = ctx.is_bare,
+        mode = ctx.mode,
+        object = ctx.object,
+      }
+    end)
+  )
+  assert(
+    fake.offer(trx.ui.Screen.STATS, { level = 3, is_final = true }) == true
+  )
+  fake.release(trx.ui.Screen.STATS)
+  assert(
+    fake.offer(trx.ui.Screen.STATS, { level = 3, is_bare = true }) == true
+  )
+  assert(seen[1].is_final == true and seen[1].is_bare == false)
+  assert(seen[2].is_final == false and seen[2].is_bare == true)
+  assert(seen[1].mode == nil and seen[1].object == nil)
+  finish_case()
+end)
+
+test("the statistics screen ends on cancel and on confirm", function()
+  local held
+  define(
+    trx.ui.Screen.STATS,
+    simple(function(ctx)
+      held = ctx
+    end)
+  )
+  fake.offer(trx.ui.Screen.STATS, { level = 3 })
+  assert(held:cancel() == true)
+  assert(fake.take_choice(trx.ui.Screen.STATS) == CHOICE_CANCEL)
+  fake.offer(trx.ui.Screen.STATS, { level = 3 })
+  assert(held:confirm() == true)
+  assert(fake.take_choice(trx.ui.Screen.STATS) == CHOICE_CONFIRM)
+  finish_case()
+end)
+
+test("an examined entry reports what it is", function()
+  local seen
+  define(
+    trx.ui.Screen.EXAMINE,
+    simple(function(ctx)
+      seen = ctx.object
+    end)
+  )
+  assert(fake.offer(trx.ui.Screen.EXAMINE, { object = COMPASS }) == true)
+  assert(seen == COMPASS)
+  finish_case()
+end)
+
+test("only a ring entry definition names an object", function()
+  h.raises(function()
+    define(trx.ui.Screen.SAVE_LOAD, simple(), { object = COMPASS })
+  end, "only a ring entry screen names an object")
+  finish_case()
+end)
+
+test("a script opens a screen and hears how it ended", function()
+  local held
+  define(
+    trx.ui.Screen.EXAMINE,
+    simple(function(ctx)
+      held = ctx
+    end)
+  )
+  local ended = {}
+  local ctx = trx.ui.screens.open(
+    trx.ui.Screen.EXAMINE,
+    { object = PASSPORT },
+    function(confirmed)
+      ended[#ended + 1] = confirmed
+    end
+  )
+  assert(ctx == held, "the definition did not draw it")
+  assert(ctx.object == PASSPORT, "the fields did not reach it")
+  assert(trx.ui.layers.count() == 1)
+  assert(not fake.is_held(trx.ui.Screen.EXAMINE), "the engine holds it")
+  ctx:confirm()
+  assert(#ended == 1 and ended[1] == true, "the end was not heard")
+  assert(trx.ui.layers.count() == 0, "its layer stayed")
+  assert(fake.take_choice(trx.ui.Screen.EXAMINE) == CHOICE_NONE)
+  finish_case()
+end)
+
+test("a script hears a cancelled screen as not confirmed", function()
+  define(trx.ui.Screen.EXAMINE, simple())
+  local heard = nil
+  local ctx = trx.ui.screens.open(
+    trx.ui.Screen.EXAMINE,
+    { object = PASSPORT },
+    function(confirmed)
+      heard = confirmed
+    end
+  )
+  assert(ctx ~= nil)
+  ctx:cancel()
+  assert(heard == false)
+  finish_case()
+end)
+
+test("a script opens nothing where no definition draws it", function()
+  assert(trx.ui.screens.open(trx.ui.Screen.EXAMINE, {}) == nil)
+  finish_case()
+end)
+
+return h.report()

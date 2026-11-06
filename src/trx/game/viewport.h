@@ -61,6 +61,12 @@ VIEWPORT_RECT Viewport_GetRect(VIEWPORT_SPACE space);
 // it had before supersampling.
 int32_t Viewport_GetSupersamplingFactor(void);
 
+// Returns the width of a pixel of the space as shown, divided by its height.
+// With the PlayStation pixel aspect ratio enabled, VIEWPORT_SCENE and
+// VIEWPORT_GAME are wider than VIEWPORT_UI, and the composite pass squeezes
+// them to the same width. All other spaces have square pixels.
+float Viewport_GetPixelAspect(VIEWPORT_SPACE space);
+
 // Return the current FOV as overriden by the game mechanics, such as special
 // cameras or cutscenes. If the FOV is not overriden, returns -1.
 int16_t Viewport_GetSystemFOV(void);
@@ -76,6 +82,8 @@ int16_t Viewport_GetEffectiveFOV(void);
 // fixed source and so gain nothing from being rasterized above the resolution
 // they are shown at. VIEWPORT_GAME then matches VIEWPORT_SCENE.
 void Viewport_SetSupersamplingEnabled(bool enabled);
+// Returns false while the supersampling factor is suspended.
+bool Viewport_IsSupersamplingEnabled(void);
 
 // Returns the current FOV formula.
 FOV_MODE Viewport_GetFOVMode(void);

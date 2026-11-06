@@ -13,6 +13,7 @@
 #include <trx/game/game_flow.h>
 #include <trx/game/gun.h>
 #include <trx/game/gun/registry.h>
+#include <trx/game/hub.h>
 #include <trx/game/inventory.h>
 #include <trx/game/items/carrier.h>
 #include <trx/game/lara.h>
@@ -36,6 +37,11 @@
 #include <trx/version.h>
 
 #include <string.h>
+
+static bool m_SavedItems[MAX_ITEMS];
+static bool m_PlacedItems[MAX_ITEMS];
+static int16_t m_EntryItems[MAX_ITEMS];
+static bool m_ReadPositions[MAX_ITEMS];
 
 static RESULT M_ReadObjectID(
     JSON_READ_IO *const io, const char *const key, OBJECT_ID *const target)
@@ -148,7 +154,74 @@ static RESULT M_ReadAmmo(
     int32_t ammo = 0;
     MUST(JSON_PUSH(io, key));
     MUST(JSON_READ(io, "ammo", &ammo));
-    Inv_SetAmmo(gun_type, ammo);
+    Inv_SetKindAmmo(gun_type, Gun_GetAmmoObject(gun_type), ammo);
+    MUST(JSON_POP(io));
+    return OK;
+}
+
+// Introduced in TRX 1.12. The list holds every round Lara carries, by weapon
+// and kind, and replaces the rounds the weapons' own keys hold.
+static RESULT M_ReadAmmoList(
+    JSON_READ_IO *const io, INVENTORY_STATE *const state)
+{
+    if (!JSON_ReadIO_HasKey(io, "ammo")) {
+        return OK;
+    }
+    MUST(JSON_PUSH(io, "ammo"));
+    const int32_t count = JSON_ARRAY_LEN(io);
+    for (int32_t i = 0; i < count; i++) {
+        MUST(JSON_PUSH_INDEX(io, i));
+        CATALOG_ID gun_type = NO_CATALOG_ID;
+        CATALOG_ID kind = NO_CATALOG_ID;
+        int32_t rounds = 0;
+        bool selected = false;
+        MUST(SaveGame_ReadIdentity(
+            io, "gun_type", "gun_key", CATALOG_WEAPONS, &gun_type));
+        MUST(SaveGame_ReadIdentity(
+            io, "object_id", "object_key", CATALOG_OBJECTS, &kind));
+        MUST(JSON_READ(io, "rounds", &rounds));
+        MUST(JSON_READ(io, "selected", &selected));
+        if (gun_type == NO_CATALOG_ID || !Gun_Registry_IsValidType(gun_type)
+            || (kind != Gun_GetAmmoObject(gun_type)
+                && !Gun_IsAmmoKind(gun_type, kind))) {
+            SaveGame_NoteDropped("ammunition");
+        } else {
+            Inv_State_SetKindAmmo(state, gun_type, kind, rounds);
+            if (selected) {
+                Inv_State_SelectAmmoKind(state, gun_type, kind);
+            }
+        }
+        MUST(JSON_POP(io));
+    }
+    MUST(JSON_POP(io));
+    return OK;
+}
+
+// Introduced in TRX 1.12. The list holds the weapons that carry their
+// attachment, such as the laser sight, and replaces what the inventory held
+// before the load.
+static RESULT M_ReadAttachments(
+    JSON_READ_IO *const io, INVENTORY_STATE *const state)
+{
+    Inv_State_ClearAttachments(state);
+    if (!JSON_ReadIO_HasKey(io, "attachments")) {
+        return OK;
+    }
+    MUST(JSON_PUSH(io, "attachments"));
+    const int32_t count = JSON_ARRAY_LEN(io);
+    for (int32_t i = 0; i < count; i++) {
+        MUST(JSON_PUSH_INDEX(io, i));
+        CATALOG_ID gun_type = NO_CATALOG_ID;
+        MUST(SaveGame_ReadIdentity(
+            io, "gun_type", "gun_key", CATALOG_WEAPONS, &gun_type));
+        if (gun_type == NO_CATALOG_ID || !Gun_Registry_IsValidType(gun_type)
+            || Gun_Registry_Get(gun_type)->attachment.object_id == NO_OBJECT) {
+            SaveGame_NoteDropped("attachment");
+        } else {
+            Inv_State_SetAttachment(state, gun_type, true);
+        }
+        MUST(JSON_POP(io));
+    }
     MUST(JSON_POP(io));
     return OK;
 }
@@ -289,6 +362,10 @@ static RESULT M_ReadLara(JSON_READ_IO *const io)
     MUST(JSON_READ(io, "flare_frame", &lara->flare.frame_num));
     MUST(JSON_READ(io, "flare_control_left", &lara->flare.control));
 
+    // Read before the equipment, which draws the weapon in Lara's hand by
+    // whether it carries its attachment.
+    MUST(M_ReadAttachments(io, Inv_GetState()));
+
     MUST(JSON_PUSH(io, "skin"));
     LARA_SKIN_TYPE skin_type = LARA_SKIN_TYPE_DEFAULT;
     bool skin_is_default = false;
@@ -341,6 +418,8 @@ static RESULT M_ReadLara(JSON_READ_IO *const io)
     // Arms need no repair; the gun control recomputes them every frame.
     MUST(M_ReadArm(io, "left_arm", &lara->left_arm));
     MUST(M_ReadArm(io, "right_arm", &lara->right_arm));
+    // Starts from no rounds, so that the save alone says what Lara carries.
+    Inv_State_ClearAmmo(Inv_GetState());
     for (int32_t i = 0; i < Gun_Registry_GetCount(); i++) {
         const WEAPON_INFO *const info = Gun_Registry_GetByIndex(i);
         if (info->save_ammo_key == nullptr) {
@@ -352,6 +431,7 @@ static RESULT M_ReadLara(JSON_READ_IO *const io)
             SHOULD(M_ReadAmmo(io, info->save_ammo_key, info->gun_type));
         }
     }
+    MUST(M_ReadAmmoList(io, Inv_GetState()));
 
     if (JSON_ReadIO_HasKey(io, "weapon")) {
         MUST(JSON_PUSH(io, "weapon"));
@@ -405,6 +485,9 @@ static RESULT M_ReadLara(JSON_READ_IO *const io)
     if (JSON_ReadIO_HasKey(io, "rope_state")) {
         MUST(M_ReadRopeState(io));
     }
+
+    // Introduced with TR4 Henchmen.
+    SHOULD(JSON_READ(io, "blind_timer", &lara->blind_timer));
 
     return OK;
 }
@@ -481,26 +564,31 @@ static int16_t M_ResolveItem(JSON_READ_IO *const io, const int16_t read_index)
     return item_num;
 }
 
-static bool M_ShouldReadAnim(const OBJECT *const obj, const OBJECT_ID obj_id)
+// Animated spikes reset on load unless the fix is on.
+static bool M_IsResettingSpikes(const OBJECT_ID obj_id)
 {
-    return obj->save_anim
-        && (obj_id != O_SPIKES || g_Config.gameplay.fix_animated_spikes);
+    return obj_id == O_SPIKES && !g_Config.gameplay.fix_animated_spikes;
 }
 
-static bool M_ShouldReadFlags(const OBJECT *const obj, const OBJECT_ID obj_id)
+// Saves before SG_VERSION_22 kept no item spawned during play, so a drop that
+// had left its carrier's hands is spawned again.
+static void M_RespawnLegacyDrop(
+    const int16_t carrier_num, CARRIED_ITEM *const carried_item)
 {
-    return obj->save_flags
-        && (obj_id != O_SPIKES || g_Config.gameplay.fix_animated_spikes);
-}
-
-static RESULT M_ReadItem(JSON_READ_IO *const io, const int16_t read_index)
-{
-    const int16_t item_num = M_ResolveItem(io, read_index);
-    if (item_num == NO_ITEM) {
-        // soft exit for unresolvable items
-        return OK;
+    if (carried_item->status == DS_COLLECTED
+        || carried_item->spawn_num == NO_ITEM
+        || carried_item->spawn_num < Item_GetLevelCount()) {
+        return;
     }
+    carried_item->spawn_num =
+        Item_Spawn(Item_Get(carrier_num), carried_item->object_id);
+}
 
+// Reads the parts of the item the save holds. Saves before SG_VERSION_22 hold
+// only the parts each object asked for.
+static RESULT M_ReadItemAt(JSON_READ_IO *const io, const int16_t item_num)
+{
+    const bool is_legacy = JSON_ReadIO_GetVersion(io) < SG_VERSION_22;
     ITEM *const item = Item_Get(item_num);
 
     OBJECT_ID object_id = NO_OBJECT;
@@ -527,9 +615,12 @@ static RESULT M_ReadItem(JSON_READ_IO *const io, const int16_t read_index)
         }
     }
 
-    // Not sure why some items do not have their their position saved,
-    // despite OBJECT telling them to.
-    if (obj->save_position && JSON_ReadIO_HasKey(io, "room_num")) {
+    if (JSON_ReadIO_HasKey(io, "shade_1")) {
+        MUST(JSON_READ(io, "shade_1", &item->shade.value_1));
+        MUST(JSON_READ(io, "shade_2", &item->shade.value_2));
+    }
+
+    if (JSON_ReadIO_HasKey(io, "room_num")) {
         MUST(JSON_READ(io, "pos", &item->pos));
         MUST(JSON_READ(io, "rot", &item->rot));
         MUST(JSON_READ(io, "speed", &item->speed));
@@ -538,10 +629,18 @@ static RESULT M_ReadItem(JSON_READ_IO *const io, const int16_t read_index)
         MUST(JSON_READ(io, "room_num", &room_num));
         if (room_num != NO_ROOM) {
             Item_UpdateRoom(item_num, room_num);
+        } else if (!is_legacy && item->room_num != NO_ROOM) {
+            Item_UpdateRoom(item_num, NO_ROOM);
+        }
+        if (JSON_ReadIO_HasKey(io, "floor")) {
+            MUST(JSON_READ(io, "floor", &item->floor));
+        } else {
+            m_ReadPositions[item_num] = true;
         }
     }
 
-    if (M_ShouldReadAnim(obj, object_id)) {
+    if (JSON_ReadIO_HasKey(io, "current_anim")
+        && !M_IsResettingSpikes(object_id)) {
         // TRX >= 1.1 animated puzzle holes became animated
         SHOULD(JSON_READ_OPT(io, "current_anim", &item->current_anim_state));
         SHOULD(JSON_READ_OPT(io, "goal_anim", &item->goal_anim_state));
@@ -564,31 +663,18 @@ static RESULT M_ReadItem(JSON_READ_IO *const io, const int16_t read_index)
         }
     }
 
-    if (obj->save_hitpoints) {
-        int16_t hit_points = 0;
-        int16_t max_hit_points = 0;
-        MUST(JSON_READ(io, "hitpoints", &hit_points));
-        MUST(JSON_READ(io, "max_hitpoints", &max_hit_points));
-        ObjectProperty_SetItemValueRaw(
-            item, "max_hit_points",
-            (TRX_VALUE) {
-                .type = TVT_S32,
-                .as_int = max_hit_points,
-            });
-        item->hit_points = hit_points;
+    if (JSON_ReadIO_HasKey(io, "hitpoints")) {
+        MUST(JSON_READ(io, "hitpoints", &item->hit_points));
+        // Saves before SG_VERSION_23 hold Lara's starting health as her
+        // maximum, so she keeps the maximum the level gave her.
+        if (JSON_ReadIO_GetVersion(io) >= SG_VERSION_23
+            || object_id != O_LARA) {
+            MUST(JSON_READ(io, "max_hitpoints", &item->max_hit_points));
+        }
     }
     MUST(ObjectProperty_ReadItemOverrides(io, item));
 
-    if (M_ShouldReadFlags(obj, object_id)) {
-        if (!JSON_ReadIO_HasKey(io, "flags")) {
-            // TRX 1.1 save-crystal entries were serialized as bare items
-            // without save-state fields. Treat them as default-state crystals
-            // so those legacy saves remain loadable.
-            if (object_id == O_SAVE_CRYSTAL_ITEM) {
-                goto skip_flags;
-            }
-        }
-        // TRX 1.8 introduced fixing animated spikes on load
+    if (JSON_ReadIO_HasKey(io, "flags") && !M_IsResettingSpikes(object_id)) {
         uint16_t flags = 0;
         SHOULD(JSON_READ_OPT(io, "flags", &flags));
         item->trigger = (ITEM_TRIGGER_STATE) {
@@ -641,11 +727,14 @@ static RESULT M_ReadItem(JSON_READ_IO *const io, const int16_t read_index)
             // Introduced in TRX 1.2
             MUST(JSON_READ_OPT(io, "collidable", &item->is_collidable));
         }
-        // Introduced in TRX 1.2, not written if zero
+        // Introduced in TRX 1.2: ai_tag not written if zero; ai_bits always
+        // written beginning in TRX 1.12
         MUST(JSON_READ_OPT(io, "ai_bits", &item->ai_bits));
         MUST(JSON_READ_OPT(io, "ai_tag", &item->ai_tag));
         // Introduced in TRX 1.10, not written if zero
         MUST(JSON_READ_OPT(io, "fade", &item->fade));
+        // Introduced in TRX 1.12, not written if false
+        MUST(JSON_READ_OPT(io, "poisoned", &item->is_poisoned));
 
         bool intelligent = obj->intelligent;
         // Introduced in TRX 1.2
@@ -677,6 +766,11 @@ static RESULT M_ReadItem(JSON_READ_IO *const io, const int16_t read_index)
                     SHOULD(JSON_READ_OPT(io, "enemy", &enemy_num));
                     creature->enemy =
                         enemy_num == NO_ITEM ? nullptr : Item_Get(enemy_num);
+                    // Introduced in TRX 1.12
+                    SHOULD(JSON_READ_OPT(
+                        io, "is_jumping", &creature->lot.is_jumping));
+                    SHOULD(JSON_READ_OPT(
+                        io, "is_monkeying", &creature->lot.is_monkeying));
                     MUST(JSON_PUSH(io, "joint_rotations"));
                     for (int32_t i = 0; i < 4; i++) {
                         // Introduced in TRX 1.2
@@ -692,7 +786,6 @@ static RESULT M_ReadItem(JSON_READ_IO *const io, const int16_t read_index)
             item->extra_rotations = nullptr;
         }
     }
-skip_flags:
 
     if (JSON_ReadIO_HasKey(io, "carried_items")) {
         MUST(JSON_PUSH(io, "carried_items"));
@@ -701,6 +794,7 @@ skip_flags:
         const int32_t carried_count = JSON_ARRAY_LEN(io);
         for (int32_t j = 0; j < carried_count; j++) {
             MUST(JSON_PUSH_INDEX(io, j));
+            const bool is_level_drop = carried_item != nullptr;
             if (carried_item == nullptr) {
                 carried_item = GameBuf_Alloc(sizeof(CARRIED_ITEM), GBUF_ITEMS);
                 carried_item->next_item = nullptr;
@@ -715,14 +809,23 @@ skip_flags:
             // pre-existing carried entries (e.g. gameflow-defined drops).
             SHOULD(JSON_READ_OPT(io, "spawn_num", &carried_item->spawn_num));
 
-            MUST(M_ReadObjectID(io, "object_id", &carried_item->object_id));
+            // The level names what its drops are; TR2-style drops used to be
+            // saved without one.
+            OBJECT_ID drop_object_id = NO_OBJECT;
+            MUST(M_ReadObjectID(io, "object_id", &drop_object_id));
+            if (!is_level_drop) {
+                carried_item->object_id = drop_object_id;
+            }
             MUST(JSON_READ(io, "pos", &carried_item->pos));
             MUST(JSON_READ(io, "y_rot", &carried_item->rot.y));
             MUST(JSON_READ(io, "room_num", &carried_item->room_num));
             MUST(JSON_READ(io, "fall_speed", &carried_item->fall_speed));
             MUST(JSON_READ(io, "status", &carried_item->status));
 
-            Carrier_SyncItem(item_num, carried_item);
+            if (is_legacy) {
+                M_RespawnLegacyDrop(item_num, carried_item);
+            }
+            Carrier_SyncItem(carried_item);
 
             prev_item = carried_item;
             carried_item = carried_item->next_item;
@@ -755,6 +858,247 @@ skip_flags:
     return OK;
 }
 
+static RESULT M_ReadItem(JSON_READ_IO *const io, const int16_t read_index)
+{
+    const int16_t item_num = M_ResolveItem(io, read_index);
+    if (item_num == NO_ITEM) {
+        // soft exit for unresolvable items
+        return OK;
+    }
+    return M_ReadItemAt(io, item_num);
+}
+
+static int16_t M_ResolveLevelItem(
+    JSON_READ_IO *const io, const int16_t index, const OBJECT_ID object_id,
+    const bool is_level_changed)
+{
+    int16_t item_num = index;
+    if (JSON_ReadIO_HasKey(io, "name")) {
+        const char *name = nullptr;
+        if (!Result_Absorb(JSON_READ(io, "name", &name))) {
+            return NO_ITEM;
+        }
+        const ITEM *const item = Item_GetByName(name);
+        if (item != nullptr) {
+            item_num = Item_GetIndex(item);
+        }
+    }
+
+    if (item_num >= Item_GetLevelCount()) {
+        LOG_WARNING("Not restoring item %d: the level has no such item", index);
+        return NO_ITEM;
+    }
+    const OBJECT_ID level_object_id = Item_Get(item_num)->object_id;
+    if (is_level_changed && !M_IsValidItemObject(object_id, level_object_id)) {
+        LOG_WARNING(
+            "Not restoring item %d: the level has %s there, the save has %s",
+            index, Object_GetName(level_object_id), Object_GetName(object_id));
+        return NO_ITEM;
+    }
+    return item_num;
+}
+
+// An item with a creator waits for the creator to make it again. Any other is
+// placed in its slot, to be initialised by the save.
+static int16_t M_ReserveSpawnedItem(
+    JSON_READ_IO *const io, const int16_t index, const OBJECT_ID object_id,
+    const int16_t creator_num)
+{
+    if (!Object_Get(object_id)->loaded) {
+        LOG_WARNING(
+            "Not restoring item %d: %s is not loaded", index,
+            Object_GetName(object_id));
+        return NO_ITEM;
+    }
+    int16_t room_num = NO_ROOM;
+    if (!Result_Absorb(JSON_READ(io, "room_num", &room_num))) {
+        return NO_ITEM;
+    }
+    // An item out of the world, carried or held, is still set up in a room
+    // before it leaves it.
+    if (room_num == NO_ROOM) {
+        room_num = 0;
+    }
+    if (Room_Get(room_num) == nullptr) {
+        LOG_WARNING(
+            "Not restoring item %d: the level has no room %d", index, room_num);
+        return NO_ITEM;
+    }
+    XYZ_32 pos = {};
+    XYZ_16 rot = {};
+    if (!Result_Absorb(JSON_READ(io, "pos", &pos))
+        || !Result_Absorb(JSON_READ(io, "rot", &rot))) {
+        return NO_ITEM;
+    }
+    if (!Item_Reserve(index, creator_num)) {
+        LOG_WARNING("Not restoring item %d: the slot is taken", index);
+        return NO_ITEM;
+    }
+    if (creator_num != NO_ITEM) {
+        return index;
+    }
+
+    ITEM *const item = Item_Get(index);
+    item->object_id = object_id;
+    item->room_num = room_num;
+    item->pos = pos;
+    item->rot = rot;
+    m_PlacedItems[index] = true;
+    return index;
+}
+
+// Level items are matched by name where they have one, so a level whose items
+// moved since the save still finds them. A changed level also has its items
+// checked against the save's objects, and an item spawned during play never
+// takes a slot the level now fills.
+static int16_t M_ReserveItem(
+    JSON_READ_IO *const io, const int32_t saved_level_count,
+    const bool is_level_changed)
+{
+    int16_t index = NO_ITEM;
+    if (!Result_Absorb(JSON_READ(io, "index", &index))) {
+        return NO_ITEM;
+    }
+    if (index < 0 || index >= MAX_ITEMS) {
+        LOG_WARNING("invalid item index %d", index);
+        return NO_ITEM;
+    }
+    OBJECT_ID object_id = NO_OBJECT;
+    if (!SHOULD(M_ReadObjectID(io, "object_id", &object_id))) {
+        SaveGame_NoteDropped("an item");
+        return NO_ITEM;
+    }
+
+    int16_t creator_num = NO_ITEM;
+    if (!Result_Absorb(JSON_READ_OPT(io, "creator", &creator_num))) {
+        return NO_ITEM;
+    }
+    if (creator_num < saved_level_count) {
+        creator_num = NO_ITEM;
+    }
+
+    if (index >= saved_level_count && m_SavedItems[index]) {
+        LOG_WARNING("Not restoring item %d: the save holds it twice", index);
+        return NO_ITEM;
+    }
+    const int16_t item_num = index < saved_level_count
+        ? M_ResolveLevelItem(io, index, object_id, is_level_changed)
+        : M_ReserveSpawnedItem(io, index, object_id, creator_num);
+    if (item_num == NO_ITEM) {
+        return NO_ITEM;
+    }
+    if (m_SavedItems[item_num]) {
+        LOG_WARNING("Not restoring item %d: the save holds it twice", index);
+        return NO_ITEM;
+    }
+    m_SavedItems[item_num] = true;
+    return item_num;
+}
+
+static RESULT M_ReadSavedItem(JSON_READ_IO *const io, const int16_t item_num)
+{
+    if (JSON_ReadIO_HasKey(io, "name")) {
+        const char *name = nullptr;
+        MUST(JSON_READ(io, "name", &name));
+        if (!Item_SetName(item_num, name)) {
+            LOG_WARNING("Item %d cannot take the name '%s'", item_num, name);
+        }
+    }
+    return M_ReadItemAt(io, item_num);
+}
+
+// Every slot the level owns is in the save, and every other live item, in its
+// slot. The level has set up its own items again. The save reserves the slots
+// of the others before any is set up, those an item makes as it is
+// initialised for that item to make again, then reads them all. An item whose
+// creator did not make it again is set up on its own.
+static RESULT M_LoadItems(JSON_READ_IO *const io)
+{
+    int32_t saved_level_count = Item_GetLevelCount();
+    MUST(JSON_READ_OPT(io, "level_item_count", &saved_level_count));
+    const bool is_level_changed = saved_level_count != Item_GetLevelCount();
+    if (is_level_changed) {
+        LOG_WARNING(
+            "The level had %d items when saved and has %d now",
+            saved_level_count, Item_GetLevelCount());
+    }
+
+    memset(m_SavedItems, 0, sizeof(m_SavedItems));
+    memset(m_PlacedItems, 0, sizeof(m_PlacedItems));
+    MUST(JSON_PUSH(io, "items"));
+    const int32_t count = MIN(JSON_ARRAY_LEN(io), MAX_ITEMS);
+    for (int32_t i = 0; i < count; i++) {
+        MUST(JSON_PUSH_INDEX(io, i));
+        m_EntryItems[i] =
+            M_ReserveItem(io, saved_level_count, is_level_changed);
+        MUST(JSON_POP(io));
+    }
+
+    for (int16_t i = 0; i < Item_GetTotalCount(); i++) {
+        if (m_PlacedItems[i]) {
+            Item_Initialise(i);
+        }
+    }
+
+    for (int32_t i = 0; i < count; i++) {
+        const int16_t item_num = m_EntryItems[i];
+        if (item_num < saved_level_count || m_PlacedItems[item_num]
+            || !Item_Get(item_num)->is_destroyed) {
+            continue;
+        }
+        MUST(JSON_PUSH_INDEX(io, i));
+        OBJECT_ID object_id = NO_OBJECT;
+        MUST(M_ReadObjectID(io, "object_id", &object_id));
+        m_EntryItems[i] =
+            M_ReserveSpawnedItem(io, item_num, object_id, NO_ITEM);
+        MUST(JSON_POP(io));
+        if (m_EntryItems[i] != NO_ITEM) {
+            Item_Initialise(m_EntryItems[i]);
+        }
+    }
+
+    Savegame_ProcessItemsBeforeLoad();
+    for (int32_t i = 0; i < count; i++) {
+        if (m_EntryItems[i] == NO_ITEM) {
+            continue;
+        }
+        MUST(JSON_PUSH_INDEX(io, i));
+        MUST(M_ReadSavedItem(io, m_EntryItems[i]));
+        MUST(JSON_POP(io));
+    }
+    MUST(JSON_POP(io));
+    return OK;
+}
+
+static RESULT M_LoadLegacyItems(JSON_READ_IO *const io)
+{
+    memset(m_ReadPositions, 0, sizeof(m_ReadPositions));
+    MUST(JSON_PUSH(io, "items"));
+    const int32_t count = JSON_ARRAY_LEN(io);
+    Savegame_ProcessItemsBeforeLoad();
+    for (int32_t i = 0; i < count; i++) {
+        MUST(JSON_PUSH_INDEX(io, i));
+        MUST(M_ReadItem(io, i));
+        MUST(JSON_POP(io));
+    }
+    MUST(JSON_POP(io));
+
+    // These saves hold no floor heights, so those of the items that moved are
+    // worked out again once every item is in place.
+    for (int16_t i = 0; i < Item_GetTotalCount(); i++) {
+        ITEM *const item = Item_Get(i);
+        const OBJECT *const obj = Object_Get(item->object_id);
+        if (!m_ReadPositions[i]
+            || (obj->shadow_size == 0 && !obj->load_floor)) {
+            continue;
+        }
+        int16_t room_num = item->room_num;
+        const SECTOR *const sector = Room_GetSector(item->pos, &room_num);
+        item->floor = Room_GetHeight(sector, item->pos);
+    }
+    return OK;
+}
+
 static RESULT M_ReadEffect(JSON_READ_IO *const io)
 {
     int32_t room_num = NO_ROOM;
@@ -765,7 +1109,15 @@ static RESULT M_ReadEffect(JSON_READ_IO *const io)
         MUST(JSON_READ(io, "room_num", &room_num));
     }
 
-    const int16_t effect_num = Effect_Create(room_num);
+    OBJECT_ID object_id = NO_OBJECT;
+    if (JSON_ReadIO_HasKey(io, "object_number")) {
+        MUST(M_ReadObjectID(io, "object_number", &object_id));
+    } else {
+        // Introduced in TRX 1.2
+        MUST(M_ReadObjectID(io, "object_id", &object_id));
+    }
+
+    const int16_t effect_num = Effect_Create(object_id, room_num);
     if (effect_num == NO_EFFECT) {
         return OK;
     }
@@ -773,12 +1125,6 @@ static RESULT M_ReadEffect(JSON_READ_IO *const io)
     EFFECT *const effect = Effect_Get(effect_num);
     MUST(JSON_READ(io, "pos", &effect->pos));
     MUST(JSON_READ(io, "rot", &effect->rot));
-    if (JSON_ReadIO_HasKey(io, "object_number")) {
-        MUST(M_ReadObjectID(io, "object_number", &effect->object_id));
-    } else {
-        // Introduced in TRX 1.2
-        MUST(M_ReadObjectID(io, "object_id", &effect->object_id));
-    }
     MUST(JSON_READ(io, "speed", &effect->speed));
     MUST(JSON_READ(io, "fall_speed", &effect->fall_speed));
     if (JSON_ReadIO_HasKey(io, "frame_number")) {
@@ -791,7 +1137,16 @@ static RESULT M_ReadEffect(JSON_READ_IO *const io)
     MUST(JSON_READ(io, "shade", &effect->shade));
     SHOULD(JSON_READ_OPT(io, "flag1", &effect->flag1));
     SHOULD(JSON_READ_OPT(io, "flag2", &effect->flag2));
-    SHOULD(JSON_READ_OPT(io, "flame_variant", &effect->flame_variant));
+
+    const OBJECT *const obj = Object_Get(object_id);
+    if (obj->effect_priv_load_func != nullptr
+        && JSON_ReadIO_HasKey(io, "priv")) {
+        MUST(JSON_PUSH(io, "priv"));
+        MUST(
+            obj->effect_priv_load_func(effect, io), "%s",
+            Object_GetName(object_id));
+        MUST(JSON_POP(io));
+    }
     return OK;
 }
 
@@ -961,6 +1316,7 @@ static RESULT M_ReadResumeInfo(
         &resume->back_gun_type)); // LGT_UNKNOWN
     MUST(JSON_READ(io, "costume", &resume->flags.costume));
 
+    Inv_State_ClearAmmo(&resume->inv);
     for (int32_t i = 0; i < Gun_Registry_GetCount(); i++) {
         const WEAPON_INFO *const info = Gun_Registry_GetByIndex(i);
         if (info->save_resume_has_key == nullptr) {
@@ -975,10 +1331,14 @@ static RESULT M_ReadResumeInfo(
             SHOULD(JSON_READ_OPT(io, info->save_resume_ammo_key, &ammo));
             SHOULD(JSON_READ_OPT(io, info->save_resume_has_key, &has_weapon));
         }
-        Inv_State_SetAmmo(&resume->inv, info->gun_type, ammo);
+        Inv_State_SetKindAmmo(
+            &resume->inv, info->gun_type, Gun_GetAmmoObject(info->gun_type),
+            ammo);
         Inv_State_SetCount(
             &resume->inv, Gun_GetGunObject(info->gun_type), has_weapon ? 1 : 0);
     }
+    MUST(M_ReadAmmoList(io, &resume->inv));
+    MUST(M_ReadAttachments(io, &resume->inv));
 
     // Introduced in TRX 1.9
     bool has_binoculars = false;
@@ -1010,6 +1370,10 @@ static RESULT M_ReadResumeInfo(
     resume->burning = false;
     SHOULD(JSON_READ_OPT(io, "burning", &resume->burning));
 
+    // Introduced in TRX 1.12
+    resume->flare_age = 0;
+    SHOULD(JSON_READ_OPT(io, "flare_age", &resume->flare_age));
+
     MUST(JSON_READ(io, "timer", &resume->stats.timer));
     MUST(JSON_READ(io, "ammo_hits", &resume->stats.ammo_hits));
     MUST(JSON_READ(io, "ammo_used", &resume->stats.ammo_used));
@@ -1031,6 +1395,42 @@ static void M_SetInventoryCount(const OBJECT_ID object_id, const int32_t qty)
 {
     Inv_ClearItem(object_id);
     Inv_AddItemNTimes(object_id, qty);
+}
+
+static RESULT M_LoadBonusFlag(JSON_READ_IO *const io)
+{
+    int32_t bonus_flag = false;
+    MUST(JSON_READ(io, "bonus_flag", &bonus_flag));
+    // saves made before Japanese mode was retired may carry its bit
+    Game_SetBonusFlag(bonus_flag & GBF_NGPLUS);
+    return OK;
+}
+
+static RESULT M_LoadCutscenesPlayed(JSON_READ_IO *const io)
+{
+    // Introduced in TRX 1.10
+    uint64_t cutscenes_played = 0;
+    if (JSON_ReadIO_HasKey(io, "cutscenes_played")) {
+        MUST(JSON_READ(io, "cutscenes_played", &cutscenes_played));
+        CutSeq_SetPlayedMask(cutscenes_played);
+    }
+    return OK;
+}
+
+static RESULT M_LoadWaypoints(JSON_READ_IO *const io)
+{
+    // Introduced in TRX 1.11
+    int32_t waypoint = WAYPOINT_NONE;
+    if (JSON_ReadIO_HasKey(io, "waypoint")) {
+        MUST(JSON_READ(io, "waypoint", &waypoint));
+        Waypoint_Set(waypoint);
+    }
+    int32_t waypoint_highest = WAYPOINT_NONE;
+    if (JSON_ReadIO_HasKey(io, "waypoint_highest")) {
+        MUST(JSON_READ(io, "waypoint_highest", &waypoint_highest));
+        Waypoint_SetHighest(waypoint_highest);
+    }
+    return OK;
 }
 
 RESULT SG_File_LoadInventory(JSON_READ_IO *const io)
@@ -1178,19 +1578,10 @@ RESULT SG_File_LoadLara(JSON_READ_IO *const io)
 
 RESULT SG_File_LoadItems(JSON_READ_IO *const io)
 {
-    MUST(JSON_PUSH(io, "items"));
-    const int32_t count = JSON_ARRAY_LEN(io);
-
-    Savegame_ProcessItemsBeforeLoad();
-
-    for (int32_t i = 0; i < count; i++) {
-        MUST(JSON_PUSH_INDEX(io, i));
-        MUST(M_ReadItem(io, i));
-        MUST(JSON_POP(io));
+    if (JSON_ReadIO_GetVersion(io) < SG_VERSION_22) {
+        return M_LoadLegacyItems(io);
     }
-
-    MUST(JSON_POP(io));
-    return OK;
+    return M_LoadItems(io);
 }
 
 RESULT SG_File_LoadEffects(JSON_READ_IO *const io)
@@ -1234,6 +1625,10 @@ RESULT SG_File_LoadFX(JSON_READ_IO *const io)
 
 RESULT SG_File_LoadFlares(JSON_READ_IO *const io)
 {
+    // Saves since SG_VERSION_22 keep flares with the other items.
+    if (!JSON_ReadIO_HasKey(io, "flares")) {
+        return OK;
+    }
     MUST(JSON_PUSH(io, "flares"));
     const int32_t count = JSON_ARRAY_LEN(io);
     for (int32_t i = 0; i < count; i++) {
@@ -1331,12 +1726,7 @@ RESULT SG_File_LoadMisc(JSON_READ_IO *const io)
 {
     MUST(JSON_PUSH(io, "misc"));
 
-    {
-        int32_t bonus_flag = false;
-        MUST(JSON_READ(io, "bonus_flag", &bonus_flag));
-        // saves made before Japanese mode was retired may carry its bit
-        Game_SetBonusFlag(bonus_flag & GBF_NGPLUS);
-    }
+    MUST(M_LoadBonusFlag(io));
 
     {
         bool allies_hostile = false;
@@ -1368,28 +1758,9 @@ RESULT SG_File_LoadMisc(JSON_READ_IO *const io)
         }
     }
 
-    {
-        // Introduced in TRX 1.10
-        uint64_t cutscenes_played = 0;
-        if (JSON_ReadIO_HasKey(io, "cutscenes_played")) {
-            MUST(JSON_READ(io, "cutscenes_played", &cutscenes_played));
-            CutSeq_SetPlayedMask(cutscenes_played);
-        }
-    }
+    MUST(M_LoadCutscenesPlayed(io));
 
-    {
-        // Introduced in TRX 1.11
-        int32_t waypoint = WAYPOINT_NONE;
-        if (JSON_ReadIO_HasKey(io, "waypoint")) {
-            MUST(JSON_READ(io, "waypoint", &waypoint));
-            Waypoint_Set(waypoint);
-        }
-        int32_t waypoint_highest = WAYPOINT_NONE;
-        if (JSON_ReadIO_HasKey(io, "waypoint_highest")) {
-            MUST(JSON_READ(io, "waypoint_highest", &waypoint_highest));
-            Waypoint_SetHighest(waypoint_highest);
-        }
-    }
+    MUST(M_LoadWaypoints(io));
 
     {
         // Introduced in TRX 1.11
@@ -1435,6 +1806,25 @@ RESULT SG_File_LoadMisc(JSON_READ_IO *const io)
                 &(TRX_VALUE) { .type = TVT_RGB_888, .as_rgb = fog_color }));
         }
     }
+
+    MUST(JSON_POP(io));
+    return OK;
+}
+
+RESULT SG_File_LoadLevelEndMisc(JSON_READ_IO *const io)
+{
+    MUST(JSON_PUSH(io, "misc"));
+    MUST(M_LoadBonusFlag(io));
+    MUST(M_LoadCutscenesPlayed(io));
+    MUST(M_LoadWaypoints(io));
+
+    int32_t hub_next_level = 0;
+    MUST(JSON_READ(io, "hub_next_level", &hub_next_level));
+    Hub_SetNextLevelIndex(hub_next_level);
+
+    int32_t hub_lara_start = 0;
+    MUST(JSON_READ(io, "hub_lara_start", &hub_lara_start));
+    Hub_SetLaraStartIndex(hub_lara_start);
 
     MUST(JSON_POP(io));
     return OK;

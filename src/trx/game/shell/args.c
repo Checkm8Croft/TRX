@@ -36,7 +36,9 @@ static void M_ShowHelp(void)
     puts("   --mod <MOD_ID>: launch a specific game or mod directly.");
     puts("-e/--engine <1|2|3|4>: pick a game engine explicitly.");
     puts("-l/--level <PATH|NUM>: launch a level file or level number.");
-    puts("-s/--save <NUM>: launch from a specific save slot (starts at 1).");
+    puts(
+        "-s/--save <NUM|q[NUM]>: launch from a specific save slot, or from a "
+        "quick save (starts at 1).");
     puts("   --test-record <PATH>: record gameplay events to file.");
     puts(
         "   --test-replay/--test-play <PATH>: replay gameplay events from "
@@ -45,7 +47,7 @@ static void M_ShowHelp(void)
     puts(
         "   --headless-fps <NUM>: control replay frame rate in headless mode.");
     puts("-q/--quiet: silence logs and only show errors.");
-    puts("   --dump-lua-api: print the Lua API field tables as JSON and exit.");
+    puts("   --check-lua-api: load and seal the Lua API, then exit.");
     puts(
         "   --debug-render-performance: output diagnostic information after "
         "each "
@@ -94,6 +96,32 @@ static int32_t M_GuessEngineVersionFromLevelPath(const char *const path)
     return game_version;
 }
 
+bool Shell_ParseSaveSlot(
+    const char *const text, STARTUP_SETTINGS *const settings)
+{
+    const char *number = text;
+    bool is_quick = false;
+    if (strncmp(text, "quick", strlen("quick")) == 0) {
+        number = text + strlen("quick");
+        is_quick = true;
+    } else if (text[0] == 'q') {
+        number = text + 1;
+        is_quick = true;
+    }
+
+    int32_t slot_num = 1;
+    if ((!is_quick || *number != '\0')
+        && !String_ParseInteger(number, &slot_num)) {
+        return false;
+    }
+    if (slot_num < 1) {
+        return false;
+    }
+    settings->save_to_load = slot_num - 1;
+    settings->save_is_quick = is_quick;
+    return true;
+}
+
 RESULT Shell_ParseArgs(VECTOR *const args, SHELL_ARGS **const out_args)
 {
     *out_args = nullptr;
@@ -138,11 +166,10 @@ RESULT Shell_ParseArgs(VECTOR *const args, SHELL_ARGS **const out_args)
             Shell_FreeArgs(result);
             return OK; // nothing to play; the caller sees no args
         }
-        if (!strcmp(arg, "--dump-lua-api")) {
-            // Handled after LUA_Init: the dump combines the C field tables with
-            // the Lua-side trx.api registry, so the scripts must be loaded.
-            // Logs share stdout with the JSON, so silence them.
-            result->startup.dump_lua_api = true;
+        if (!strcmp(arg, "--check-lua-api")) {
+            // Handled after LUA_Init, which loads the modules and seals them:
+            // a sealing failure is fatal there, and success exits here.
+            result->startup.check_lua_api = true;
             result->quiet = true;
         }
         if (!strcmp(arg, "-g") || !strcmp(arg, "--gold")
@@ -222,9 +249,7 @@ RESULT Shell_ParseArgs(VECTOR *const args, SHELL_ARGS **const out_args)
         }
         if ((!strcmp(arg, "-s") || !strcmp(arg, "--save"))
             && next_arg != nullptr) {
-            if (String_ParseInteger(next_arg, &result->startup.save_to_load)) {
-                result->startup.save_to_load--;
-            }
+            Shell_ParseSaveSlot(next_arg, &result->startup);
             i++;
         }
         if (!strcmp(arg, "--test-record") && next_arg != nullptr) {

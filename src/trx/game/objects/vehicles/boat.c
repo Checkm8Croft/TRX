@@ -202,13 +202,13 @@ static void M_DoWakeEffect(const ITEM *const boat_item)
         (Random_GetDraw() * Object_Get(O_WATER_SPRITE)->mesh_count) >> 15;
 
     for (int32_t i = 0; i < 3; i++) {
-        const int16_t effect_num = Effect_Create(boat_item->room_num);
+        const int16_t effect_num =
+            Effect_Create(O_WATER_SPRITE, boat_item->room_num);
         if (effect_num == NO_EFFECT) {
             continue;
         }
 
         EFFECT *const effect = Effect_Get(effect_num);
-        effect->object_id = O_WATER_SPRITE;
         effect->room_num = boat_item->room_num;
         effect->frame_num = frame;
 
@@ -725,12 +725,12 @@ static void M_Control(const int16_t item_num)
     boat_item->fall_speed =
         M_DoDynamics(p->water, boat_item->fall_speed, &boat_item->pos.y);
 
-    height = (fr.y + fl.y) / 2;
+    height = (fr.y + fl.y) >> 1;
 
     const int16_t x_rot = Math_Atan(M_FRONT, boat_item->pos.y - height);
     const int16_t z_rot = Math_Atan(M_SIDE, height - fl.y);
-    boat_item->rot.x += (x_rot - boat_item->rot.x) / 2;
-    boat_item->rot.z += (z_rot - boat_item->rot.z) / 2;
+    boat_item->rot.x += (x_rot - boat_item->rot.x) >> 1;
+    boat_item->rot.z += (z_rot - boat_item->rot.z) >> 1;
 
     if (x_rot == 0 && ABS(boat_item->rot.x) < 4) {
         boat_item->rot.x = 0;
@@ -771,7 +771,8 @@ static void M_Control(const int16_t item_num)
         boat_item->rot.z += p->tilt_angle;
     }
 
-    const int32_t pitch = water_height - ceiling < M_SOUND_CEILING
+    const int32_t pitch =
+        water_height != NO_HEIGHT && water_height - ceiling < M_SOUND_CEILING
         ? boat_item->speed * (water_height - ceiling) / M_SOUND_CEILING
         : boat_item->speed;
 

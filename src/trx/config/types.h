@@ -48,6 +48,7 @@ typedef struct {
 
     struct {
         bool is_fullscreen;
+        bool is_borderless;
         bool is_maximized;
         int32_t x;
         int32_t y;
@@ -83,6 +84,7 @@ typedef struct {
         bool enable_shotgun_flash;
         char *lara_outfit;
         SUNGLASSES_MODE sunglasses_mode;
+        bool sunglasses_reflective;
         SHADOW_TYPE shadow_type;
         BLOOD_EFFECTS blood_effects;
         bool enable_skybox;
@@ -91,12 +93,15 @@ typedef struct {
         bool enable_footprints;
         bool enable_droplets;
         bool enable_ps1_crystals;
+        bool enable_all_upv_wakes;
         bool enable_ps1_rain;
+        bool enable_rain_splashes;
 
         bool fix_item_rots;
         bool fix_animated_sprites;
         bool fix_texture_issues;
         bool fix_smoke_emitters;
+        bool fix_projectile_brightness;
 
         WATER_TINT_MODE water_tint_mode;
         RGB_888 water_color;
@@ -104,16 +109,14 @@ typedef struct {
         RGB_888 fog_color;
         int32_t fog_start;
         int32_t fog_end;
+        bool enable_spherical_fog;
         bool enable_fog_bulbs;
     } visuals;
 
     struct {
         bool enable_game_ui;
         bool enable_photo_mode_ui;
-        bool enable_wraparound;
         bool enable_fps_counter;
-        bool show_pickups_overlay;
-        bool show_title_version;
 
         float text_scale;
         float bar_scale;
@@ -122,57 +125,21 @@ typedef struct {
         UI_STYLE menu_style;
         struct {
             STATS_STYLE style;
-            bool show_totals;
-            bool show_level_header;
-            bool show_time_taken;
-            bool show_secrets;
-            bool show_crystals;
-            bool show_pickups;
-            bool show_kills;
-            bool show_ammo;
-            bool show_medipacks_used;
-            bool show_distance_travelled;
-            bool show_deaths;
         } stats;
 
         BACKGROUND_TYPE inventory_background_style;
         BACKGROUND_TYPE stats_background_style;
         BACKGROUND_TYPE pause_background_style;
+        float background_blur;
         bool inventory_fade_effects;
-        bool stats_fade_effects;
         bool pause_fade_effects;
         bool instant_save_load_screen;
 
-        bool enable_smooth_bars;
-        char *bar_look;
-        bool show_bars;
-        bool enable_bar_flashing;
-        struct {
-            UI_ELEMENT_LOCATION location;
-            char *color;
-            char *color_ps1;
-            char *poison_color;
-            char *poison_color_ps1;
-        } lara_health_bar;
-        struct {
-            UI_ELEMENT_LOCATION location;
-            char *color;
-            char *color_ps1;
-        } lara_air_bar, lara_sprint_bar, lara_exposure_bar;
-        struct {
-            BAR_SHOW_MODE show_mode;
-            UI_ELEMENT_LOCATION location;
-            char *color;
-            char *color_ps1;
-            char *color_allies;
-            char *color_allies_ps1;
-        } enemy_health_bar;
-        struct {
-            UI_ELEMENT_LOCATION location;
-        } ammo_counter;
+        bool show_loading_bar;
     } ui;
 
     struct {
+        char *media_language;
         float master_volume;
         float sound_volume;
         float music_volume;
@@ -189,6 +156,7 @@ typedef struct {
         bool fix_speeches_killing_music;
         bool fix_sliding_sfx;
         bool enable_lara_mic;
+        bool enable_ambient_crossfade;
         bool enable_music_in_menu;
         bool enable_music_in_inventory;
         bool enable_music_on_death;
@@ -199,6 +167,7 @@ typedef struct {
         bool mute_out_of_focus;
 
         MUSIC_LOAD_CONDITION music_load_condition;
+        UNDERWATER_MUFFLE_MODE underwater_muffle;
     } audio;
 
     struct {
@@ -234,6 +203,7 @@ typedef struct {
         bool enable_tr2_swimming;
         bool enable_wading;
         bool enable_swamp_sidestepping;
+        bool enable_monkey_bar_edge_deflect;
         bool enable_monkey_bar_shimmy_turn;
         bool enable_tr2_swim_cancel;
         bool enable_tr2_jumping;
@@ -270,6 +240,7 @@ typedef struct {
         M16_AIM_MODE m16_aim_mode;
         bool enable_walk_to_items;
         bool enable_snap_interactions;
+        bool enable_laser_sight_toggle;
         bool enable_fast_pickups;
         bool enable_multiple_pickups;
         bool enable_continuous_pushblocks;
@@ -296,6 +267,8 @@ typedef struct {
         int32_t maximum_save_slots;
         int32_t maximum_quick_save_slots;
         int32_t harpoon_recoil;
+        float enemy_health_scale;
+        float lara_damage_scale;
 
         JUMP_LOCK_MODE jump_lock_mode;
         TARGET_LOCK_MODE target_mode;
@@ -303,6 +276,7 @@ typedef struct {
         bool fix_step_glitch;
         bool fix_item_duplication_glitch;
         bool fix_descending_glitch;
+        bool fix_falling_glitch;
         bool fix_lara_pickup_embed;
         bool fix_water_exit;
         WALL_GLITCH_MODE wall_glitch_mode;
@@ -318,10 +292,13 @@ typedef struct {
         bool fix_underwater_crawl;
         bool fix_lift_collision;
         bool fix_breakable_wall_clip;
+        bool fix_wade_sprint;
 
         bool fix_floor_data_issues;
         bool fix_bridge_collision;
         bool fix_bear_ai;
+        bool fix_enemy_route_delay;
+        bool fix_bird_start_pos;
         bool fix_monkey_pickup_priority;
         bool fix_pipeman_aim;
         bool fix_animated_spikes;
@@ -334,8 +311,11 @@ typedef struct {
         int32_t fps;
         bool enable_trapezoid_filter;
         bool enable_affine_mapping;
+        bool enable_hall_of_mirrors;
         bool enable_lighting;
+        bool enable_ps1_blending;
         bool enable_ps1_fog;
+        bool enable_ps1_pixel_aspect;
         bool enable_textures;
         TEXTURE_FILTER ui_filter;
         TEXTURE_FILTER texture_filter;
@@ -368,6 +348,7 @@ typedef struct {
         bool enable_debug_anim;
         bool enable_debug_camera;
         bool enable_debug_status;
+        bool enable_debug_zones;
         bool enable_review_markers;
         bool enable_invulnerability;
         bool enable_endless_sprint;

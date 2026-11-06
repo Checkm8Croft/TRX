@@ -22,10 +22,6 @@ typedef enum {
 RESULT LUA_Init(void);
 void LUA_Shutdown(void);
 
-// Prints the full public API surface as JSON: the C-side FIELD_DESC tables plus
-// the Lua-side trx.api registry. Used by --dump-lua-api.
-void LUA_DumpAPI(void);
-
 // Set script context: level script vs global script
 LUA_CONTEXT LUA_GetScriptContext(void);
 void LUA_SetScriptContext(LUA_CONTEXT context);
@@ -57,39 +53,15 @@ void LUA_InstallModRequire(lua_State *L);
 // Lets go of what a level's scripts required, so the next level runs them
 // again. A module a level required attached its listeners as the level's, and
 // those go with the level; the module has to run for them to come back.
-void LUA_DropLevelModules(lua_State *L);
-
-// Runs the per-game script (scripts/_game.lua), if the game ships one, and
-// reports script failure.
-RESULT LUA_RunGameScript(void);
+void LUA_DropLevelModules(void);
 
 // Pushes what a setting holds, in the shape a script reads it as: a bool as a
 // bool, a number as a number, and a color, an enum or a string as text.
 void LUA_Config_PushOptionValue(lua_State *L, const CONFIG_OPTION *option);
 
-// Drops the config watchers a level script set up, as the level's listeners
-// are dropped. A watcher a game script set up stays.
-void LUA_Config_ClearLevelWatchers(void);
-
 // Makes the calls a level script's watchers are still owed, now that the level
 // has its objects. Level_Initialise does this once the level is read.
 void LUA_Config_FlushPendingWatchers(void);
 
-// Clears flip groups declared by a level script.
-void LUA_Rooms_ClearFlipGroups(void);
-
 // Applies level-script flip groups after rooms are read.
 void LUA_Rooms_ApplyFlipGroups(void);
-
-// Let go of the outgoing level's script: what it set up hears about it, and
-// then its listeners go. Level_Unload does this for a level change; a path that
-// re-runs a script without unloading the level does it for itself. The event
-// waits on a level script run being outstanding, so the unload that opens the
-// first level of a session passes in silence.
-void LUA_DropLevelScript(void);
-
-// Run a level's script.
-void LUA_RunLevelScript(const GF_LEVEL *level);
-
-// Reload current level script and reset level-scoped listeners.
-void LUA_ReloadLevelScript(void);

@@ -1,18 +1,19 @@
 ---
 title: Game
-order: 10
+order: 11
 ---
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/game.lua. Edit it there.
+  src/lua/trx/game.lua. Edit it there.
 -->
 
 ## <a id="game" name="game"></a>Game module
 
-Module for the game flow: which levels there are, and which one is being played.
+Module for the game flow: which levels there are, and which one is being
+played.
 
 ### Properties
 
@@ -27,24 +28,32 @@ Module for the game flow: which levels there are, and which one is being played.
 - <a id="game.measured_fps" name="game.measured_fps"></a>**`trx.game.measured_fps`** (integer). How many frames reached the screen in the last second, counted against the wall clock. Frames are drawn more often than the game ticks, so this is not the rate the game runs at. *(read-only)*
 - <a id="game.is_playing" name="game.is_playing"></a>**`trx.game.is_playing`** (boolean). Whether a level is running: Lara and the creatures move and the game answers to the player. It goes false while the inventory ring, the pause screen or photo mode holds the level still, and outside a level altogether. *(read-only)*
 - <a id="game.is_playable" name="game.is_playable"></a>**`trx.game.is_playable`** (boolean). Whether the game is loaded and taking input - not in a menu, and not in a cutscene. *(read-only)*
-- <a id="game.signals.is_playing" name="game.signals.is_playing"></a>**`trx.game.signals.is_playing`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when a level starts being played, and when it stops. *(read-only)*
-- <a id="game.signals.is_suspended" name="game.signals.is_suspended"></a>**`trx.game.signals.is_suspended`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when the game is held still, and when it runs on again. *(read-only)*
-- <a id="game.signals.is_photo_mode" name="game.signals.is_photo_mode"></a>**`trx.game.signals.is_photo_mode`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when photo mode opens and closes. *(read-only)*
-- <a id="game.signals.is_playable" name="game.signals.is_playable"></a>**`trx.game.signals.is_playable`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when the kind of level running changes. *(read-only)*
+- <a id="game.cutscene_frame" name="game.cutscene_frame"></a>**`trx.game.cutscene_frame`** (integer). Which frame of the cutscene level on screen is being played, or `nil` unless one is. The scene's actors are items animating against this clock, so it is what a script names a moment of the scene by, rather than an actor's own animation frame.
+  This is the cutscene a level plays as a level of its own, as TR1 to TR3
+  do. [`trx.cutscenes.Cutscene.frame_num`](CUTSCENES.md#cutscenes.Cutscene.frame_num) reports the TR4 kind. *(read-only)*
 - <a id="game.real_time" name="game.real_time"></a>**`trx.game.real_time`** (number). Seconds of wall-clock time since the game started, which keeps running while the game is held still. Use it to time something against the player's clock rather than against the frames the game has run. *(read-only)*
+- <a id="game.sim_time" name="game.sim_time"></a>**`trx.game.sim_time`** (number). Seconds the game's own clock has counted, which runs faster or slower with the game's speed. The game times its fades by it. *(read-only)*
 - <a id="game.tr_version" name="game.tr_version"></a>**`trx.game.tr_version`** (integer). Which Tomb Raider the level being played belongs to: `1` through `4`. The games differ in what they draw and in what the player expects, so a script that dresses more than one reads this to tell them apart. Zero before a level is loaded. *(read-only)*
+- <a id="game.is_leaving" name="game.is_leaving"></a>**`trx.game.is_leaving`** (boolean). Whether the game has been told what to play next once the screens on show end, such as a level, a demo or a movie, or to exit. A menu fades to black rather than back to the game while it is true. *(read-only)*
 - <a id="game.is_suspended" name="game.is_suspended"></a>**`trx.game.is_suspended`** (boolean). Whether a loaded level is held still: the pause screen, photo mode, or the inventory ring. Lara and the creatures do not move while it is true. It is false outside a level, which is what tells it apart from the opposite of [`trx.game.is_playing`](#game.is_playing). *(read-only)*
 - <a id="game.is_photo_mode" name="game.is_photo_mode"></a>**`trx.game.is_photo_mode`** (boolean). Whether the player is in photo mode, where the camera is theirs to move and the game is held still. *(read-only)*
 - <a id="game.photo_mode_target" name="game.photo_mode_target"></a>**`trx.game.photo_mode_target`** ([trx.game.PhotoModeTarget](#game.PhotoModeTarget)). What photo mode is steering. Outside photo mode, this is always the camera, which is where every session starts. *(read-only)*
 - <a id="game.is_ngplus" name="game.is_ngplus"></a>**`trx.game.is_ngplus`** (boolean). Whether this is a new game plus run, which is what the passport's bonus start sets. Lara keeps her weapons between levels and her ammunition does not run down. *(read-only)*
+- <a id="game.signals.is_playing" name="game.signals.is_playing"></a>**`trx.game.signals.is_playing`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when a level starts being played, and when it stops. *(read-only)*
+- <a id="game.signals.is_suspended" name="game.signals.is_suspended"></a>**`trx.game.signals.is_suspended`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when the game is held still, and when it runs on again. *(read-only)*
+- <a id="game.signals.is_photo_mode" name="game.signals.is_photo_mode"></a>**`trx.game.signals.is_photo_mode`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when photo mode opens and closes. *(read-only)*
+- <a id="game.signals.is_playable" name="game.signals.is_playable"></a>**`trx.game.signals.is_playable`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when the kind of level running changes. *(read-only)*
 
 ### Constants
 
 - <a id="game.TRX_VERSION" name="game.TRX_VERSION"></a>[lua]`trx.game.TRX_VERSION` = `TRX 1.9.3-42-g0f4c2a1` (string)  
-  What this build reports as its version: `1.9.3` for a release, and the tag with the commits since then for a development build.
+  What this build reports as its version: `1.9.3` for a release, and the tag
+  with the commits since then for a development build.
 
 - <a id="game.LOGIC_FPS" name="game.LOGIC_FPS"></a>[lua]`trx.game.LOGIC_FPS` = `30` (integer)  
-  How many logical frames the game runs a second, which is the rate [`trx.events.before_control`](EVENTS.md#events.before_control) fires at. A script that counts frames divides by this to reach seconds.
+  How many logical frames the game runs a second, which is the rate
+  [`trx.events.before_control`](EVENTS.md#events.before_control) fires at. A script that counts frames divides by
+  this to reach seconds.
 
 ### Enums
 
@@ -52,54 +61,57 @@ Module for the game flow: which levels there are, and which one is being played.
 
     One of the lists of levels the game flow declares.
 
-    - `trx.game.LevelTable.TITLE` = `0`  
+    - `trx.game.LevelTable.TITLE`  
         The title screen.
-    - `trx.game.LevelTable.MAIN` = `1`  
+    - `trx.game.LevelTable.MAIN`  
         The levels of the game proper.
-    - `trx.game.LevelTable.CUTSCENES` = `2`  
+    - `trx.game.LevelTable.CUTSCENES`  
         The cutscenes.
-    - `trx.game.LevelTable.DEMOS` = `3`  
+    - `trx.game.LevelTable.DEMOS`  
         The demos that play when the title screen is left alone.
 
 - <a id="game.LevelType" name="game.LevelType"></a>[lua]`trx.game.LevelType`
 
     What kind of level it is.
 
-    - `trx.game.LevelType.TITLE` = `0`  
+    - `trx.game.LevelType.TITLE`  
         The title screen.
-    - `trx.game.LevelType.NORMAL` = `1`  
+    - `trx.game.LevelType.NORMAL`  
         An ordinary level.
-    - `trx.game.LevelType.CUTSCENE` = `2`  
+    - `trx.game.LevelType.CUTSCENE`  
         A cutscene.
-    - `trx.game.LevelType.DEMO` = `3`  
+    - `trx.game.LevelType.DEMO`  
         A demo.
-    - `trx.game.LevelType.GYM` = `4`  
+    - `trx.game.LevelType.GYM`  
         Lara's home, which has no level number.
-    - `trx.game.LevelType.BONUS` = `5`  
+    - `trx.game.LevelType.BONUS`  
         A bonus level, played once the game is finished.
-    - `trx.game.LevelType.DUMMY` = `6`  
+    - `trx.game.LevelType.DUMMY`  
         Not a level. Kept only because old savegames refer to it.
-    - `trx.game.LevelType.CURRENT` = `7`  
+    - `trx.game.LevelType.CURRENT`  
         Not a level. Kept only because old savegames refer to it.
 
 - <a id="game.PhotoModeTarget" name="game.PhotoModeTarget"></a>[lua]`trx.game.PhotoModeTarget`
 
     What the player's movement keys steer while photo mode is open.
 
-    - `trx.game.PhotoModeTarget.CAMERA` = `0`  
+    - `trx.game.PhotoModeTarget.CAMERA`  
         The camera.
-    - `trx.game.PhotoModeTarget.LARA` = `1`  
+    - `trx.game.PhotoModeTarget.LARA`  
         Lara herself.
 
 ### Structures
 
 - <a id="game.LevelNum" name="game.LevelNum"></a>[lua]`trx.game.LevelNum`
 
-    The number a level goes by, which is what the player is shown and what a gameflow names. Not its place in a table: a level the game flow skips does not count, and a gym level has no number at all and reads 0. Counted from 1.
+    The number a level goes by, which is what the player is shown and what a
+    gameflow names. Not its place in a table: a level the game flow skips does
+    not count, and a gym level has no number at all and reads 0. Counted from 1.
 
 - <a id="game.FMVNum" name="game.FMVNum"></a>[lua]`trx.game.FMVNum`
 
-    The number an FMV goes by, which is its place in the list the game flow declares. Counted from 1.
+    The number an FMV goes by, which is its place in the list the game flow
+    declares. Counted from 1.
 
 - <a id="game.DemoNum" name="game.DemoNum"></a>[lua]`trx.game.DemoNum`
 
@@ -116,20 +128,20 @@ Module for the game flow: which levels there are, and which one is being played.
 
 - <a id="game.Level" name="game.Level"></a>[lua]`trx.game.Level`
 
-    A level, as the game flow file declares it. Everything on it is read-only: a level is what the game flow says it is.
+    A level, as the game flow file declares it. Everything on it is read-only:
+    a level is what the game flow says it is.
 
     Handles are live references: if the underlying object is destroyed,
     using the handle raises an error rather than silently reading an
     unrelated one.
 
     Properties:
-    - <a id="game.Level.key" name="game.Level.key"></a>**`key`**: string. What the level is called, taken from the name of the file it loads: `wall.tr2` reads
-      back as `wall`. Lower case, regardless of the case on disk, and `nil` for a level that loads no file
-      of its own.
-
-      This is the name to write into a table of per-level data. [`num`](#game.Level.num) is a position and
-      moves as soon as a game flow gains a level, and [`path`](#game.Level.path) is wherever the file sits on
-      this install. *(read-only)*
+    - <a id="game.Level.is_completed" name="game.Level.is_completed"></a>**`is_completed`**: boolean. Whether the player has finished the level in the game being played. The statistics screen counts these to say how far into the game a level is. *(read-only)*
+    - <a id="game.Level.key" name="game.Level.key"></a>**`key`**: string. What the level is called, taken from the name of the file it loads: `wall.tr2` reads back as `wall`. Lower case, regardless of the case on disk, and `nil` for a level that loads no file of its own.
+      This is the name to write into a table of per-level data.
+      [`num`](#game.Level.num) is a position and moves as soon as a game flow gains
+      a level, and [`path`](#game.Level.path) is wherever the file sits on this
+      install. *(read-only)*
     - <a id="game.Level.lara_outfit" name="game.Level.lara_outfit"></a>**`lara_outfit`**: string. The outfit Lara starts the level in. *(read-only)*
     - <a id="game.Level.music_track" name="game.Level.music_track"></a>**`music_track`**: [trx.catalog.music](CATALOG.md#catalog.music). The track that plays when the level starts. *(read-only)*
     - <a id="game.Level.num" name="game.Level.num"></a>**`num`**: [trx.game.LevelNum](#game.LevelNum). *(read-only)*
@@ -165,7 +177,29 @@ Module for the game flow: which levels there are, and which one is being played.
 ### Functions
 
 - <a id="game.signals" name="game.signals"></a>[lua]`trx.game.signals`  
-  The signals the game's own state speaks through, for a script that would rather hear about a change than ask after one. Each is read once a frame, so what listens runs on a change rather than on a frame.
+  The signals the game's own state speaks through, for a script that would
+  rather hear about a change than ask after one. Each is read once a frame, so
+  what listens runs on a change rather than on a frame.
+
+- <a id="game.globe" name="game.globe"></a>[lua]`trx.game.globe()`  
+  The areas of the globe that TR3 picks its next adventure on, in the order
+  the game flow lists them. Empty for a game with no globe.
+
+  Returns: a list of table. The areas.
+
+    Each entry:
+    - <a id="game.globe.rot" name="game.globe.rot"></a>**`rot`** ([trx.math.Rot](MATH.md#math.Rot)). How the globe turns to face the area.
+    - <a id="game.globe.mesh" name="game.globe.mesh"></a>**`mesh`** (integer). The globe's mesh that marks the area, counted from 0.
+    - <a id="game.globe.start_level" name="game.globe.start_level"></a>**`start_level`** ([trx.game.Level](#game.Level)). The level the adventure starts on, or `nil` for an area no adventure starts in.
+    - <a id="game.globe.completion_level" name="game.globe.completion_level"></a>**`completion_level`** ([trx.game.Level](#game.Level)). The level whose end finishes the adventure, or `nil`.
+    - <a id="game.globe.prereqs" name="game.globe.prereqs"></a>**`prereqs`** (a list of integer). The areas, counted from 1, whose adventures must be finished before this one opens.
+
+  Example:
+  ```lua
+  for i, area in ipairs(trx.game.globe()) do
+    trx.log.info(i, area.start_level and area.start_level.title)
+  end
+  ```
 
 - <a id="game.play_level" name="game.play_level"></a>[lua]`trx.game.play_level(level_num, [opts])`  
   Starts a level from [`trx.game.levels`](#game.levels).
@@ -176,6 +210,8 @@ Module for the game flow: which levels there are, and which one is being played.
 
     Keys:
     - <a id="game.play_level.opts.select" name="game.play_level.opts.select"></a>**`select`** (boolean, optional). Start the level as the level-select screen does, rebuilding Lara's inventory to what she would carry on reaching it. Without it the level continues from the one in progress.
+    - <a id="game.play_level.opts.ng_plus" name="game.play_level.opts.ng_plus"></a>**`ng_plus`** (boolean, optional). Whether to start the bonus game mode.
+    - <a id="game.play_level.opts.from_save" name="game.play_level.opts.from_save"></a>**`from_save`** (table, optional). The save to take Lara's progress from, as `{ slot_num = 1, pool = trx.savegame.Pool.NORMAL }`. Raises without `select`. The death counter and the restart file then use this save. Without it, `select` builds Lara's inventory as if the game had been played from the first level.
 
   Example:
   ```lua
@@ -194,11 +230,11 @@ Module for the game flow: which levels there are, and which one is being played.
   Parameters:
   - <a id="game.play_demo.demo_num" name="game.play_demo.demo_num"></a>**`demo_num`** ([trx.game.DemoNum](#game.DemoNum), optional). Omit to play the next demo in rotation.
 
-  Returns:
-  - [trx.game.Level](#game.Level) or `nil`. The demo that started, or `nil` if the game has no demos.
+  Returns: [trx.game.Level](#game.Level) or `nil`. The demo that started, or `nil` if the game has no demos.
 
 - <a id="game.play_fmv" name="game.play_fmv"></a>[lua]`trx.game.play_fmv(fmv_num)`  
-  Plays a movie, and returns once it has finished. The game resumes where it left off.
+  Plays a movie, and returns once it has finished. The game resumes where it
+  left off.
 
   Parameters:
   - <a id="game.play_fmv.fmv_num" name="game.play_fmv.fmv_num"></a>**`fmv_num`** ([trx.game.FMVNum](#game.FMVNum)).
@@ -214,14 +250,77 @@ Module for the game flow: which levels there are, and which one is being played.
 - <a id="game.end_level" name="game.end_level"></a>[lua]`trx.game.end_level()`  
   Ends the current level, as though Lara had reached its exit.
 
+- <a id="game.start_new_game" name="game.start_new_game"></a>[lua]`trx.game.start_new_game([settings])`  
+  Starts a new game at the first level.
+
+  The new game uses the selected game mode and clears previous progress.
+
+  Parameters:
+  - <a id="game.start_new_game.settings" name="game.start_new_game.settings"></a>**`settings`** (table, optional). The new game settings.
+
+    Keys:
+    - <a id="game.start_new_game.settings.ng_plus" name="game.start_new_game.settings.ng_plus"></a>**`ng_plus`** (boolean, optional). Whether to start the bonus game mode. `false` by default.
+
+  Example:
+  ```lua
+  trx.game.start_new_game({ ng_plus = true })
+  ```
+
+- <a id="game.restart_level" name="game.restart_level"></a>[lua]`trx.game.restart_level()`  
+  Starts the level being played again from its beginning.
+
+  Raises outside a level, and in a cutscene or a demo.
+
+- <a id="game.can_restart_level" name="game.can_restart_level"></a>[lua]`trx.game.can_restart_level()`  
+  Whether the current level can be restarted. It cannot outside a level, in a
+  cutscene or a demo, or where the save the game runs from does not allow a
+  restart.
+
+  Returns: boolean. Whether the level can be restarted.
+
 - <a id="game.exit_to_title" name="game.exit_to_title"></a>[lua]`trx.game.exit_to_title()`  
   Leaves the current game and returns to the title screen.
 
 - <a id="game.exit_game" name="game.exit_game"></a>[lua]`trx.game.exit_game()`  
   Closes the game.
 
+- <a id="game.set_bonus_check" name="game.set_bonus_check"></a>[lua]`trx.game.set_bonus_check([check])`  
+  Decides whether a bonus level opens as the level before it ends. Without a
+  check, a bonus level opens once every secret of the main levels is found,
+  and the game returns to the title screen otherwise.
+
+  The check is asked before the bonus level starts to load, so a level that
+  stays shut shows nothing of itself, not even its loading screen. It is not
+  asked about a level started from level select or the console. Set it from
+  the game script: it stays set until it is replaced or cleared, whichever
+  level is being played.
+
+  Parameters:
+  - <a id="game.set_bonus_check.check" name="game.set_bonus_check.check"></a>**`check`** (function, optional). The function to ask. It is handed the bonus level and the engine's own answer, and returns whether the level opens; returning nothing leaves the engine's answer. Omit it to go back to the engine's own answer.
+    Called with:
+    - <a id="game.set_bonus_check.level" name="game.set_bonus_check.level"></a>**`level`** ([trx.game.Level](#game.Level)). The bonus level about to start.
+    - <a id="game.set_bonus_check.unlocked" name="game.set_bonus_check.unlocked"></a>**`unlocked`** (boolean). Whether every secret of the main levels has been found, which is what the engine would decide on its own.
+
+  Example:
+  ```lua
+  -- the fourth bonus level opens once the three before it are cleared out
+  trx.game.set_bonus_check(function(level, unlocked)
+    if level.num ~= 12 then
+      return unlocked
+    end
+    for i = 9, 11 do
+      local secrets = trx.game.levels[i].stats.secrets
+      if secrets.count < secrets.max then
+        return false
+      end
+    end
+    return true
+  end)
+  ```
+
 - <a id="game.screenshot" name="game.screenshot"></a>[lua]`trx.game.screenshot([path])`  
-  Takes a screenshot. Without a path, writes one to the screenshots folder in the player's configured format; with a path, writes to that file.
+  Takes a screenshot. Without a path, writes one to the screenshots folder in
+  the player's configured format; with a path, writes to that file.
 
   Parameters:
   - <a id="game.screenshot.path" name="game.screenshot.path"></a>**`path`** (string, optional). File to write to.

@@ -9,6 +9,7 @@
 #include <trx/game/flyby_mode.h>
 #include <trx/game/fx.h>
 #include <trx/game/game.h>
+#include <trx/game/game_flow/sequencer_events.h>
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/gym.h>
 #include <trx/game/input.h>
@@ -18,15 +19,14 @@
 #include <trx/game/lara/hair.h>
 #include <trx/game/lua/events.h>
 #include <trx/game/music.h>
-#include <trx/game/option/passport.h>
 #include <trx/game/output.h>
-#include <trx/game/overlay.h>
 #include <trx/game/savegame.h>
 #include <trx/game/shell.h>
 #include <trx/game/sound.h>
 #include <trx/game/sparks.h>
 #include <trx/game/stats.h>
 #include <trx/game/ui/common.h>
+#include <trx/game/ui/menu.h>
 #include <trx/version.h>
 
 #define M_FRAME_BUFFER(key)                                                    \
@@ -46,6 +46,9 @@ bool Game_Start(const GF_LEVEL *const level, const GF_SEQUENCE_CONTEXT seq_ctx)
 {
     Game_SetCurrentLevel(level);
 
+    LUA_FireEventBool(LUA_EVENT_GAME_START, seq_ctx == GFSC_SAVED);
+    GF_ShowPendingLoadingCamera();
+
     const bool is_cutscene = level->type == GFL_CUTSCENE;
 
     g_OverlayFlag = 1;
@@ -61,9 +64,6 @@ bool Game_Start(const GF_LEVEL *const level, const GF_SEQUENCE_CONTEXT seq_ctx)
         Music_PlayBySlot(level->music_track, is_cutscene ? MPM_ONCE : MPM_LOOP);
     }
 
-    // Which level this is, and what kind, is trx.game.current_level's to
-    // answer; the event carries only what the level itself cannot say.
-    LUA_FireEventBool(LUA_EVENT_GAME_START, seq_ctx == GFSC_SAVED);
     return true;
 }
 
@@ -76,15 +76,6 @@ void Game_End(void)
 GF_COMMAND Game_Control(const bool demo_mode)
 {
     const LARA_INFO *const lara = Lara_GetLaraInfo();
-    if (g_Passport.ask_for_save && !lara->extra_anim) {
-        // ask for a save at the start of a level for the save crystals mode
-        const GF_COMMAND gf_cmd = GF_ShowInventory(INV_SAVE_CRYSTAL_MODE);
-        g_Passport.ask_for_save = false;
-        if (gf_cmd.action != GF_NOOP) {
-            return gf_cmd;
-        }
-    }
-
     Interpolation_Remember();
     if (!Game_IsInGym() || Gym_TrackManager_IsTimerActive(GYM_TRACK_ASSAULT)
         || Gym_TrackManager_IsTimerActive(GYM_TRACK_QUAD)
@@ -113,7 +104,8 @@ GF_COMMAND Game_Control(const bool demo_mode)
         return GF_PauseGame();
     }
     if (demo_mode) {
-        if (g_InputDB.menu_confirm || g_InputDB.menu_back) {
+        if (g_InputDB.menu_skip) {
+            Input_HoldOffSkip(INPUT_SKIP_TO_SCREEN);
             return (GF_COMMAND) { .action = GF_EXIT_TO_TITLE };
         }
         if (!Demo_UpdateInput()) {
@@ -232,11 +224,13 @@ GF_COMMAND Game_Control(const bool demo_mode)
     if (!CutSeq_IsPlaying()) {
         Lara_Control();
         Lara_Hair_Control(false);
+        if (g_TRVersion == 3) {
+            Sparks_UpdateWind();
+        }
     }
 
     Game_TickPostControl();
     Game_TickEndFrame();
-    Overlay_Animate(1);
     return (GF_COMMAND) { .action = GF_NOOP };
 }
 
@@ -269,7 +263,7 @@ void Game_TickEndFrame(void)
     Output_AnimateTextures(1);
     Output_Overlay_UpdateLetterbox();
     Output_Sky_Update();
-    Output_LensFlares_Update();
+    Output_Flash_Update();
 }
 
 void Game_ProcessInput(void)
@@ -296,7 +290,7 @@ void Game_ProcessInput(void)
     }
 
     if (g_InputDB.toggle_ui) {
-        UI_ToggleState(&g_Config.ui.enable_game_ui);
+        Shell_ToggleUI(&g_Config.ui.enable_game_ui);
     }
 
     if (g_InputDB.use_binoculars && Game_IsPlaying()

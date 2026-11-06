@@ -1,9 +1,22 @@
+local fade = require("common.ui.fade")
 local logo = require("tr4.logo")
+local title_page = require("common.ui.title_page")
 
--- The logo sits across the top of the menu at the size the original engine
--- gives it.
+-- The logo sits across the top of the menu at the width the original engine
+-- gives it, and as tall as the picture's shape makes it. It shows only on the
+-- main menu, so the lists and dialogs that the menu opens have the whole
+-- screen.
 local LOGO_WIDTH = 512
-local LOGO_HEIGHT = 256
+
+local LOGO_HOLD_TICKS = 16
+local LOGO_FADE_TICKS = 24
+
+local logo_opacity, restart_logo_fade = fade.value({
+  from = 0,
+  to = 1,
+  ticks = LOGO_FADE_TICKS,
+  delay = LOGO_HOLD_TICKS,
+})
 
 local function show_logo()
   trx.ui.regions.place(
@@ -11,7 +24,8 @@ local function show_logo()
     trx.ui.widgets.Image({
       path = logo.path,
       w = LOGO_WIDTH,
-      h = LOGO_HEIGHT,
+      opacity = logo_opacity,
+      visible = title_page.shows_main,
     })
   )
 end
@@ -67,29 +81,39 @@ trx.events.on_trigger(function(item, trigger)
   end
 end)
 
--- Places blood where the mummy lands on the spikes.
-local BLOOD_CUTSCENE_NUM = CYCLE[3].cutscene_num
-local BLOOD_FIRST_FRAME = 349
-local BLOOD_LAST_FRAME = 357
-local BLOOD_Z = 76209
+-- Places blood/smoke where the mummy is impaled on the spikes.
+local IMPALE_CUTSCENE_NUM = CYCLE[3].cutscene_num
+local IMPALE_FIRST_FRAME = 349
+local IMPALE_LAST_FRAME = 357
+local IMPALE_Z = 76209
 
-trx.cutscenes[BLOOD_CUTSCENE_NUM]:on_frame(function(_, frame_num)
+trx.cutscenes[IMPALE_CUTSCENE_NUM]:on_frame(function(_, frame_num)
   if
-    frame_num < BLOOD_FIRST_FRAME
-    or frame_num > BLOOD_LAST_FRAME
+    frame_num < IMPALE_FIRST_FRAME
+    or frame_num > IMPALE_LAST_FRAME
     or frame_num % 2 == 0
   then
     return
   end
 
-  trx.fx.blood({
-    pos = {
-      x = 6799 - trx.random.draw:randint(0, 255),
-      y = trx.random.draw:randint(0, 511) - 768,
-      z = BLOOD_Z,
-    },
-    strength = 7,
-  })
+  local pos = {
+    x = 6799 - trx.random.draw:randint(0, 255),
+    y = trx.random.draw:randint(0, 511) - 768,
+    z = IMPALE_Z,
+  }
+  if trx.config.get("visuals.fix_texture_issues") then
+    trx.fx.sparks.ricochet({
+      pos = pos,
+      angle = 0,
+      count = 7,
+      smoke_only = true,
+    })
+  else
+    trx.fx.blood({
+      pos = pos,
+      strength = 7,
+    })
+  end
 end)
 
 -- Lara is one of a cutscene's actors, and has no business being on screen
@@ -103,6 +127,7 @@ local function set_lara_visible(visible)
 end
 
 trx.events.on_title_start(function()
+  restart_logo_fade()
   show_logo()
   trx.cutscenes.forget_played()
   set_lara_visible(false)

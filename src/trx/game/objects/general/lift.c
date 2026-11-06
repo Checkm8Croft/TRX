@@ -68,6 +68,15 @@ static const LARA_STATE_ID m_ClimbingStates[] = {
     // clang-format on
 };
 
+static const LARA_ANIMATION_ID m_ClimbingAnims[] = {
+    // clang-format off
+    LA_CLIMB_2CLICK,
+    LA_CLIMB_3CLICK,
+    LA_STAND_TO_JUMP_UP,
+    NO_CATALOG_ID,
+    // clang-format on
+};
+
 static RESULT M_LoadPriv(ITEM *const item, JSON_READ_IO *const io)
 {
     M_PRIV *const p = item->priv;
@@ -149,32 +158,34 @@ static M_LARA_STATUS M_GetLaraStatus(
 }
 
 static void M_FloorCeiling(
-    const ITEM *const item, const XYZ_32 pos, int32_t *const out_floor,
-    int32_t *const out_ceiling)
+    const ITEM *const item, const XYZ_32 pos, const ROOM_HEIGHT_CTX *const ctx,
+    int32_t *const out_floor, int32_t *const out_ceiling)
 {
-    ITEM *const lara_item = Lara_GetItem();
+    const ITEM *const subject =
+        ctx->subject != nullptr ? ctx->subject : Lara_GetItem();
     const XZ_32 lift_tile = M_GetTile(item->pos);
-    const XZ_32 lara_tile = M_GetTile(lara_item->pos);
+    const XZ_32 subject_tile = M_GetTile(subject->pos);
     const XZ_32 test_tile = M_GetTile(pos);
     const XZ_32 offset = M_GetShaftOffset(item->rot.y);
 
     const bool point_in_shaft = M_IsTileInShaft(test_tile, lift_tile, offset);
-    const bool lara_in_shaft = M_IsTileInShaft(lara_tile, lift_tile, offset);
+    const bool subject_in_shaft =
+        M_IsTileInShaft(subject_tile, lift_tile, offset);
 
     const int32_t lift_bottom = item->pos.y + STEP_L;
     const int32_t lift_floor = item->pos.y;
     const int32_t lift_ceiling = item->pos.y - M_HEIGHT + STEP_L;
     const int32_t lift_top = item->pos.y - M_HEIGHT;
 
-    const bool lara_inside_lift =
-        M_GetLaraStatus(item, lara_item) == M_LARA_INSIDE;
+    const bool subject_inside_lift =
+        M_GetLaraStatus(item, subject) == M_LARA_INSIDE;
 
     *out_floor = -UNDEFINED_HEIGHT;
     *out_ceiling = UNDEFINED_HEIGHT;
 
-    if (lara_in_shaft) {
+    if (subject_in_shaft) {
         if (item->current_anim_state == M_STATE_DOOR_CLOSED
-            && lara_inside_lift) {
+            && subject_inside_lift) {
             if (point_in_shaft) {
                 *out_floor = lift_floor;
                 *out_ceiling = lift_ceiling;
@@ -183,9 +194,9 @@ static void M_FloorCeiling(
                 *out_ceiling = -UNDEFINED_HEIGHT;
             }
         } else if (point_in_shaft) {
-            if (lara_item->pos.y <= lift_ceiling) {
+            if (subject->pos.y <= lift_ceiling) {
                 *out_floor = lift_top;
-            } else if (lara_item->pos.y <= lift_bottom) {
+            } else if (subject->pos.y <= lift_bottom) {
                 *out_floor = lift_floor;
                 *out_ceiling = lift_ceiling;
             } else {
@@ -208,11 +219,12 @@ static void M_FloorCeiling(
 }
 
 static int32_t M_GetFloorHeight(
-    const ITEM *const item, const XYZ_32 pos, const int32_t height)
+    const ITEM *const item, const XYZ_32 pos, const int32_t height,
+    const ROOM_HEIGHT_CTX *const ctx)
 {
     int32_t new_floor;
     int32_t new_ceiling;
-    M_FloorCeiling(item, pos, &new_floor, &new_ceiling);
+    M_FloorCeiling(item, pos, ctx, &new_floor, &new_ceiling);
     if (new_floor >= height) {
         return height;
     }
@@ -220,11 +232,12 @@ static int32_t M_GetFloorHeight(
 }
 
 static int32_t M_GetCeilingHeight(
-    const ITEM *const item, const XYZ_32 pos, const int32_t height)
+    const ITEM *const item, const XYZ_32 pos, const int32_t height,
+    const ROOM_HEIGHT_CTX *const ctx)
 {
     int32_t new_floor;
     int32_t new_ceiling;
-    M_FloorCeiling(item, pos, &new_floor, &new_ceiling);
+    M_FloorCeiling(item, pos, ctx, &new_floor, &new_ceiling);
     if (new_ceiling <= height) {
         return height;
     }
@@ -364,8 +377,7 @@ static void M_InternalCollision(const ITEM *const item, COLL_INFO *const coll)
 }
 
 static bool M_ShouldPreventClimbing(
-    const ITEM *const item, const ITEM *const lara_item,
-    const M_LARA_STATUS lara_status)
+    const ITEM *const item, const M_LARA_STATUS lara_status)
 {
     if (!Lara_TestBoundsCollide(item, 0)) {
         return false;
@@ -386,9 +398,7 @@ static bool M_ShouldPreventClimbing(
         return false;
     }
 
-    return Item_TestAnimEqual(lara_item, LA(LA_CLIMB_2CLICK))
-        || Item_TestAnimEqual(lara_item, LA(LA_CLIMB_3CLICK))
-        || Item_TestAnimEqual(lara_item, LA(LA_STAND_TO_JUMP_UP));
+    return Lara_HasAnimation(m_ClimbingAnims);
 }
 
 static void M_PreventClimbing(ITEM *const lara_item)
@@ -442,7 +452,7 @@ static void M_Collision(
         return;
     }
 
-    if (M_ShouldPreventClimbing(item, lara_item, lara_status)) {
+    if (M_ShouldPreventClimbing(item, lara_status)) {
         M_PreventClimbing(lara_item);
         return;
     }
@@ -498,12 +508,8 @@ static bool M_IsItemInStack(
     return false;
 }
 
-static void M_ShiftTravellingItems(
-    const ITEM *const lift_item, const int32_t delta)
+static void M_ShiftTravellingItems(const ITEM *const lift_item)
 {
-    // TODO: rather than passing delta to listeners, refactor Room_GetHeight to
-    // be more aware of what's calling it, so that such checks in M_FloorCeiling
-    // that expect Lara only can become more generic.
     for (int32_t i = 0; i < Item_GetLevelCount(); i++) {
         ITEM *const item = Item_Get(i);
         if (item == lift_item) {
@@ -519,8 +525,7 @@ static void M_ShiftTravellingItems(
             continue;
         }
 
-        obj->event_func(
-            item, OBJECT_EVENT_FLOOR_MOVED, (void *)(intptr_t)delta);
+        obj->event_func(item, OBJECT_EVENT_FLOOR_MOVED, nullptr);
     }
 }
 
@@ -555,7 +560,7 @@ static void M_Control(const int16_t item_num)
         // Raise/lower possible movable blocks on top and check positions on
         // save vs load.
         M_ShiftStackableItems(item, false);
-        M_ShiftTravellingItems(item, step);
+        M_ShiftTravellingItems(item);
     }
 
     Item_Animate(item);
@@ -580,7 +585,7 @@ static void M_AddWalkable(const int16_t item_num)
 
 static bool M_Draw(const ITEM *const item)
 {
-    Object_DrawAnimatingItem(item);
+    Item_DrawAnimating(item);
     if (!g_Config.debug.enable_debug_bounding_boxes
         || !g_Config.gameplay.fix_lift_collision) {
         return true;
@@ -596,7 +601,8 @@ static bool M_Draw(const ITEM *const item)
         Matrix_TranslateRel(WALL_L, 0, 0);
         Matrix_RotY(DEG_90);
         if (i > 0 || p->is_moving) {
-            Output_DrawCuboidEx(&p->wall_bounds, M_WALL_COLOR);
+            const BOUNDS_32 bounds = BOUNDS_32_From16(&p->wall_bounds);
+            Output_DrawCuboidEx(&bounds, M_WALL_COLOR);
         }
     }
 

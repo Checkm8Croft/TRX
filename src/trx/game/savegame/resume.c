@@ -44,6 +44,7 @@ static void M_PersistInventory(RESUME_INFO *const resume)
 
     resume->inv = (INVENTORY_STATE) {};
     Inv_State_CopyAmmo(&resume->inv, live);
+    Inv_State_CopyAttachments(&resume->inv, live);
 
     for (int32_t i = 0; i < Gun_Registry_GetCount(); i++) {
         const WEAPON_INFO *const info = Gun_Registry_GetByIndex(i);
@@ -64,17 +65,34 @@ static void M_PersistInventory(RESUME_INFO *const resume)
         Inv_HasItem(O_BINOCULARS_ITEM) ? 1 : 0);
 }
 
+static size_t M_GetSize(void)
+{
+    return sizeof(RESUME_INFO)
+        * (GF_GetLevelTable(GFLT_MAIN)->count
+           + GF_GetLevelTable(GFLT_DEMOS)->count);
+}
+
 void SG_Resume_Init(void)
 {
-    m_ResumeInfo = Memory_Alloc(
-        sizeof(RESUME_INFO)
-        * (GF_GetLevelTable(GFLT_MAIN)->count
-           + GF_GetLevelTable(GFLT_DEMOS)->count));
+    m_ResumeInfo = Memory_Alloc(M_GetSize());
 }
 
 void SG_Resume_Shutdown(void)
 {
     Memory_FreePointer(&m_ResumeInfo);
+}
+
+RESUME_INFO *SG_Resume_Snapshot(void)
+{
+    RESUME_INFO *const snapshot = Memory_Alloc(M_GetSize());
+    memcpy(snapshot, m_ResumeInfo, M_GetSize());
+    return snapshot;
+}
+
+void SG_Resume_Restore(RESUME_INFO *const snapshot)
+{
+    memcpy(m_ResumeInfo, snapshot, M_GetSize());
+    Memory_Free(snapshot);
 }
 
 RESUME_INFO *SG_Resume_GetEntry(const GF_LEVEL *const level)
@@ -106,7 +124,7 @@ void SG_Resume_MirrorCurrentEntry(const GF_LEVEL *const level)
     }
 }
 
-void SG_Resume_ResetAllEntries(void)
+void SG_Resume_ClearEntries(void)
 {
     const GF_LEVEL_TABLE *const level_table = GF_GetLevelTable(GFLT_MAIN);
     for (int32_t i = 0; i < level_table->count; i++) {
@@ -124,6 +142,11 @@ void SG_Resume_ResetAllEntries(void)
     if (GF_GetFirstLevel() != nullptr) {
         SG_Resume_GetEntry(GF_GetFirstLevel())->flags.available = true;
     }
+}
+
+void SG_Resume_ResetAllEntries(void)
+{
+    SG_Resume_ClearEntries();
 
     // Lara's wetness survives level transitions; a fresh playthrough starts
     // dry.
@@ -183,6 +206,10 @@ void SG_Resume_StoreGameToEntry(const GF_LEVEL *const level)
         resume->lara_hitpoints = lara_item->hit_points;
     }
     resume->burning = g_TRVersion >= 4 && lara->burn;
+    resume->flare_age = g_TRVersion >= 4 && Gun_IsFlareType(lara->gun_type)
+            && Gun_Flare_IsMeshActive() && !Gun_Flare_HasExpired()
+        ? lara->flare.age
+        : 0;
     M_PersistInventory(resume);
 
     resume->equipped_gun_type = lara->last_gun_type;
@@ -200,6 +227,26 @@ void SG_Resume_StoreGameToEntry(const GF_LEVEL *const level)
     } else {
         resume->gun_status = LGS_ARMLESS;
     }
+}
+
+void SG_Resume_CarryGameToEntry(
+    const GF_LEVEL *const src_level, const GF_LEVEL *const dst_level)
+{
+    const RESUME_INFO *const src = SG_Resume_GetEntry(src_level);
+    RESUME_INFO *const dst = SG_Resume_GetEntry(dst_level);
+    if (src == nullptr || dst == nullptr) {
+        return;
+    }
+
+    dst->flags.available = true;
+    dst->lara_hitpoints = src->lara_hitpoints;
+    dst->burning = src->burning;
+    dst->flare_age = src->flare_age;
+    dst->inv = src->inv;
+    dst->equipped_gun_type = src->equipped_gun_type;
+    dst->holsters_gun_type = src->holsters_gun_type;
+    dst->back_gun_type = src->back_gun_type;
+    dst->gun_status = src->gun_status;
 }
 
 void SG_Resume_ApplyRulesToEntry(const GF_LEVEL *const level)
@@ -272,7 +319,7 @@ void SG_Resume_ApplyRulesToEntry(const GF_LEVEL *const level)
                 continue;
             }
             Inv_State_SetCount(&resume->inv, gun_object, 1);
-            Inv_State_SetAmmo(
+            Inv_State_FillAmmo(
                 &resume->inv, gun_type,
                 Gun_GetDefaultType() == gun_type
                     ? Gun_GetInitialRounds(gun_type)

@@ -225,6 +225,7 @@ static void M_Collision(
     l->current_anim_state = M_STATE_CLIMB_IN;
     l->goal_anim_state = M_STATE_CLIMB_IN;
     lara_info->water_status = LWS_ABOVE_WATER;
+    lara_info->gun_status = LGS_HANDS_BUSY;
     l->pos = item->pos;
     l->rot.x = 0;
     l->rot.y = item->rot.y;
@@ -1028,7 +1029,8 @@ static void M_DoWake(
 
 static void M_TriggerRapidsMist(const XYZ_32 pos)
 {
-    SPARK *const spark = Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION);
+    SPARK *const spark = Sparks_InitialiseSpriteSpark(
+        SPARK_TYPE_EXPLOSION, SPARK_CONTEXT_WATER_MIST);
     if (spark == nullptr) {
         return;
     }
@@ -1142,7 +1144,7 @@ static void M_KayakToBaddieCollision(const ITEM *const p)
 static bool M_Draw(const ITEM *const item)
 {
     ((ITEM *)item)->pos.y += 32;
-    const bool drawn = Object_DrawAnimatingItem(item);
+    const bool drawn = Item_DrawAnimating(item);
     ((ITEM *)item)->pos.y -= 32;
     if (drawn) {
         FX_Wake_Draw(item);

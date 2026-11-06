@@ -3,6 +3,7 @@
 #include <trx/config.h>
 #include <trx/core/math.h>
 #include <trx/core/utils.h>
+#include <trx/game/camera/binoculars.h>
 #include <trx/game/creature.h>
 #include <trx/game/gun/common.h>
 #include <trx/game/gun/flare.h>
@@ -19,10 +20,14 @@
 #include <trx/game/output/water.h>
 #include <trx/game/pathing.h>
 #include <trx/game/random.h>
+#include <trx/game/rooms.h>
 #include <trx/game/sound.h>
 #include <trx/game/spawn.h>
+#include <trx/game/stats.h>
 
 #define M_NEAR_ANGLE (DEG_1 * 15) // = 2730
+#define M_BLAST_DAMAGE 30
+#define M_BLAST_LARA_DAMAGE 50
 
 typedef struct {
     const WEAPON_INFO *weapon;
@@ -165,29 +170,16 @@ static void M_DrawGunGlow(
         weapon->glow.scale);
 }
 
-void Gun_ApplyFlashSemiTransparency(void)
-{
-    // TR3+ level data already flags the flash faces as semi-transparent;
-    // never touch it there.
-    if (g_TRVersion >= 3) {
-        return;
-    }
-    // The PS1 versions drew the muzzle flashes and the flare fire
-    // semi-transparent; the PC data has them as plain opaque meshes.
-    static const OBJECT_ID flash_objects[] = {
-        O_GUN_FLASH,
-        O_M16_FLASH,
-        O_FLARE_FIRE,
-    };
-    for (int32_t i = 0; i < (int32_t)ARRAY_SIZE(flash_objects); i++) {
-        Object_SetSemiTransparent(
-            flash_objects[i], g_Config.visuals.enable_gun_glow);
-    }
-}
-
 void Gun_FindTargetPoint(const ITEM *const item, GAME_VECTOR *const target)
 {
-    const BOUNDS_16 *const bounds = &Item_GetBestFrame(item)->bounds;
+    const ANIM_FRAME *const frame = Item_GetBestFrame(item);
+    if (frame == nullptr) {
+        target->pos = item->pos;
+        target->room_num = item->room_num;
+        return;
+    }
+
+    const BOUNDS_16 *const bounds = &frame->bounds;
     const int32_t x = bounds->min.x + (bounds->max.x - bounds->min.x) / 2;
     const int32_t y = bounds->min.y + (bounds->max.y - bounds->min.y) / 3;
     const int32_t z = bounds->min.z + (bounds->max.z - bounds->min.z) / 2;
@@ -421,8 +413,8 @@ void Gun_HitTarget(
         }
     }
 
-    const bool make_ricochet = !Item_ShouldSpawnBlood(item);
-    if (item->object_id == O_SHIVA && make_ricochet) {
+    const ITEM_HIT_EFFECT hit_effect = Item_GetHitEffect(item);
+    if (item->object_id == O_SHIVA && hit_effect == ITEM_HIT_RICOCHET) {
         damage = 0;
     }
 
@@ -438,16 +430,17 @@ void Gun_HitTarget(
         Creature_Hurt(item, damage);
     }
 
-    if (hit_pos != nullptr) {
-        if (make_ricochet) {
+    if (hit_pos != nullptr && hit_effect != ITEM_HIT_NONE) {
+        if (hit_effect == ITEM_HIT_RICOCHET || hit_effect == ITEM_HIT_SMOKE) {
             const GAME_VECTOR pos = {
                 .pos = hit_pos->pos,
                 .room_num = item->room_num,
             };
+            const bool smoke_only = hit_effect == ITEM_HIT_SMOKE;
             if (start != nullptr) {
-                Spawn_RicochetRay(*start, pos, 3);
+                Spawn_RicochetRay(*start, pos, 3, smoke_only);
             } else {
-                Spawn_Ricochet(pos);
+                Spawn_Ricochet(pos, smoke_only);
             }
         } else {
             Spawn_Blood(
@@ -490,11 +483,49 @@ void Gun_HitTarget(
     }
 }
 
+void Gun_HitTargetWithBlast(ITEM *const item, const ITEM *const source)
+{
+    if (item->clear_body) {
+        return;
+    }
+
+    ITEM *const lara_item = Lara_GetItem();
+    if (item == lara_item) {
+        if (lara_item->hit_points <= 0) {
+            return;
+        }
+        Lara_TakeDamage(M_BLAST_LARA_DAMAGE, false);
+        if (!Room_Get(source->room_num)->flags.underwater
+            && lara_item->hit_points <= M_BLAST_LARA_DAMAGE) {
+            Lara_CatchFire();
+        }
+        return;
+    }
+
+    item->hit_status = true;
+    // TODO: TR4 spares Ahmet, which TRX lacks.
+    Gun_HitTarget(item, nullptr, nullptr, M_BLAST_DAMAGE);
+    Stats_AddAmmoHits();
+    // TODO: TR4 lets the baboons, which TRX lacks, die their own way.
+    if (item->hit_points <= 0 && Object_CanBeExploded(item)) {
+        Creature_Die(
+            Item_GetIndex(item), (CREATURE_DIE_ARGS) { .explode = true });
+    }
+}
+
 void Gun_GetNewTarget(const WEAPON_INFO *const weapon)
 {
     const ITEM *const lara_item = Lara_GetItem();
     LARA_INFO *const lara = Lara_GetLaraInfo();
     const ITEM *const old_target = lara->target;
+
+    // The laser sight aims where its view points, so Lara holds no target
+    // and the direction keys turn the view, as in TR4.
+    if (Camera_Binoculars_IsLaserSight()) {
+        lara->target = nullptr;
+        Gun_TargetInfo(weapon);
+        return;
+    }
 
     // Preserve OG targeting behavior.
     if (g_Config.gameplay.target_mode == TARGET_LOCK_MODE_FULL
@@ -526,13 +557,22 @@ void Gun_GetNewTarget(const WEAPON_INFO *const weapon)
         .old_target_in_list = false,
     };
 
-    // First pass: active creatures
-    for (int32_t i = 0; i < LOT_SLOT_COUNT; i++) {
-        const CREATURE *const creature = LOT_GetBaddieSlot(i);
-        if (creature->item_num == NO_ITEM) {
-            continue;
+    // First pass: simulated items, in the order TR1 and TR3 take them,
+    // because it decides between targets that are equally good. TR2 takes
+    // the creatures in its LOT slots instead.
+    if (g_TRVersion == 2) {
+        for (int32_t i = 0; i < LOT_SLOT_COUNT; i++) {
+            const CREATURE *const creature = LOT_GetBaddieSlot(i);
+            if (creature->item_num == NO_ITEM) {
+                continue;
+            }
+            M_ConsiderTarget(&ctx, Item_Get(creature->item_num));
         }
-        M_ConsiderTarget(&ctx, Item_Get(creature->item_num));
+    } else {
+        for (int16_t item_num = Item_GetNextSimulated(); item_num != NO_ITEM;
+             item_num = Item_Get(item_num)->next_simulated) {
+            M_ConsiderTarget(&ctx, Item_Get(item_num));
+        }
     }
 
     // Second pass: other objects, including skidoo driver, whose targetable

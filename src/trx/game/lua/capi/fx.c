@@ -9,7 +9,9 @@
 #include <trx/game/lua/field.h>
 #include <trx/game/lua/registry.h>
 #include <trx/game/lua/struct.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/args.h>
+#include <trx/game/lua/utils/module.h>
+#include <trx/game/lua/utils/value.h>
 #include <trx/game/output/lights.h>
 #include <trx/game/output/lights/fog_bulbs.h>
 #include <trx/game/rooms/common.h>
@@ -89,6 +91,7 @@ static const FIELD_DESC m_SparkFields[] = {
     FIELD(SPARK, node_num),
     FIELD_RO(SPARK, room_num),
     FIELD_RO(SPARK, draw_type),
+    FIELD(SPARK, context),
 
     FIELD_FN("scales", TVT_BOOL, M_GetSparkScales, M_SetSparkScales),
     FIELD_FN("is_blood", TVT_BOOL, M_GetSparkIsBlood, M_SetSparkIsBlood),
@@ -129,7 +132,8 @@ static M_COMMON M_ReadCommon(lua_State *const L)
     };
 }
 
-// trxc.fx.emit_light(x, y, z, r, g, b, radius)
+// trxc.fx.emit_light(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, r: integer, g: integer, b: integer, radius: integer)
+// Measures the radius in eighths of a sector.
 static int M_L_EmitLight(lua_State *const L)
 {
     const M_COMMON common = M_ReadCommon(L);
@@ -139,7 +143,7 @@ static int M_L_EmitLight(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.emit_fog(x, y, z, r, g, b, radius, density)
+// trxc.fx.emit_fog(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, r: integer, g: integer, b: integer, radius: trx.math.Distance, density: integer)
 static int M_L_EmitFog(lua_State *const L)
 {
     const M_COMMON common = M_ReadCommon(L);
@@ -173,7 +177,7 @@ static M_BLOOD M_ReadBlood(lua_State *const L)
     };
 }
 
-// trxc.fx.blood(x, y, z, strength, angle)
+// trxc.fx.blood(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, strength: integer, angle: trx.math.Angle)
 static int M_L_Blood(lua_State *const L)
 {
     const M_BLOOD blood = M_ReadBlood(L);
@@ -183,7 +187,7 @@ static int M_L_Blood(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.blood_bath(x, y, z, strength, angle, count)
+// trxc.fx.blood_bath(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, strength: integer, angle: trx.math.Angle, count: integer)
 static int M_L_BloodBath(lua_State *const L)
 {
     const M_BLOOD blood = M_ReadBlood(L);
@@ -222,7 +226,7 @@ static ITEM *M_CheckItem(lua_State *const L, const int arg)
     return Item_Get(item_num);
 }
 
-// trxc.fx.explosion(x, y, z, with_sound)
+// trxc.fx.explosion(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, with_sound?: boolean)
 static int M_L_Explosion(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -230,7 +234,7 @@ static int M_L_Explosion(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.fire(x, y, z, size, fade)
+// trxc.fx.fire(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, size: integer, fade: integer)
 static int M_L_Fire(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -240,21 +244,21 @@ static int M_L_Fire(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.splash(item_num)
+// trxc.fx.splash(item_num: trx.items.Num)
 static int M_L_Splash(lua_State *const L)
 {
     FX_Water_Splash(M_CheckItem(L, 1));
     return 0;
 }
 
-// trxc.fx.wade_splash(item_num, depth)
+// trxc.fx.wade_splash(item_num: trx.items.Num, depth: trx.math.Distance)
 static int M_L_WadeSplash(lua_State *const L)
 {
     FX_Water_WadeSplash(M_CheckItem(L, 1), luaL_checkinteger(L, 2));
     return 0;
 }
 
-// trxc.fx.ripple(x, y, z, size, slow, dark, blood, jitter)
+// trxc.fx.ripple(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, size: integer, slow?: boolean, dark?: boolean, blood?: boolean, jitter?: boolean)
 static int M_L_Ripple(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -278,7 +282,7 @@ static int M_L_Ripple(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.small_splash(x, y, z, count)
+// trxc.fx.small_splash(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, count: integer)
 static int M_L_SmallSplash(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -288,7 +292,7 @@ static int M_L_SmallSplash(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.underwater_blood(x, y, z, size, dark)
+// trxc.fx.underwater_blood(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, size: integer, dark?: boolean)
 static int M_L_UnderwaterBlood(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -302,14 +306,32 @@ static int M_L_UnderwaterBlood(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.footprint(item_num, is_left_foot)
+// trxc.fx.footprint(item_num: trx.items.Num, is_left_foot?: boolean)
 static int M_L_Footprint(lua_State *const L)
 {
     FX_Footprint_Add(M_CheckItem(L, 1), lua_toboolean(L, 2));
     return 0;
 }
 
-// trxc.fx.knockback(x, y, z)
+// trxc.fx.gun_flash(item_num: trx.items.Num, mesh_num: integer, x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, rot_x: trx.math.Angle, object_id: trx.catalog.objects): boolean
+static int M_L_GunFlash(lua_State *const L)
+{
+    const ITEM *const item = M_CheckItem(L, 1);
+    const BITE bite = {
+        .mesh_num = (int16_t)luaL_checkinteger(L, 2),
+        .pos = {
+            .x = (int32_t)luaL_checkinteger(L, 3),
+            .y = (int32_t)luaL_checkinteger(L, 4),
+            .z = (int32_t)luaL_checkinteger(L, 5),
+        },
+    };
+    const int16_t rot_x = (int16_t)luaL_checkinteger(L, 6);
+    const OBJECT_ID object_id = LUA_CheckObjectID(L, 7);
+    lua_pushboolean(L, FX_GunFlash_SpawnAt(item, bite, object_id, rot_x));
+    return 1;
+}
+
+// trxc.fx.knockback(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, tilt?: trx.math.Angle)
 static int M_L_Knockback(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -364,14 +386,15 @@ static void *M_ResolveBulb(const LUA_STRUCT_REF *const ref)
     return Output_FogBulbs_FromHandle(ref->handle);
 }
 
-// trxc.fx.fog_bulb_count() -> int
+// trxc.fx.fog_bulb_count(): integer
 static int M_L_FogBulbCount(lua_State *const L)
 {
     lua_pushinteger(L, Output_FogBulbs_GetStaticCount());
     return 1;
 }
 
-// trxc.fx.get_fog_bulb(index) -> FogBulb or nil
+// trxc.fx.get_fog_bulb(index: integer): trx.fx.FogBulb?
+// Counts the index from 0.
 static int M_L_GetFogBulb(lua_State *const L)
 {
     int32_t idx;
@@ -385,7 +408,7 @@ static int M_L_GetFogBulb(lua_State *const L)
     return 1;
 }
 
-// trxc.fx.get_fog_bulb_room(bulb) -> room number or nil
+// trxc.fx.get_fog_bulb_room(bulb: trx.fx.FogBulb): trx.rooms.Num?
 static int M_L_GetFogBulbRoom(lua_State *const L)
 {
     LUA_STRUCT_REF *const ref = LUA_Struct_CheckRef(L, 1, &TYPE_FOG_BULB);
@@ -394,7 +417,7 @@ static int M_L_GetFogBulbRoom(lua_State *const L)
     return 1;
 }
 
-// trxc.fx.get_fog_color() -> color or nil
+// trxc.fx.get_fog_color(): trx.math.Color?
 static int M_L_GetFogColor(lua_State *const L)
 {
     const TRX_VALUE *const color =
@@ -407,7 +430,7 @@ static int M_L_GetFogColor(lua_State *const L)
     return 1;
 }
 
-// trxc.fx.set_fog_color(color or nil)
+// trxc.fx.set_fog_color(color?: trx.math.Color)
 static int M_L_SetFogColor(lua_State *const L)
 {
     if (lua_isnoneornil(L, 1)) {
@@ -486,7 +509,7 @@ static XYZ_32 M_OptXYZField(
     return value;
 }
 
-// trxc.fx.spawn_spark(opts) -> spark or nil
+// trxc.fx.spawn_spark(opts: trx.fx.sparks.spawn.opts): trx.fx.Spark?
 static int M_L_SpawnSpark(lua_State *const L)
 {
     luaL_checktype(L, 1, LUA_TTABLE);
@@ -495,11 +518,13 @@ static int M_L_SpawnSpark(lua_State *const L)
     // taken, so a raised error leaves no half-built spark alive in the pool.
     const int32_t sprite_type =
         M_OptField(L, 1, "sprite_type", SPARK_TYPE_PARTICLE, 0, INT8_MAX);
+    const int32_t spark_context =
+        M_OptField(L, 1, "spark_context", SPARK_CONTEXT_DEFAULT, 0, INT8_MAX);
     const XYZ_32 pos = M_OptXYZField(L, 1, "pos");
     const int16_t room_num = M_CheckRoom(L, pos);
 
-    SPARK *const spark =
-        Sparks_InitialiseSpriteSpark((SPARK_SPRITE_TYPE)sprite_type);
+    SPARK *const spark = Sparks_InitialiseSpriteSpark(
+        (SPARK_SPRITE_TYPE)sprite_type, (SPARK_CONTEXT)spark_context);
     if (spark == nullptr) {
         lua_pushnil(L);
         return 1;
@@ -559,14 +584,15 @@ static int M_L_SpawnSpark(lua_State *const L)
     return 1;
 }
 
-// trxc.fx.spark_max_count() -> int
+// trxc.fx.spark_max_count(): integer
 static int M_L_SparkMaxCount(lua_State *const L)
 {
     lua_pushinteger(L, Sparks_GetMaxCount());
     return 1;
 }
 
-// trxc.fx.get_spark(index) -> spark or nil
+// trxc.fx.get_spark(index: integer): trx.fx.Spark?
+// Counts the index from 0.
 static int M_L_GetSpark(lua_State *const L)
 {
     int32_t idx;
@@ -579,14 +605,14 @@ static int M_L_GetSpark(lua_State *const L)
     return 1;
 }
 
-// trxc.fx.get_spark_world_pos(spark) -> pos
+// trxc.fx.get_spark_world_pos(spark: trx.fx.Spark): trx.math.Vec3
 static int M_L_GetSparkWorldPos(lua_State *const L)
 {
     LUA_PushXYZ(L, Sparks_GetWorldPos(M_CheckSpark(L, 1)));
     return 1;
 }
 
-// trxc.fx.get_spark_item(spark) -> item number or nil
+// trxc.fx.get_spark_item(spark: trx.fx.Spark): trx.items.Num?
 static int M_L_GetSparkItem(lua_State *const L)
 {
     const SPARK *const spark = M_CheckSpark(L, 1);
@@ -611,7 +637,7 @@ static int M_L_SparkKill(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.get_smoke_wind() -> x, z
+// trxc.fx.get_smoke_wind(): trx.math.Distance, trx.math.Distance
 static int M_L_GetSmokeWind(lua_State *const L)
 {
     const XZ_32 wind = Sparks_GetSmokeWind();
@@ -620,7 +646,7 @@ static int M_L_GetSmokeWind(lua_State *const L)
     return 2;
 }
 
-// trxc.fx.set_smoke_wind(x, z)
+// trxc.fx.set_smoke_wind(x: trx.math.Distance, z: trx.math.Distance)
 static int M_L_SetSmokeWind(lua_State *const L)
 {
     Sparks_SetSmokeWind((XZ_32) {
@@ -630,7 +656,7 @@ static int M_L_SetSmokeWind(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_explosion(x, y, z, extras, dynamic, underwater)
+// trxc.fx.spark_explosion(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, extras: integer, dynamic: integer, underwater?: boolean)
 static int M_L_SparkExplosion(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -643,7 +669,7 @@ static int M_L_SparkExplosion(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_explosion_smoke(x, y, z, underwater, ending)
+// trxc.fx.spark_explosion_smoke(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, underwater?: boolean, ending?: boolean)
 static int M_L_SparkExplosionSmoke(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -657,7 +683,7 @@ static int M_L_SparkExplosionSmoke(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_explosion_bubble(x, y, z)
+// trxc.fx.spark_explosion_bubble(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance)
 static int M_L_SparkExplosionBubble(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -665,28 +691,28 @@ static int M_L_SparkExplosionBubble(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_fire_flame(x, y, z, type)
+// trxc.fx.spark_fire_flame(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, type: integer)
 static int M_L_SparkFireFlame(lua_State *const L)
 {
     Sparks_TriggerFireFlame(M_ReadPos(L), -1, luaL_checkinteger(L, 4));
     return 0;
 }
 
-// trxc.fx.spark_fire_smoke(x, y, z, type)
+// trxc.fx.spark_fire_smoke(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, type: integer)
 static int M_L_SparkFireSmoke(lua_State *const L)
 {
     Sparks_TriggerFireSmoke(M_ReadPos(L), -1, luaL_checkinteger(L, 4));
     return 0;
 }
 
-// trxc.fx.spark_static_flame(x, y, z, size)
+// trxc.fx.spark_static_flame(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, size: integer)
 static int M_L_SparkStaticFlame(lua_State *const L)
 {
     Sparks_TriggerStaticFlame(M_ReadPos(L), luaL_checkinteger(L, 4));
     return 0;
 }
 
-// trxc.fx.spark_side_flame(x, y, z, angle, speed, pilot)
+// trxc.fx.spark_side_flame(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, angle: trx.math.Angle, speed: integer, pilot?: boolean)
 static int M_L_SparkSideFlame(lua_State *const L)
 {
     Sparks_TriggerSideFlame(
@@ -695,21 +721,21 @@ static int M_L_SparkSideFlame(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_flamethrower_flame(x, y, z)
+// trxc.fx.spark_flamethrower_flame(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance)
 static int M_L_SparkFlamethrowerFlame(lua_State *const L)
 {
     Sparks_TriggerFlamethrowerHitFlame(M_ReadPos(L));
     return 0;
 }
 
-// trxc.fx.spark_flamethrower_smoke(x, y, z, underwater)
+// trxc.fx.spark_flamethrower_smoke(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, underwater?: boolean)
 static int M_L_SparkFlamethrowerSmoke(lua_State *const L)
 {
     Sparks_TriggerFlamethrowerSmoke(M_ReadPos(L), lua_toboolean(L, 4));
     return 0;
 }
 
-// trxc.fx.spark_gun_smoke(x, y, z, weapon, shade, initial, vx, vy, vz)
+// trxc.fx.spark_gun_smoke(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, weapon: trx.catalog.weapons, shade: integer, initial?: boolean, vx?: trx.math.Distance, vy?: trx.math.Distance, vz?: trx.math.Distance)
 static int M_L_SparkGunSmoke(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -736,7 +762,7 @@ static int M_L_SparkGunSmoke(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_dart_smoke(x, y, z, vx, vz, hit)
+// trxc.fx.spark_dart_smoke(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, vx: trx.math.Distance, vz: trx.math.Distance, hit?: boolean)
 static int M_L_SparkDartSmoke(lua_State *const L)
 {
     Sparks_TriggerDartSmoke(
@@ -749,7 +775,7 @@ static int M_L_SparkDartSmoke(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_rocket_smoke(x, y, z, spread)
+// trxc.fx.spark_rocket_smoke(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, spread: integer)
 static int M_L_SparkRocketSmoke(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -758,7 +784,7 @@ static int M_L_SparkRocketSmoke(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_flare(x, y, z, vx, vy, vz, smoke)
+// trxc.fx.spark_flare(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, vx: trx.math.Distance, vy: trx.math.Distance, vz: trx.math.Distance, smoke?: boolean)
 static int M_L_SparkFlare(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -773,7 +799,7 @@ static int M_L_SparkFlare(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_shotgun(x, y, z, vx, vy, vz)
+// trxc.fx.spark_shotgun(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, vx: trx.math.Distance, vy: trx.math.Distance, vz: trx.math.Distance)
 static int M_L_SparkShotgun(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -787,7 +813,7 @@ static int M_L_SparkShotgun(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_ricochet(x, y, z, angle, count, smoke_only)
+// trxc.fx.spark_ricochet(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, angle: trx.math.Angle, count: integer, smoke_only?: boolean)
 static int M_L_SparkRicochet(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -803,7 +829,7 @@ static int M_L_SparkRicochet(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_bubble(x, y, z, size, size_range)
+// trxc.fx.spark_bubble(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, size: integer, size_range: integer)
 static int M_L_SparkBubble(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -813,7 +839,7 @@ static int M_L_SparkBubble(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_breath(x, y, z, vx, vy, vz)
+// trxc.fx.spark_breath(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, vx: trx.math.Distance, vy: trx.math.Distance, vz: trx.math.Distance)
 static int M_L_SparkBreath(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -828,7 +854,7 @@ static int M_L_SparkBreath(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_pickup_aid(x, y, z, vx, vz)
+// trxc.fx.spark_pickup_aid(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, vx: trx.math.Distance, vz: trx.math.Distance)
 static int M_L_SparkPickupAid(lua_State *const L)
 {
     Sparks_TriggerPickupAid(
@@ -840,7 +866,7 @@ static int M_L_SparkPickupAid(lua_State *const L)
     return 0;
 }
 
-// trxc.fx.spark_waterfall_mist(x, y, z, angle)
+// trxc.fx.spark_waterfall_mist(x: trx.math.Distance, y: trx.math.Distance, z: trx.math.Distance, angle: trx.math.Angle)
 static int M_L_SparkWaterfallMist(lua_State *const L)
 {
     const XYZ_32 pos = M_ReadPos(L);
@@ -859,6 +885,7 @@ static const luaL_Reg m_Module[] = {
     { "explosion", M_L_Explosion },
     { "fire", M_L_Fire },
     { "footprint", M_L_Footprint },
+    { "gun_flash", M_L_GunFlash },
     { "knockback", M_L_Knockback },
     { "ripple", M_L_Ripple },
     { "small_splash", M_L_SmallSplash },
@@ -908,8 +935,10 @@ static void M_Create(lua_State *const L)
     LUA_Struct_Register(L, &TYPE_SPARK, m_SparkMethods);
 
     LUA_GetModule(L, "fx");
+    // trxc.fx.MAX_LIGHTS: integer
     lua_pushinteger(L, OUTPUT_MAX_DYNAMIC_LIGHTS);
     lua_setfield(L, -2, "MAX_LIGHTS");
+    // trxc.fx.MAX_FOG: integer
     lua_pushinteger(L, OUTPUT_MAX_FOG_BULBS);
     lua_setfield(L, -2, "MAX_FOG");
     lua_pop(L, 1);

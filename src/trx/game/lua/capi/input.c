@@ -1,7 +1,10 @@
 #include <trx/config.h>
 #include <trx/game/input.h>
+#include <trx/game/input/backends/touch.h>
+#include <trx/game/input/raw.h>
 #include <trx/game/lua/registry.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/module.h>
+#include <trx/game/ui/touch_overlay.h>
 
 #include <lauxlib.h>
 
@@ -12,6 +15,15 @@ static INPUT_ROLE M_CheckRole(lua_State *const L, const int arg)
         luaL_error(L, "unknown input role");
     }
     return (INPUT_ROLE)role;
+}
+
+static INPUT_SKIP_CONTEXT M_CheckSkipContext(lua_State *const L, const int arg)
+{
+    const lua_Integer context = luaL_checkinteger(L, arg);
+    if (context < 0 || context >= INPUT_SKIP_NUMBER_OF) {
+        luaL_error(L, "unknown skip context");
+    }
+    return (INPUT_SKIP_CONTEXT)context;
 }
 
 // Converts a Lua slot number to the zero-based slot used by the input code.
@@ -66,14 +78,14 @@ static INPUT_LAYOUT M_CheckCustomLayout(
     return layout;
 }
 
-// trxc.input.backend() -> int
+// trxc.input.backend(): trx.input.Backend
 static int M_L_InputBackend(lua_State *const L)
 {
     lua_pushinteger(L, g_Config.input.backend);
     return 1;
 }
 
-// trxc.input.layout([backend]) -> int
+// trxc.input.layout(backend?: trx.input.Backend): trx.input.Layout
 static int M_L_InputLayout(lua_State *const L)
 {
     const INPUT_BACKEND backend = M_OptBackend(L, 1);
@@ -81,7 +93,7 @@ static int M_L_InputLayout(lua_State *const L)
     return 1;
 }
 
-// trxc.input.layout_name([layout]) -> string
+// trxc.input.layout_name(layout?: trx.input.Layout): string
 static int M_L_InputLayoutName(lua_State *const L)
 {
     const INPUT_LAYOUT layout = M_OptLayout(L, 1, g_Config.input.backend);
@@ -90,49 +102,194 @@ static int M_L_InputLayoutName(lua_State *const L)
     return 1;
 }
 
-// trxc.input.is_backend_enabled(backend) -> bool
+// trxc.input.is_backend_enabled(backend: trx.input.Backend): boolean
 static int M_L_InputIsBackendEnabled(lua_State *const L)
 {
     lua_pushboolean(L, Input_IsBackendEnabled(M_CheckBackend(L, 1)));
     return 1;
 }
 
-// trxc.input.is_anything_held() -> bool
+// trxc.input.is_anything_held(): boolean
 static int M_L_InputIsAnythingHeld(lua_State *const L)
 {
     lua_pushboolean(L, InputState_IsAnyPressed(g_Input));
     return 1;
 }
 
-// trxc.input.is_held(role) -> bool
+// trxc.input.is_held(role: trx.input.Role): boolean
 static int M_L_InputIsHeld(lua_State *const L)
 {
     lua_pushboolean(L, Input_IsHeld(M_CheckRole(L, 1)));
     return 1;
 }
 
-// trxc.input.is_pressed(role) -> bool
+// trxc.input.is_pressed(role: trx.input.Role): boolean
 static int M_L_InputIsPressed(lua_State *const L)
 {
     lua_pushboolean(L, Input_IsPressed(M_CheckRole(L, 1)));
     return 1;
 }
 
-// trxc.input.hold_off(role)
+// trxc.input.grab_is_held(role: trx.input.Role): boolean
+static int M_L_InputGrabIsHeld(lua_State *const L)
+{
+    lua_pushboolean(L, Input_Grab_IsHeld(M_CheckRole(L, 1)));
+    return 1;
+}
+
+// trxc.input.grab_is_pressed(role: trx.input.Role): boolean
+static int M_L_InputGrabIsPressed(lua_State *const L)
+{
+    lua_pushboolean(L, Input_Grab_IsPressed(M_CheckRole(L, 1)));
+    return 1;
+}
+
+// trxc.input.hold_off(role: trx.input.Role)
 static int M_L_InputHoldOff(lua_State *const L)
 {
     Input_HoldOffRole(M_CheckRole(L, 1));
     return 0;
 }
 
-// trxc.input.role_name(role) -> string
+// trxc.input.hold_off_skip(context: trx.input.SkipContext)
+static int M_L_InputHoldOffSkip(lua_State *const L)
+{
+    Input_HoldOffSkip(M_CheckSkipContext(L, 1));
+    return 0;
+}
+
+// trxc.input.suppress(role: trx.input.Role, enabled: boolean)
+static int M_L_InputSuppress(lua_State *const L)
+{
+    const INPUT_ROLE role = M_CheckRole(L, 1);
+    luaL_checktype(L, 2, LUA_TBOOLEAN);
+    Input_SuppressRole(role, lua_toboolean(L, 2));
+    return 0;
+}
+
+// trxc.input.is_suppressed(role: trx.input.Role): boolean
+static int M_L_InputIsSuppressed(lua_State *const L)
+{
+    lua_pushboolean(L, Input_IsRoleSuppressed(M_CheckRole(L, 1)));
+    return 1;
+}
+
+// trxc.input.clear_suppressed()
+static int M_L_InputClearSuppressed(lua_State *const L)
+{
+    Input_ClearSuppressedRoles();
+    return 0;
+}
+
+// Validate a key name before reading its state.
+static const char *M_CheckKey(lua_State *const L, const int arg)
+{
+    const char *const key = luaL_checkstring(L, arg);
+    if (!InputRaw_IsKeyKnown(key)) {
+        luaL_error(L, "unknown key '%s'", key);
+    }
+    return key;
+}
+
+// trxc.input.hold(held?: boolean)
+static int M_L_InputHold(lua_State *const L)
+{
+    InputRaw_SetScriptHold(lua_toboolean(L, 1));
+    return 0;
+}
+
+// trxc.input.is_held_by_script(): boolean
+static int M_L_InputIsHeldByScript(lua_State *const L)
+{
+    lua_pushboolean(L, InputRaw_IsHeldByScript());
+    return 1;
+}
+
+// trxc.input.is_reserved(): boolean
+static int M_L_InputIsReserved(lua_State *const L)
+{
+    lua_pushboolean(L, InputRaw_IsReserved());
+    return 1;
+}
+
+// trxc.input.is_key_held(key: string): boolean
+static int M_L_InputIsKeyHeld(lua_State *const L)
+{
+    lua_pushboolean(L, InputRaw_IsKeyHeld(M_CheckKey(L, 1)));
+    return 1;
+}
+
+// trxc.input.is_key_pressed(key: string): boolean
+static int M_L_InputIsKeyPressed(lua_State *const L)
+{
+    lua_pushboolean(L, InputRaw_IsKeyPressed(M_CheckKey(L, 1)));
+    return 1;
+}
+
+// trxc.input.is_key_known(key: string): boolean
+static int M_L_InputIsKeyKnown(lua_State *const L)
+{
+    lua_pushboolean(L, InputRaw_IsKeyKnown(luaL_checkstring(L, 1)));
+    return 1;
+}
+
+// Checks a controller button name against SDL's own names.
+static const char *M_CheckButton(lua_State *const L, const int arg)
+{
+    const char *const button = luaL_checkstring(L, arg);
+    if (!InputRaw_IsButtonKnown(button)) {
+        luaL_error(L, "unknown controller button '%s'", button);
+    }
+    return button;
+}
+
+// trxc.input.is_button_held(button: string): boolean
+static int M_L_InputIsButtonHeld(lua_State *const L)
+{
+    lua_pushboolean(L, InputRaw_IsButtonHeld(M_CheckButton(L, 1)));
+    return 1;
+}
+
+// trxc.input.is_button_pressed(button: string): boolean
+static int M_L_InputIsButtonPressed(lua_State *const L)
+{
+    lua_pushboolean(L, InputRaw_IsButtonPressed(M_CheckButton(L, 1)));
+    return 1;
+}
+
+// trxc.input.is_button_known(button: string): boolean
+static int M_L_InputIsButtonKnown(lua_State *const L)
+{
+    lua_pushboolean(L, InputRaw_IsButtonKnown(luaL_checkstring(L, 1)));
+    return 1;
+}
+
+// trxc.input.axis(axis: string): number
+static int M_L_InputAxis(lua_State *const L)
+{
+    const char *const axis = luaL_checkstring(L, 1);
+    if (!InputRaw_IsAxisKnown(axis)) {
+        return luaL_error(L, "unknown controller axis '%s'", axis);
+    }
+    lua_pushnumber(L, InputRaw_GetAxis(axis));
+    return 1;
+}
+
+// trxc.input.is_axis_known(axis: string): boolean
+static int M_L_InputIsAxisKnown(lua_State *const L)
+{
+    lua_pushboolean(L, InputRaw_IsAxisKnown(luaL_checkstring(L, 1)));
+    return 1;
+}
+
+// trxc.input.role_name(role: trx.input.Role): string
 static int M_L_InputRoleName(lua_State *const L)
 {
     lua_pushstring(L, Input_GetRoleName(M_CheckRole(L, 1)));
     return 1;
 }
 
-// trxc.input.key_name(role, [slot], [backend], [layout]) -> string|nil
+// trxc.input.key_name(role: trx.input.Role, slot?: trx.input.Slot, backend?: trx.input.Backend, layout?: trx.input.Layout): string?
 static int M_L_InputKeyName(lua_State *const L)
 {
     const INPUT_ROLE role = M_CheckRole(L, 1);
@@ -148,21 +305,21 @@ static int M_L_InputKeyName(lua_State *const L)
     return 1;
 }
 
-// trxc.input.is_rebindable(role) -> bool
+// trxc.input.is_rebindable(role: trx.input.Role): boolean
 static int M_L_InputIsRebindable(lua_State *const L)
 {
     lua_pushboolean(L, Input_IsRoleRebindable(M_CheckRole(L, 1)));
     return 1;
 }
 
-// trxc.input.is_unbindable(role) -> bool
+// trxc.input.is_unbindable(role: trx.input.Role): boolean
 static int M_L_InputIsUnbindable(lua_State *const L)
 {
     lua_pushboolean(L, Input_IsRoleUnbindable(M_CheckRole(L, 1)));
     return 1;
 }
 
-// trxc.input.is_conflicted(role, [backend], [layout]) -> bool
+// trxc.input.is_conflicted(role: trx.input.Role, backend?: trx.input.Backend, layout?: trx.input.Layout): boolean
 static int M_L_InputIsConflicted(lua_State *const L)
 {
     const INPUT_ROLE role = M_CheckRole(L, 1);
@@ -172,7 +329,7 @@ static int M_L_InputIsConflicted(lua_State *const L)
     return 1;
 }
 
-// trxc.input.bind_pressed(role, [slot], [backend], [layout]) -> bool
+// trxc.input.bind_pressed(role: trx.input.Role, slot?: trx.input.Slot, backend?: trx.input.Backend, layout?: trx.input.Layout): boolean
 static int M_L_InputBindPressed(lua_State *const L)
 {
     const INPUT_ROLE role = M_CheckRole(L, 1);
@@ -182,34 +339,57 @@ static int M_L_InputBindPressed(lua_State *const L)
     if (!Input_IsRoleRebindable(role)) {
         return luaL_error(L, "the role cannot be rebound");
     }
-    lua_pushboolean(L, Input_ReadAndAssignRole(backend, layout, role, slot));
+    const bool bound = Input_ReadAndAssignRole(backend, layout, role, slot);
+    if (bound) {
+        Input_SaveBindings();
+    }
+    lua_pushboolean(L, bound);
     return 1;
 }
 
-// trxc.input.unbind(role, [slot], [backend], [layout])
+// trxc.input.can_unbind(role: trx.input.Role, slot?: trx.input.Slot, backend?: trx.input.Backend, layout?: trx.input.Layout): boolean
+static int M_L_InputCanUnbind(lua_State *const L)
+{
+    const INPUT_ROLE role = M_CheckRole(L, 1);
+    const int32_t slot = M_OptSlot(L, 2);
+    const INPUT_BACKEND backend = M_OptBackend(L, 3);
+    const INPUT_LAYOUT layout = M_OptLayout(L, 4, backend);
+    lua_pushboolean(
+        L,
+        layout != INPUT_LAYOUT_DEFAULT
+            && Input_CanUnassignRole(backend, layout, role, slot));
+    return 1;
+}
+
+// trxc.input.unbind(role: trx.input.Role, slot?: trx.input.Slot, backend?: trx.input.Backend, layout?: trx.input.Layout)
 static int M_L_InputUnbind(lua_State *const L)
 {
     const INPUT_ROLE role = M_CheckRole(L, 1);
     const int32_t slot = M_OptSlot(L, 2);
     const INPUT_BACKEND backend = M_OptBackend(L, 3);
     const INPUT_LAYOUT layout = M_CheckCustomLayout(L, 4, backend);
-    if (!Input_IsRoleUnbindable(role)) {
+    if (Input_GetKeyName(backend, layout, role, slot) == nullptr) {
+        return 0;
+    }
+    if (!Input_CanUnassignRole(backend, layout, role, slot)) {
         return luaL_error(L, "the role cannot be unbound");
     }
     Input_UnassignRole(backend, layout, role, slot);
+    Input_SaveBindings();
     return 0;
 }
 
-// trxc.input.reset_layout([backend], [layout])
+// trxc.input.reset_layout(backend?: trx.input.Backend, layout?: trx.input.Layout)
 static int M_L_InputResetLayout(lua_State *const L)
 {
     const INPUT_BACKEND backend = M_OptBackend(L, 1);
     const INPUT_LAYOUT layout = M_CheckCustomLayout(L, 2, backend);
     Input_ResetLayout(backend, layout);
+    Input_SaveBindings();
     return 0;
 }
 
-// trxc.input.listen(enabled)
+// trxc.input.listen(enabled: boolean)
 static int M_L_InputListen(lua_State *const L)
 {
     luaL_checktype(L, 1, LUA_TBOOLEAN);
@@ -223,24 +403,64 @@ static int M_L_InputListen(lua_State *const L)
     return 0;
 }
 
-// trxc.input.is_listening() -> bool
+// trxc.input.touch_select(enabled: boolean)
+//
+// Shows every on-screen control and reads a touch as the one to bind, while a
+// capture binds a role on the touch controls.
+static int M_L_InputTouchSelect(lua_State *const L)
+{
+    luaL_checktype(L, 1, LUA_TBOOLEAN);
+    if (lua_toboolean(L, 1)) {
+        TouchOverlay_EnterSelectionMode();
+    } else {
+        TouchOverlay_ExitSelectionMode();
+    }
+    return 0;
+}
+
+// trxc.input.is_listening(): boolean
 static int M_L_InputIsListening(lua_State *const L)
 {
     lua_pushboolean(L, Input_IsInListenMode());
     return 1;
 }
 
+// trxc.input.has_touchscreen(): boolean
+static int M_L_InputHasTouchscreen(lua_State *const L)
+{
+    lua_pushboolean(L, Touch_HasHardwareSupport());
+    return 1;
+}
+
 static const luaL_Reg m_Module[] = {
+    { "axis", M_L_InputAxis },
     { "backend", M_L_InputBackend },
     { "bind_pressed", M_L_InputBindPressed },
+    { "can_unbind", M_L_InputCanUnbind },
+    { "clear_suppressed", M_L_InputClearSuppressed },
+    { "grab_is_held", M_L_InputGrabIsHeld },
+    { "grab_is_pressed", M_L_InputGrabIsPressed },
+    { "has_touchscreen", M_L_InputHasTouchscreen },
+    { "hold", M_L_InputHold },
     { "hold_off", M_L_InputHoldOff },
+    { "hold_off_skip", M_L_InputHoldOffSkip },
     { "is_anything_held", M_L_InputIsAnythingHeld },
+    { "is_axis_known", M_L_InputIsAxisKnown },
     { "is_backend_enabled", M_L_InputIsBackendEnabled },
+    { "is_button_held", M_L_InputIsButtonHeld },
+    { "is_button_known", M_L_InputIsButtonKnown },
+    { "is_button_pressed", M_L_InputIsButtonPressed },
     { "is_conflicted", M_L_InputIsConflicted },
     { "is_held", M_L_InputIsHeld },
+    { "is_held_by_script", M_L_InputIsHeldByScript },
+    { "is_key_held", M_L_InputIsKeyHeld },
+    { "is_key_known", M_L_InputIsKeyKnown },
+    { "is_key_pressed", M_L_InputIsKeyPressed },
     { "is_listening", M_L_InputIsListening },
     { "is_pressed", M_L_InputIsPressed },
     { "is_rebindable", M_L_InputIsRebindable },
+    { "is_reserved", M_L_InputIsReserved },
+    { "is_suppressed", M_L_InputIsSuppressed },
     { "is_unbindable", M_L_InputIsUnbindable },
     { "key_name", M_L_InputKeyName },
     { "layout", M_L_InputLayout },
@@ -248,6 +468,8 @@ static const luaL_Reg m_Module[] = {
     { "listen", M_L_InputListen },
     { "reset_layout", M_L_InputResetLayout },
     { "role_name", M_L_InputRoleName },
+    { "suppress", M_L_InputSuppress },
+    { "touch_select", M_L_InputTouchSelect },
     { "unbind", M_L_InputUnbind },
     { nullptr, nullptr },
 };

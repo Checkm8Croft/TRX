@@ -1,6 +1,6 @@
-#include <trx/config.h>
 #include <trx/core/subsystem.h>
 #include <trx/debug.h>
+#include <trx/game/effects.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects/common.h>
 #include <trx/game/objects/families.h>
@@ -28,12 +28,6 @@ static void M_SetupLara(OBJECT *const obj)
     obj->save_flags = true;
     obj->save_anim = true;
     OBJECT_PROPERTIES(obj, ITEM_PROPERTY_MAX_HIT_POINTS(LARA_MAX_HITPOINTS));
-    ObjectProperty_SetObjectValueRaw(
-        obj, "max_hit_points",
-        (TRX_VALUE) {
-            .type = TVT_S32,
-            .as_int = g_Config.gameplay.start_lara_hitpoints,
-        });
 }
 
 static void M_SetupLaraStartPos(OBJECT *const obj)
@@ -64,13 +58,14 @@ void Object_SetupAllObjects(void)
         obj->control_func = nullptr;
         obj->floor_height_func = nullptr;
         obj->ceiling_height_func = nullptr;
-        obj->draw_func = Object_DrawAnimatingItem;
+        obj->draw_func = Item_DrawAnimating;
+        obj->effect_draw_func = Effect_Draw;
         obj->collision_func = nullptr;
         obj->add_walkable_func = nullptr;
         obj->is_usable_func = nullptr;
         obj->can_drop_items_func = nullptr;
         obj->can_interpolate_func = Object_CanInterpolate;
-        obj->should_spawn_blood_func = nullptr;
+        obj->get_hit_effect_func = nullptr;
         obj->is_alive_func = nullptr;
         obj->is_targetable_func = nullptr;
         obj->can_take_damage_func = nullptr;

@@ -1,5 +1,3 @@
-#include "willard_internal.h"
-
 #include <trx/core/json/util/read_io.h>
 #include <trx/core/json/util/write_io.h>
 #include <trx/core/utils.h>
@@ -10,6 +8,7 @@
 #include <trx/game/items.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects.h>
+#include <trx/game/objects/projectiles/willard_plasma_ball.h>
 #include <trx/game/objects/property.h>
 #include <trx/game/output.h>
 #include <trx/game/output/sources/poly_fx.h>
@@ -278,7 +277,8 @@ static void M_TriggerPlasma(
         return;
     }
 
-    SPARK *const spark = Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION);
+    SPARK *const spark = Sparks_InitialiseSpriteSpark(
+        SPARK_TYPE_EXPLOSION, SPARK_CONTEXT_PLASMA);
     if (spark == nullptr) {
         return;
     }
@@ -932,7 +932,7 @@ static void M_DrawShield(const ITEM *const item)
 static bool M_Draw(const ITEM *const item)
 {
     const M_PRIV *const p = item->priv;
-    const bool result = Object_DrawAnimatingItem(item);
+    const bool result = Item_DrawAnimating(item);
     if (p->explode_count != 0) {
         FX_Ring_Draw();
 

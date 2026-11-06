@@ -4,7 +4,7 @@
 #include <trx/game/inject.h>
 #include <trx/game/lua/registry.h>
 #include <trx/game/lua/startup.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/module.h>
 
 #include <lauxlib.h>
 
@@ -57,7 +57,7 @@ static void M_Collect(void)
     }
 }
 
-// trxc.inject.declare(func)
+// trxc.inject.declare(func: function)
 static int M_L_Declare(lua_State *const L)
 {
     luaL_checktype(L, 1, LUA_TFUNCTION);

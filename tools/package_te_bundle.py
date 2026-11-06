@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import tempfile
 import zipfile
 from pathlib import Path
 
 from shared.packaging import create_zip
+from shared.paths import CommonPaths
+from shared.tombstones import TOMBSTONES_PATH, write_tombstones
 from shared.versioning import generate_version
 
 
@@ -31,18 +34,15 @@ def parse_args() -> argparse.Namespace:
 
 
 def iter_te_files() -> list[tuple[Path, str]]:
+    # The trees link whole directories as well as single files, so the walk
+    # follows the links into the directories they point at.
     source_files: list[tuple[Path, str]] = []
-    for path in sorted(DATA_TE_DIR.rglob("*")):
-        if path.is_dir():
-            continue
-
-        rel_path = path.relative_to(DATA_TE_DIR)
-        if path.is_symlink():
-            real_path = path.resolve(strict=True)
-            source_files.append((real_path, str(rel_path)))
-        else:
-            source_files.append((path, str(rel_path)))
-    return source_files
+    for dirpath, _, filenames in os.walk(DATA_TE_DIR, followlinks=True):
+        for name in filenames:
+            path = Path(dirpath) / name
+            rel_path = path.relative_to(DATA_TE_DIR)
+            source_files.append((path.resolve(strict=True), str(rel_path)))
+    return sorted(source_files, key=lambda item: item[1])
 
 
 def iter_exe_files(exe_path: Path) -> list[tuple[Path, str]]:
@@ -106,6 +106,13 @@ def main() -> None:
             dst_path = tmp_root / rel_path
             dst_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(src_path, dst_path)
+
+        for engine in TE_ENGINES:
+            write_tombstones(
+                REPO_DIR,
+                CommonPaths.shipped_data_dir,
+                tmp_root / engine / "Engine" / TOMBSTONES_PATH,
+            )
 
         if args.no_zip:
             output_path.mkdir(parents=True, exist_ok=True)

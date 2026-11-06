@@ -5,10 +5,11 @@
 #include <trx/game/fader.h>
 #include <trx/game/game.h>
 #include <trx/game/interpolation.h>
-#include <trx/game/inventory_ring.h>
 #include <trx/game/lua/events.h>
 #include <trx/game/output/overlay.h>
 #include <trx/game/shell.h>
+#include <trx/game/ui/common.h>
+#include <trx/game/ui/draw.h>
 
 typedef enum {
     STATE_RUN,
@@ -74,7 +75,9 @@ static PHASE_CONTROL M_Control(PHASE *const phase)
 
     switch (p->state) {
     case STATE_RUN:
+        LUA_FireEvent(LUA_EVENT_BEFORE_CONTROL);
         const GF_COMMAND gf_cmd = Demo_Control();
+        LUA_FireEvent(LUA_EVENT_AFTER_CONTROL);
         if (gf_cmd.action != GF_NOOP) {
             p->state = STATE_FADE_OUT;
             p->exit_gf_cmd = gf_cmd;
@@ -85,7 +88,6 @@ static PHASE_CONTROL M_Control(PHASE *const phase)
 
     case STATE_FADE_OUT:
         Game_SetIsPlaying(false);
-        Demo_StopFlashing();
         if (!Fader_IsActive(&p->fader)) {
             p->state = STATE_FINISH;
             return (PHASE_CONTROL) { .action = PHASE_ACTION_NO_WAIT };
@@ -115,7 +117,9 @@ static void M_Draw(PHASE *const phase)
         Interpolation_Enable();
     }
 
-    Output_Overlay_DrawBlackRectangle(Fader_GetCurrentValue(&p->fader), true);
+    UI_BeginLayer(UI_LAYER_FADE);
+    UI_ScheduleDrawScreenBlack(Fader_GetCurrentValue(&p->fader));
+    UI_EndLayer(UI_LAYER_FADE);
 }
 
 PHASE *Phase_Demo_Create(const int32_t level_num)

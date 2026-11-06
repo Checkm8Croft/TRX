@@ -7,18 +7,29 @@
 #include <trx/game/lara.h>
 #include <trx/game/objects.h>
 #include <trx/game/objects/traps/movable_block.h>
+#include <trx/version.h>
+
+#define M_DEFAULT_BLOCKS_PORTAL ((bool)(g_TRVersion >= 4))
 
 typedef enum {
-    TRAPDOOR_STATE_CLOSED,
-    TRAPDOOR_STATE_OPEN,
-} TRAPDOOR_STATE;
+    M_STATE_CLOSED,
+    M_STATE_OPEN,
+} M_STATE;
 
 typedef enum {
-    TRAPDOOR_ANIM_CLOSED = 0,
-} TRAPDOOR_ANIM;
+    M_ANIM_CLOSED = 0,
+} M_ANIM;
 
 typedef struct {
     bool auto_open;
+    bool blocks_portal;
+    struct {
+        bool initialised;
+        bool on_floor;
+        bool on_ceiling;
+        int16_t sky;
+        int16_t pit;
+    } portal;
 } M_PRIV;
 
 static const OBJECT_BOUNDS m_FloorTrapdoorBounds = {
@@ -93,11 +104,13 @@ static bool M_IsItemOnTop(
 }
 
 static int32_t M_GetFloorHeight(
-    const ITEM *const item, const XYZ_32 pos, const int32_t height)
+    const ITEM *const item, const XYZ_32 pos, const int32_t height,
+    const ROOM_HEIGHT_CTX *const ctx)
 {
-    if (!M_IsItemOnTop(item, pos.x, pos.z)) {
+    const M_PRIV *const p = item->priv;
+    if (p->blocks_portal || !M_IsItemOnTop(item, pos.x, pos.z)) {
         return height;
-    } else if (item->current_anim_state != TRAPDOOR_STATE_CLOSED) {
+    } else if (item->current_anim_state != M_STATE_CLOSED) {
         return height;
     } else if (pos.y > item->pos.y || item->pos.y > height) {
         return height;
@@ -107,11 +120,13 @@ static int32_t M_GetFloorHeight(
 }
 
 static int32_t M_GetCeilingHeight(
-    const ITEM *const item, const XYZ_32 pos, const int32_t height)
+    const ITEM *const item, const XYZ_32 pos, const int32_t height,
+    const ROOM_HEIGHT_CTX *const ctx)
 {
-    if (!M_IsItemOnTop(item, pos.x, pos.z)) {
+    const M_PRIV *const p = item->priv;
+    if (p->blocks_portal || !M_IsItemOnTop(item, pos.x, pos.z)) {
         return height;
-    } else if (item->current_anim_state != TRAPDOOR_STATE_CLOSED) {
+    } else if (item->current_anim_state != M_STATE_CLOSED) {
         return height;
     } else if (pos.y <= item->pos.y || item->pos.y <= height) {
         return height;
@@ -155,7 +170,7 @@ static void M_GetSectorPositions(const ITEM *const item, VECTOR *sector_pos)
 {
     const OBJECT *const obj = Object_Get(item->object_id);
     const ANIM_FRAME *const frame =
-        Object_GetAnim(obj, TRAPDOOR_ANIM_CLOSED)->frame_ptr;
+        Object_GetAnim(obj, M_ANIM_CLOSED)->frame_ptr;
     const BOUNDS_16 rot_bounds = M_RotateBounds(frame->bounds, item->rot.y);
 
     const int32_t x0 = item->pos.x + rot_bounds.min.x;
@@ -180,15 +195,96 @@ static void M_GetSectorPositions(const ITEM *const item, VECTOR *sector_pos)
     }
 }
 
+static void M_EnsurePortals(const ITEM *const item)
+{
+    M_PRIV *const p = item->priv;
+    if (p->portal.initialised) {
+        return;
+    }
+
+    p->portal.pit = NO_ROOM;
+    p->portal.sky = NO_ROOM;
+
+    const ROOM *room = Room_Get(item->room_num);
+    const SECTOR *sector = Room_GetWorldSector(room, item->pos.x, item->pos.z);
+    if (item->pos.y == room->min_floor && sector->portal_room.pit != NO_ROOM) {
+        p->portal.on_floor = true;
+        p->portal.pit = sector->portal_room.pit;
+        room = Room_Get(p->portal.pit);
+        sector = Room_GetWorldSector(room, item->pos.x, item->pos.z);
+        p->portal.sky = sector->portal_room.sky;
+    } else if (
+        item->pos.y == room->max_ceiling
+        && sector->portal_room.sky != NO_ROOM) {
+        p->portal.on_ceiling = true;
+        p->portal.sky = sector->portal_room.sky;
+        room = Room_Get(p->portal.sky);
+        sector = Room_GetWorldSector(room, item->pos.x, item->pos.z);
+        p->portal.pit = sector->portal_room.pit;
+    }
+
+    p->portal.initialised = true;
+}
+
+static void M_SetPortalsOpen(const ITEM *const item, const bool open)
+{
+    M_EnsurePortals(item);
+
+    const M_PRIV *const p = item->priv;
+    if (!p->blocks_portal) {
+        return;
+    }
+
+    const int16_t pit = open ? p->portal.pit : NO_ROOM;
+    const int16_t sky = open ? p->portal.sky : NO_ROOM;
+
+    const ROOM *room = Room_Get(item->room_num);
+    SECTOR *sector = Room_GetWorldSector(room, item->pos.x, item->pos.z);
+    if (p->portal.on_floor) {
+        sector->portal_room.pit = pit;
+        room = Room_Get(p->portal.pit);
+        sector = Room_GetWorldSector(room, item->pos.x, item->pos.z);
+        sector->portal_room.sky = sky;
+    } else if (p->portal.on_ceiling) {
+        sector->portal_room.sky = sky;
+        room = Room_Get(p->portal.sky);
+        sector = Room_GetWorldSector(room, item->pos.x, item->pos.z);
+        sector->portal_room.pit = pit;
+    }
+}
+
 static void M_Initialise(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
-    M_PRIV *const p = item->priv;
+    M_EnsurePortals(item);
 
     VECTOR *const positions = Vector_Create(sizeof(XYZ_32));
     M_GetSectorPositions(item, positions);
     Walkable_AllocateNodes(item, positions->count);
     Vector_Free(positions);
+}
+
+static void M_SetBlocksPortal(ITEM *const item, const TRX_VALUE *const in)
+{
+    M_PRIV *const p = item->priv;
+    if (p->blocks_portal == in->as_bool) {
+        return;
+    }
+
+    M_SetPortalsOpen(item, true);
+
+    p->blocks_portal = in->as_bool;
+    if (p->blocks_portal && item->current_anim_state == M_STATE_CLOSED) {
+        M_SetPortalsOpen(item, false);
+    }
+}
+
+static void M_HandleSave(ITEM *const item, const SAVEGAME_STAGE stage)
+{
+    if (stage == SAVEGAME_STAGE_AFTER_LOAD
+        && item->current_anim_state == M_STATE_OPEN) {
+        M_SetPortalsOpen(item, true);
+    }
 }
 
 static void M_DropStack(const ITEM *const item)
@@ -218,14 +314,16 @@ static void M_Control(const int16_t item_num)
     ITEM *const item = Item_Get(item_num);
     const M_PRIV *const p = item->priv;
     if (Item_IsTriggerActive(item)) {
-        if (item->current_anim_state == TRAPDOOR_STATE_CLOSED
-            && (p->auto_open || item->goal_anim_state == TRAPDOOR_STATE_OPEN)) {
-            item->goal_anim_state = TRAPDOOR_STATE_OPEN;
+        if (item->current_anim_state == M_STATE_CLOSED
+            && (p->auto_open || item->goal_anim_state == M_STATE_OPEN)) {
+            item->goal_anim_state = M_STATE_OPEN;
+            M_SetPortalsOpen(item, true);
             M_DropStack(item);
         }
     } else {
-        if (item->current_anim_state == TRAPDOOR_STATE_OPEN) {
-            item->goal_anim_state = TRAPDOOR_STATE_CLOSED;
+        if (item->current_anim_state == M_STATE_OPEN) {
+            item->goal_anim_state = M_STATE_CLOSED;
+            M_SetPortalsOpen(item, false);
         }
     }
     Item_Animate(item);
@@ -237,7 +335,8 @@ static void M_OpenManually(const int16_t item_num)
     ITEM *const item = Item_Get(item_num);
     Item_AddSimulated(item_num);
     item->trigger.mask = TRIGGER_MASK_ALL;
-    item->goal_anim_state = TRAPDOOR_STATE_OPEN;
+    item->goal_anim_state = M_STATE_OPEN;
+    M_SetPortalsOpen(item, true);
 }
 
 static void M_AssertCamera(
@@ -258,28 +357,21 @@ static void M_FloorCollision(
     const int16_t item_num, ITEM *const lara_item, COLL_INFO *const coll)
 {
     ITEM *const item = Item_Get(item_num);
-    LARA_INFO *const lara = Lara_GetLaraInfo();
 
     if (Lara_Interact_CanControl(LARA_INTERACT_DOOR, item_num)
         && !Item_IsInPlay(item)) {
-        if (Lara_TestPosition(item, &m_FloorTrapdoorBounds)) {
-            if (Lara_MovePosition(item, &m_FloorTrapdoorPosition)) {
-                Item_SwitchToAnim(lara_item, LA(LA_FLOOR_TRAPDOOR_OPEN), 0);
-                lara_item->current_anim_state = LS(LS_LIFT_TRAPDOOR);
-                Lara_Interact_FinishControl(LARA_INTERACT_DOOR);
-                M_OpenManually(item_num);
-            } else {
-                lara->interact_target.item_num = item_num;
-            }
-        } else if (Lara_Interact_HasActiveTarget(item_num)) {
-            lara->interact_target.is_moving = false;
-            lara->gun_status = LGS_ARMLESS;
+        if (Lara_Interact_Reach(
+                item, &m_FloorTrapdoorBounds, &m_FloorTrapdoorPosition)
+            == LARA_REACH_ARRIVED) {
+            Item_SwitchToAnim(lara_item, LA(LA_FLOOR_TRAPDOOR_OPEN), 0);
+            lara_item->current_anim_state = LS(LS_LIFT_TRAPDOOR);
+            Lara_Interact_FinishControl(LARA_INTERACT_DOOR);
+            M_OpenManually(item_num);
         }
     }
 
     if (lara_item->current_anim_state == LS(LS_LIFT_TRAPDOOR)
-        && Item_IsInPlay(item)
-        && item->current_anim_state != TRAPDOOR_STATE_OPEN) {
+        && Item_IsInPlay(item) && item->current_anim_state != M_STATE_OPEN) {
         M_AssertCamera(item, WALL_L * 2, -WALL_L * 2, true);
     }
 }
@@ -304,8 +396,7 @@ static void M_CeilingCollision(
     }
 
     if (lara_item->current_anim_state == LS(LS_PULL_TRAPDOOR)
-        && Item_IsInPlay(item)
-        && item->current_anim_state != TRAPDOOR_STATE_OPEN) {
+        && Item_IsInPlay(item) && item->current_anim_state != M_STATE_OPEN) {
         M_AssertCamera(item, WALL_L, WALL_L, false);
     }
 }
@@ -316,6 +407,7 @@ static void M_SetupBase(OBJECT *const obj)
     obj->control_func = M_Control;
     obj->floor_height_func = M_GetFloorHeight;
     obj->ceiling_height_func = M_GetCeilingHeight;
+    obj->handle_save_func = M_HandleSave;
     obj->priv_size = sizeof(M_PRIV);
     obj->save_flags = true;
     obj->save_anim = true;
@@ -324,7 +416,11 @@ static void M_SetupBase(OBJECT *const obj)
         obj,
         OBJECT_PROPERTY(
             M_PRIV, auto_open, true,
-            "Whether the trapdoor opens automatically when triggered."));
+            "Whether the trapdoor opens automatically when triggered."),
+        OBJECT_PROPERTY_SETTER(
+            M_PRIV, blocks_portal, M_DEFAULT_BLOCKS_PORTAL, nullptr,
+            M_SetBlocksPortal,
+            "Whether the trapdoor blocks any portals it sits on."));
 }
 
 static void M_SetupFloor(OBJECT *const obj)

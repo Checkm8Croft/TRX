@@ -5,15 +5,16 @@
 #include <trx/game/camera/vars.h>
 #include <trx/game/collision/los.h>
 #include <trx/game/creature.h>
-#include <trx/game/game_flow.h>
 #include <trx/game/items/carrier.h>
 #include <trx/game/items/const.h>
 #include <trx/game/lara.h>
 #include <trx/game/lara/common.h>
+#include <trx/game/objects/common.h>
 #include <trx/game/objects/creatures/skidoo_driver.h>
 #include <trx/game/objects/creatures/tribe_boss.h>
 #include <trx/game/objects/families.h>
 #include <trx/game/objects/property.h>
+#include <trx/game/output/state.h>
 #include <trx/game/pathing.h>
 #include <trx/game/random.h>
 #include <trx/game/rooms.h>
@@ -34,6 +35,7 @@
 #define M_MAX_TILT         (3 * DEG_1) // = 546
 #define M_MAX_HEAD_CHANGE  (5 * DEG_1) // = 910
 #define M_MAX_JOINT_CHANGE (5 * DEG_1) // = 910
+#define M_DUCK_CHANCE      0x3
 #define M_HEAD_ARC         (g_TRVersion == 1 ? FRONT_ARC : 0x3000) // = 16384 (TR1), 12288 (TR2)
 #define M_JOINT_ARC        0x3000
 #define M_MAX_X_ROT        (20 * DEG_1) // = 3640
@@ -82,11 +84,18 @@ static bool M_TestSwitchOrKill(
     return false;
 }
 
-static void M_GetBaddieTarget(const int16_t item_num, const bool goody)
+static void M_GetBaddieTarget(
+    const int16_t item_num, const bool goody,
+    const CREATURE_TARGET_FILTER filter)
 {
     ITEM *const lara_item = Lara_GetItem();
     ITEM *const item = Item_Get(item_num);
     CREATURE *const creature = item->creature_data;
+
+    if (filter != nullptr && creature->enemy != nullptr
+        && !filter(item, creature->enemy)) {
+        creature->enemy = nullptr;
+    }
 
     ITEM *best_item = nullptr;
     int32_t best_distance = INT32_MAX;
@@ -104,6 +113,10 @@ static void M_GetBaddieTarget(const int16_t item_num, const bool goody)
             continue;
         }
 
+        if (filter != nullptr && !filter(item, target)) {
+            continue;
+        }
+
         const int32_t dx = (target->pos.x - item->pos.x) >> 6;
         const int32_t dy = (target->pos.y - item->pos.y) >> 6;
         const int32_t dz = (target->pos.z - item->pos.z) >> 6;
@@ -115,7 +128,8 @@ static void M_GetBaddieTarget(const int16_t item_num, const bool goody)
     }
 
     if (best_item == nullptr) {
-        if (!goody || Creature_IsHostile(item)) {
+        if ((!goody || Creature_IsHostile(item))
+            && (filter == nullptr || filter(item, lara_item))) {
             creature->enemy = lara_item;
         } else {
             creature->enemy = nullptr;
@@ -123,7 +137,8 @@ static void M_GetBaddieTarget(const int16_t item_num, const bool goody)
         return;
     }
 
-    if (!goody || Creature_IsHostile(item)) {
+    if ((!goody || Creature_IsHostile(item))
+        && (filter == nullptr || filter(item, lara_item))) {
         const int32_t dx = (lara_item->pos.x - item->pos.x) >> 6;
         const int32_t dy = (lara_item->pos.y - item->pos.y) >> 6;
         const int32_t dz = (lara_item->pos.z - item->pos.z) >> 6;
@@ -148,13 +163,14 @@ static void M_GetBaddieTarget(const int16_t item_num, const bool goody)
     }
 }
 
-static ITEM *M_ChooseEnemy(const ITEM *const item)
+static ITEM *M_ChooseEnemy(
+    const ITEM *const item, const CREATURE_TARGET_FILTER filter)
 {
     CREATURE *const creature = item->creature_data;
     if (Creature_IsAlly(item)) {
-        M_GetBaddieTarget(creature->item_num, true);
+        M_GetBaddieTarget(creature->item_num, true, filter);
     } else if (Creature_IsAllyTargetingEnemy(item)) {
-        M_GetBaddieTarget(creature->item_num, false);
+        M_GetBaddieTarget(creature->item_num, false, filter);
     } else {
         creature->enemy = Lara_GetItem();
     }
@@ -258,8 +274,8 @@ static bool M_TestDrowned(
 static void M_Kill(ITEM *const item, const ITEM *const sender)
 {
     const ITEM_DAMAGE_FLAGS flags = sender != nullptr
-        ? IDF_NO_HIT_STATUS
-        : (IDF_NO_HIT_STATUS | IDF_NO_KILL_STATS);
+        ? (IDF_NO_HIT_STATUS | IDF_FATAL)
+        : (IDF_NO_HIT_STATUS | IDF_NO_KILL_STATS | IDF_FATAL);
     Item_TakeDamage(item, item->hit_points, flags, sender);
 }
 
@@ -281,26 +297,6 @@ static bool M_IsAIObject(const OBJECT_ID object_id)
     default:
         return false;
     }
-}
-
-static bool M_SameZone(const CREATURE *const creature, ITEM *const target_item)
-{
-    if (creature->lot.setup.fly != 0) {
-        return true;
-    }
-
-    int16_t *const zone = Box_GetGroundZone(
-        Room_GetFlipStatus(), (creature->lot.setup.step >> 8) - 1);
-    ITEM *const item = Item_Get(creature->item_num);
-
-    const ROOM *room = Room_Get(item->room_num);
-    item->box_num = Room_GetWorldSector(room, item->pos.x, item->pos.z)->box;
-
-    room = Room_Get(target_item->room_num);
-    target_item->box_num =
-        Room_GetWorldSector(room, target_item->pos.x, target_item->pos.z)->box;
-
-    return zone[item->box_num] == zone[target_item->box_num];
 }
 
 static bool M_TestWaterBelow(const ITEM *const item, const int32_t y)
@@ -397,6 +393,40 @@ static void M_AvoidStoppers(ITEM *const item, CREATURE *const creature)
     }
 }
 
+// Takes a point of health from a poisoned creature every 16 ticks, down to
+// one, as TR4 does, where the creature can take damage at all.
+static void M_TickPoison(ITEM *const item)
+{
+    if (!item->is_poisoned || item->hit_points <= 1
+        || !Item_CanTakeDamage(item)) {
+        return;
+    }
+    const int32_t wibble = (int32_t)Output_GetTimeInGame() * 4;
+    if ((wibble & 0x3F) == 0) {
+        item->hit_points--;
+    }
+}
+
+bool Creature_SameZone(const CREATURE *const creature, ITEM *const target_item)
+{
+    if (creature->lot.setup.fly != 0) {
+        return true;
+    }
+
+    int16_t *const zone = Box_GetGroundZone(
+        Room_GetFlipStatus(), (creature->lot.setup.step >> 8) - 1);
+    ITEM *const item = Item_Get(creature->item_num);
+
+    const ROOM *room = Room_Get(item->room_num);
+    item->box_num = Room_GetWorldSector(room, item->pos.x, item->pos.z)->box;
+
+    room = Room_Get(target_item->room_num);
+    target_item->box_num =
+        Room_GetWorldSector(room, target_item->pos.x, target_item->pos.z)->box;
+
+    return zone[item->box_num] == zone[target_item->box_num];
+}
+
 XYZ_32 Creature_GetAITargetPos(const ITEM *const item)
 {
     if (g_TRVersion < 4 || !M_IsAIObject(item->object_id)
@@ -409,9 +439,7 @@ XYZ_32 Creature_GetAITargetPos(const ITEM *const item)
 void Creature_Initialise(const int16_t item_num)
 {
     ITEM *const item = Item_Get(item_num);
-    // TODO: remove GF check once demo config reset is run before level load
-    if (g_Config.gameplay.enable_enemy_rotation
-        || GF_GetCurrentLevel()->type == GFL_DEMO) {
+    if (g_Config.gameplay.enable_enemy_rotation) {
         item->rot.y += (Random_GetControl() - DEG_90) >> 1;
     }
     item->is_collidable = true;
@@ -441,7 +469,10 @@ void Creature_AIInfo(ITEM *const item, AI_INFO *const info)
         return;
     }
 
-    ITEM *enemy = g_TRVersion >= 3 ? creature->enemy : M_ChooseEnemy(item);
+    M_TickPoison(item);
+
+    ITEM *enemy =
+        g_TRVersion >= 3 ? creature->enemy : M_ChooseEnemy(item, nullptr);
     if (enemy == nullptr) {
         enemy = Lara_GetItem();
         creature->enemy = enemy;
@@ -473,7 +504,7 @@ void Creature_AIInfo(ITEM *const item, AI_INFO *const info)
          && (enemy_box->overlap_index & creature->lot.setup.block_mask) != 0)
         || (creature->lot.node[item->box_num].search_num
             == (creature->lot.search_num | BOX_BLOCKED_SEARCH))) {
-        info->enemy_zone_num |= BOX_BLOCKED;
+        info->enemy_zone_num |= BOX_ZONE_BLOCKED;
     }
 
     const OBJECT *const obj = Object_Get(item->object_id);
@@ -756,6 +787,8 @@ void Creature_ApplyMood(
 
     creature->monkey_ahead =
         g_TRVersion >= 4 && Box_IsMonkeyAhead(lot, item->box_num);
+    creature->jump_ahead =
+        g_TRVersion >= 4 && Box_IsJumpAhead(lot, item->box_num);
 }
 
 int16_t Creature_Turn(ITEM *const item, int16_t max_turn)
@@ -926,6 +959,15 @@ void Creature_Underwater(ITEM *const item, const int32_t depth)
     }
 }
 
+void Creature_ChooseEnemy(
+    const ITEM *const item, const CREATURE_TARGET_FILTER filter)
+{
+    if (item->creature_data == nullptr) {
+        return;
+    }
+    M_ChooseEnemy(item, filter);
+}
+
 bool Creature_CanSeeEnemy(const ITEM *const item, const AI_INFO *const info)
 {
     // XXX(Dash): I don't understand the need for this function,
@@ -960,23 +1002,16 @@ bool Creature_CanSeeEnemy(const ITEM *const item, const AI_INFO *const info)
     return LOS_Check(&start, &target, true);
 }
 
-bool Creature_CanTargetEnemy(const ITEM *const item, const AI_INFO *const info)
+bool Creature_HasLineOfFire(const ITEM *const item, const ITEM *const enemy)
 {
-    const CREATURE *const creature = item->creature_data;
-    if (creature == nullptr) {
-        return false;
-    }
-
-    const ITEM *const enemy = creature->enemy;
-    if (enemy == nullptr || !info->ahead
-        || info->distance >= CREATURE_SHOOT_RANGE) {
+    if (enemy == nullptr) {
         return false;
     }
 
     GAME_VECTOR start = { .pos = item->pos, .room_num = item->room_num };
     GAME_VECTOR target = { .pos = enemy->pos, .room_num = enemy->room_num };
 
-    if (g_TRVersion == 3) {
+    if (g_TRVersion >= 3) {
         if (enemy->hit_points <= 0
             || (enemy != Lara_GetItem() && enemy->creature_data == nullptr)) {
             return false;
@@ -993,6 +1028,38 @@ bool Creature_CanTargetEnemy(const ITEM *const item, const AI_INFO *const info)
     }
 
     return LOS_Check(&start, &target, true);
+}
+
+bool Creature_CanTargetEnemy(const ITEM *const item, const AI_INFO *const info)
+{
+    const CREATURE *const creature = item->creature_data;
+    if (creature == nullptr) {
+        return false;
+    }
+
+    if (!info->ahead || info->distance >= CREATURE_SHOOT_RANGE) {
+        return false;
+    }
+
+    return Creature_HasLineOfFire(item, creature->enemy);
+}
+
+bool Creature_IsNearCover(const ITEM *const item, const AI_INFO *const info)
+{
+    const XYZ_32 pos =
+        XYZ_32_OffsetYaw(item->pos, item->rot.y + info->angle, WALL_L);
+    int16_t room_num = item->room_num;
+    const SECTOR *const sector = Room_GetSector(pos, &room_num);
+    const int32_t height = Room_GetHeight(sector, pos);
+    return item->pos.y > height + STEPUP_HEIGHT
+        && item->pos.y < height + STEPUP_HEIGHT * 3
+        && info->distance > SQUARE(WALL_L);
+}
+
+bool Creature_ShouldDuck(const ITEM *const item, const bool near_cover)
+{
+    return item->hit_status && (Random_GetControl() & M_DUCK_CHANCE) == 0
+        && near_cover;
 }
 
 void Creature_Collision(
@@ -1455,8 +1522,14 @@ void Creature_TestBoxDamage(const int16_t item_num)
 void Creature_Die(const int16_t item_num, const CREATURE_DIE_ARGS args)
 {
     const bool explode = args.explode;
+    const GIB_FLAGS gib_flags = args.gib_flags;
     const int16_t flame_variant = args.flame_variant;
     ITEM *const item = Item_Get(item_num);
+
+    if (explode && !Object_CanBeExploded(item)) {
+        M_Kill(item, args.sender);
+        return;
+    }
 
     switch (item->object_id) {
     case O_LIZARD:
@@ -1472,8 +1545,11 @@ void Creature_Die(const int16_t item_num, const CREATURE_DIE_ARGS args)
         if (explode) {
             Item_Shatter(
                 item_num,
-                (ITEM_SHATTER_ARGS) { .mesh_bits = -1,
-                                      .flame_variant = flame_variant });
+                (ITEM_SHATTER_ARGS) {
+                    .mesh_bits = -1,
+                    .gib_flags = gib_flags,
+                    .flame_variant = flame_variant,
+                });
             ITEM *const vehicle_item = Item_Get(item_num);
             M_Kill(vehicle_item, args.sender);
             Item_SetVisible(vehicle_item, false);
@@ -1485,8 +1561,11 @@ void Creature_Die(const int16_t item_num, const CREATURE_DIE_ARGS args)
         if (explode) {
             Item_Shatter(
                 item_num,
-                (ITEM_SHATTER_ARGS) { .mesh_bits = -1,
-                                      .flame_variant = flame_variant });
+                (ITEM_SHATTER_ARGS) {
+                    .mesh_bits = -1,
+                    .gib_flags = gib_flags,
+                    .flame_variant = flame_variant,
+                });
         }
         M_Kill(item, args.sender);
         const int16_t vehicle_item_num = SkidooDriver_GetSkidooItemNum(item);
@@ -1507,8 +1586,11 @@ void Creature_Die(const int16_t item_num, const CREATURE_DIE_ARGS args)
     if (explode) {
         Item_Shatter(
             item_num,
-            (ITEM_SHATTER_ARGS) { .mesh_bits = -1,
-                                  .flame_variant = flame_variant });
+            (ITEM_SHATTER_ARGS) {
+                .mesh_bits = -1,
+                .gib_flags = gib_flags,
+                .flame_variant = flame_variant,
+            });
         Item_Destroy(item_num);
     } else {
         Item_RemoveSimulated(item_num);
@@ -1598,14 +1680,24 @@ int16_t Creature_Effect(
         int32_t x, int32_t y, int32_t z, int16_t speed, int16_t y_rot,
         int16_t room_num))
 {
+    return Creature_EffectEx(item, bite, item->speed, item->rot.y, spawn);
+}
+
+int16_t Creature_EffectEx(
+    const ITEM *const item, const BITE *const bite, const int16_t speed,
+    const int16_t angle,
+    int16_t (*const spawn)(
+        int32_t x, int32_t y, int32_t z, int16_t speed, int16_t y_rot,
+        int16_t room_num))
+{
     XYZ_32 pos = bite->pos;
     Collide_GetJointAbsPosition(item, &pos, bite->mesh_num);
-    return spawn(pos.x, pos.y, pos.z, item->speed, item->rot.y, item->room_num);
+    return spawn(pos.x, pos.y, pos.z, speed, angle, item->room_num);
 }
 
 int16_t Creature_AIGuard(CREATURE *const creature)
 {
-    if (Item_Get(creature->item_num)->ai_bits & AI_MODIFY) {
+    if ((Item_Get(creature->item_num)->ai_bits & AI_MODIFY) != 0) {
         return 0;
     }
 
@@ -1682,7 +1774,7 @@ ITEM *Creature_FindAITargetObject(
             continue;
         }
         // A marker it cannot walk to is no use to it.
-        if (!M_SameZone(creature, target)) {
+        if (!Creature_SameZone(creature, target)) {
             continue;
         }
         creature->enemy = target;
@@ -1716,23 +1808,23 @@ void Creature_GetAITarget(CREATURE *const creature)
     const OBJECT_ID enemy_object_id =
         enemy != nullptr ? enemy->object_id : NO_OBJECT;
 
-    uint8_t ai_bits = item->ai_bits;
+    const uint8_t ai_bits = item->ai_bits;
 
-    if (ai_bits & AI_GUARD) {
+    if ((ai_bits & AI_GUARD) != 0) {
         creature->enemy = lara_item;
 
         if (creature->alerted) {
             item->ai_bits &= ~AI_GUARD;
 
-            if (ai_bits & AI_AMBUSH) {
+            if ((ai_bits & AI_AMBUSH) != 0) {
                 item->ai_bits |= AI_MODIFY;
             }
         }
-    } else if (ai_bits & AI_PATROL_1) {
+    } else if ((ai_bits & AI_PATROL_1) != 0) {
         if (creature->alerted || creature->hurt_by_lara) {
             item->ai_bits &= ~AI_PATROL_1;
 
-            if (ai_bits & AI_AMBUSH) {
+            if ((ai_bits & AI_AMBUSH) != 0) {
                 item->ai_bits |= AI_MODIFY;
             }
         } else if (!creature->patrol_2 && enemy_object_id != O_AI_PATROL_1) {
@@ -1741,7 +1833,7 @@ void Creature_GetAITarget(CREATURE *const creature)
 
                 if (target->object_id == O_AI_PATROL_1
                     && target->room_num != NO_ROOM
-                    && M_SameZone(creature, target)
+                    && Creature_SameZone(creature, target)
                     && target->rot.y == item->ai_tag) {
                     creature->enemy = target;
                     return;
@@ -1753,7 +1845,7 @@ void Creature_GetAITarget(CREATURE *const creature)
 
                 if (target->object_id == O_AI_PATROL_2
                     && target->room_num != NO_ROOM
-                    && M_SameZone(creature, target)
+                    && Creature_SameZone(creature, target)
                     && target->rot.y == item->ai_tag) {
                     creature->enemy = target;
                     return;
@@ -1766,16 +1858,17 @@ void Creature_GetAITarget(CREATURE *const creature)
             Room_TestTriggers(enemy);
             creature->patrol_2 = !creature->patrol_2;
         }
-    } else if (ai_bits & AI_AMBUSH) {
-        if (ai_bits & AI_MODIFY || creature->hurt_by_lara) {
+    } else if ((ai_bits & AI_AMBUSH) != 0) {
+        if (g_TRVersion >= 4 || (ai_bits & AI_MODIFY) != 0
+            || creature->hurt_by_lara) {
             if (enemy_object_id != O_AI_AMBUSH) {
                 for (int32_t i = 0; i < Item_GetTotalCount(); i++) {
                     ITEM *const target = Item_Get(i);
 
                     if (target->object_id == O_AI_AMBUSH
                         && target->room_num != NO_ROOM
-                        && M_SameZone(creature, target)
-                        && (target->rot.y == item->ai_tag
+                        && Creature_SameZone(creature, target)
+                        && (g_TRVersion >= 4 || target->rot.y == item->ai_tag
                             || item->object_id == O_MONKEY)) {
                         creature->enemy = target;
                         return;
@@ -1786,17 +1879,25 @@ void Creature_GetAITarget(CREATURE *const creature)
                     && ABS(enemy->pos.y - item->pos.y) < M_MARKER_REACH
                     && ABS(enemy->pos.z - item->pos.z) < M_MARKER_REACH) {
                     Room_TestTriggers(enemy);
-                    creature->reached_goal = 1;
+                    creature->reached_goal = true;
                     creature->enemy = lara_item;
-                    item->ai_bits &= ~(AI_AMBUSH | AI_MODIFY);
-                    item->ai_bits |= AI_GUARD;
-                    creature->alerted = false;
+                    if (g_TRVersion >= 4) {
+                        item->ai_bits &= ~AI_AMBUSH;
+                        if (item->ai_bits != AI_MODIFY) {
+                            item->ai_bits |= AI_GUARD;
+                            creature->alerted = false;
+                        }
+                    } else {
+                        item->ai_bits &= ~(AI_AMBUSH | AI_MODIFY);
+                        item->ai_bits |= AI_GUARD;
+                        creature->alerted = false;
+                    }
                 }
             }
         } else {
             creature->enemy = lara_item;
         }
-    } else if (ai_bits & AI_FOLLOW) {
+    } else if ((ai_bits & AI_FOLLOW) != 0) {
         if (creature->hurt_by_lara) {
             creature->enemy = lara_item;
             creature->alerted = true;
@@ -1809,7 +1910,7 @@ void Creature_GetAITarget(CREATURE *const creature)
 
                 if (target->object_id == O_AI_FOLLOW
                     && target->room_num != NO_ROOM
-                    && M_SameZone(creature, target)
+                    && Creature_SameZone(creature, target)
                     && target->rot.y == item->ai_tag) {
                     creature->enemy = target;
                     return;
@@ -1836,7 +1937,7 @@ void Creature_GetAITarget(CREATURE *const creature)
                     if (target->object_id == O_KEY_ITEM_4
                         && target->room_num != NO_ROOM && !target->ai_bits
                         && target->is_visible && !target->clear_body
-                        && M_SameZone(creature, target)) {
+                        && Creature_SameZone(creature, target)) {
                         creature->enemy = target;
                         return;
                     }
@@ -1848,11 +1949,31 @@ void Creature_GetAITarget(CREATURE *const creature)
                 if (target->object_id == O_SMALL_MEDIPACK_ITEM
                     && target->room_num != NO_ROOM && !target->ai_bits
                     && target->is_visible && !target->clear_body
-                    && M_SameZone(creature, target)) {
+                    && Creature_SameZone(creature, target)) {
                     creature->enemy = target;
                     return;
                 }
             }
         }
     }
+}
+
+void Creature_ProbeAhead(
+    const ITEM *const item, const int32_t distance, CREATURE_PROBE *const probe)
+{
+    const int32_t y = item->pos.y;
+    XYZ_32 pos = item->pos;
+    for (int32_t i = 0; i < 3; i++) {
+        pos = XYZ_32_OffsetYaw(pos, item->rot.y, distance);
+        pos.y = y;
+        int16_t room_num = item->room_num;
+        const SECTOR *const sector = Room_GetSector(pos, &room_num);
+        probe->heights[i] = Room_GetHeight(sector, pos);
+    }
+
+    probe->jump_ahead = y < probe->heights[0] - STEPUP_HEIGHT
+        && y < probe->heights[1] + STEP_L && y > probe->heights[1] - STEP_L;
+    probe->long_jump_ahead = y < probe->heights[0] - STEPUP_HEIGHT
+        && y < probe->heights[1] - STEPUP_HEIGHT
+        && y < probe->heights[2] + STEP_L && y > probe->heights[2] - STEP_L;
 }

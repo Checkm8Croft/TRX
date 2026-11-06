@@ -11,7 +11,8 @@
 #include <trx/game/level/common.h>
 #include <trx/game/lua/common.h>
 #include <trx/game/lua/registry.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/module.h>
+#include <trx/game/lua/utils/value.h>
 
 #include <lauxlib.h>
 #include <string.h>
@@ -52,6 +53,7 @@ static VECTOR *m_Watchers = nullptr;
 static int32_t m_NextWatcherId = 1;
 static int32_t m_ChangeListener = -1;
 static int32_t m_DispatchDepth = 0;
+static int32_t m_AnyChangeRef = LUA_NOREF;
 
 static CONFIG_OPTION *M_GetOption(lua_State *const L, const int32_t arg)
 {
@@ -84,7 +86,19 @@ static const char *M_ValueAsString(lua_State *const L, const int32_t arg)
     return luaL_checkstring(L, arg);
 }
 
-// trxc.config.get(key)
+// Returns the text to write into an option. Lua reads a dynamic enum value
+// with no text, such as the outfit that the level chooses, as an empty string,
+// so an empty string writes that value back.
+static const char *M_ValueForOption(
+    const CONFIG_OPTION *const option, const char *const text)
+{
+    if (option->value.type == TVT_DYNAMIC_ENUM && text[0] == '\0') {
+        return nullptr;
+    }
+    return text;
+}
+
+// trxc.config.get(key: string): any
 static int M_L_ConfigGet(lua_State *const L)
 {
     LUA_Config_PushOptionValue(L, M_GetOption(L, 1));
@@ -124,9 +138,13 @@ static const char *M_KindName(const TRX_VALUE_TYPE type)
 }
 
 // Pushes the enum name with `_` separators regardless of the separator used in
-// the settings file.
+// the settings file. A value the enum map has no name for reads as nil.
 static void M_PushEnumName(lua_State *const L, const char *const name)
 {
+    if (name == nullptr) {
+        lua_pushnil(L);
+        return;
+    }
     lua_pushstring(L, EnumMap_NormalizeName(name));
 }
 
@@ -149,7 +167,7 @@ static void M_PushDefault(lua_State *const L, const CONFIG_OPTION *const option)
     LUA_PushValue(L, value);
 }
 
-// trxc.config.describe(key) -> table
+// trxc.config.describe(key: string): trx.config.Shape
 static int M_L_ConfigDescribe(lua_State *const L)
 {
     const CONFIG_OPTION *const option = M_GetOption(L, 1);
@@ -198,21 +216,100 @@ static int M_L_ConfigDescribe(lua_State *const L)
     return 1;
 }
 
-// trxc.config.set(key, value, force?)
+// trxc.config.labels(key: string): { value: string, label: string, enabled: boolean }[]
+static int M_L_ConfigLabels(lua_State *const L)
+{
+    const CONFIG_OPTION *const option = M_GetOption(L, 1);
+    if (option->value.type == TVT_ENUM) {
+        const int32_t count = EnumMap_GetValueCount(option->enum_map);
+        lua_createtable(L, count, 0);
+        for (int32_t i = 0; i < count; i++) {
+            const int32_t value = EnumMap_GetValueAt(option->enum_map, i);
+            const char *const label = EnumMap_GetLabel(option->enum_map, value);
+            lua_createtable(L, 0, 3);
+            M_PushEnumName(L, EnumMap_ToString(option->enum_map, value));
+            lua_setfield(L, -2, "value");
+            lua_pushstring(L, label != nullptr ? label : "");
+            lua_setfield(L, -2, "label");
+            lua_pushboolean(L, true);
+            lua_setfield(L, -2, "enabled");
+            lua_rawseti(L, -2, i + 1);
+        }
+        return 1;
+    }
+    if (option->value.type == TVT_DYNAMIC_ENUM) {
+        const void *const token = Config_Option_GetEnumKey(option);
+        const int32_t count = DynamicEnum_GetValueCount(token);
+        lua_createtable(L, count, 0);
+        for (int32_t i = 0; i < count; i++) {
+            const char *const value = DynamicEnum_GetValueAt(token, i);
+            const char *const label = DynamicEnum_GetLabelAt(token, i);
+            lua_createtable(L, 0, 3);
+            lua_pushstring(L, value != nullptr ? value : "");
+            lua_setfield(L, -2, "value");
+            lua_pushstring(L, label);
+            lua_setfield(L, -2, "label");
+            lua_pushboolean(L, DynamicEnum_IsValueEnabled(token, value));
+            lua_setfield(L, -2, "enabled");
+            lua_rawseti(L, -2, i + 1);
+        }
+        return 1;
+    }
+    lua_newtable(L);
+    return 1;
+}
+
+// trxc.config.to_string(key: string, human?: boolean, value?: any): string?
+static int M_L_ConfigToString(lua_State *const L)
+{
+    const CONFIG_OPTION *const option = M_GetOption(L, 1);
+    const bool human = lua_toboolean(L, 2);
+    if (lua_isnoneornil(L, 3)) {
+        const char *const text = Config_Option_GetValueAsString(option, human);
+        lua_pushstring(L, text != nullptr ? text : "");
+        return 1;
+    }
+    const char *const value = M_ValueAsString(L, 3);
+    if (!Config_Option_AcceptsString(option, value)) {
+        lua_pushnil(L);
+        return 1;
+    }
+    char *const text = Config_Option_NormalizeValueString(option, value, human);
+    lua_pushstring(L, text);
+    Memory_Free(text);
+    return 1;
+}
+
+// trxc.config.is_hidden(key: string): boolean
+static int M_L_ConfigIsHidden(lua_State *const L)
+{
+    lua_pushboolean(L, Config_Option_IsHidden(M_GetOption(L, 1)));
+    return 1;
+}
+
+// trxc.config.is_default(key: string): boolean
+static int M_L_ConfigIsDefault(lua_State *const L)
+{
+    lua_pushboolean(L, Config_Option_IsAtDefault(M_GetOption(L, 1)));
+    return 1;
+}
+
+// trxc.config.set(key: string, value: any, force?: boolean)
 static int M_L_ConfigSet(lua_State *const L)
 {
     CONFIG_OPTION *const option = M_GetOption(L, 1);
-    const char *const new_value = M_ValueAsString(L, 2);
+    const char *const text = M_ValueAsString(L, 2);
     const bool force = lua_toboolean(L, 3);
-    if (!Config_Option_SetFromString(option, new_value, force)) {
+    if (!Config_Option_SetFromString(
+            option, M_ValueForOption(option, text), force)) {
         return luaL_error(
-            L, "failed to set option %s to %s", option->name, new_value);
+            L, "failed to set option %s to %s", option->name, text);
     }
     Config_Update();
     return 0;
 }
 
-// trxc.config.reset(key, force?) -> bool
+// trxc.config.reset(key: string, force?: boolean): boolean
 static int M_L_ConfigReset(lua_State *const L)
 {
     CONFIG_OPTION *const option = M_GetOption(L, 1);
@@ -225,21 +322,21 @@ static int M_L_ConfigReset(lua_State *const L)
     return 1;
 }
 
-// trxc.config.override(key, value)
+// trxc.config.override(key: string, value: any)
 static int M_L_ConfigOverride(lua_State *const L)
 {
     CONFIG_OPTION *const option = M_GetOption(L, 1);
-    const char *const new_value = M_ValueAsString(L, 2);
+    const char *const text = M_ValueAsString(L, 2);
     if (!Config_Option_PushHoldFromString(
-            option, new_value, CONFIG_HOLD_SCRIPT)) {
+            option, M_ValueForOption(option, text), CONFIG_HOLD_SCRIPT)) {
         return luaL_error(
-            L, "failed to override option %s with %s", option->name, new_value);
+            L, "failed to override option %s with %s", option->name, text);
     }
     Config_Update();
     return 0;
 }
 
-// trxc.config.restore(key) -> bool
+// trxc.config.restore(key: string): boolean
 static int M_L_ConfigRestore(lua_State *const L)
 {
     CONFIG_OPTION *const option = M_GetOption(L, 1);
@@ -251,7 +348,7 @@ static int M_L_ConfigRestore(lua_State *const L)
     return 1;
 }
 
-// trxc.config.is_overridden(key) -> bool
+// trxc.config.is_overridden(key: string): boolean
 static int M_L_ConfigIsOverridden(lua_State *const L)
 {
     const CONFIG_OPTION *const option = M_GetOption(L, 1);
@@ -259,7 +356,7 @@ static int M_L_ConfigIsOverridden(lua_State *const L)
     return 1;
 }
 
-// trxc.config.list()
+// trxc.config.list(): table<string, any>
 static int M_L_ConfigList(lua_State *const L)
 {
     lua_newtable(L);
@@ -293,8 +390,8 @@ static const char *M_StrField(
     return result;
 }
 
-// The kinds a script may declare, named the way trxc.config.describe reports
-// them back. The rest of the taxonomy names storage the engine owns.
+// The kinds a script may declare, named the way describe in trxc.config
+// reports them back. The rest of the taxonomy names storage the engine owns.
 static TRX_VALUE_TYPE M_ReadKind(lua_State *const L, const char *const kind)
 {
     if (strcmp(kind, "boolean") == 0) {
@@ -319,6 +416,10 @@ static bool M_ListsDefault(
     const int32_t count = (int32_t)lua_rawlen(L, idx);
     for (int32_t i = 1; i <= count && !found; i++) {
         lua_rawgeti(L, idx, i);
+        if (lua_istable(L, -1)) {
+            lua_getfield(L, -1, "value");
+            lua_replace(L, -2);
+        }
         if (lua_type(L, -1) != LUA_TSTRING) {
             luaL_error(L, "option values must be strings");
         }
@@ -407,15 +508,25 @@ static void M_AddValue(
     Memory_FreePointer(&label);
 }
 
-// Seeds a declared enum's values.
+// Seeds a declared enum's values. A value given as a table carries its own
+// label, or none, in place of the derived one.
 static void M_SeedValues(lua_State *const L, const CONFIG_OPTION *const option)
 {
-    DynamicEnum_ResetValues(Config_Option_GetEnumKey(option));
+    const void *const token = Config_Option_GetEnumKey(option);
+    DynamicEnum_ResetValues(token);
     lua_getfield(L, 1, "values");
     const int32_t count = (int32_t)lua_rawlen(L, -1);
     for (int32_t i = 1; i <= count; i++) {
         lua_rawgeti(L, -1, i);
-        M_AddValue(option, lua_tostring(L, -1));
+        if (lua_istable(L, -1)) {
+            lua_getfield(L, -1, "value");
+            lua_getfield(L, -2, "label");
+            DynamicEnum_AddValue(
+                token, lua_tostring(L, -2), lua_tostring(L, -1));
+            lua_pop(L, 2);
+        } else {
+            M_AddValue(option, lua_tostring(L, -1));
+        }
         lua_pop(L, 1);
     }
     lua_pop(L, 1);
@@ -435,7 +546,7 @@ static void M_KeepUnlistedValue(
     DynamicEnum_SetValueEnabled(Config_Option_GetEnumKey(option), value, false);
 }
 
-// trxc.config.declare(spec)
+// trxc.config.declare(spec: trx.config.Shape)
 static int M_L_ConfigDeclare(lua_State *const L)
 {
     const M_DECLARATION spec = M_ReadDeclaration(L);
@@ -493,12 +604,29 @@ static void M_CompactWatchers(lua_State *const L)
     }
 }
 
+// Says that settings moved, to the one function that hears of every change.
+static void M_CallAnyChange(lua_State *const L)
+{
+    if (m_AnyChangeRef == LUA_NOREF) {
+        return;
+    }
+    lua_rawgeti(L, LUA_REGISTRYINDEX, m_AnyChangeRef);
+    if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+        Console_ShowError("config change hook failed: %s", lua_tostring(L, -1));
+        lua_pop(L, 1);
+    }
+}
+
 // Says a setting moved, to whoever asked about that one.
 static void M_HandleChange(const EVENT *const event, void *const user_data)
 {
     lua_State *const L = m_L;
     const CONFIG_CHANGE *const change = event->data;
-    if (L == nullptr || m_Watchers == nullptr || change == nullptr) {
+    if (L == nullptr || change == nullptr) {
+        return;
+    }
+    M_CallAnyChange(L);
+    if (m_Watchers == nullptr) {
         return;
     }
     if (m_DispatchDepth >= M_MAX_DISPATCH_DEPTH) {
@@ -564,13 +692,13 @@ static int M_AttachWatcher(lua_State *const L, const bool allow_level_scope)
     return 1;
 }
 
-// trxc.config.on_change(key, fn) -> id
+// trxc.config.on_change(key: string, fn: fun(value: any)): integer
 static int M_L_ConfigOnChange(lua_State *const L)
 {
     return M_AttachWatcher(L, true);
 }
 
-// trxc.config.on_change_lasting(key, fn) -> id
+// trxc.config.on_change_lasting(key: string, fn: fun(value: any)): integer
 //
 // The watcher lives as long as the game runs, whichever script attaches it.
 // This is for what outlives a level and reads the setting afterwards, such as
@@ -581,7 +709,7 @@ static int M_L_ConfigOnChangeLasting(lua_State *const L)
     return M_AttachWatcher(L, false);
 }
 
-// trxc.config.off_change(id) -> bool
+// trxc.config.off_change(id: integer): boolean
 static int M_L_ConfigOffChange(lua_State *const L)
 {
     const int32_t id = (int32_t)luaL_checkinteger(L, 1);
@@ -601,6 +729,21 @@ static int M_L_ConfigOffChange(lua_State *const L)
     return 1;
 }
 
+// trxc.config.on_any_change(fn: fun())
+//
+// Replaces the one function that is called once for each batch of changed
+// settings, whichever settings they are.
+static int M_L_ConfigOnAnyChange(lua_State *const L)
+{
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    if (m_AnyChangeRef != LUA_NOREF) {
+        luaL_unref(L, LUA_REGISTRYINDEX, m_AnyChangeRef);
+    }
+    lua_pushvalue(L, 1);
+    m_AnyChangeRef = luaL_ref(L, LUA_REGISTRYINDEX);
+    return 0;
+}
+
 static const luaL_Reg m_Module[] = {
     { "get", M_L_ConfigGet },
     { "describe", M_L_ConfigDescribe },
@@ -608,14 +751,34 @@ static const luaL_Reg m_Module[] = {
     { "reset", M_L_ConfigReset },
     { "override", M_L_ConfigOverride },
     { "restore", M_L_ConfigRestore },
+    { "is_default", M_L_ConfigIsDefault },
+    { "is_hidden", M_L_ConfigIsHidden },
     { "is_overridden", M_L_ConfigIsOverridden },
+    { "labels", M_L_ConfigLabels },
+    { "to_string", M_L_ConfigToString },
     { "list", M_L_ConfigList },
     { "declare", M_L_ConfigDeclare },
     { "on_change", M_L_ConfigOnChange },
     { "on_change_lasting", M_L_ConfigOnChangeLasting },
+    { "on_any_change", M_L_ConfigOnAnyChange },
     { "off_change", M_L_ConfigOffChange },
     { nullptr, nullptr },
 };
+
+static void M_DropLevel(void)
+{
+    lua_State *const L = m_L;
+    if (L == nullptr || m_Watchers == nullptr) {
+        return;
+    }
+    for (int32_t i = 0; i < m_Watchers->count; i++) {
+        M_WATCHER *const watcher = Vector_Get(m_Watchers, i);
+        watcher->dead = watcher->dead || watcher->level_scoped;
+    }
+    if (m_DispatchDepth == 0) {
+        M_CompactWatchers(L);
+    }
+}
 
 static void M_Create(lua_State *const L)
 {
@@ -642,6 +805,7 @@ static void M_Shutdown(void)
         m_ChangeListener = -1;
     }
     m_DispatchDepth = 0;
+    m_AnyChangeRef = LUA_NOREF;
     m_L = nullptr;
 }
 
@@ -689,19 +853,5 @@ void LUA_Config_FlushPendingWatchers(void)
     }
 }
 
-void LUA_Config_ClearLevelWatchers(void)
-{
-    lua_State *const L = m_L;
-    if (L == nullptr || m_Watchers == nullptr) {
-        return;
-    }
-    for (int32_t i = 0; i < m_Watchers->count; i++) {
-        M_WATCHER *const watcher = Vector_Get(m_Watchers, i);
-        watcher->dead = watcher->dead || watcher->level_scoped;
-    }
-    if (m_DispatchDepth == 0) {
-        M_CompactWatchers(L);
-    }
-}
-
-REGISTER_LUA_CAPI(.create = M_Create, .shutdown = M_Shutdown)
+REGISTER_LUA_CAPI(
+        .create = M_Create, .shutdown = M_Shutdown, .drop_level = M_DropLevel)

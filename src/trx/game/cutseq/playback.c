@@ -63,6 +63,12 @@ typedef enum {
     M_PHASE_FADE_END, // final frames, fading to black
 } M_PHASE;
 
+typedef enum {
+    M_FADE_OUT_NONE,
+    M_FADE_OUT_PENDING,
+    M_FADE_OUT_PENDING_INSTANT,
+} M_FADE_OUT_STATE;
+
 typedef struct {
     OBJECT_ID obj_id;
     int16_t src_node;
@@ -117,6 +123,7 @@ static struct {
     // holds.
     int32_t holster_timeout;
     FADER fader;
+    M_FADE_OUT_STATE fade_out;
 } m_State = {
     .num = M_NO_CUTSCENE,
     .pending_num = M_NO_CUTSCENE,
@@ -332,8 +339,10 @@ static bool M_Begin(const int32_t num)
         for (int32_t j = 0; j < CUTSEQ_MAX_MESHES; j++) {
             actor->overrides[j].obj_id = NO_OBJECT;
         }
+        // Lights every actor as Lara, as the original does, rather than as a
+        // prop with its brighter light.
         actor->dummy_item = (ITEM) {
-            .object_id = actor_info->obj_id,
+            .object_id = O_LARA,
             .room_num = Lara_GetItem()->room_num,
             .pos = info->origin,
         };
@@ -406,6 +415,7 @@ static void M_Abort(void)
     m_State.phase = M_PHASE_INACTIVE;
     m_State.num = M_NO_CUTSCENE;
     m_State.pending_num = M_NO_CUTSCENE;
+    m_State.fade_out = M_FADE_OUT_NONE;
     m_State.lara_return.is_present = false;
     m_State.lara_shadow_bounds.is_present = false;
     Output_Overlay_SlideLetterbox(0.0f);
@@ -589,17 +599,18 @@ void CutSeq_Request(const int32_t num, const bool fade_out)
         m_State.lara_return.pos = Lara_GetItem()->pos;
         m_State.lara_return.rot = Lara_GetItem()->rot.y;
     }
+    // A flyby that asks for a scene would otherwise run on behind the fade, and
+    // one that has run out flies back to Lara through the void. Stopping it
+    // holds the camera still while the screen fades out.
+    if (FlybyMode_IsActive()) {
+        FlybyMode_Stop();
+    }
     m_State.pending_num = num;
     m_State.phase = M_PHASE_FADE_OUT;
     m_State.holster_timeout = M_HOLSTER_TIMEOUT;
     M_RequestHolster();
-    if (fade_out) {
-        Fader_InitFromCurrent(&m_State.fader, 1.0f, M_FADE_DURATION);
-    } else {
-        // Black at once rather than over time, so the next tick begins the
-        // scene and M_Begin's own fade brings it in from there.
-        Fader_InitTo(&m_State.fader, 1.0f, 1.0f, 0.0f);
-    }
+    m_State.fade_out =
+        fade_out ? M_FADE_OUT_PENDING : M_FADE_OUT_PENDING_INSTANT;
 }
 
 void CutSeq_Skip(void)
@@ -750,6 +761,7 @@ void CutSeq_Reset(void)
     m_State.phase = M_PHASE_INACTIVE;
     m_State.num = M_NO_CUTSCENE;
     m_State.pending_num = M_NO_CUTSCENE;
+    m_State.fade_out = M_FADE_OUT_NONE;
     m_State.frame = 0;
     m_State.event_frame = -1;
     m_State.decoded_frames = 0;
@@ -772,6 +784,7 @@ void CutSeq_Reset(void)
     // asked for is carried into the next one.
     m_State.phase = M_PHASE_INACTIVE;
     m_State.pending_num = M_NO_CUTSCENE;
+    m_State.fade_out = M_FADE_OUT_NONE;
     m_State.fader = (FADER) {};
 }
 
@@ -779,13 +792,24 @@ void CutSeq_Control(void)
 {
     // As a cutscene level answers them, and for the same reason: a scene the
     // player has seen before is a scene to get past.
-    if (M_IsSkippable() && (g_InputDB.menu_skip || g_InputDB.look)) {
+    if (CutSeq_IsActive() && M_IsSkippable() && g_InputDB.menu_skip) {
         CutSeq_Skip();
-        Input_HoldOffSkip();
+        Input_HoldOffSkip(INPUT_SKIP_IN_GAME);
     }
 
     switch (m_State.phase) {
     case M_PHASE_FADE_OUT:
+        if (m_State.fade_out != M_FADE_OUT_NONE) {
+            const bool is_instant =
+                m_State.fade_out == M_FADE_OUT_PENDING_INSTANT;
+            m_State.fade_out = M_FADE_OUT_NONE;
+            if (is_instant) {
+                Fader_InitTo(&m_State.fader, 1.0f, 1.0f, 0.0f);
+            } else {
+                Fader_InitFromCurrent(&m_State.fader, 1.0f, M_FADE_DURATION);
+            }
+            return;
+        }
         if (!Fader_IsActive(&m_State.fader)) {
             if (m_State.holster_timeout > 0 && !M_IsHolsterFinished()) {
                 m_State.holster_timeout--;
@@ -945,8 +969,5 @@ void CutSeq_DrawActors(void)
 
 void CutSeq_DrawOverlay(void)
 {
-    const float fade = Fader_GetCurrentValue(&m_State.fader);
-    if (fade > 0.0f) {
-        Output_Overlay_DrawBlackRectangle(fade, false);
-    }
+    Output_DrawScreenBlack(Fader_GetCurrentValue(&m_State.fader));
 }

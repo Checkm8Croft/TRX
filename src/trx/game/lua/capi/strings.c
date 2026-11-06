@@ -1,8 +1,10 @@
+#include <trx/core/memory.h>
 #include <trx/core/strings.h>
 #include <trx/core/strings/fuzzy_match.h>
+#include <trx/core/vector.h>
 #include <trx/game/lua/common.h>
 #include <trx/game/lua/registry.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/module.h>
 
 #include <lauxlib.h>
 
@@ -109,7 +111,7 @@ static int M_FuzzyMatch(lua_State *const L)
     return 1;
 }
 
-// trxc.strings.fuzzy_match(input, sources) -> matches
+// trxc.strings.fuzzy_match(input: string, sources: trx.strings.fuzzy_match.sources[]): trx.strings.Match[]
 //
 // `sources` is a list of { key, value, weight }. The value is the caller's own:
 // it is not read here, and it comes back on the match.
@@ -141,7 +143,7 @@ static int M_L_StringsFuzzyMatch(lua_State *const L)
     return 1;
 }
 
-// trxc.strings.regex_match(subject, pattern) -> bool
+// trxc.strings.regex_match(subject: string, pattern: string): boolean
 static int M_L_StringsRegexMatch(lua_State *const L)
 {
     lua_pushboolean(
@@ -149,9 +151,57 @@ static int M_L_StringsRegexMatch(lua_State *const L)
     return 1;
 }
 
+// trxc.strings.upper(text: string): string
+static int M_L_StringsUpper(lua_State *const L)
+{
+    char *upper = String_ToUpper(luaL_checkstring(L, 1));
+    lua_pushstring(L, upper);
+    Memory_FreePointer(&upper);
+    return 1;
+}
+
+// trxc.strings.lower(text: string): string
+static int M_L_StringsLower(lua_State *const L)
+{
+    char *lower = String_ToLower(luaL_checkstring(L, 1));
+    lua_pushstring(L, lower);
+    Memory_FreePointer(&lower);
+    return 1;
+}
+
+// trxc.strings.equivalent(a: string, b: string): boolean
+static int M_L_StringsEquivalent(lua_State *const L)
+{
+    lua_pushboolean(
+        L, String_Equivalent(luaL_checkstring(L, 1), luaL_checkstring(L, 2)));
+    return 1;
+}
+
+// trxc.strings.paginate(text: string, max_lines: integer): string[]
+static int M_L_StringsPaginate(lua_State *const L)
+{
+    const char *const text = luaL_checkstring(L, 1);
+    const lua_Integer max_lines = luaL_checkinteger(L, 2);
+    luaL_argcheck(L, max_lines > 0, 2, "a page holds at least one line");
+    VECTOR *const pages = String_Paginate(text, (int32_t)max_lines);
+    lua_createtable(L, pages->count, 0);
+    for (int32_t i = 0; i < pages->count; i++) {
+        char *page = *(char **)Vector_Get(pages, i);
+        lua_pushstring(L, page);
+        lua_rawseti(L, -2, i + 1);
+        Memory_FreePointer(&page);
+    }
+    Vector_Free(pages);
+    return 1;
+}
+
 static const luaL_Reg m_Module[] = {
+    { "equivalent", M_L_StringsEquivalent },
     { "fuzzy_match", M_L_StringsFuzzyMatch },
     { "regex_match", M_L_StringsRegexMatch },
+    { "paginate", M_L_StringsPaginate },
+    { "upper", M_L_StringsUpper },
+    { "lower", M_L_StringsLower },
     { nullptr, nullptr },
 };
 

@@ -1,9 +1,9 @@
 #include <trx/game/inventory.h>
-#include <trx/game/inventory_ring/control.h>
 #include <trx/game/items.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects.h>
 #include <trx/game/objects/general/switch.h>
+#include <trx/game/ui/menu.h>
 #include <trx/version.h>
 
 typedef enum {
@@ -111,10 +111,10 @@ static bool M_ShowCrowbarInventory(void)
         return false;
     }
 
-    InvRing_SetRequestedObjectID(O_CROWBAR_OPTION);
+    UI_RequestItem(O_CROWBAR_OPTION);
     const GF_COMMAND gf_cmd = GF_ShowInventory(INV_KEYS_MODE);
     if (gf_cmd.action != GF_NOOP) {
-        GF_OverrideCommand(gf_cmd);
+        GF_OverrideCommand(gf_cmd, true);
     }
     return true;
 }
@@ -162,9 +162,8 @@ static bool M_Interact(ITEM *const item, ITEM *const lara_item)
         } else {
             lara->interact_target.item_num = item_num;
         }
-    } else if (Lara_Interact_HasActiveTarget(item_num)) {
-        lara->interact_target.is_moving = false;
-        lara->gun_status = LGS_ARMLESS;
+    } else {
+        Lara_Interact_Release(item_num);
     }
 
 finish:

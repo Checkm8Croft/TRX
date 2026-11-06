@@ -237,7 +237,7 @@ void Skidoo_Collision(
         get_on == M_GET_ON_LEFT ? M_ANIM_GET_ON_L : M_ANIM_GET_ON_R;
     Lara_Vehicle_SwitchToAnim(anim_idx, 0);
     lara_item->current_anim_state = M_STATE_GET_ON;
-    lara->gun_status = LGS_ARMLESS;
+    lara->gun_status = LGS_HANDS_BUSY;
     lara->hit_direction = DIR_UNKNOWN;
 
     ITEM *const item = Item_Get(item_num);
@@ -301,7 +301,7 @@ void Skidoo_DoSnowEffect(const ITEM *const skidoo)
         return;
     }
 
-    const int16_t effect_num = Effect_Create(skidoo->room_num);
+    const int16_t effect_num = Effect_Create(O_SNOW_SPRITE, skidoo->room_num);
     if (effect_num == NO_EFFECT) {
         return;
     }
@@ -313,7 +313,6 @@ void Skidoo_DoSnowEffect(const ITEM *const skidoo)
     effect->pos.y =
         skidoo->pos.y + ((Math_Sin(skidoo->rot.x) * M_SNOW) >> W2V_SHIFT);
     effect->room_num = skidoo->room_num;
-    effect->object_id = O_SNOW_SPRITE;
     effect->frame_num = 0;
     effect->speed = 0;
     if (skidoo->speed < 64) {
@@ -689,7 +688,7 @@ void Skidoo_Animation(
 
 void Skidoo_Explode(const ITEM *const skidoo)
 {
-    const int16_t effect_num = Effect_Create(skidoo->room_num);
+    const int16_t effect_num = Effect_Create(O_EXPLOSION_1, skidoo->room_num);
     if (effect_num != NO_EFFECT) {
         EFFECT *const effect = Effect_Get(effect_num);
         effect->pos.x = skidoo->pos.x;
@@ -698,7 +697,6 @@ void Skidoo_Explode(const ITEM *const skidoo)
         effect->speed = 0;
         effect->frame_num = 0;
         effect->counter = 0;
-        effect->object_id = O_EXPLOSION_1;
     }
 
     Item_Shatter(
@@ -882,7 +880,7 @@ bool Skidoo_Control(void)
     skidoo->fall_speed =
         M_DoDynamics(height, skidoo->fall_speed, &skidoo->pos.y);
 
-    height = (fr.y + fl.y) / 2;
+    height = (fr.y + fl.y) >> 1;
     const int16_t x_rot = Math_Atan(M_FRONT, skidoo->pos.y - height);
     const int16_t z_rot = Math_Atan(M_SIDE, height - fl.y);
     skidoo->rot.x += (x_rot - skidoo->rot.x) >> 1;

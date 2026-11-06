@@ -24,7 +24,7 @@ static void M_InitialiseHandle(const int16_t item_num)
 {
     ITEM *const hand_item = Item_Get(item_num);
     M_PRIV *const p = hand_item->priv;
-    const int16_t head_item_num = Item_CreateLevelItem();
+    const int16_t head_item_num = Item_Create();
     ASSERT(head_item_num != NO_ITEM);
     ITEM *const head_item = Item_Get(head_item_num);
     head_item->object_id = O_THORS_HEAD;
@@ -165,7 +165,8 @@ static void M_AddWalkable(const int16_t item_num)
 }
 
 static int32_t M_GetFloorHeight(
-    const ITEM *const item, const XYZ_32 pos, const int32_t height)
+    const ITEM *const item, const XYZ_32 pos, const int32_t height,
+    const ROOM_HEIGHT_CTX *const ctx)
 {
     if (item->current_anim_state != M_STATE_DONE) {
         return height;
@@ -183,7 +184,8 @@ static int32_t M_GetFloorHeight(
 }
 
 static int32_t M_GetCeilingHeight(
-    const ITEM *const item, const XYZ_32 pos, const int32_t height)
+    const ITEM *const item, const XYZ_32 pos, const int32_t height,
+    const ROOM_HEIGHT_CTX *const ctx)
 {
     if (item->current_anim_state != M_STATE_DONE) {
         return height;
@@ -204,7 +206,7 @@ static void M_SetupHandle(OBJECT *const obj)
 {
     obj->initialise_func = M_InitialiseHandle;
     obj->control_func = M_ControlHandle;
-    obj->draw_func = Object_DrawUnclippedItem;
+    obj->draw_func = Item_DrawUnclipped;
     obj->collision_func = M_CollisionHandle;
     obj->add_walkable_func = M_AddWalkable;
     obj->floor_height_func = M_GetFloorHeight;
@@ -217,7 +219,7 @@ static void M_SetupHandle(OBJECT *const obj)
 static void M_SetupHead(OBJECT *const obj)
 {
     obj->collision_func = M_CollisionHead;
-    obj->draw_func = Object_DrawUnclippedItem;
+    obj->draw_func = Item_DrawUnclipped;
     obj->save_flags = true;
     obj->save_anim = true;
 }

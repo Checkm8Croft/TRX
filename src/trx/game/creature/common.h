@@ -2,6 +2,8 @@
 
 #include <trx/game/collision.h>
 #include <trx/game/creature/types.h>
+#include <trx/game/items/enum.h>
+#include <trx/game/sound/ids.h>
 
 #define AI_OBJECT_FLAGS_SPENT 255
 // Marks an AI object that a creature walks to exactly, rather than one click
@@ -37,8 +39,29 @@ void Creature_Joint(ITEM *item, int16_t joint, int16_t required);
 void Creature_Float(int16_t item_num);
 void Creature_Underwater(ITEM *item, int32_t depth);
 
+// Reports whether a candidate is worth attacking. Returning false passes over
+// it, so that a turret can skip an enemy it has no shot at.
+typedef bool (*CREATURE_TARGET_FILTER)(const ITEM *item, const ITEM *target);
+
+// Points the creature's enemy at the nearest item it is willing to attack.
+// An ally looks for the objects marked as ally targets, an ally target looks
+// for the allies, and everything else takes Lara. An ally that finds nothing
+// and holds no grudge against Lara gets no enemy at all. A null filter takes
+// every candidate. TR1 and TR2 call this from Creature_AIInfo; later versions
+// leave the choice to the object.
+void Creature_ChooseEnemy(const ITEM *item, CREATURE_TARGET_FILTER filter);
+
+// Reports whether a shot from the item reaches the target without hitting the
+// geometry. Range and facing are not tested.
+bool Creature_HasLineOfFire(const ITEM *item, const ITEM *target);
+
 bool Creature_CanSeeEnemy(const ITEM *item, const AI_INFO *info);
 bool Creature_CanTargetEnemy(const ITEM *item, const AI_INFO *info);
+// Whether a step ahead of the creature, towards the angle in the AI info,
+// is high enough to duck behind, and the enemy is far enough away.
+bool Creature_IsNearCover(const ITEM *item, const AI_INFO *info);
+// Whether a creature that was just hit near cover ducks behind it.
+bool Creature_ShouldDuck(const ITEM *item, bool near_cover);
 void Creature_Collision(int16_t item_num, ITEM *lara_item, COLL_INFO *coll);
 bool Creature_Animate(int16_t item_num, int16_t angle, int16_t tilt);
 
@@ -50,6 +73,10 @@ typedef struct {
     // Burst the creature's meshes into flying body parts. Without this, the
     // corpse stays.
     bool explode;
+
+    // Set what the flying body parts draw and what they leave where they
+    // land.
+    GIB_FLAGS gib_flags;
 
     // Set the flame variant for flying body parts. Zero is ordinary fire.
     int16_t flame_variant;
@@ -79,10 +106,20 @@ int16_t Creature_Effect(
     int16_t (*spawn)(
         int32_t x, int32_t y, int32_t z, int16_t speed, int16_t y_rot,
         int16_t room_num));
+int16_t Creature_EffectEx(
+    const ITEM *item, const BITE *bite, int16_t speed, int16_t angle,
+    int16_t (*spawn)(
+        int32_t x, int32_t y, int32_t z, int16_t speed, int16_t y_rot,
+        int16_t room_num));
 
 bool Creature_Shoot(
     ITEM *item, const AI_INFO *info, const CREATURE_GUN *gun,
     int16_t extra_rotation, int32_t damage);
+// Fires a dying creature's last shot at an enemy within 45 degrees ahead, and
+// turns its head and torso to it. The caller picks the frames it fires on.
+void Creature_FireFinalShot(
+    ITEM *item, const CREATURE_GUN *gun, int32_t damage, SAMPLE_ID sfx,
+    int16_t *head, int16_t *torso_y);
 
 int16_t Creature_AIGuard(CREATURE *creature);
 void Creature_GetAITarget(CREATURE *creature);
@@ -121,3 +158,11 @@ XYZ_32 Creature_GetAITargetPos(const ITEM *item);
 bool Creature_IsAIObjectSpent(const ITEM *item);
 void Creature_SetAIObjectSpent(const ITEM *item);
 void Creature_ResetAIObjectsSpent(void);
+
+// Samples the path ahead three times, moving the provided distance each time,
+// based on the item's yaw. The provided CREATURE_PROBE has its jump values and
+// encountered heights on each pass determined.
+void Creature_ProbeAhead(
+    const ITEM *item, int32_t distance, CREATURE_PROBE *probe);
+
+bool Creature_SameZone(const CREATURE *creature, ITEM *target_item);

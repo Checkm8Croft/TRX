@@ -25,9 +25,14 @@ bool Lara_CanInterpolate(const ITEM *item, int32_t frame_a, int32_t frame_b);
 ITEM *Lara_GetDeathCameraTarget(void);
 void Lara_SetDeathCameraTarget(int16_t item_num);
 OBJECT_ID Lara_GetAnimationObject(void);
+void Lara_SmoothlyRotateMeshTo(
+    XYZ_16 *mesh, int16_t target_x, int16_t target_y, uint8_t smoothing_factor);
 void Lara_Animate(ITEM *item);
 void Lara_AnimateUntil(ITEM *lara_item, int32_t goal);
 const ANIM_FRAME *Lara_GetHitFrame(const ITEM *item);
+// The damage Lara takes from a blow of the given strength, after the damage
+// option has scaled it.
+int16_t Lara_ScaleDamage(int16_t damage);
 void Lara_TakeDamage(int16_t damage, bool hit_status);
 void Lara_Kill(void);
 

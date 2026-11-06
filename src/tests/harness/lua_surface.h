@@ -13,7 +13,7 @@
 #include <lualib.h>
 
 typedef struct {
-    // src/lua/api/<module>.lua - the declaration under test.
+    // src/lua/trx/<module>.lua - the declaration under test.
     const char *module;
     // Modules loaded before it, for what require() does not say: a declaration
     // that reaches into another module - trx.camera.room hands back a
@@ -21,7 +21,7 @@ typedef struct {
     // requires is read off its source and loaded with it, so a dependency of a
     // dependency is not named here. NULL-terminated; a full list is an error
     // rather than a truncation.
-    const char *deps[24];
+    const char *deps[32];
     // src/lua/commands/<script>.lua, run once the modules are up, the way the
     // engine runs it after sealing. Optional.
     const char *script;

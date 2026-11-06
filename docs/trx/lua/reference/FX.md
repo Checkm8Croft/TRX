@@ -1,24 +1,25 @@
 ---
 title: Fx
-order: 17
+order: 18
 ---
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/fx.lua. Edit it there.
+  src/lua/trx/fx.lua. Edit it there.
 -->
 
 ## <a id="fx" name="fx"></a>Fx module
 
-What a script puts in front of the player: things seen rather than things the
-game holds.
+What a script puts in front of the player: things seen rather than things
+the game holds.
 
 ### Indexing
 
 The level fog bulbs, counted from 1. `#trx.fx.fog_bulbs` is the count.
-`pairs()` walks them in order. A level shows at most twenty. The player can turn them off.
+`pairs()` walks them in order. A level shows at most twenty. The player can
+turn them off.
 
 - <a id="fx.fog_bulbs[]" name="fx.fog_bulbs[]"></a>**`trx.fx.fog_bulbs[key]`** (key: integer, value: [trx.fx.FogBulb](#fx.FogBulb) or `nil`).
 - **`#trx.fx.fog_bulbs`** (integer). How many there are.
@@ -31,8 +32,8 @@ end
 ```
 
 The spark pool, counted from 1. `#trx.fx.sparks.pool` is
-[`MAX_COUNT`](#fx.sparks.MAX_COUNT) rather than how many sparks are alive: a slot holding
-no live spark reads as `nil`.
+[`MAX_COUNT`](#fx.sparks.MAX_COUNT) rather than how many sparks are alive: a slot
+holding no live spark reads as `nil`.
 
 - <a id="fx.sparks.pool[]" name="fx.sparks.pool[]"></a>**`trx.fx.sparks.pool[key]`** (key: integer, value: [trx.fx.Spark](#fx.Spark) or `nil`).
 - **`#trx.fx.sparks.pool`** (integer). How many there are.
@@ -47,12 +48,12 @@ end
 ### Properties
 
 - <a id="fx.fog_color" name="fx.fog_color"></a>**`trx.fx.fog_color`** ([trx.math.Color](MATH.md#math.Color)). The color override for distance fog.
-  `nil` means no override. Write `nil` to restore the level fog color. A level change clears the
-  override. Savegames keep it. This controls distance fog only. Fog bulbs have their own colors
-  in [`trx.fx.fog_bulbs`](#fx.fog_bulbs).
+  `nil` means no override. Write `nil` to restore the level fog color. A
+  level change clears the override. Savegames keep it. This controls
+  distance fog only. Fog bulbs have their own colors in [`trx.fx.fog_bulbs`](#fx.fog_bulbs).
 - <a id="fx.sparks.wind" name="fx.sparks.wind"></a>**`trx.fx.sparks.wind`** ([trx.fx.Wind](#fx.Wind)). The wind that carries the sparks marked [`trx.fx.Spark.is_outside`](#fx.Spark.is_outside).
-  The engine works this out again every frame from the breeze setting, so a value
-  written here holds for that frame alone.
+  The engine works this out again every frame from the breeze setting, so a
+  value written here holds for that frame alone.
 
 ### Constants
 
@@ -60,10 +61,13 @@ end
   How many lights a script can put up in one frame.
 
 - <a id="fx.MAX_FOG" name="fx.MAX_FOG"></a>[lua]`trx.fx.MAX_FOG` = `10` (integer)  
-  How many balls of fog can be seen at once. TR4 levels carry fog of their own, which takes its slots first, so fewer than this reach the screen where a level is already using them.
+  How many balls of fog can be seen at once. TR4 levels carry fog of their
+  own, which takes its slots first, so fewer than this reach the screen where
+  a level is already using them.
 
 - <a id="fx.sparks.MAX_COUNT" name="fx.sparks.MAX_COUNT"></a>[lua]`trx.fx.sparks.MAX_COUNT` = `400` (integer)  
-  How many sparks the pool holds. A spark spawned after that takes the slot of the one with the least life left.
+  How many sparks the pool holds. A spark spawned after that takes the slot of
+  the one with the least life left.
 
 ### Enums
 
@@ -71,44 +75,79 @@ end
 
     Which spark-set sprite a spark is drawn with.
 
-    - `trx.fx.SparkType.EXPLOSION` = `0`  
+    - `trx.fx.SparkType.EXPLOSION`  
         The soft round puff fire, smoke and explosions are drawn with.
-    - `trx.fx.SparkType.SMALL_SPLASH` = `4`  
+    - `trx.fx.SparkType.SMALL_SPLASH`  
         A single drop of water.
-    - `trx.fx.SparkType.BIG_SPLASH` = `8`  
+    - `trx.fx.SparkType.BIG_SPLASH`  
         A sheet of water.
-    - `trx.fx.SparkType.RIPPLE` = `9`  
+    - `trx.fx.SparkType.RIPPLE`  
         A ring on the water surface.
-    - `trx.fx.SparkType.PARTICLE` = `10`  
+    - `trx.fx.SparkType.PARTICLE`  
         The plain speck, which is also what a footprint is drawn with.
-    - `trx.fx.SparkType.SHIELD` = `11`  
+    - `trx.fx.SparkType.SHIELD`  
         The bubble drawn around a shielded target.
-    - `trx.fx.SparkType.ROPE` = `19`  
+    - `trx.fx.SparkType.ROPE`  
         A length of rope.
-    - `trx.fx.SparkType.DRIVE` = `20`  
+    - `trx.fx.SparkType.DRIVE`  
         The forward gear light of a vehicle.
-    - `trx.fx.SparkType.REVERSE` = `21`  
+    - `trx.fx.SparkType.REVERSE`  
         The reverse gear light of a vehicle.
-    - `trx.fx.SparkType.RICOCHET` = `36`  
+    - `trx.fx.SparkType.RICOCHET`  
         The spark struck off a wall by a shot.
-    - `trx.fx.SparkType.BLOOD` = `39`  
+    - `trx.fx.SparkType.BLOOD`  
         A drop of blood.
+
+- <a id="fx.SparkContext" name="fx.SparkContext"></a>[lua]`trx.fx.SparkContext`
+
+    The context for which a spark is spawned.
+
+    - `trx.fx.SparkContext.DEFAULT`  
+        No specific context.
+    - `trx.fx.SparkContext.BLOOD`  
+        Blood on an enemy or Lara.
+    - `trx.fx.SparkContext.BREATH`  
+        Lara's breath in cold rooms.
+    - `trx.fx.SparkContext.BUBBLE`  
+        Air bubbles either from Lara or weapons underwater.
+    - `trx.fx.SparkContext.ELECTRICITY`  
+        Electric sparks from fences or enemies.
+    - `trx.fx.SparkContext.EXPLOSION`  
+        The result of a grenade, rocket or enemy exploding.
+    - `trx.fx.SparkContext.FIRE`  
+        Any type of flame.
+    - `trx.fx.SparkContext.GAS`  
+        Toxic gas from mutants.
+    - `trx.fx.SparkContext.PARTICLE`  
+        Small particles, such as from flares burning.
+    - `trx.fx.SparkContext.PICKUP_AID`  
+        The twinkle effect shown above pickup items.
+    - `trx.fx.SparkContext.PLASMA`  
+        Spawned from enemies such as Sophia Lee.
+    - `trx.fx.SparkContext.RICOCHET`  
+        Spawned when bullets hit walls.
+    - `trx.fx.SparkContext.SMOKE`  
+        Any type of smoke.
+    - `trx.fx.SparkContext.SPLASH`  
+        Spawned when hitting water causes a splash.
+    - `trx.fx.SparkContext.WATER_MIST`  
+        Mist spawned from waterfalls and water vehicles.
 
 - <a id="fx.DrawType" name="fx.DrawType"></a>[lua]`trx.fx.DrawType`
 
     How a sprite is laid over what is behind it.
 
-    - `trx.fx.DrawType.OPAQUE` = `0`  
+    - `trx.fx.DrawType.OPAQUE`  
         It covers what is behind it.
-    - `trx.fx.DrawType.BLEND` = `1`  
+    - `trx.fx.DrawType.BLEND`  
         It is mixed with what is behind it.
-    - `trx.fx.DrawType.BLEND_ADD` = `2`  
+    - `trx.fx.DrawType.BLEND_ADD`  
         It is added to what is behind it, so it lightens.
-    - `trx.fx.DrawType.BLEND_SUB` = `3`  
+    - `trx.fx.DrawType.BLEND_SUB`  
         It is taken from what is behind it, so it darkens.
-    - `trx.fx.DrawType.REFLECTIVE_OPAQUE` = `8`  
+    - `trx.fx.DrawType.REFLECTIVE_OPAQUE`  
         Opaque, and carrying the room reflection.
-    - `trx.fx.DrawType.REFLECTIVE_BLEND_ADD` = `9`  
+    - `trx.fx.DrawType.REFLECTIVE_BLEND_ADD`  
         Added, and carrying the room reflection.
 
 ### Structures
@@ -117,9 +156,9 @@ end
 
     A level fog bulb is a ball of fog drawn inside a room.
 
-    TR4 stores fog bulbs as room lights. A script can change their color and density.
-    The level sets their position and radius. A bulb follows the fog color until a script
-    gives it a color of its own.
+    TR4 stores fog bulbs as room lights. A script can change their color and
+    density. The level sets their position and radius. A bulb follows the fog
+    color until a script gives it a color of its own.
 
     Handles are live references: if the underlying object is destroyed,
     using the handle raises an error rather than silently reading an
@@ -127,8 +166,8 @@ end
 
     Properties:
     - <a id="fx.FogBulb.color" name="fx.FogBulb.color"></a>**`color`**: [trx.math.Color](MATH.md#math.Color). The color a script gave the bulb.
-      `nil` means none was given, and the bulb is drawn in the fog color in force. Write `nil` to hand
-      a bulb back to that color.
+      `nil` means none was given, and the bulb is drawn in the fog color in
+      force. Write `nil` to hand a bulb back to that color.
     - <a id="fx.FogBulb.density" name="fx.FogBulb.density"></a>**`density`**: integer. Fog density, from `0` for none to `255`. A value outside this range raises an error.
     - <a id="fx.FogBulb.pos" name="fx.FogBulb.pos"></a>**`pos`**: [trx.math.Vec3](MATH.md#math.Vec3). Center of the fog bulb. *(read-only)*
     - <a id="fx.FogBulb.radius" name="fx.FogBulb.radius"></a>**`radius`**: [trx.math.Distance](MATH.md#math.Distance). How far the fog reaches from that position. *(read-only)*
@@ -141,8 +180,8 @@ end
     - <a id="fx.FogBulb.is_valid" name="fx.FogBulb.is_valid"></a>[lua]`fogbulb:is_valid()`  
       Reports whether the handle still names a bulb in the loaded level.
 
-      A level change replaces all bulbs. A handle held across one becomes stale, and field access
-      raises an error.
+      A level change replaces all bulbs. A handle held across one becomes stale,
+      and field access raises an error.
 
       Returns: boolean. False after the level that held the bulb is left.
 
@@ -150,9 +189,6 @@ end
 
     A spark is one particle from the spark pool: a sprite that lives for a set
     number of frames, moving, resizing and fading on its own as it does.
-
-    TR3 and TR4 only. The earlier games carry no spark set, so nothing spawns one
-    and the pool stays empty.
 
     A spark that runs out of life leaves its slot to the next one asked for. A
     handle held across that becomes stale, and field access raises an error.
@@ -163,6 +199,7 @@ end
 
     Properties:
     - <a id="fx.Spark.color" name="fx.Spark.color"></a>**`color`**: [trx.math.Color](MATH.md#math.Color). The color it is drawn in now.
+    - <a id="fx.Spark.context" name="fx.Spark.context"></a>**`context`**: [trx.fx.SparkContext](#fx.SparkContext). The context for which the spark is spawned.
     - <a id="fx.Spark.draw_type" name="fx.Spark.draw_type"></a>**`draw_type`**: [trx.fx.DrawType](#fx.DrawType). How it is laid over what is behind it. *(read-only)*
     - <a id="fx.Spark.end_color" name="fx.Spark.end_color"></a>**`end_color`**: [trx.math.Color](MATH.md#math.Color). The color it fades to.
     - <a id="fx.Spark.end_height" name="fx.Spark.end_height"></a>**`end_height`**: integer. The height it grows to.
@@ -223,11 +260,11 @@ end
 ### Functions
 
 - <a id="fx.sparks" name="fx.sparks"></a>[lua]`trx.fx.sparks`  
-  The spark pool: the particles TR3 and TR4 draw their smoke, flames, sparks and
-  splashes with.
+  The spark pool: the particles TR3 and TR4 draw their smoke, flames, sparks
+  and splashes with.
 
-  TR1 and TR2 carry no spark set. There the pool stays empty, and everything here
-  returns nothing rather than raising.
+  TR1 and TR2 carry no spark set. There the pool stays empty, and everything
+  here returns nothing rather than raising.
 
 - <a id="fx.emit_light" name="fx.emit_light"></a>[lua]`trx.fx.emit_light(opts)`  
   Lights the world around a point for this frame. Make the call every frame to
@@ -237,8 +274,8 @@ end
   takes the place of the one furthest from the camera, so the nearest are the
   ones seen. No error is raised.
 
-  TR1 and TR2 light in brightness alone, so there the light is as bright as its
-  brightest channel and comes out white.
+  TR1 and TR2 light in brightness alone, so there the light is as bright as
+  its brightest channel and comes out white.
 
   Parameters:
   - <a id="fx.emit_light.opts" name="fx.emit_light.opts"></a>**`opts`** (table). Where the light is and what it looks like.
@@ -293,13 +330,13 @@ end
   Throws a spray of blood into the world at a point, the way a blow that lands
   does. The drops then fall on their own.
 
-  TR3 and TR4 throw drops that fall and darken as they go, and in TR4 a hit under
-  water spreads as a cloud instead. TR1 and TR2 have one blood sprite that drifts
-  up.
+  TR3 and TR4 throw drops that fall and darken as they go, and in TR4 a hit
+  under water spreads as a cloud instead. TR1 and TR2 have one blood sprite
+  that drifts up.
 
-  Unlike the rest of the module, this has a bearing on what the game decides. The
-  engine places the drops from the control random stream, and in TR1 and TR2 the
-  spray takes a slot from the effect pool a save holds.
+  Unlike the rest of the module, this has a bearing on what the game decides.
+  The engine places the drops from the control random stream, and in TR1 and
+  TR2 the spray takes a slot from the effect pool a save holds.
 
   Parameters:
   - <a id="fx.blood.opts" name="fx.blood.opts"></a>**`opts`** (table). Where the blood is and how much of it.
@@ -317,9 +354,9 @@ end
   ```
 
 - <a id="fx.blood_bath" name="fx.blood_bath"></a>[lua]`trx.fx.blood_bath(opts)`  
-  Throws several sprays of blood about a point, the way a trap that kills does.
-  Each one lands anywhere in the half-sector box around the point, so the blood
-  covers a body rather than a spot.
+  Throws several sprays of blood about a point, the way a trap that kills
+  does. Each one lands anywhere in the half-sector box around the point, so
+  the blood covers a body rather than a spot.
 
   Each spray costs what [`trx.fx.blood`](#fx.blood) costs, in random draws and in effect
   slots.
@@ -341,10 +378,10 @@ end
 - <a id="fx.explosion" name="fx.explosion"></a>[lua]`trx.fx.explosion(opts)`  
   Shows the explosion a rocket or a grenade leaves behind, without the damage.
 
-  TR1, TR2 and TR4 draw the explosion sprite the level carries. TR3 has none, and
-  gets a fireball of sparks instead. Under water the effect uses the drowned
-  version, which throws a burst of bubbles and lifts a splash where the water
-  ends.
+  TR1, TR2 and TR4 draw the explosion sprite the level carries. TR3 has none,
+  and gets a fireball of sparks instead. Under water the effect uses the
+  drowned version, which throws a burst of bubbles and lifts a splash where
+  the water ends.
 
   Parameters:
   - <a id="fx.explosion.opts" name="fx.explosion.opts"></a>**`opts`** (table). Where the explosion is and whether it is heard.
@@ -359,8 +396,8 @@ end
   ```
 
 - <a id="fx.fire" name="fx.fire"></a>[lua]`trx.fx.fire(opts)`  
-  Burns a fire at a point for this frame. Make the call every frame to keep the
-  fire alight.
+  Burns a fire at a point for this frame. Make the call every frame to keep
+  the fire alight.
 
   TR4 only. The other games have no such fire, so the call does nothing there.
 
@@ -466,6 +503,31 @@ end
   trx.fx.footprint(trx.lara.item, true)
   ```
 
+- <a id="fx.gun_flash" name="fx.gun_flash"></a>[lua]`trx.fx.gun_flash(item, opts)`  
+  Draws a muzzle flash at one of an item's joints for a few frames, and lights
+  the area around it where gun lighting is on. This is the flash an enemy
+  firing throws, put where a script asks for it, so that an actor who fires in
+  a cutscene has one as well.
+
+  Raises if this level does not carry the flash object.
+
+  Parameters:
+  - <a id="fx.gun_flash.item" name="fx.gun_flash.item"></a>**`item`** ([trx.items.Item](ITEMS.md#items.Item)). The item the flash is drawn on.
+  - <a id="fx.gun_flash.opts" name="fx.gun_flash.opts"></a>**`opts`** (table). Where the flash sits and what it is drawn from.
+
+    Keys:
+    - <a id="fx.gun_flash.opts.mesh" name="fx.gun_flash.opts.mesh"></a>**`mesh`** (integer). Which of the item's joints the flash hangs off.
+    - <a id="fx.gun_flash.opts.pos" name="fx.gun_flash.opts.pos"></a>**`pos`** ([trx.math.Vec3](MATH.md#math.Vec3), optional). Offset from that joint, in the joint's own axes. Defaults to the joint itself.
+    - <a id="fx.gun_flash.opts.rot_x" name="fx.gun_flash.opts.rot_x"></a>**`rot_x`** ([trx.math.Angle](MATH.md#math.Angle), optional). Pitch of the flash about the offset point. Defaults to `-trx.math.DEG_90`, which is the way the flash meshes are modelled and what the engine draws Lara's own flash with.
+    - <a id="fx.gun_flash.opts.object" name="fx.gun_flash.opts.object"></a>**`object`** ([trx.catalog.objects](CATALOG.md#catalog.objects), optional). The object the flash mesh is taken from. Defaults to [`trx.catalog.objects.gun_flash`](CATALOG.md#catalog.objects); [`trx.catalog.objects.m16_flash`](CATALOG.md#catalog.objects) is the longer one a rifle throws.
+
+  Returns: boolean. Whether a flash was drawn.
+
+  Example:
+  ```lua
+  trx.fx.gun_flash(actor, { mesh = 10, pos = { x = 0, y = 180, z = 55 } })
+  ```
+
 - <a id="fx.knockback" name="fx.knockback"></a>[lua]`trx.fx.knockback(opts)`  
   Spreads a ring of force out from a point, as a blast does. The ring is drawn
   and widens on its own.
@@ -486,11 +548,12 @@ end
   Puts one spark in the world and hands it back, so a script can draw with the
   pool the game draws its own smoke and flames with.
 
-  The spark lives for the frames it is given, moving, resizing and fading on its
-  own, and then frees its slot. Nothing has to be called each frame to keep it up.
+  The spark lives for the frames it is given, moving, resizing and fading on
+  its own, and then frees its slot. Nothing has to be called each frame to
+  keep it up.
 
-  Returns `nil` where the level carries no spark set, which is every TR1 and TR2
-  level.
+  Returns `nil` where the level carries no spark set, which is every TR1 and
+  TR2 level.
 
   Parameters:
   - <a id="fx.sparks.spawn.opts" name="fx.sparks.spawn.opts"></a>**`opts`** (table). What the spark is and how it behaves.
@@ -499,6 +562,7 @@ end
     - <a id="fx.sparks.spawn.opts.pos" name="fx.sparks.spawn.opts.pos"></a>**`pos`** ([trx.math.Vec3](MATH.md#math.Vec3)). World position. Must lie inside the level.
     - <a id="fx.sparks.spawn.opts.vel" name="fx.sparks.spawn.opts.vel"></a>**`vel`** ([trx.math.Vec3](MATH.md#math.Vec3), optional). How far it moves each frame. Defaults to standing still.
     - <a id="fx.sparks.spawn.opts.sprite_type" name="fx.sparks.spawn.opts.sprite_type"></a>**`sprite_type`** ([trx.fx.SparkType](#fx.SparkType), optional, default [`trx.fx.SparkType.PARTICLE`](#fx.SparkType)). Which sprite it is drawn with.
+    - <a id="fx.sparks.spawn.opts.spark_context" name="fx.sparks.spawn.opts.spark_context"></a>**`spark_context`** ([trx.fx.SparkContext](#fx.SparkContext), optional, default [`trx.fx.SparkContext.DEFAULT`](#fx.SparkContext)). The context for which a spark is spawned.
     - <a id="fx.sparks.spawn.opts.life" name="fx.sparks.spawn.opts.life"></a>**`life`** (integer, optional, default `16`). How many frames it lives, from 1 to 255.
     - <a id="fx.sparks.spawn.opts.color" name="fx.sparks.spawn.opts.color"></a>**`color`** ([trx.math.Color](MATH.md#math.Color), optional). The color it starts in. Defaults to white.
     - <a id="fx.sparks.spawn.opts.end_color" name="fx.sparks.spawn.opts.end_color"></a>**`end_color`** ([trx.math.Color](MATH.md#math.Color), optional). The color it fades to. Defaults to the color it starts in, so it holds one color.
@@ -771,8 +835,8 @@ end
 - <a id="fx.sparks.ricochet" name="fx.sparks.ricochet"></a>[lua]`trx.fx.sparks.ricochet(opts)`  
   Strikes the sparks a shot makes where it lands on a wall.
 
-  TR4 throws as many streaks as asked for and can lift smoke instead. TR3 throws
-  one burst, and uses the count as its size.
+  TR4 throws as many streaks as asked for and can lift smoke instead. TR3
+  throws one burst, and uses the count as its size.
 
   Parameters:
   - <a id="fx.sparks.ricochet.opts" name="fx.sparks.ricochet.opts"></a>**`opts`** (table). Where the shot lands and which way the sparks fly.

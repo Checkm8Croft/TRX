@@ -13,6 +13,8 @@
 #include <trx/game/input.h>
 #include <trx/game/inventory.h>
 #include <trx/game/lara.h>
+#include <trx/game/objects/projectiles/crossbow_bolt.h>
+#include <trx/game/objects/projectiles/grenade_tr4.h>
 #include <trx/game/random.h>
 #include <trx/game/rooms.h>
 #include <trx/game/sound.h>
@@ -22,9 +24,12 @@
 #include <trx/version.h>
 
 #define M_SHOTGUN_PELLET_SCATTER (DEG_1 * 20) // = 3640
+#define M_SHOTGUN_PELLET_SCATTER_TR4 1820
+#define M_WIDESHOT_PELLET_SCATTER_TR4 5460
 #define M_HARPOON_BOLT_SPEED_TR12 150
 #define M_HARPOON_BOLT_SPEED_TR3 256
 #define M_GRENADE_SPEED 200
+#define M_GRENADE_SPEED_TR4 128
 
 typedef enum {
     LA_G_AIM = 0,
@@ -116,12 +121,10 @@ static void M_Ready(const LARA_GUN_TYPE weapon_type)
     }
 }
 
-static void M_FireGeneric(const LARA_GUN_TYPE weapon_type, const bool running)
+static void M_FirePellets(
+    const LARA_GUN_TYPE weapon_type, const int32_t scatter,
+    const bool follows_torso)
 {
-    if (running) {
-        return;
-    }
-
     const ITEM *const lara_item = Lara_GetItem();
     LARA_INFO *const lara = Lara_GetLaraInfo();
     bool fired = false;
@@ -129,7 +132,7 @@ static void M_FireGeneric(const LARA_GUN_TYPE weapon_type, const bool running)
         lara->left_arm.rot.y + lara_item->rot.y,
         lara->left_arm.rot.x,
     };
-    if (g_TRVersion == 3 && !lara->left_arm.lock) {
+    if (follows_torso && !lara->left_arm.lock) {
         angles[0] += lara->torso_rot.y;
         angles[1] += lara->torso_rot.x;
     }
@@ -137,12 +140,8 @@ static void M_FireGeneric(const LARA_GUN_TYPE weapon_type, const bool running)
     const int32_t clip = Gun_GetRoundsPerShot(weapon_type);
     for (int32_t i = 0; i < clip; i++) {
         int16_t dangles[2] = {
-            angles[0]
-                + M_SHOTGUN_PELLET_SCATTER * (Random_GetControl() - 0x4000)
-                    / 0x10000,
-            angles[1]
-                + M_SHOTGUN_PELLET_SCATTER * (Random_GetControl() - 0x4000)
-                    / 0x10000,
+            angles[0] + scatter * (Random_GetControl() - 0x4000) / 0x10000,
+            angles[1] + scatter * (Random_GetControl() - 0x4000) / 0x10000,
         };
         if (Gun_FireWeapon(weapon_type, lara->target, lara_item, dangles)) {
             fired = true;
@@ -157,6 +156,29 @@ static void M_FireGeneric(const LARA_GUN_TYPE weapon_type, const bool running)
             Gun_Registry_Get(weapon_type)->sample_num, &lara_item->pos,
             SPM_NORMAL);
     }
+}
+
+static void M_FireGeneric(const LARA_GUN_TYPE weapon_type, const bool running)
+{
+    if (running) {
+        return;
+    }
+    M_FirePellets(weapon_type, M_SHOTGUN_PELLET_SCATTER, g_TRVersion == 3);
+}
+
+static void M_FireShotgunTR4(
+    const LARA_GUN_TYPE weapon_type, const bool running)
+{
+    if (running) {
+        return;
+    }
+    const bool is_wideshot =
+        Inv_GetAmmoKind(weapon_type) == O_SHOTGUN_AMMO_2_ITEM;
+    M_FirePellets(
+        weapon_type,
+        is_wideshot ? M_WIDESHOT_PELLET_SCATTER_TR4
+                    : M_SHOTGUN_PELLET_SCATTER_TR4,
+        true);
 }
 
 static void M_FireM16(const LARA_GUN_TYPE weapon_type, const bool running)
@@ -286,6 +308,98 @@ finish:
     if ((count % recoil) == 0) {
         m_ReloadHarpoon = Gun_HasRoundsLeft(weapon_type);
     }
+}
+
+// Fires a bolt from the crossbow at Lara's arm, aimed by the arm, as TR4 does.
+static void M_FireCrossbow(const LARA_GUN_TYPE weapon_type, const bool running)
+{
+    if (!Gun_HasRoundsLeft(weapon_type)) {
+        return;
+    }
+
+    ITEM *const lara_item = Lara_GetItem();
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    XYZ_32 pos = { .x = 0, .y = 228, .z = 32 };
+    Lara_GetJointAbsPosition(&pos, LM_UARM_L);
+    int16_t room_num = lara_item->room_num;
+    const SECTOR *const sector = Room_GetSector(pos, &room_num);
+    if (Room_GetHeight(sector, pos) < pos.y) {
+        pos.x = lara_item->pos.x;
+        pos.z = lara_item->pos.z;
+        room_num = lara_item->room_num;
+    }
+
+    XYZ_16 rot = {
+        .x = lara->left_arm.rot.x + lara_item->rot.x,
+        .y = lara->left_arm.rot.y + lara_item->rot.y,
+    };
+    if (!lara->left_arm.lock) {
+        rot.x += lara->torso_rot.x;
+        rot.y += lara->torso_rot.y;
+    }
+
+    if (CrossbowBolt_Fire(pos, room_num, rot) == NO_ITEM) {
+        return;
+    }
+    lara->has_fired = true;
+    Gun_SpendRound(weapon_type);
+    Stats_AddAmmoUsed();
+    Sound_Effect(
+        Gun_Registry_Get(weapon_type)->sample_num, nullptr, SPM_NORMAL);
+}
+
+// Fires a bolt from the laser sight view toward where the sight points, as
+// TR4 does.
+static void M_FireCrossbowFromSight(
+    const LARA_GUN_TYPE weapon_type, const GAME_VECTOR start,
+    const GAME_VECTOR target)
+{
+    int16_t angles[2];
+    Math_GetVectorAngles(
+        target.x - start.x, target.y - start.y, target.z - start.z, angles);
+    CrossbowBolt_Fire(
+        start.pos, start.room_num, (XYZ_16) { .x = angles[1], .y = angles[0] });
+}
+
+// Fires a grenade from Lara's arm, aimed by the arm, as TR4 does.
+static void M_FireGrenadeTR4(
+    const LARA_GUN_TYPE weapon_type, const bool running)
+{
+    if (running || !Gun_HasRoundsLeft(weapon_type)) {
+        return;
+    }
+
+    const ITEM *const lara_item = Lara_GetItem();
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    XYZ_32 pos = { .x = 0, .y = 276, .z = 80 };
+    Lara_GetJointAbsPosition(&pos, LM_UARM_L);
+    int16_t room_num = lara_item->room_num;
+    const SECTOR *const sector = Room_GetSector(pos, &room_num);
+    if (Room_GetHeight(sector, pos) < pos.y) {
+        pos.x = lara_item->pos.x;
+        pos.z = lara_item->pos.z;
+        room_num = lara_item->room_num;
+    }
+
+    XYZ_16 rot = {
+        .x = lara->left_arm.rot.x + lara_item->rot.x,
+        .y = lara->left_arm.rot.y + lara_item->rot.y,
+    };
+    if (!lara->left_arm.lock) {
+        rot.x += lara->torso_rot.x;
+        rot.y += lara->torso_rot.y;
+    }
+
+    if (Grenade_TR4_Fire(
+            pos, room_num, rot, M_GRENADE_SPEED_TR4,
+            Grenade_TR4_GetLoadedKind())
+        == NO_ITEM) {
+        return;
+    }
+    lara->has_fired = true;
+    Gun_SpendRound(weapon_type);
+    Stats_AddAmmoUsed();
+    Gun_Smoke_OnFire(weapon_type, true);
 }
 
 static void M_FireGrenade(const LARA_GUN_TYPE weapon_type, const bool running)
@@ -808,8 +922,12 @@ REGISTER_GUN_KIND(
     .control_func = M_Control)
 
 REGISTER_GUN_ROUTINE(Fire, "generic", M_FireGeneric)
+REGISTER_GUN_ROUTINE(Fire, "shotgun_tr4", M_FireShotgunTR4)
 REGISTER_GUN_ROUTINE(Fire, "m16", M_FireM16)
+REGISTER_GUN_ROUTINE(Fire, "crossbow", M_FireCrossbow)
+REGISTER_GUN_ROUTINE(SightFire, "crossbow", M_FireCrossbowFromSight)
 REGISTER_GUN_ROUTINE(Fire, "grenade", M_FireGrenade)
+REGISTER_GUN_ROUTINE(Fire, "grenade_tr4", M_FireGrenadeTR4)
 REGISTER_GUN_ROUTINE(Fire, "rocket", M_FireRocket)
 REGISTER_GUN_ROUTINE(Fire, "harpoon", M_FireHarpoon)
 REGISTER_GUN_ROUTINE(Flash, "m16", M_GetM16Flash)

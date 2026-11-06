@@ -1,6 +1,7 @@
 #include <trx/core/value.h>
 #include <trx/game/lua/registry.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/module.h>
+#include <trx/game/lua/utils/value.h>
 #include <trx/game/rules.h>
 
 #include <lauxlib.h>
@@ -22,7 +23,7 @@ static TRX_VALUE M_Read(const RULE *const rule)
     return value;
 }
 
-// trxc.rules.list() -> { "group.field", ... }
+// trxc.rules.list(): string[]
 static int M_L_RulesList(lua_State *const L)
 {
     lua_newtable(L);
@@ -34,7 +35,7 @@ static int M_L_RulesList(lua_State *const L)
     return 1;
 }
 
-// trxc.rules.get(name) -> value
+// trxc.rules.get(name: string): any
 static int M_L_RulesGet(lua_State *const L)
 {
     const TRX_VALUE value = M_Read(M_CheckRule(L, 1));
@@ -42,8 +43,9 @@ static int M_L_RulesGet(lua_State *const L)
     return 1;
 }
 
-// trxc.rules.set(name, value). A string is read as text, as the console gives
-// it; anything else is taken as the rule's own type.
+// trxc.rules.set(name: string, value: any)
+// A string is read as text, as the console gives it; anything else is taken
+// as the rule's own type.
 static int M_L_RulesSet(lua_State *const L)
 {
     const RULE *const rule = M_CheckRule(L, 1);
@@ -65,7 +67,8 @@ static int M_L_RulesSet(lua_State *const L)
     return 0;
 }
 
-// trxc.rules.reset(name). Every rule when the name is omitted.
+// trxc.rules.reset(name?: string)
+// Resets every rule when the name is omitted.
 static int M_L_RulesReset(lua_State *const L)
 {
     if (lua_isnoneornil(L, 1)) {
@@ -76,7 +79,7 @@ static int M_L_RulesReset(lua_State *const L)
     return 0;
 }
 
-// trxc.rules.format_value(name) -> string
+// trxc.rules.format_value(name: string): string
 static int M_L_RulesFormatValue(lua_State *const L)
 {
     const RULE *const rule = M_CheckRule(L, 1);

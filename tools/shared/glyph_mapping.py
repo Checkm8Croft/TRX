@@ -41,15 +41,16 @@ GLYPH_GRAMMAR = Lark(
     link_func: "link" func_params
     render_func: "render" func_params
 
-    modifier_func: expand_func | translate_func
+    modifier_func: expand_func | translate_func | stretch_func
     expand_func: "expand" func_params
     translate_func: "translate" func_params
+    stretch_func: "stretch" func_params
 
     ?expr: quoted_string | number | unicode_definition
     arglist: arg ("," _WS? arg)*
     ?arg: kwarg | expr
     kwarg: /[a-z][a-z0-9_]*/ _WS? "=" _WS? expr
-    func_params: "(" arglist ")"
+    func_params: "(" arglist? ")"
 
     _STRING_INNER: /.*?/
     _STRING_ESC_INNER: _STRING_INNER _STRING_INNER2
@@ -270,11 +271,11 @@ class LinkSource(BaseSource):
 
     ctx: ParserContext
     link_to: str
-    linked_source: BaseSource | None = None
+    linked_glyph: Glyph | None = None
     index: int | None = None
 
     def load(self, glyph: Glyph) -> tuple[np.ndarray, Rect]:
-        return self.linked_source.load(glyph)
+        return self.linked_glyph.source.load(self.linked_glyph)
 
 
 class CombineSource(BaseSource):
@@ -420,6 +421,13 @@ class TranslateModifier(BaseModifier):
         glyph.extra_y += self.y
 
 
+class StretchModifier(BaseModifier):
+    """Stretches the glyph vertically as much as the game stretches text."""
+
+    def modify_glyph(self, glyph: Glyph) -> None:
+        glyph.stretch = True
+
+
 @dataclass
 class Glyph:
     text: str
@@ -431,6 +439,7 @@ class Glyph:
     extra_width: int = 0
     extra_x: int = 0
     extra_y: int = 0
+    stretch: bool = False
 
     def __str__(self) -> str:
         if len(self.text) == 1:
@@ -456,7 +465,7 @@ class GlyphParser(Transformer):
     def func_params(self, items):
         args = []
         kwargs = {}
-        for arg in items[0]:
+        for arg in items[0] if items else []:
             if isinstance(arg, tuple):
                 kwargs[arg[0]] = arg[1]
             else:
@@ -511,6 +520,7 @@ class GlyphParser(Transformer):
 
     expand_func = lambda self, items: (ExpandModifier, *items[0])
     translate_func = lambda self, items: (TranslateModifier, *items[0])
+    stretch_func = lambda self, items: (StretchModifier, *items[0])
 
 
 def _read_mapping(ctx, filename: str = "mapping.txt") -> list[Glyph]:
@@ -576,9 +586,9 @@ def resolve_links(glyphs: list[Glyph]) -> None:
     glyph_map = {(glyph.text, glyph.font_idx): glyph for glyph in glyphs}
     for glyph in glyphs:
         if isinstance(glyph.source, LinkSource):
-            glyph.source.linked_source = _lookup(
+            glyph.source.linked_glyph = _lookup(
                 glyph.source.link_to, glyph.font_idx
-            ).source
+            )
     for glyph in glyphs:
         if isinstance(glyph.source, CombineSource):
             glyph.source.glyph1_source = _lookup(

@@ -3,7 +3,7 @@
 #include <trx/game/creature.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects.h>
-#include <trx/game/objects/creatures/claw_mutant_internal.h>
+#include <trx/game/objects/projectiles/claw_mutant_plasma_ball.h>
 #include <trx/game/objects/property.h>
 #include <trx/game/output.h>
 #include <trx/game/random.h>
@@ -87,7 +87,8 @@ static void M_TriggerPlasmaCharge(const int16_t item_num)
         return;
     }
 
-    SPARK *const spark = Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION);
+    SPARK *const spark = Sparks_InitialiseSpriteSpark(
+        SPARK_TYPE_EXPLOSION, SPARK_CONTEXT_PLASMA);
     if (spark == nullptr) {
         return;
     }

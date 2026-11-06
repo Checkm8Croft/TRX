@@ -53,7 +53,8 @@ static void M_TriggerPilotFlame(const ITEM *const item)
         return;
     }
 
-    SPARK *const spark = Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION);
+    SPARK *const spark =
+        Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION, SPARK_CONTEXT_FIRE);
     if (spark == nullptr) {
         return;
     }
@@ -97,7 +98,8 @@ static void M_TriggerPilotFlame(const ITEM *const item)
 static void M_TriggerFlameSparks(
     const XYZ_32 pos, const XYZ_32 vel, const int16_t effect_num)
 {
-    SPARK *const spark = Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION);
+    SPARK *const spark =
+        Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION, SPARK_CONTEXT_FIRE);
     if (spark == nullptr) {
         return;
     }
@@ -187,7 +189,7 @@ static void M_TriggerFlameSparks(
 
 static void M_TriggerFlamethrower(const ITEM *const item, const int16_t speed)
 {
-    const int16_t effect_num = Effect_Create(item->room_num);
+    const int16_t effect_num = Effect_Create(O_MISSILE_FLAME, item->room_num);
     if (effect_num == NO_EFFECT) {
         return;
     }
@@ -208,7 +210,6 @@ static void M_TriggerFlamethrower(const ITEM *const item, const int16_t speed)
     effect->rot.x = angles[1];
     effect->rot.y = angles[0];
     effect->speed = speed << 2;
-    effect->object_id = O_MISSILE_FLAME;
     effect->counter = 20;
     effect->flag1 = 0;
 

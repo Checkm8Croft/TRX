@@ -29,13 +29,13 @@ static void M_Control(const int16_t item_num)
 
 static bool M_Draw(const ITEM *const item)
 {
-    Object_DrawAnimatingItem(item);
+    Item_DrawAnimating(item);
 
     if (m_FadeTimer < 0 || m_FadeTimer > M_FADE_DURATION) {
         return true;
     }
     const float opacity = 1.0f - (m_FadeTimer / (float)M_FADE_DURATION);
-    Output_Overlay_DrawBlackRectangle(opacity, false);
+    Output_DrawScreenBlack(opacity);
     return true;
 }
 

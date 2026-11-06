@@ -6,6 +6,7 @@
 #include <trx/core/log.h>
 #include <trx/core/memory.h>
 #include <trx/core/strings.h>
+#include <trx/core/utils.h>
 #include <trx/debug.h>
 #include <trx/game/fmv.h>
 #include <trx/game/game.h>
@@ -17,10 +18,12 @@
 #include <trx/game/lara.h>
 #include <trx/game/lara/mesh.h>
 #include <trx/game/lara/skin/gold.h>
+#include <trx/game/objects/common.h>
 #include <trx/version.h>
 
 #define M_NO_OUTFIT (-1)
 #define M_NO_MESH (-1)
+#define M_GUN_ATTACHMENT_OFFSET 1
 
 static LARA_SKIN_TYPE m_SkinType = LARA_SKIN_TYPE_DEFAULT;
 static bool m_HolstersVisible = true;
@@ -276,14 +279,20 @@ static const LARA_SKIN_OUTFIT *M_GetExtraOutfit(const LARA_EXTRA_STATE state)
 
 static void M_SetEquipment(
     const LARA_MESH mesh, const LARA_SKIN_EQUIPMENT_TYPE type,
-    const int32_t data, const int32_t offset,
-    const LARA_SKIN_OUTFIT *const outfit)
+    const int32_t data, int32_t offset, const LARA_SKIN_OUTFIT *const outfit)
 {
     LARA_SKIN_EQUIPMENT *const equipment = &m_Equipment[mesh];
     equipment->type = type;
     equipment->data = data;
     switch (type) {
     case EQUIPMENT_TYPE_WEAPON: {
+        // A weapon that carries its attachment is held as the attachment's
+        // object draws it, as the original draws the laser sight.
+        const OBJECT_ID attached_id =
+            mesh == LM_HAND_R ? Gun_GetAttachedAnimObject(data) : NO_OBJECT;
+        if (attached_id != NO_OBJECT) {
+            offset += M_GUN_ATTACHMENT_OFFSET;
+        }
         // Use the weapon's object when it provides one. This keeps its model
         // the same under every outfit.
         const WEAPON_INFO *const weapon = Gun_Registry_Get(data);
@@ -403,9 +412,19 @@ static void M_SetCombatFace(const bool enabled)
 
 static void M_UpdateSunglasses(void)
 {
+    const LARA_SKIN_OUTFIT *const outfit = M_GetCurrentOutfit();
+    static const LARA_SKIN_EXTRA_MESH lens_meshes[] = {
+        EXTRA_MESH_GLASSES_OPAQUE,
+        EXTRA_MESH_GLASSES_TRANSPARENT,
+    };
+    for (int32_t i = 0; i < (int32_t)ARRAY_SIZE(lens_meshes); i++) {
+        Object_SetMeshReflectionsSuppressed(
+            outfit->extra_obj_id, Lara_Skin_GetExtraMeshOffset(lens_meshes[i]),
+            !g_Config.visuals.sunglasses_reflective);
+    }
+
     const SUNGLASSES_MODE mode = g_Config.visuals.sunglasses_mode;
-    if (mode == SUNGLASSES_MODE_OFF
-        || !M_GetCurrentOutfit()->supports_sunglasses) {
+    if (mode == SUNGLASSES_MODE_OFF || !outfit->supports_sunglasses) {
         Lara_Skin_ClearEquipment(LM_HEAD);
         return;
     }

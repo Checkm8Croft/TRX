@@ -1,28 +1,34 @@
 ---
 title: Config
-order: 26
+order: 27
 ---
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/config.lua. Edit it there.
+  src/lua/trx/config.lua. Edit it there.
 -->
 
 ## <a id="config" name="config"></a>Config module
 
 Module for reading, changing and declaring engine settings.
 
-These are the player's settings, not the level's. [`trx.config.set`](#config.set) writes to them and keeps the
-change: it is remembered across saves and relaunches, exactly as if the player had made it
-themselves. A level that wants to tint the water or pull the fog in wants [`trx.config.override`](#config.override)
-instead, which lasts as long as the script keeps it and leaves the player's own value untouched
-underneath.
+These are the player's settings, not the level's. [`trx.config.set`](#config.set) writes to
+them and keeps the change: it is remembered across saves and relaunches,
+exactly as if the player had made it themselves. A level that wants to tint
+the water or pull the fog in wants [`trx.config.override`](#config.override) instead, which
+lasts as long as the script keeps it and leaves the player's own value
+untouched underneath.
 
-A game can also add settings of its own with [`trx.config.declare`](#config.declare): they are saved and loaded with
-the player's own, and shown in the settings menu where the declaration asks for. A setting a
-game's `scripts/_game.lua` declares belongs to that game and goes when it does.
+A game can also add settings of its own with [`trx.config.declare`](#config.declare): they are
+saved and loaded with the player's own, and shown in the settings menu where
+the declaration asks for. A setting a game's `scripts/_game.lua` declares
+belongs to that game and goes when it does.
+
+### Properties
+
+- <a id="config.signals.changed" name="config.signals.changed"></a>**`trx.config.signals.changed`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when any setting changes. It holds a count that goes up with each change, whichever settings moved. A widget that follows several settings at once listens to this rather than to each of them. *(read-only)*
 
 ### Structures
 
@@ -30,9 +36,10 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
 
     Everything about a setting but the value it holds now.
 
-    [`trx.config.describe`](#config.describe) hands one back and [`trx.config.declare`](#config.declare) takes one, so what a script reads
-    of a setting is what a script writes to make one. The row a declaration asks for is the part
-    [`trx.config.describe`](#config.describe) does not report: see [`trx.config.Row`](#config.Row).
+    [`trx.config.describe`](#config.describe) hands one back and [`trx.config.declare`](#config.declare) takes one, so
+    what a script reads of a setting is what a script writes to make one. The
+    row a declaration asks for is the part [`trx.config.describe`](#config.describe) does not
+    report: see [`trx.config.Row`](#config.Row).
 
     Properties:
     - <a id="config.Shape.default" name="config.Shape.default"></a>**`default`**: any. What the setting holds until the player changes it, and what [`trx.config.reset`](#config.reset) puts back.
@@ -42,16 +49,16 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
     - <a id="config.Shape.min" name="config.Shape.min"></a>**`min`**: integer, optional. Lowest value a number takes. Absent, it takes as low a number as it can hold.
     - <a id="config.Shape.percent" name="config.Shape.percent"></a>**`percent`**: boolean, optional. Marks a number stored 0-1 but entered and shown as a 0-100 percentage.
     - <a id="config.Shape.ui" name="config.Shape.ui"></a>**`ui`**: [trx.config.Row](#config.Row), optional. The row a declared setting takes in the settings menu. Without one the setting has no row, and is the script's to read and write.
-    - <a id="config.Shape.values" name="config.Shape.values"></a>**`values`**: a list of string, optional. What the setting accepts, for the enum kinds. A declared `dynamic_enum` needs them, and they have to list the default.
+    - <a id="config.Shape.values" name="config.Shape.values"></a>**`values`**: a list of string or [trx.config.Value](#config.Value), optional. What the setting accepts, for the enum kinds. A declared `dynamic_enum` needs them, and they have to list the default. A value given as text takes the label `settings/<key>/values/<value>`.
 
 - <a id="config.Row" name="config.Row"></a>[lua]`trx.config.Row`
 
     The settings row a declared setting is shown on: where it sits, and what it
     does that the setting itself cannot say.
 
-    Every callback below is optional, and one that raises is logged and answered as though it were
-    absent. They are read as the setting is declared and are not reported back by
-    [`trx.config.describe`](#config.describe).
+    Every callback below is optional, and one that raises is logged and answered
+    as though it were absent. They are read as the setting is declared and are
+    not reported back by [`trx.config.describe`](#config.describe).
 
     Properties:
     - <a id="config.Row.after" name="config.Row.after"></a>**`after`**: string, optional. Setting the row sits below. The row lands at the end of the tab where neither anchor is given.
@@ -65,11 +72,37 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
     - <a id="config.Row.request_change_value" name="config.Row.request_change_value"></a>**`request_change_value`**: function, optional. Called with the value and the direction. Return true to take the press over; the row is left alone, and moving the setting is the script's to do.
     - <a id="config.Row.tab" name="config.Row.tab"></a>**`tab`**: string. Settings tab the row sits on: `gameplay_general`, `gameplay_controls`, `gameplay_mods`, `gameplay_fixes`, `graphic_visuals`, `graphic_ui`, `graphic_ui_stats`, `graphic_ui_bars`, `graphic_rendering`, `sound_volume` or `sound_misc`.
 
+- <a id="config.Label" name="config.Label"></a>[lua]`trx.config.Label`
+
+    One value that an enum setting takes, as the settings menu shows it.
+
+    Properties:
+    - <a id="config.Label.enabled" name="config.Label.enabled"></a>**`enabled`**: boolean. Whether the value can be picked now. A dynamic enum can switch values off, such as a language whose files are missing.
+    - <a id="config.Label.label" name="config.Label.label"></a>**`label`**: string. What the menu shows for it, in the player's language.
+    - <a id="config.Label.value" name="config.Label.value"></a>**`value`**: string. The value, as [`trx.config.set`](#config.set) takes it.
+
+- <a id="config.Value" name="config.Value"></a>[lua]`trx.config.Value`
+
+    One value that a declared `dynamic_enum` setting takes, with the label of
+    its own that the settings menu shows for it.
+
+    Properties:
+    - <a id="config.Value.label" name="config.Value.label"></a>**`label`**: string, optional. The game string of what the settings menu shows for it. The value itself by default.
+    - <a id="config.Value.value" name="config.Value.value"></a>**`value`**: string. The value, as [`trx.config.set`](#config.set) takes it.
+
+- <a id="config.DeclaredRow" name="config.DeclaredRow"></a>[lua]`trx.config.DeclaredRow`
+
+    A setting a script declared with a row in the settings menu.
+
+    Properties:
+    - <a id="config.DeclaredRow.key" name="config.DeclaredRow.key"></a>**`key`**: string. The setting.
+    - <a id="config.DeclaredRow.row" name="config.DeclaredRow.row"></a>**`row`**: [trx.config.Row](#config.Row). The row, as the declaration gave it.
+
 - <a id="config.Watcher" name="config.Watcher"></a>[lua]`trx.config.Watcher`
 
-    A setting being watched. [`trx.config.on_change`](#config.on_change) hands one back, and holding it
-    is what lets the watcher be dropped later. A watcher is spent once detached, and the end of a level
-    spends every one a level script attached.
+    A setting being watched. [`trx.config.on_change`](#config.on_change) hands one back, and holding
+    it is what lets the watcher be dropped later. A watcher is spent once
+    detached, and the end of a level spends every one a level script attached.
 
     Methods:
 
@@ -80,8 +113,13 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
 
 ### Functions
 
+- <a id="config.signals" name="config.signals"></a>[lua]`trx.config.signals`  
+  What the settings tell a script about themselves.
+
 - <a id="config.get" name="config.get"></a>[lua]`trx.config.get(key)`  
-  Reads a setting. The value comes back as the type the option is declared with, so a boolean option reads as a boolean and a color as a [`trx.math.Color`](MATH.md#math.Color). Enums read as strings.
+  Reads a setting. The value comes back as the type the option is declared
+  with, so a boolean option reads as a boolean and a color as a
+  [`trx.math.Color`](MATH.md#math.Color). Enums read as strings.
 
   Parameters:
   - <a id="config.get.key" name="config.get.key"></a>**`key`** (string). Dotted path, e.g. `visuals.water_color`.
@@ -96,7 +134,9 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
   ```
 
 - <a id="config.describe" name="config.describe"></a>[lua]`trx.config.describe(key)`  
-  Everything about a setting but the value it holds now: what it is, what it accepts, and what it falls back to. This is the shape [`trx.config.declare`](#config.declare) takes, so a script can read one setting and declare another like it.
+  Everything about a setting but the value it holds now: what it is, what it
+  accepts, and what it falls back to. This is the shape [`trx.config.declare`](#config.declare)
+  takes, so a script can read one setting and declare another like it.
 
   Parameters:
   - <a id="config.describe.key" name="config.describe.key"></a>**`key`** (string). Dotted path.
@@ -111,7 +151,9 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
   ```
 
 - <a id="config.format_value" name="config.format_value"></a>[lua]`trx.config.format_value(key)`  
-  The current value as the console prints it: `1` or `0` for a boolean, two decimals for a plain number, a 0-100 percentage where the option is one, and enum values with dashes for underscores.
+  The current value as the console prints it: `1` or `0` for a boolean, two
+  decimals for a plain number, a 0-100 percentage where the option is one, and
+  enum values with dashes for underscores.
 
   Parameters:
   - <a id="config.format_value.key" name="config.format_value.key"></a>**`key`** (string). Dotted path.
@@ -124,7 +166,9 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
   ```
 
 - <a id="config.accepted_values" name="config.accepted_values"></a>[lua]`trx.config.accepted_values(key)`  
-  What a setting accepts, as text for an error message: `on, off` for a boolean, a marker like `[integer]` for the number kinds, or the value names for the enum kinds, with dashes for underscores.
+  What a setting accepts, as text for an error message: `on, off` for a
+  boolean, a marker like `[integer]` for the number kinds, or the value names
+  for the enum kinds, with dashes for underscores.
 
   Parameters:
   - <a id="config.accepted_values.key" name="config.accepted_values.key"></a>**`key`** (string). Dotted path.
@@ -132,9 +176,13 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
   Returns: string or `nil`. `nil` for the kinds with nothing to list, such as a color.
 
 - <a id="config.set" name="config.set"></a>[lua]`trx.config.set(key, value, [force])`  
-  Changes the player's setting, and keeps the change. Raises if the key is unknown or the value will not parse.
+  Changes the player's setting, and keeps the change. Raises if the key is
+  unknown or the value will not parse.
 
-  The old value is not kept anywhere: the new one becomes the active setting as if the player had chosen it, and is remembered across saves and relaunches. Prefer [`trx.config.override`](#config.override) for anything a level wants only while it is running.
+  The old value is not kept anywhere: the new one becomes the active setting
+  as if the player had chosen it, and is remembered across saves and
+  relaunches. Prefer [`trx.config.override`](#config.override) for anything a level wants only
+  while it is running.
 
   Parameters:
   - <a id="config.set.key" name="config.set.key"></a>**`key`** (string). Dotted path.
@@ -142,7 +190,8 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
   - <a id="config.set.force" name="config.set.force"></a>**`force`** (boolean, optional). Write through a setting the game flow enforces.
 
 - <a id="config.reset" name="config.reset"></a>[lua]`trx.config.reset(key, [force])`  
-  Puts a setting back to its default, and keeps the change, as [`trx.config.set`](#config.set) does.
+  Puts a setting back to its default, and keeps the change, as
+  [`trx.config.set`](#config.set) does.
 
   Parameters:
   - <a id="config.reset.key" name="config.reset.key"></a>**`key`** (string). Dotted path.
@@ -151,9 +200,13 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
   Returns: boolean. `false` when a script or the game flow is holding the setting (see [`trx.config.is_overridden`](#config.is_overridden)).
 
 - <a id="config.override" name="config.override"></a>[lua]`trx.config.override(key, value)`  
-  Changes a setting for as long as the script keeps the override, without touching the player's own value.
+  Changes a setting for as long as the script keeps the override, without
+  touching the player's own value.
 
-  The player's value sits underneath and comes back on [`trx.config.restore`](#config.restore). Nothing is written to disk. Overrides stack, so one can be pushed over another; each [`trx.config.restore`](#config.restore) lifts one off. A setting the game flow enforces cannot be overridden.
+  The player's value sits underneath and comes back on [`trx.config.restore`](#config.restore).
+  Nothing is written to disk. Overrides stack, so one can be pushed over
+  another; each [`trx.config.restore`](#config.restore) lifts one off. A setting the game flow
+  enforces cannot be overridden.
 
   Parameters:
   - <a id="config.override.key" name="config.override.key"></a>**`key`** (string). Dotted path.
@@ -175,26 +228,80 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
   Returns: boolean. `false` if the setting was not overridden.
 
 - <a id="config.is_overridden" name="config.is_overridden"></a>[lua]`trx.config.is_overridden(key)`  
-  Whether a script or the game flow is currently holding this setting away from the player's own value.
+  Whether a script or the game flow is currently holding this setting away
+  from the player's own value.
 
   Parameters:
   - <a id="config.is_overridden.key" name="config.is_overridden.key"></a>**`key`** (string). Dotted path.
 
   Returns: boolean. True while an override stands, and false once the last is lifted.
 
+- <a id="config.is_default" name="config.is_default"></a>[lua]`trx.config.is_default(key)`  
+  Whether a setting holds the value it falls back to.
+
+  Parameters:
+  - <a id="config.is_default.key" name="config.is_default.key"></a>**`key`** (string). Dotted path.
+
+  Returns: boolean. True where the value equals the default.
+
+- <a id="config.is_hidden" name="config.is_hidden"></a>[lua]`trx.config.is_hidden(key)`  
+  Whether the game flow keeps a setting out of the settings menu, as it does
+  for one that a game does not use.
+
+  Parameters:
+  - <a id="config.is_hidden.key" name="config.is_hidden.key"></a>**`key`** (string). Dotted path.
+
+  Returns: boolean. True where the setting is hidden.
+
+- <a id="config.labels" name="config.labels"></a>[lua]`trx.config.labels(key)`  
+  The values that an enum setting takes, in the order the game defines them,
+  with what the settings menu shows for each. Any other setting has none.
+
+  Parameters:
+  - <a id="config.labels.key" name="config.labels.key"></a>**`key`** (string). Dotted path.
+
+  Returns: a list of [trx.config.Label](#config.Label). The values, empty for a setting that is not an enum.
+
+  Example:
+  ```lua
+  for _, entry in ipairs(trx.config.labels("visuals.shadow_type")) do
+    trx.log.info(entry.value .. " = " .. entry.label)
+  end
+  ```
+
+- <a id="config.to_string" name="config.to_string"></a>[lua]`trx.config.to_string(key, [options])`  
+  A setting's value as text: as the settings file stores it, or as the
+  settings menu shows it.
+
+  Parameters:
+  - <a id="config.to_string.key" name="config.to_string.key"></a>**`key`** (string). Dotted path.
+  - <a id="config.to_string.options" name="config.to_string.options"></a>**`options`** (table, optional). How to write it, and which value.
+
+    Keys:
+    - <a id="config.to_string.options.human" name="config.to_string.options.human"></a>**`human`** (boolean, optional). Whether to write the text as the settings menu shows it, with labels in the player's language, rather than as the settings file stores it. `false` by default.
+    - <a id="config.to_string.options.value" name="config.to_string.options.value"></a>**`value`** (any, optional). A value to write in place of the setting's own. It is read as [`trx.config.set`](#config.set) reads it.
+
+  Returns: string or `nil`. The text, or `nil` where `value` is one the setting does not accept.
+
+  Example:
+  ```lua
+  local shown = trx.config.to_string("visuals.shadow_type", { human = true })
+  ```
+
 - <a id="config.declare" name="config.declare"></a>[lua]`trx.config.declare(spec)`  
   Adds a setting of the game's own.
 
   The declaration carries no text. The engine derives `settings/<key>/title`,
-  `settings/<key>/description` and, for an enum, `settings/<key>/values/<value>`, and looks each up
-  in the game strings, so a declared setting is translated as every other one is.
+  `settings/<key>/description` and, for an enum,
+  `settings/<key>/values/<value>`, and looks each up in the game strings, so a
+  declared setting is translated as every other one is.
 
-  The setting comes up holding the player's saved value for it, whether the declaration runs before
-  the settings file is read or after.
+  The setting comes up holding the player's saved value for it, whether the
+  declaration runs before the settings file is read or after.
 
-  Raises where the key is taken, or where the declaration describes a setting that could hold
-  nothing it allows: an enum defaulting to a value it does not list, or an integer defaulting
-  outside its own bounds.
+  Raises where the key is taken, or where the declaration describes a setting
+  that could hold nothing it allows: an enum defaulting to a value it does not
+  list, or an integer defaulting outside its own bounds.
 
   Parameters:
   - <a id="config.declare.spec" name="config.declare.spec"></a>**`spec`** ([trx.config.Shape](#config.Shape)). The setting's declaration.
@@ -213,20 +320,29 @@ game's `scripts/_game.lua` declares belongs to that game and goes when it does.
   })
   ```
 
+- <a id="config.declared_rows" name="config.declared_rows"></a>[lua]`trx.config.declared_rows()`  
+  The rows that scripts asked for in the settings menu, in the order the
+  settings were declared. The settings menu reads them to place each row.
+
+  Returns: a list of [trx.config.DeclaredRow](#config.DeclaredRow). The rows.
+
 - <a id="config.on_change" name="config.on_change"></a>[lua]`trx.config.on_change(key, fn)`  
   Calls `fn(value)` whenever the setting changes, and once as the watcher is
-  attached with the value it holds now - so a script applies the player's saved value rather than
-  waiting for them to touch it again.
+  attached with the value it holds now - so a script applies the player's
+  saved value rather than waiting for them to touch it again.
 
-  A watcher that changes a setting itself is heard by that setting's watchers too. One that raises
-  is logged and the rest still run; it is called again on the next change.
+  A watcher that changes a setting itself is heard by that setting's watchers
+  too. One that raises is logged and the rest still run; it is called again on
+  the next change.
 
-  A watcher a level script attaches goes when the level ends, as a [`trx.events`](EVENTS.md#events) listener does. One a
-  game script attaches stays for as long as the game.
+  A watcher a level script attaches goes when the level ends, as a
+  [`trx.events`](EVENTS.md#events) listener does. One a game script attaches stays for as long as
+  the game.
 
-  A level script runs before the level is read, where a handler can reach nothing the level carries.
-  The call for the value in force therefore waits until the level has its objects. Every other
-  watcher is called as it is attached.
+  A level script runs before the level is read, where a handler can reach
+  nothing the level carries. The call for the value in force therefore waits
+  until the level has its objects. Every other watcher is called as it is
+  attached.
 
   Parameters:
   - <a id="config.on_change.key" name="config.on_change.key"></a>**`key`** (string). Dotted path to watch.

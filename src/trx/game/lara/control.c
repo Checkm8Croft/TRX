@@ -52,6 +52,20 @@ static const LARA_STATE_ID m_StartSwimStates[] = {
     // clang-format on
 };
 
+static const LARA_ANIMATION_ID m_MidairGrabAnims[] = {
+    // clang-format off
+    LA_REACH_TO_HANG,
+    LA_SWING_IN_SLOW,
+    LA_SWING_IN_FAST,
+    LA_JUMPSWITCH,
+    LA_MONKEY_GRAB,
+    LA_REACH_TO_POLE_GRAB,
+    LA_JUMP_UP_TO_POLE_GRAB,
+    LA_JUMP_UP_TO_ROPE_START,
+    NO_CATALOG_ID,
+    // clang-format on
+};
+
 static int32_t m_OpenDoorsCheatCooldown = 0;
 
 extern bool Skidoo_Control(void);
@@ -60,6 +74,7 @@ extern bool QuadBike_Control(void);
 extern bool Kayak_Control(void);
 extern bool MountedGun_Control(void);
 extern bool MineCart_Control(void);
+extern void Jeep_Control(void);
 
 static SECTOR *M_GetCurrentSector(void)
 {
@@ -161,7 +176,7 @@ static void M_WaterCurrent_TR12(COLL_INFO *const coll)
     }
 
     if (coll->side_mid.floor < 0) {
-        lara_item->pos.y += coll->side_mid.floor;
+        Lara_Col_AlignToFloor(lara_item, coll);
         lara_item->rot.x += LARA_UW_WALL_DEFLECT;
     }
     Lara_Col_Shift(coll);
@@ -262,9 +277,8 @@ static void M_WaterCurrent_TR34(COLL_INFO *const coll)
         break;
     }
 
-    if (coll->side_mid.floor < 0
-        && (g_TRVersion == 3 || coll->side_mid.floor != NO_HEIGHT)) {
-        lara_item->pos.y += coll->side_mid.floor;
+    if (coll->side_mid.floor < 0) {
+        Lara_Col_AlignToFloor(lara_item, coll);
     }
 
     Lara_Col_Shift(coll);
@@ -293,7 +307,7 @@ static void M_SoftStaticCollision(COLL_INFO *const coll)
             const STATIC_MESH *const mesh = &room->static_meshes[j];
             const STATIC_OBJECT_3D *const obj =
                 Object_Get3DStatic(mesh->static_num);
-            if (!obj->collidable
+            if (!obj->collidable || Room_IsStaticShattered(mesh)
                 || !XYZ_32_IsNearby(
                     lara_item->pos, mesh->pos, M_STATIC_COLL_DIST)) {
                 continue;
@@ -635,6 +649,22 @@ static void M_HandleAboveWater(COLL_INFO *const coll)
     coll->enable_hit = 1;
     coll->enable_baddie_push = 1;
 
+    // The boat and the RIB do not set gun_status to LGS_HANDS_BUSY because Lara
+    // is able to light flares while riding them.
+    const bool is_on_a_boat =
+        Lara_Vehicle_IsOnType(O_BOAT) || Lara_Vehicle_IsOnType(O_RIB);
+    if (lara_info->gun_status == LGS_HANDS_BUSY || is_on_a_boat) {
+        uint8_t smoothing_factor = LARA_TORSO_SMOOTHING;
+        // In animations where Lara is grabbing quickly onto something from
+        // midair, her torso smoothens to neutral less gradually to maintain her
+        // movement natural.
+        if (Lara_HasAnimation(m_MidairGrabAnims)) {
+            smoothing_factor /= 2;
+        }
+        Lara_SmoothlyRotateMeshTo(
+            &lara_info->torso_rot, 0, 0, smoothing_factor);
+    }
+
     Lara_Look_Update();
 
     const ITEM *const vehicle = Lara_Vehicle_GetItem();
@@ -679,6 +709,10 @@ static void M_HandleAboveWater(COLL_INFO *const coll)
                 return;
             }
             break;
+
+        case O_JEEP:
+            Jeep_Control();
+            return;
 
         default:
             Gun_Control();
@@ -1088,6 +1122,9 @@ void Lara_Control(void)
 
     const int32_t time4 = (int32_t)Output_GetTimeInGame() * 4;
     Lara_Poison_Tick();
+    if (lara_info->blind_timer > 0) {
+        lara_info->blind_timer--;
+    }
     if (lara_info->electric != 0) {
         if (lara_info->electric < 16) {
             lara_info->electric++;

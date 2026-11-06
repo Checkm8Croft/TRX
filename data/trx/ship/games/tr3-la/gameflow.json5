@@ -37,6 +37,7 @@
         "font.bin",
         "lara_animations.bin",
         "pda_model.bin",
+        "controls_models.bin",
         "lara_extra.bin",
         "misc_sprites.bin",
         "lara_outfits.bin",
@@ -78,6 +79,7 @@
                 "bat_sprites.bin",
                 "flamethrower_sfx.bin",
                 "scotland_crystals.bin",
+                "scotland_fd.bin",
             ],
         },
 
@@ -220,6 +222,7 @@
     ],
 
     "hidden_config": [
+        "fix_projectile_brightness",
         "enable_poison_vision",
         "enable_3d_pickups", // TR3 has no sprite pickups
         "enable_item_examining",

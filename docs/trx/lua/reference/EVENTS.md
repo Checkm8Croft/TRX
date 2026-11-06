@@ -5,28 +5,37 @@ order: 1
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/events.lua. Edit it there.
+  src/lua/trx/events.lua. Edit it there.
 -->
 
 ## <a id="events" name="events"></a>Events module
 
-Lua scripts can listen for game events by attaching a handler to one of the hooks below. Attaching returns a listener id, which [`trx.events.detach`](#events.detach) takes.
+Lua scripts can listen for game events by attaching a handler to one of the
+hooks below. Attaching returns a listener id, which [`trx.events.detach`](#events.detach)
+takes.
 
-A handler attached from a level script is detached automatically when the level ends; one attached from a global script lives for the whole session.
+A handler attached from a level script is detached automatically when the
+level ends; one attached from a global script lives for the whole session.
 
-An event that carries a default the script may take over says so in its description; a handler answers such an event by returning true, and the default then stands down. Every other event ignores what its handlers return.
+An event that carries a default the script may take over says so in its
+description; a handler answers such an event by returning true, and the
+default then stands down. Every other event ignores what its handlers
+return.
 
 ### Structures
 
 - <a id="events.FlipEffectNum" name="events.FlipEffectNum"></a>[lua]`trx.events.FlipEffectNum`
 
-    A flip effect number, as a level editor numbers them. Not the id space of [`trx.rooms.flip_effect`](ROOMS.md#rooms.flip_effect), which takes [`trx.catalog.flip_effects`](CATALOG.md#catalog.flip_effects) names. Counted from 0.
+    A flip effect number, as a level editor numbers them. Not the id space of
+    [`trx.rooms.flip_effect`](ROOMS.md#rooms.flip_effect), which takes [`trx.catalog.flip_effects`](CATALOG.md#catalog.flip_effects) names. Counted from 0.
 
 - <a id="events.Listener" name="events.Listener"></a>[lua]`trx.events.Listener`
 
-    An attached handler. Every hook hands one back, and holding it is what makes the handler detachable later. A listener is spent once detached, and a level change spends every one a level script attached.
+    An attached handler. Every hook hands one back, and holding it is what makes
+    the handler detachable later. A listener is spent once detached, and a level
+    change spends every one a level script attached.
 
     Properties:
     - <a id="events.Listener.id" name="events.Listener.id"></a>**`id`**: integer. The number the engine keys the handler by. Two listeners of the same handler carry the same one; it is never handed out twice within a session. *(read-only)*
@@ -34,7 +43,8 @@ An event that carries a default the script may take over says so in its descript
     Methods:
 
     - <a id="events.Listener.detach" name="events.Listener.detach"></a>[lua]`listener:detach()`  
-      Stops the handler, which fires no more from here on. [`trx.events.detach`](#events.detach) does the same to a listener held elsewhere.
+      Stops the handler, which fires no more from here on. [`trx.events.detach`](#events.detach)
+      does the same to a listener held elsewhere.
 
       Returns: boolean. Whether the handler was still attached.
 
@@ -48,12 +58,13 @@ An event that carries a default the script may take over says so in its descript
   fires it: a played level, a cutscene and the attract demo alike. The title
   screen has [`trx.events.on_title_start`](#events.on_title_start) instead.
 
-  Which level is starting is [`trx.game.current_level`](GAME.md#game.current_level), whose [`trx.game.Level.num`](GAME.md#game.Level.num) and [`trx.game.Level.type`](GAME.md#game.Level.type)
-  say where it counts and what kind it is. A level script already knows both,
-  which is why the handler is not handed them.
+  Which level is starting is [`trx.game.current_level`](GAME.md#game.current_level), whose
+  [`trx.game.Level.num`](GAME.md#game.Level.num) and [`trx.game.Level.type`](GAME.md#game.Level.type) say where it counts and what
+  kind it is. A level script already knows both, which is why the handler is
+  not handed them.
 
   Parameters:
-  - <a id="events.on_game_start.callback" name="events.on_game_start.callback"></a>**`callback`** (function). What to run when it happens.
+  - <a id="events.on_game_start.callback" name="events.on_game_start.callback"></a>**`callback`** (function). The function to run.
     Called with:
     - <a id="events.on_game_start.is_save" name="events.on_game_start.is_save"></a>**`is_save`** (boolean). Whether the level is being resumed from a savegame rather than started fresh. A cutscene and a demo are never resumed, and always report false.
 
@@ -68,8 +79,8 @@ An event that carries a default the script may take over says so in its descript
 
 - <a id="events.on_title_start" name="events.on_title_start"></a>[lua]`trx.events.on_title_start(callback)`  
   Happens when the title screen comes up, once its level is loaded and its
-  items are set up. The handler takes no arguments.
-  [`trx.events.on_game_start`](#events.on_game_start) does not fire for the title level.
+  items are set up. The handler takes no arguments. [`trx.events.on_game_start`](#events.on_game_start)
+  does not fire for the title level.
 
   A title that shows a picture rather than playing its level behind the menu
   does not run its logic, so [`trx.events.before_control`](#events.before_control) and
@@ -77,7 +88,7 @@ An event that carries a default the script may take over says so in its descript
   says the menu is up; it does not promise a scene playing behind it.
 
   Parameters:
-  - <a id="events.on_title_start.callback" name="events.on_title_start.callback"></a>**`callback`** (function). What to run when it happens.
+  - <a id="events.on_title_start.callback" name="events.on_title_start.callback"></a>**`callback`** (function). The function to run.
 
   Returns: [trx.events.Listener](#events.Listener). The attached handler.
 
@@ -85,6 +96,31 @@ An event that carries a default the script may take over says so in its descript
   ```lua
   trx.events.on_title_start(function()
     trx.log.info("the menu is up")
+  end)
+  ```
+
+- <a id="events.on_screen_change" name="events.on_screen_change"></a>[lua]`trx.events.on_screen_change(callback)`  
+  Happens before the engine starts its next screen, such as a level, the title,
+  a picture or the statistics. This is where a script decides how the screen
+  on show gives way to the next one.
+
+  The engine waits to start the next screen while a fade layer that holds the
+  screen is open, and draws only the interface and the fade layers meanwhile.
+  See `holds_screen` in [`trx.ui.layers.fade`](UI.md#ui.layers.fade).
+
+  Parameters:
+  - <a id="events.on_screen_change.callback" name="events.on_screen_change.callback"></a>**`callback`** (function). What to run when it happens.
+    Called with:
+    - <a id="events.on_screen_change.cross_fades" name="events.on_screen_change.cross_fades"></a>**`cross_fades`** (boolean). Whether the next screen blends in from the frame on show, as a loading picture does.
+    - <a id="events.on_screen_change.fade_ticks" name="events.on_screen_change.fade_ticks"></a>**`fade_ticks`** (integer). How many ticks the engine screen that ended asked to fade to black over, or `0` where it asked for no fade.
+    - <a id="events.on_screen_change.fade_hold" name="events.on_screen_change.fade_hold"></a>**`fade_hold`** (integer). How many ticks that screen asked to stay black for once faded.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
+  Example:
+  ```lua
+  trx.events.on_screen_change(function(cross_fades, fade_ticks, fade_hold)
+    trx.log.info("the screen changes")
   end)
   ```
 
@@ -112,68 +148,220 @@ An event that carries a default the script may take over says so in its descript
   end)
   ```
 
-- <a id="events.on_tick" name="events.on_tick"></a>[lua]`trx.events.on_tick(callback)`  
-  Happens once for every tick the game runs, whatever is on screen: while a
-  level is played, while a menu is open, over a cutscene and through a fade.
-
-  This is the clock a script keeps its own state on. It is not the world
-  stepping - [`trx.events.before_control`](#events.before_control) is that, and it happens only while
-  a level is running - and it is not a frame reaching the screen, which
-  happens twice as often while frames are interpolated.
+- <a id="events.on_exit" name="events.on_exit"></a>[lua]`trx.events.on_exit(callback)`  
+  Happens once as the game starts to exit to the desktop. The game goes on
+  running until no fade layer holds the screen, so a handler can put up a fade
+  that holds it, as the shipped interface fades to black. The handler takes no
+  arguments.
 
   Parameters:
-  - <a id="events.on_tick.callback" name="events.on_tick.callback"></a>**`callback`** (function). Called once per tick.
-
-  Returns: integer. The listener id.
-
-- <a id="events.on_ui_draw" name="events.on_ui_draw"></a>[lua]`trx.events.on_ui_draw(callback)`  
-  Fires once for each of the nine on-screen UI regions on every drawn frame.
-  The callback receives the current [`trx.ui.Region`](UI.md#ui.Region).
-
-  Use this event to reserve layout space, not to draw. Call
-  [`trx.ui.primitive.reserve`](UI.md#ui.primitive.reserve) during this event, then draw into the assigned
-  box later during [`trx.events.on_ui_paint`](#events.on_ui_paint). [`trx.ui.regions.place`](UI.md#ui.regions.place) handles
-  both steps for widgets.
-
-  This event fires anywhere the game draws UI, including fades, FMVs, and
-  normal gameplay. It follows the frame rate, not the game clock.
-
-  Parameters:
-  - <a id="events.on_ui_draw.callback" name="events.on_ui_draw.callback"></a>**`callback`** (function). What to run when it happens.
+  - <a id="events.on_exit.callback" name="events.on_exit.callback"></a>**`callback`** (function). What to run when it happens.
 
   Returns: [trx.events.Listener](#events.Listener). The attached handler.
 
   Example:
   ```lua
-  local slot = nil
-  
-  trx.events.on_ui_draw(function(region)
-    if region == trx.ui.Region.TOP_CENTER then
-      local w, h = trx.ui.primitive.measure_text("hello")
-      slot = trx.ui.primitive.reserve(region, w, h)
-    end
+  trx.events.on_exit(function()
+    trx.log.info("leaving")
   end)
+  ```
+
+- <a id="events.on_tick" name="events.on_tick"></a>[lua]`trx.events.on_tick(callback)`  
+  Happens once for every tick the game runs, whatever is on screen: while a
+  level is played, while a menu is open, over a cutscene and through a fade.
+
+  This is the clock a script keeps its own state on. It is not the world
+  stepping - [`trx.events.before_control`](#events.before_control) is that, and it happens only while a
+  level is running - and it is not a frame reaching the screen, which happens
+  twice as often while frames are interpolated.
+
+  Parameters:
+  - <a id="events.on_tick.callback" name="events.on_tick.callback"></a>**`callback`** (function). Called once per tick.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
+- <a id="events.on_key_down" name="events.on_key_down"></a>[lua]`trx.events.on_key_down(callback)`  
+  Happens as a key goes down, before the game reads it as an action. The
+  handler takes the name of the key.
+
+  A key is named by the character the player's layout prints, so the key
+  labelled 5 arrives as `"5"` on every layout, and a key with a label rather
+  than a character keeps the spelling the window system gives it in lower
+  case, such as `"escape"` and `"left shift"`.
+
+  Use this where a script needs the key itself, such as one reading a
+  passcode. Use [`trx.input.signals.pressed`](INPUT.md#input.signals.pressed) for a game action, which respects
+  what the player bound it to and answers for a controller as well.
+
+  Holding a key down fires it once, and the repeats that follow arrive through
+  [`trx.events.on_key_repeat`](#events.on_key_repeat).
+
+  It stays quiet while a rebind is reading the keyboard. It fires while the
+  console is open. Check [`trx.console.is_open`](CONSOLE.md#console.is_open) where that matters. A key still
+  held as the keyboard comes back fires again then, although
+  [`trx.input.is_key_pressed`](INPUT.md#input.is_key_pressed) reports nothing for it.
+
+  Parameters:
+  - <a id="events.on_key_down.callback" name="events.on_key_down.callback"></a>**`callback`** (function). Called with the name of the key.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
+  Example:
+  ```lua
+  local typed = ""
   
-  trx.events.on_ui_paint(function()
-    local x, y = trx.ui.primitive.slot_box(slot)
-    if x ~= nil then
-      trx.ui.primitive.text("hello", x, y)
+  trx.events.on_key_down(function(key)
+    if key:match("^%d$") then
+      typed = typed .. key
+    elseif key == "return" then
+      trx.log.info("entered " .. typed)
+      typed = ""
     end
   end)
   ```
 
-- <a id="events.on_ui_paint" name="events.on_ui_paint"></a>[lua]`trx.events.on_ui_paint(callback)`  
-  Fires after UI layout and before drawing. Reservation boxes are available
-  during this event.
+- <a id="events.on_key_repeat" name="events.on_key_repeat"></a>[lua]`trx.events.on_key_repeat(callback)`  
+  Happens as the window system repeats a key the player is holding. The
+  handler takes the name of the key, named as [`trx.events.on_key_down`](#events.on_key_down) names
+  it.
 
-  Use this event to draw into space reserved earlier during
-  [`trx.events.on_ui_draw`](#events.on_ui_draw). Primitive drawing calls are available during this
-  event only.
+  The first press arrives through [`trx.events.on_key_down`](#events.on_key_down) instead, and the
+  repeats follow at whatever rate the player's system repeats at. A text field
+  takes both, so that a held arrow keeps moving the caret; anything acting on
+  a press once takes [`trx.events.on_key_down`](#events.on_key_down) alone.
+
+  It stays quiet while a rebind is reading the keyboard, and fires while the
+  console is open as [`trx.events.on_key_down`](#events.on_key_down) does.
 
   Parameters:
-  - <a id="events.on_ui_paint.callback" name="events.on_ui_paint.callback"></a>**`callback`** (function). Called once per painted scene.
+  - <a id="events.on_key_repeat.callback" name="events.on_key_repeat.callback"></a>**`callback`** (function). Called with the name of the key.
 
-  Returns: integer. The listener id.
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
+- <a id="events.on_key_up" name="events.on_key_up"></a>[lua]`trx.events.on_key_up(callback)`  
+  Happens as a key comes up. The handler takes the name of the key, named as
+  [`trx.events.on_key_down`](#events.on_key_down) names it.
+
+  It stays quiet while a rebind is reading the keyboard, and fires while the
+  console is open as [`trx.events.on_key_down`](#events.on_key_down) does. A key held as the game
+  takes the keyboard comes up at that moment, so every press a script was told
+  about still has its release.
+
+  Parameters:
+  - <a id="events.on_key_up.callback" name="events.on_key_up.callback"></a>**`callback`** (function). Called with the name of the key.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
+- <a id="events.on_text_input" name="events.on_text_input"></a>[lua]`trx.events.on_text_input(callback)`  
+  Happens as the player composes text, and carries the characters composed.
+  The handler takes a string.
+
+  Use this for text fields instead of [`trx.events.on_key_down`](#events.on_key_down). It carries
+  characters with the player's modifiers and keyboard layout. It also carries
+  text composed by an input method. One event can carry several characters.
+
+  Editing keys carry no character and arrive through [`trx.events.on_key_down`](#events.on_key_down).
+  Pasting goes through [`trx.ui.clipboard`](UI.md#ui.clipboard).
+
+  It fires while the console is open, and carries what the player types there:
+  the console is a script reading the keyboard rather than the game taking it.
+  Check [`trx.console.is_open`](CONSOLE.md#console.is_open) where a script must leave that text alone.
+
+  Parameters:
+  - <a id="events.on_text_input.callback" name="events.on_text_input.callback"></a>**`callback`** (function). Called with the characters composed.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
+  Example:
+  ```lua
+  trx.events.on_text_input(function(text)
+    trx.log.info("composed " .. text)
+  end)
+  ```
+
+- <a id="events.on_console_log" name="events.on_console_log"></a>[lua]`trx.events.on_console_log(callback)`  
+  Happens as a line reaches the console, and carries the line. The handler
+  takes a string.
+
+  This is every message the console shows the player, whoever wrote it: a
+  command reporting what it did, the engine reporting a failure, and
+  [`trx.console.log.info`](CONSOLE.md#console.log.info) and the rest. A message only written to the log file
+  stays quiet here.
+
+  Use this where a script draws a console of its own, or keeps the last few
+  messages on screen.
+
+  Parameters:
+  - <a id="events.on_console_log.callback" name="events.on_console_log.callback"></a>**`callback`** (function). Called with the line.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
+  Example:
+  ```lua
+  trx.events.on_console_log(function(line)
+    trx.log.info("the console said " .. line)
+  end)
+  ```
+
+- <a id="events.on_console_open" name="events.on_console_open"></a>[lua]`trx.events.on_console_open(callback)`  
+  Happens as the console opens. The handler takes nothing.
+
+  Parameters:
+  - <a id="events.on_console_open.callback" name="events.on_console_open.callback"></a>**`callback`** (function). What to run when it happens.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
+- <a id="events.on_console_close" name="events.on_console_close"></a>[lua]`trx.events.on_console_close(callback)`  
+  Happens as the console closes. The handler takes nothing.
+
+  Parameters:
+  - <a id="events.on_console_close.callback" name="events.on_console_close.callback"></a>**`callback`** (function). What to run when it happens.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
+- <a id="events.on_console_clear" name="events.on_console_clear"></a>[lua]`trx.events.on_console_clear(callback)`  
+  Happens as the console drops the lines it holds, which [`trx.console.clear`](CONSOLE.md#console.clear)
+  does. The handler takes nothing.
+
+  Parameters:
+  - <a id="events.on_console_clear.callback" name="events.on_console_clear.callback"></a>**`callback`** (function). What to run when it happens.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
+- <a id="events.on_button_down" name="events.on_button_down"></a>[lua]`trx.events.on_button_down(callback)`  
+  Happens as a controller button goes down, before the game reads it as an
+  action. The handler takes the name of the button.
+
+  A button keeps the name SDL gives it, such as `"a"`, `"dpup"` and
+  `"leftshoulder"`, because a pad prints a different label on the same button
+  depending on who made it. The [`trx.input`](INPUT.md#input) module lists every name.
+
+  Use [`trx.input.signals.pressed`](INPUT.md#input.signals.pressed) for a game action, which respects what the
+  player bound it to and answers for the keyboard as well.
+
+  It stays quiet while a rebind is reading the pad, and fires while the
+  console is open as [`trx.events.on_key_down`](#events.on_key_down) does. A button still held as the
+  pad comes back fires again then, although [`trx.input.is_button_pressed`](INPUT.md#input.is_button_pressed)
+  reports nothing for it.
+
+  Parameters:
+  - <a id="events.on_button_down.callback" name="events.on_button_down.callback"></a>**`callback`** (function). Called with the name of the button.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
+- <a id="events.on_button_up" name="events.on_button_up"></a>[lua]`trx.events.on_button_up(callback)`  
+  Happens as a controller button comes up. The handler takes the name of the
+  button, named as [`trx.events.on_button_down`](#events.on_button_down) names it.
+
+  It stays quiet while a rebind is reading the pad, and fires while the
+  console is open as [`trx.events.on_key_down`](#events.on_key_down) does. A button held as the game
+  takes the pad comes up at that moment, so every press a script was told
+  about still has its release.
+
+  Parameters:
+  - <a id="events.on_button_up.callback" name="events.on_button_up.callback"></a>**`callback`** (function). Called with the name of the button.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
 
 - <a id="events.on_pickup" name="events.on_pickup"></a>[lua]`trx.events.on_pickup(callback)`  
   Happens just after Lara picks up an item.
@@ -192,8 +380,25 @@ An event that carries a default the script may take over says so in its descript
   end)
   ```
 
+- <a id="events.on_show_pickup" name="events.on_show_pickup"></a>[lua]`trx.events.on_show_pickup(callback)`  
+  Happens when the game asks the interface to announce an object.
+
+  This is not the same as Lara picking something up: the gameflow handing her
+  an item, and the scion and the puzzle items she assembles, all announce
+  themselves the same way. A script drawing the announcement listens for this
+  rather than for [`trx.events.on_pickup`](#events.on_pickup), so that nothing it should show goes
+  unannounced.
+
+  Parameters:
+  - <a id="events.on_show_pickup.callback" name="events.on_show_pickup.callback"></a>**`callback`** (function). What to run when it happens.
+    Called with:
+    - <a id="events.on_show_pickup.object" name="events.on_show_pickup.object"></a>**`object`** ([trx.catalog.objects](CATALOG.md#catalog.objects)). The object to announce.
+
+  Returns: [trx.events.Listener](#events.Listener). The attached handler.
+
 - <a id="events.before_control" name="events.before_control"></a>[lua]`trx.events.before_control(callback)`  
-  Happens on every logical game frame, before the main game logic runs. The handler takes no arguments.
+  Happens on every logical game frame, before the main game logic runs. The
+  handler takes no arguments.
 
   Parameters:
   - <a id="events.before_control.callback" name="events.before_control.callback"></a>**`callback`** (function). What to run when it happens.
@@ -201,7 +406,8 @@ An event that carries a default the script may take over says so in its descript
   Returns: [trx.events.Listener](#events.Listener). The attached handler.
 
 - <a id="events.after_control" name="events.after_control"></a>[lua]`trx.events.after_control(callback)`  
-  Happens on every logical game frame, after the main game logic runs. The handler takes no arguments.
+  Happens on every logical game frame, after the main game logic runs. The
+  handler takes no arguments.
 
   Parameters:
   - <a id="events.after_control.callback" name="events.after_control.callback"></a>**`callback`** (function). What to run when it happens.
@@ -209,11 +415,18 @@ An event that carries a default the script may take over says so in its descript
   Returns: [trx.events.Listener](#events.Listener). The attached handler.
 
 - <a id="events.on_flip_effect" name="events.on_flip_effect"></a>[lua]`trx.events.on_flip_effect(effect_num, callback)`  
-  Claims a [`trx.events.FlipEffectNum`](#events.FlipEffectNum) and happens whenever a level runs it, whether from a floor trigger or an animation command. Place an ordinary flipeffect trigger in a level editor - pad, heavy, switch and antitrigger all work - pick one nothing uses, and handle it here from the level's script.
+  Claims a [`trx.events.FlipEffectNum`](#events.FlipEffectNum) and happens whenever a level runs it,
+  whether from a floor trigger or an animation command. Place an ordinary
+  flipeffect trigger in a level editor - pad, heavy, switch and antitrigger
+  all work - pick one nothing uses, and handle it here from the level's
+  script.
 
-  A claimed number belongs to the script for the rest of the level: its stock engine effect does not run, even if the handler is later detached. Unclaimed numbers are unaffected.
+  A claimed number belongs to the script for the rest of the level: its stock
+  engine effect does not run, even if the handler is later detached. Unclaimed
+  numbers are unaffected.
 
-  Unlike the other hooks, this happens at effect execution time, in the middle of a game frame.
+  Unlike the other hooks, this happens at effect execution time, in the middle
+  of a game frame.
 
   Parameters:
   - <a id="events.on_flip_effect.effect_num" name="events.on_flip_effect.effect_num"></a>**`effect_num`** ([trx.events.FlipEffectNum](#events.FlipEffectNum)). The one to claim.
@@ -232,7 +445,9 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_room_change" name="events.on_room_change"></a>[lua]`trx.events.on_room_change(callback)`  
-  Happens when an item changes rooms during play, which a cutscene or the attract demo is not. [`trx.rooms.Room:on_enter`](ROOMS.md#rooms.Room.on_enter) and [`trx.rooms.Room:on_exit`](ROOMS.md#rooms.Room.on_exit) are this same event, narrowed to one room.
+  Happens when an item changes rooms during play, which a cutscene or the
+  attract demo is not. [`trx.rooms.Room:on_enter`](ROOMS.md#rooms.Room.on_enter) and [`trx.rooms.Room:on_exit`](ROOMS.md#rooms.Room.on_exit)
+  are this same event, narrowed to one room.
 
   Parameters:
   - <a id="events.on_room_change.callback" name="events.on_room_change.callback"></a>**`callback`** (function). What to run when it happens.
@@ -251,9 +466,14 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_trigger" name="events.on_trigger"></a>[lua]`trx.events.on_trigger(callback)`  
-  Happens every time a trigger is aimed at an item - a floor trigger in the level, the `/trigger` console command, or [`trx.items.Item:trigger`](ITEMS.md#items.Item.trigger) from a script - of any kind, an antitrigger included. It is the raw trigger, not a state change: a floor pad fires it every frame Lara stands on it, and a partial trigger fires it too. A cutscene or the attract demo does not.
+  Happens every time a trigger is aimed at an item - a floor trigger in the
+  level, the `/trigger` console command, or [`trx.items.Item:trigger`](ITEMS.md#items.Item.trigger) from a
+  script - of any kind, an antitrigger included. It is the raw trigger, not a
+  state change: a floor pad fires it every frame Lara stands on it, and a
+  partial trigger fires it too. A cutscene or the attract demo does not.
 
-  The handler runs after the trigger has been applied, so the item already reflects it, and changes the handler makes to the item are not overwritten.
+  The handler runs after the trigger has been applied, so the item already
+  reflects it, and changes the handler makes to the item are not overwritten.
 
   [`trx.items.Item:on_trigger`](ITEMS.md#items.Item.on_trigger) is this same event, narrowed to one item.
 
@@ -275,7 +495,10 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_show" name="events.on_show"></a>[lua]`trx.events.on_show(callback)`  
-  Happens when an item becomes visible during play - drawn and in the world, taking part in collision and targeting. It is the change that fires, not the state: an item already visible does not fire it again, and only a live level does, not a cutscene or the attract demo.
+  Happens when an item becomes visible during play - drawn and in the world,
+  taking part in collision and targeting. It is the change that fires, not the
+  state: an item already visible does not fire it again, and only a live level
+  does, not a cutscene or the attract demo.
 
   [`trx.items.Item:on_show`](ITEMS.md#items.Item.on_show) is this same event, narrowed to one item.
 
@@ -294,7 +517,10 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_hide" name="events.on_hide"></a>[lua]`trx.events.on_hide(callback)`  
-  Happens when an item becomes hidden during play - drawn and in the world, taking part in collision and targeting. It is the change that fires, not the state: an item already hidden does not fire it again, and only a live level does, not a cutscene or the attract demo.
+  Happens when an item becomes hidden during play - drawn and in the world,
+  taking part in collision and targeting. It is the change that fires, not the
+  state: an item already hidden does not fire it again, and only a live level
+  does, not a cutscene or the attract demo.
 
   [`trx.items.Item:on_hide`](ITEMS.md#items.Item.on_hide) is this same event, narrowed to one item.
 
@@ -313,7 +539,9 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_finish" name="events.on_finish"></a>[lua]`trx.events.on_finish(callback)`  
-  Happens when an item finishes its run during play - a trap that has sprung, a switch thrown, a one-shot object spent. It is the change that fires, once, and only a live level does, not a cutscene or the attract demo.
+  Happens when an item finishes its run during play - a trap that has sprung,
+  a switch thrown, a one-shot object spent. It is the change that fires, once,
+  and only a live level does, not a cutscene or the attract demo.
 
   [`trx.items.Item:on_finish`](ITEMS.md#items.Item.on_finish) is this same event, narrowed to one item.
 
@@ -332,7 +560,10 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_enter_sim" name="events.on_enter_sim"></a>[lua]`trx.events.on_enter_sim(callback)`  
-  Happens when an item starts being simulated during play - its control routine begins running each frame. Every path that starts an item fires it: a trigger, a switch, a respawn, a cheat. A trigger also fires [`trx.events.on_activate`](#events.on_activate), which this does not.
+  Happens when an item starts being simulated during play - its control
+  routine begins running each frame. Every path that starts an item fires it:
+  a trigger, a switch, a respawn, a cheat. A trigger also fires
+  [`trx.events.on_activate`](#events.on_activate), which this does not.
 
   [`trx.items.Item:on_enter_sim`](ITEMS.md#items.Item.on_enter_sim) is this same event, narrowed to one item.
 
@@ -351,7 +582,8 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_leave_sim" name="events.on_leave_sim"></a>[lua]`trx.events.on_leave_sim(callback)`  
-  Happens when an item stops being simulated during play - its control routine no longer runs. It keeps its place and its state; it merely stops.
+  Happens when an item stops being simulated during play - its control routine
+  no longer runs. It keeps its place and its state; it merely stops.
 
   [`trx.items.Item:on_leave_sim`](ITEMS.md#items.Item.on_leave_sim) is this same event, narrowed to one item.
 
@@ -370,7 +602,10 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_activate" name="events.on_activate"></a>[lua]`trx.events.on_activate(callback)`  
-  Happens when an item is activated through the lifecycle front door during play - the path a level trigger takes. Switches, respawns and cheats start an item without it, firing only [`trx.events.on_enter_sim`](#events.on_enter_sim); watch that one for a start of any cause.
+  Happens when an item is activated through the lifecycle front door during
+  play - the path a level trigger takes. Switches, respawns and cheats start
+  an item without it, firing only [`trx.events.on_enter_sim`](#events.on_enter_sim); watch that one
+  for a start of any cause.
 
   [`trx.items.Item:on_activate`](ITEMS.md#items.Item.on_activate) is this same event, narrowed to one item.
 
@@ -389,7 +624,9 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_deactivate" name="events.on_deactivate"></a>[lua]`trx.events.on_deactivate(callback)`  
-  Happens when a running item is deactivated through the lifecycle front door during play - the path an antitrigger takes. It fires only when the item was actually running.
+  Happens when a running item is deactivated through the lifecycle front door
+  during play - the path an antitrigger takes. It fires only when the item was
+  actually running.
 
   [`trx.items.Item:on_deactivate`](ITEMS.md#items.Item.on_deactivate) is this same event, narrowed to one item.
 
@@ -408,7 +645,10 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_destroy" name="events.on_destroy"></a>[lua]`trx.events.on_destroy(callback)`  
-  Happens as an item is removed from the game during play - a creature cleared away, a pickup taken, an object that has run its course. The item can still be read from the handler, which runs before the removal completes, but a handle kept past the handler goes stale.
+  Happens as an item is removed from the game during play - a creature cleared
+  away, a pickup taken, an object that has run its course. The item can still
+  be read from the handler, which runs before the removal completes, but a
+  handle kept past the handler goes stale.
 
   [`trx.items.Item:on_destroy`](ITEMS.md#items.Item.on_destroy) is this same event, narrowed to one item.
 
@@ -427,7 +667,10 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_enter_world" name="events.on_enter_world"></a>[lua]`trx.events.on_enter_world(callback)`  
-  Happens when an item enters the world during play - a runtime spawn, such as a creature an emitter releases or an item a script creates. The level's own items do not fire it as they load; only an arrival during a live level counts.
+  Happens when an item enters the world during play - a runtime spawn, such as
+  a creature an emitter releases or an item a script creates. The level's own
+  items do not fire it as they load; only an arrival during a live level
+  counts.
 
   [`trx.items.Item:on_enter_world`](ITEMS.md#items.Item.on_enter_world) is this same event, narrowed to one item.
 
@@ -446,7 +689,9 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_leave_world" name="events.on_leave_world"></a>[lua]`trx.events.on_leave_world(callback)`  
-  Happens when an item leaves the world during play - unlinked from its room, no longer drawn or collidable. It need not be destroyed; a destroyed item leaves the world on its way out, and fires this first.
+  Happens when an item leaves the world during play - unlinked from its room,
+  no longer drawn or collidable. It need not be destroyed; a destroyed item
+  leaves the world on its way out, and fires this first.
 
   [`trx.items.Item:on_leave_world`](ITEMS.md#items.Item.on_leave_world) is this same event, narrowed to one item.
 
@@ -466,10 +711,10 @@ An event that carries a default the script may take over says so in its descript
 
 - <a id="events.on_hit" name="events.on_hit"></a>[lua]`trx.events.on_hit(callback)`  
   Happens when an item takes damage, Lara included. It is the raw damage that
-  fires, before the item's hit points are clamped, so a fatal blow reports
-  the whole amount the attacker dealt. A death that does not go through
-  damage - a script writing [`trx.items.Item.hit_points`](ITEMS.md#items.Item.hit_points), or
-  [`trx.items.Item:destroy`](ITEMS.md#items.Item.destroy) - does not report.
+  fires, before the item's hit points are clamped, so a fatal blow reports the
+  whole amount the attacker dealt. A death that does not go through damage - a
+  script writing [`trx.items.Item.hit_points`](ITEMS.md#items.Item.hit_points), or [`trx.items.Item:destroy`](ITEMS.md#items.Item.destroy) -
+  does not report.
 
   [`trx.items.Item:on_hit`](ITEMS.md#items.Item.on_hit) is this same event, narrowed to one item.
 
@@ -489,10 +734,10 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_kill" name="events.on_kill"></a>[lua]`trx.events.on_kill(callback)`  
-  Happens when damage takes an item's hit points to zero, Lara included. It
-  is the same blow [`trx.events.on_hit`](#events.on_hit) reports, which fires first. A death
-  that does not go through damage - a script writing
-  [`trx.items.Item.hit_points`](ITEMS.md#items.Item.hit_points), or [`trx.items.Item:destroy`](ITEMS.md#items.Item.destroy) - does not report.
+  Happens when damage takes an item's hit points to zero, Lara included. It is
+  the same blow [`trx.events.on_hit`](#events.on_hit) reports, which fires first. A death that
+  does not go through damage - a script writing [`trx.items.Item.hit_points`](ITEMS.md#items.Item.hit_points),
+  or [`trx.items.Item:destroy`](ITEMS.md#items.Item.destroy) - does not report.
 
   Some bosses fall and get back up: Willard is knocked out, Natla plays dead
   before her second stage, and the dragon lies still until Lara takes the
@@ -524,13 +769,13 @@ An event that carries a default the script may take over says so in its descript
 
   A trigger Lara stands on fires every frame, so this happens only for a
   cutscene that has not run yet and while none is playing. Asking counts as
-  running it, however it ended, so the same handler is not asked again on
-  the next frame. Clear the mark by writing [`trx.cutscenes.Cutscene.is_played`](CUTSCENES.md#cutscenes.Cutscene.is_played) to hear
-  about one again.
+  running it, however it ended, so the same handler is not asked again on the
+  next frame. Clear the mark by writing [`trx.cutscenes.Cutscene.is_played`](CUTSCENES.md#cutscenes.Cutscene.is_played) to
+  hear about one again.
 
-  The number a trigger names need not be one the game has a cutscene for -
-  TR4 uses 32 to ask for a full-motion video. Those reach a handler too, and
-  the engine has nothing of its own to do about them.
+  The number a trigger names need not be one the game has a cutscene for - TR4
+  uses 32 to ask for a full-motion video. Those reach a handler too, and the
+  engine has nothing of its own to do about them.
 
   Parameters:
   - <a id="events.on_cutscene_trigger.callback" name="events.on_cutscene_trigger.callback"></a>**`callback`** (function). What to run when it happens.
@@ -556,7 +801,8 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_cutscene_start" name="events.on_cutscene_start"></a>[lua]`trx.events.on_cutscene_start(callback)`  
-  Happens when a TR4 cutscene's first frame is about to show, after the fade out.
+  Happens when a TR4 cutscene's first frame is about to show, after the fade
+  out.
 
   Parameters:
   - <a id="events.on_cutscene_start.callback" name="events.on_cutscene_start.callback"></a>**`callback`** (function). What to run when it happens.
@@ -590,7 +836,8 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_cutscene_end" name="events.on_cutscene_end"></a>[lua]`trx.events.on_cutscene_end(callback)`  
-  Happens once a TR4 cutscene has finished and the scene it interrupted is back. This is where a script decides what follows.
+  Happens once a TR4 cutscene has finished and the scene it interrupted is
+  back. This is where a script decides what follows.
 
   Parameters:
   - <a id="events.on_cutscene_end.callback" name="events.on_cutscene_end.callback"></a>**`callback`** (function). What to run when it happens.
@@ -607,8 +854,8 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_flyby_end" name="events.on_flyby_end"></a>[lua]`trx.events.on_flyby_end(callback)`  
-  Happens when a flyby sequence reaches its last camera and hands the view back.
-  A sequence that a cutscene or the player interrupts does not fire it.
+  Happens when a flyby sequence reaches its last camera and hands the view
+  back. A sequence that a cutscene or the player interrupts does not fire it.
 
   Parameters:
   - <a id="events.on_flyby_end.callback" name="events.on_flyby_end.callback"></a>**`callback`** (function). What to run when it happens.
@@ -625,7 +872,8 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.detach" name="events.detach"></a>[lua]`trx.events.detach(listener)`  
-  Removes a previously attached handler, which stops firing immediately. [`trx.events.Listener:detach`](#events.Listener.detach) does the same to one held in hand.
+  Removes a previously attached handler, which stops firing immediately.
+  [`trx.events.Listener:detach`](#events.Listener.detach) does the same to one held in hand.
 
   Parameters:
   - <a id="events.detach.listener" name="events.detach.listener"></a>**`listener`** ([trx.events.Listener](#events.Listener)). What the hook handed back when the handler was attached.
@@ -641,7 +889,8 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_zone_enter" name="events.on_zone_enter"></a>[lua]`trx.events.on_zone_enter(callback)`  
-  Happens when something enters a zone. Fires for every zone; [`trx.zones.Zone:on_enter`](ZONES.md#zones.Zone.on_enter) is the same moment narrowed to one of them.
+  Happens when something enters a zone. Fires for every zone;
+  [`trx.zones.Zone:on_enter`](ZONES.md#zones.Zone.on_enter) is the same moment narrowed to one of them.
 
   Parameters:
   - <a id="events.on_zone_enter.callback" name="events.on_zone_enter.callback"></a>**`callback`** (function). What to run when it happens.
@@ -659,7 +908,8 @@ An event that carries a default the script may take over says so in its descript
   ```
 
 - <a id="events.on_zone_exit" name="events.on_zone_exit"></a>[lua]`trx.events.on_zone_exit(callback)`  
-  Happens when something leaves a zone, and when something inside one is destroyed.
+  Happens when something leaves a zone, and when something inside one is
+  destroyed.
 
   Parameters:
   - <a id="events.on_zone_exit.callback" name="events.on_zone_exit.callback"></a>**`callback`** (function). What to run when it happens.
@@ -670,7 +920,8 @@ An event that carries a default the script may take over says so in its descript
   Returns: [trx.events.Listener](#events.Listener). The attached handler.
 
 - <a id="events.on_zone_tick" name="events.on_zone_tick"></a>[lua]`trx.events.on_zone_tick(callback)`  
-  Happens on every logical frame something is inside a zone, including the frame it enters.
+  Happens on every logical frame something is inside a zone, including the
+  frame it enters.
 
   Parameters:
   - <a id="events.on_zone_tick.callback" name="events.on_zone_tick.callback"></a>**`callback`** (function). What to run when it happens.
@@ -681,7 +932,8 @@ An event that carries a default the script may take over says so in its descript
   Returns: [trx.events.Listener](#events.Listener). The attached handler.
 
 - <a id="events.on_zone_flyby_enter" name="events.on_zone_flyby_enter"></a>[lua]`trx.events.on_zone_flyby_enter(callback)`  
-  Happens when a flyby camera enters a zone. Fires for every zone; [`trx.zones.Zone:on_flyby_enter`](ZONES.md#zones.Zone.on_flyby_enter) is the same moment narrowed to one of them.
+  Happens when a flyby camera enters a zone. Fires for every zone;
+  [`trx.zones.Zone:on_flyby_enter`](ZONES.md#zones.Zone.on_flyby_enter) is the same moment narrowed to one of them.
 
   Parameters:
   - <a id="events.on_zone_flyby_enter.callback" name="events.on_zone_flyby_enter.callback"></a>**`callback`** (function). What to run when it happens.
@@ -691,7 +943,8 @@ An event that carries a default the script may take over says so in its descript
   Returns: [trx.events.Listener](#events.Listener). The attached handler.
 
 - <a id="events.on_zone_flyby_exit" name="events.on_zone_flyby_exit"></a>[lua]`trx.events.on_zone_flyby_exit(callback)`  
-  Happens when a flyby camera leaves a zone, and when the sequence ends while the camera is still inside one.
+  Happens when a flyby camera leaves a zone, and when the sequence ends while
+  the camera is still inside one.
 
   Parameters:
   - <a id="events.on_zone_flyby_exit.callback" name="events.on_zone_flyby_exit.callback"></a>**`callback`** (function). What to run when it happens.

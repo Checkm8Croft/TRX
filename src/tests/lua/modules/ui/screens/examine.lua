@@ -1,0 +1,135 @@
+-- The shipped examine module: the description, a page at a time, hiding it to
+-- turn the entry, and putting the entry away.
+
+local h = require("harness")
+local test = h.test
+
+local Role = trx.input.Role
+local EXAMINE = trx.ui.Screen.EXAMINE
+local OBJECT = trx.catalog.objects.COMPASS_OPTION
+
+local CHOICE_CANCEL = 1
+
+require("common.ui.screens.examine").setup()
+
+local function press(role)
+  fake.release_all()
+  fake.press(role)
+  fake.tick()
+  fake.release_all()
+end
+
+local function texts()
+  local result = {}
+  for _, op in ipairs(fake.scene()) do
+    local text = op:match("^text .- text=(.*)$")
+    if text ~= nil then
+      result[#result + 1] = text
+    end
+  end
+  return table.concat(result, "\n")
+end
+
+local function open(description)
+  -- A page keeps room for its lines at the player's text size, which the fake
+  -- config leaves unset.
+  trx.config.set("ui.text_scale", 100)
+  fake.set_description(OBJECT, description)
+  h.open_ring(trx.ui.MenuMode.GAME, OBJECT, 0, 10)
+  assert(fake.offer(EXAMINE, { object = OBJECT }), "the entry was not taken")
+  -- The press that opened the entry, then the first tick it rests open.
+  fake.tick()
+  fake.tick()
+end
+
+local function finish()
+  fake.release(EXAMINE)
+  fake.take_choice(EXAMINE)
+  h.close_ring()
+  fake.release_all()
+  assert(trx.ui.layers.count() == 0, "a layer outlived the screen")
+  assert(fake.errors() == 0, "the module raised")
+end
+
+test("the description shows once the entry rests open", function()
+  open("An old map of the caves.")
+  assert(texts():find("An old map", 1, true), "the description is missing")
+  local hide = trx.ui.input_hint_text(
+    Role.MENU_SHOW_INFO,
+    trx.locale.get("general/actions/hide_dialog")
+  )
+  assert(h.ring_hint() == hide, "hiding the description was not offered")
+  finish()
+end)
+
+test("show info hides the description and offers to turn the entry", function()
+  open("An old map of the caves.")
+  press(Role.MENU_SHOW_INFO)
+  fake.tick()
+  assert(not texts():find("An old map", 1, true), "the description stayed")
+  assert(h.ring_hint() ~= "", "nothing offered to turn the entry")
+  assert(fake.is_held(EXAMINE))
+  finish()
+end)
+
+test("show info again puts the entry away", function()
+  open("An old map of the caves.")
+  press(Role.MENU_SHOW_INFO)
+  fake.tick()
+  press(Role.MENU_SHOW_INFO)
+  assert(fake.take_choice(EXAMINE) == CHOICE_CANCEL)
+  finish()
+end)
+
+test("back puts the entry away", function()
+  open("An old map of the caves.")
+  press(Role.MENU_BACK)
+  assert(fake.take_choice(EXAMINE) == CHOICE_CANCEL)
+  finish()
+end)
+
+test("an entry with nothing to read is turned at once", function()
+  open("")
+  assert(h.ring_hint() ~= "", "nothing offered to turn the entry")
+  press(Role.MENU_CONFIRM)
+  assert(fake.take_choice(EXAMINE) == CHOICE_CANCEL)
+  finish()
+end)
+
+test("right turns to the next page", function()
+  local lines = {}
+  for i = 1, 30 do
+    lines[i] = "line" .. i
+  end
+  open(table.concat(lines, "\n"))
+  assert(texts():find("line1\n", 1, true), "the first page is missing")
+  press(Role.MENU_RIGHT)
+  fake.tick()
+  local second = texts()
+  assert(not second:find("line1\n", 1, true), "the first page stayed")
+  assert(second:find("line30", 1, true) or second:find("line13", 1, true))
+  finish()
+end)
+
+test("the description keeps its place as the hint comes and goes", function()
+  local function top_of(text)
+    for _, op in ipairs(fake.scene()) do
+      local y, shown = op:match("^text x=%-?%d+ y=(%-?%d+) .- text=(.*)$")
+      if shown ~= nil and shown:find(text, 1, true) then
+        return tonumber(y)
+      end
+    end
+    return nil
+  end
+  require("common.ui.ring_hints").setup()
+  open("An old map of the caves.")
+  local hinted = top_of("An old map")
+  require("common.ui.ring").set_hint({})
+  fake.tick()
+  local bare = top_of("An old map")
+  assert(hinted ~= nil and bare ~= nil, "the description is missing")
+  assert(hinted == bare, ("it moved from %d to %d"):format(hinted, bare))
+  finish()
+end)
+
+return h.report()

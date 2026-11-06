@@ -1,13 +1,18 @@
 // The game string table, reduced to what a surface test needs: the fixtures
 // below - one plain, one with a placeholder, one with two, and one a translator
-// wrote a bare percent sign into - plus the keys the scripts under test declare
-// through trx.locale.declare(). The real one starts from
+// wrote a bare percent sign into - the style a caption takes, which leaves its
+// text as it is, plus the keys the scripts under test declare through
+// trx.locale.declare(). The real one starts from
 // game_strings/entries.def and has cfg/base_strings.json5 and its translations
 // layered over it.
 
+#include <trx/core/event_manager.h>
+#include <trx/core/memory.h>
 #include <trx/core/result.h>
+#include <trx/core/vector.h>
 #include <trx/game/game_strings/entries.h>
 #include <trx/game/game_strings/manager.h>
+#include <trx/game/locale/common.h>
 
 #include <assert.h>
 #include <stdint.h>
@@ -22,12 +27,64 @@ typedef struct {
 // Enough for every module and command one test loads.
 static M_ENTRY m_Entries[256];
 static int32_t m_EntryCount = 0;
+static int32_t m_ReloadCount = 0;
+static EVENT_LISTENER m_ChangeListener = nullptr;
+
+// The language trx.locale.reload() asks for. Which one does not matter: the
+// reload below loads nothing.
+const char *Locale_GetCode(const LOCALE_ROLE role)
+{
+    return "en";
+}
+
+// Two languages with strings files, and one dub beside the retail files.
+VECTOR *Locale_GetAvailable(const LOCALE_ROLE role)
+{
+    VECTOR *const codes = Vector_Create(sizeof(char *));
+    const char *const *const list = role == LOCALE_ROLE_TEXT
+        ? (const char *const[]) { "en", "fr", nullptr }
+        : (const char *const[]) { "fr", nullptr };
+    for (int32_t i = 0; list[i] != nullptr; i++) {
+        char *const code = Memory_DupStr(list[i]);
+        Vector_Add(codes, &code);
+    }
+    return codes;
+}
+
+const char *Locale_GetLanguageName(const char *const code)
+{
+    if (strcmp(code, "en") == 0) {
+        return "English";
+    }
+    if (strcmp(code, "fr") == 0) {
+        return "Français";
+    }
+    return nullptr;
+}
 
 // trx.locale.reload() reloads the language files from disk. There is no disk
-// here, so report success without doing anything.
+// here, so this counts the reload, which changes the text of test/changing,
+// and tells the listener.
 RESULT GameStringManager_ReloadLanguage(const char *const lang)
 {
+    m_ReloadCount++;
+    if (m_ChangeListener != nullptr) {
+        const EVENT event = { .name = "change" };
+        m_ChangeListener(&event, nullptr);
+    }
     return OK;
+}
+
+int32_t GameStringManager_SubscribeChanges(
+    const EVENT_LISTENER listener, void *const user_data)
+{
+    m_ChangeListener = listener;
+    return 0;
+}
+
+void GameStringManager_UnsubscribeChanges(const int32_t listener_id)
+{
+    m_ChangeListener = nullptr;
 }
 
 void GameString_Define(const char *const key, const char *const value)
@@ -63,6 +120,9 @@ const char *GameString_Get(const char *const key)
     }
     if (strcmp(key, "test/percent") == 0) {
         return "100% of the text";
+    }
+    if (strcmp(key, "test/changing") == 0) {
+        return m_ReloadCount % 2 == 0 ? "First" : "Second";
     }
     return nullptr;
 }

@@ -4,7 +4,9 @@
 #include <trx/game/lua/field.h>
 #include <trx/game/lua/registry.h>
 #include <trx/game/lua/struct.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/args.h>
+#include <trx/game/lua/utils/game_flow.h>
+#include <trx/game/lua/utils/module.h>
 #include <trx/game/shell/common.h>
 #include <trx/game/shell/mod.h>
 
@@ -68,14 +70,15 @@ static void M_PushModByPtr(lua_State *const L, const SHELL_MOD *const mod)
     lua_pushnil(L);
 }
 
-// trxc.mod.count() -> int
+// trxc.mod.count(): integer
 static int M_L_ModCount(lua_State *const L)
 {
     lua_pushinteger(L, Shell_GetModCount());
     return 1;
 }
 
-// trxc.mod.get(index) -> SHELL_MOD handle or nil
+// trxc.mod.get(index: integer): trx.mod.Mod?
+// The index counts from 0.
 static int M_L_ModGet(lua_State *const L)
 {
     int32_t index;
@@ -87,23 +90,33 @@ static int M_L_ModGet(lua_State *const L)
     return 1;
 }
 
-// trxc.mod.get_current() -> SHELL_MOD handle or nil
+// trxc.mod.get_current(): trx.mod.Mod?
 static int M_L_ModGetCurrent(lua_State *const L)
 {
     M_PushModByPtr(L, Shell_GetArgs()->startup.mod);
     return 1;
 }
 
-// trxc.mod.switch(mod|name) -> bool
+static const SHELL_MOD *M_CheckMod(lua_State *const L, const int arg)
+{
+    if (lua_type(L, arg) == LUA_TSTRING) {
+        return Shell_GetModByName(lua_tostring(L, arg));
+    }
+    LUA_STRUCT_REF *const ref = LUA_Struct_CheckRef(L, arg, &TYPE_SHELL_MOD);
+    return LUA_Struct_Deref(L, ref);
+}
+
+// trxc.mod.can_switch(mod: trx.mod.Mod|string): boolean
+static int M_L_ModCanSwitch(lua_State *const L)
+{
+    lua_pushboolean(L, Shell_CanSwitchToMod(M_CheckMod(L, 1)));
+    return 1;
+}
+
+// trxc.mod.switch(mod: trx.mod.Mod|string): boolean
 static int M_L_ModSwitch(lua_State *const L)
 {
-    const SHELL_MOD *mod;
-    if (lua_type(L, 1) == LUA_TSTRING) {
-        mod = Shell_GetModByName(lua_tostring(L, 1));
-    } else {
-        LUA_STRUCT_REF *const ref = LUA_Struct_CheckRef(L, 1, &TYPE_SHELL_MOD);
-        mod = LUA_Struct_Deref(L, ref);
-    }
+    const SHELL_MOD *const mod = M_CheckMod(L, 1);
 
     if (!Shell_CanSwitchToMod(mod)) {
         lua_pushboolean(L, false);
@@ -111,7 +124,7 @@ static int M_L_ModSwitch(lua_State *const L)
     }
 
     Shell_RequestModSwitch(mod->name);
-    GF_OverrideCommand((GF_COMMAND) { .action = GF_SWITCH_MOD });
+    LUA_OverrideCommand((GF_COMMAND) { .action = GF_SWITCH_MOD });
     lua_pushboolean(L, true);
     return 1;
 }
@@ -120,6 +133,7 @@ static const luaL_Reg m_Module[] = {
     { "count", M_L_ModCount },
     { "get", M_L_ModGet },
     { "get_current", M_L_ModGetCurrent },
+    { "can_switch", M_L_ModCanSwitch },
     { "switch", M_L_ModSwitch },
     { nullptr, nullptr },
 };

@@ -1,0 +1,385 @@
+-- The game flow API as a script actually sees it.
+--
+-- The fake flow has three levels - a gym, then two ordinary ones - plus one
+-- cutscene and one demo. The gym is the case worth having: it has no number, so
+-- a level's `num` is not its place in the list.
+
+local h = require("harness")
+local test, raises = h.test, h.raises
+
+-- The list holds the levels the game numbers, which is what count_levels
+-- counts. The gym sits in the table ahead of them and is not one of them, so
+-- the list and the table disagree on where every level after it sits.
+test("the level list is the levels the game numbers", function()
+  local levels = trx.game.levels
+  assert(#levels == fake.NUMBERED_LEVEL_COUNT, "wrong number of levels")
+  assert(levels[1].title == "Caves")
+  assert(levels[2].title == "Vilcabamba", "the last level must be reachable")
+  assert(
+    levels[1].type == trx.game.LevelType.NORMAL,
+    "the gym is not in the list"
+  )
+end)
+
+test("a level's num is its place in the game flow, not in the list", function()
+  local levels = trx.game.levels
+  assert(levels[1].num == 1)
+  assert(levels[2].num == 2)
+end)
+
+test("a level carries what the game flow said about it", function()
+  local caves = trx.game.levels[1]
+  assert(caves.path == "level1.phd")
+  assert(caves.script_path == "caves.lua")
+  assert(caves.lara_outfit == "default")
+  assert(caves.water_particles == true)
+  assert(caves.unobtainable_pickups == 1)
+  assert(caves.unobtainable_secrets == 2)
+end)
+
+test("a level's key reads through", function()
+  assert(trx.game.levels[1].key == "level1")
+  assert(trx.game.levels[2].key == "level2")
+  assert(trx.game.cutscenes[1].key == nil, "a level with no file has no key")
+end)
+
+test("a level is read-only", function()
+  raises(function()
+    trx.game.levels[1].title = "Nope"
+  end)
+  raises(function()
+    trx.game.levels[1].num = 99
+  end)
+end)
+
+test("a member of GF_LEVEL nobody declared is not reachable", function()
+  -- The struct has a sequence, injections and item drops. None is declared.
+  local caves = trx.game.levels[1]
+  assert(caves.sequence == nil)
+  assert(caves.injections == nil)
+  assert(caves.item_drops == nil)
+end)
+
+test("cutscenes and demos are their own lists", function()
+  assert(#trx.game.cutscenes == 1)
+  assert(trx.game.cutscenes[1].title == "Cutscene 1")
+  assert(trx.game.cutscenes[1].type == trx.game.LevelType.CUTSCENE)
+
+  assert(#trx.game.demos == 1)
+  assert(
+    trx.game.demos[1].type == trx.game.LevelType.DEMO,
+    "DEMO must exist as a level type"
+  )
+end)
+
+test("current_level is nil until a level is playing", function()
+  assert(trx.game.current_level == nil)
+
+  fake.set_current_level(2)
+  assert(trx.game.current_level ~= nil, "no current level")
+  assert(trx.game.current_level.title == "Caves")
+end)
+
+-- Neither is in the list the game numbers, and the title level is not even in a
+-- table, so both are only reachable as the level being played.
+test(
+  "the gym and the title level still resolve as the current level",
+  function()
+    fake.set_current_level(1)
+    local gym = trx.game.current_level
+    assert(gym ~= nil, "the gym must resolve")
+    assert(gym.type == trx.game.LevelType.GYM)
+    assert(gym.num == 0, "a gym has no number")
+
+    fake.set_current_title()
+    local title = trx.game.current_level
+    assert(title ~= nil, "the title level must resolve")
+    assert(title.type == trx.game.LevelType.TITLE)
+    assert(title.title == "Title")
+  end
+)
+
+test("the enums come from C", function()
+  assert(trx.game.LevelTable.MAIN ~= nil)
+  assert(trx.game.LevelTable.CUTSCENES ~= nil)
+  assert(trx.game.LevelTable.DEMOS ~= nil)
+  assert(trx.game.LevelTable.TITLE ~= nil)
+
+  assert(trx.game.LevelType.TITLE ~= nil)
+  assert(trx.game.LevelType.DEMO ~= nil)
+  assert(trx.game.LevelType.NORMAL ~= trx.game.LevelType.GYM)
+end)
+
+test("version reads through", function()
+  assert(trx.game.version == 1)
+  assert(trx.game.TRX_VERSION == "TRX-test")
+end)
+
+test("play_level queues the level the list named", function()
+  fake.set_current_level(2)
+
+  -- The second level of the list is the third entry of the table, because the
+  -- gym sits ahead of them. What reaches the game flow is the level's own num.
+  trx.game.play_level(2)
+  local calls = fake.calls()
+  assert(calls.play_level.count == 1, "play_level did not reach the game flow")
+  assert(calls.play_level.num == trx.game.levels[2].num)
+  assert(calls.play_level.num == 2)
+end)
+
+test("play_level runs at once while no script holds a screen", function()
+  trx.game.play_level(2)
+  assert(fake.calls().play_level.immediate == true)
+end)
+
+test("play_level waits while a script holds a screen", function()
+  fake.set_screen_held(true)
+  trx.game.play_level(2)
+  assert(fake.calls().play_level.immediate == false)
+end)
+
+test("play_level with select and no save unbinds the save", function()
+  trx.game.play_level(2, { select = true })
+  local calls = fake.calls()
+  assert(calls.unbind_slot.count == 1)
+  assert(calls.bind_slot.count == 0)
+end)
+
+test("play_level from a save binds that save", function()
+  trx.game.play_level(2, { select = true, from_save = { slot_num = 3 } })
+  local calls = fake.calls()
+  assert(calls.bind_slot.count == 1)
+  assert(calls.bind_slot.index == 2) -- slot 3 is index 2
+  assert(calls.unbind_slot.count == 0)
+end)
+
+test("play_level from a save needs select", function()
+  raises(function()
+    trx.game.play_level(2, { from_save = { slot_num = 3 } })
+  end)
+  assert(fake.calls().bind_slot.count == 0)
+end)
+
+test("play_level rejects a level that is not there", function()
+  raises(function()
+    trx.game.play_level(99)
+  end)
+  raises(function()
+    trx.game.play_level(0)
+  end)
+  -- A number too wide for the engine's would otherwise wrap into range and
+  -- start the level it landed on.
+  raises(function()
+    trx.game.play_level(4294967297)
+  end)
+  assert(fake.calls().play_level.count == 0)
+end)
+
+-- The gym has no ordinal, so play_level cannot name it; play_gym is the only
+-- way to reach it, and it queues the gym's own num.
+test("play_gym queues the gym", function()
+  trx.game.play_gym()
+  local calls = fake.calls()
+  assert(calls.play_gym.count == 1, "play_gym did not reach the game flow")
+  assert(calls.play_gym.num == 0, "the gym's own num reaches the game flow")
+  assert(
+    calls.play_level.count == 0,
+    "the gym is not one of the numbered levels"
+  )
+end)
+
+test("play_gym leaves the save it was played from", function()
+  trx.game.play_gym()
+  assert(fake.calls().unbind_slot.count == 1)
+end)
+
+test("start_new_game queues a new game", function()
+  trx.game.start_new_game()
+  local calls = fake.calls()
+  assert(calls.new_game.count == 1)
+  assert(calls.new_game.ng_plus == false)
+end)
+
+test("start_new_game queues the bonus game mode", function()
+  trx.game.start_new_game({ ng_plus = true })
+  assert(fake.calls().new_game.ng_plus == true)
+end)
+
+-- The game flow resets the progress and the save once the command runs, so a
+-- command that waits for a screen leaves the running game as it is.
+test("start_new_game leaves the running game alone", function()
+  trx.game.start_new_game({ ng_plus = true })
+  local calls = fake.calls()
+  assert(calls.reset_resume.count == 0)
+  assert(calls.unbind_slot.count == 0)
+  assert(trx.game.is_ngplus == false)
+end)
+
+test("play_gym raises when the game has no gym", function()
+  fake.set_gym_present(false)
+  raises(function()
+    trx.game.play_gym()
+  end)
+  assert(fake.calls().play_gym.count == 0)
+end)
+
+test("is_loaded says whether a level is up", function()
+  assert(trx.game.is_loaded == false)
+  fake.set_current_level(2)
+  assert(trx.game.is_loaded == true)
+end)
+
+test("a cutscene is loaded, but not playable", function()
+  fake.set_current_level(2)
+  assert(trx.game.is_playable == true)
+
+  fake.set_in_cutscene(true)
+  assert(trx.game.is_loaded == true, "the level is still loaded")
+  assert(trx.game.is_playable == false, "but the game is not taking input")
+end)
+
+test("a setting is reached through trx.config, and nowhere else", function()
+  assert(trx.game.settings == nil)
+end)
+
+test("an undeclared name cannot be written onto the module", function()
+  raises(function()
+    trx.game.nonsense = 1
+  end)
+  assert(trx.game.nonsense == nil)
+end)
+
+test("screenshot reaches the engine, with a path or without", function()
+  trx.game.screenshot()
+  trx.game.screenshot("shot.png")
+end)
+
+test("end_level reaches the engine", function()
+  trx.game.end_level()
+  assert(fake.calls().end_level.count == 1)
+end)
+
+test("restart_level queues the current level", function()
+  fake.set_current_level(2)
+  trx.game.restart_level()
+  local calls = fake.calls()
+  assert(calls.restart_level.count == 1)
+  assert(calls.restart_level.num == 1)
+end)
+
+test("restart_level raises outside a level", function()
+  assert(not pcall(trx.game.restart_level))
+  fake.set_current_title()
+  assert(not pcall(trx.game.restart_level))
+  assert(fake.calls().restart_level.count == 0)
+end)
+
+test("can_restart_level is false outside a level and in a cutscene", function()
+  assert(trx.game.can_restart_level() == false)
+  fake.set_current_title()
+  assert(trx.game.can_restart_level() == false)
+  fake.set_current_cutscene()
+  assert(trx.game.can_restart_level() == false)
+end)
+
+test("restart_level raises in a cutscene", function()
+  fake.set_current_cutscene()
+  assert(not pcall(trx.game.restart_level))
+  assert(fake.calls().restart_level.count == 0)
+end)
+
+test("a plain run is not a new game plus one", function()
+  assert(trx.game.is_ngplus == false)
+  fake.set_ngplus(true)
+  assert(trx.game.is_ngplus == true)
+end)
+
+test("without a bonus check the engine's answer stands", function()
+  assert(fake.check_bonus(2, true) == true)
+  assert(fake.check_bonus(2, false) == false)
+end)
+
+test("a bonus check decides whether the level opens", function()
+  local seen_level, seen_unlocked
+  trx.game.set_bonus_check(function(level, unlocked)
+    seen_level, seen_unlocked = level, unlocked
+    return not unlocked
+  end)
+  assert(fake.check_bonus(2, true) == false)
+  assert(seen_level.num == 2, "the check was not handed the level")
+  assert(seen_unlocked == true, "the check was not handed the engine's answer")
+  assert(fake.check_bonus(2, false) == true)
+
+  trx.game.set_bonus_check(nil)
+  assert(fake.check_bonus(2, false) == false)
+end)
+
+test(
+  "a bonus check that returns nothing leaves the engine's answer",
+  function()
+    trx.game.set_bonus_check(function() end)
+    assert(fake.check_bonus(2, true) == true)
+    assert(fake.check_bonus(2, false) == false)
+    trx.game.set_bonus_check(nil)
+  end
+)
+
+test("a bonus check that fails leaves the engine's answer", function()
+  trx.game.set_bonus_check(function()
+    error("broken")
+  end)
+  assert(fake.check_bonus(2, true) == true)
+  assert(fake.check_bonus(2, false) == false)
+  trx.game.set_bonus_check(nil)
+end)
+
+test("a bonus check must be a function", function()
+  raises(function()
+    trx.game.set_bonus_check(5)
+  end, "must be a function")
+end)
+
+test("a game signal a level script read first outlives that level", function()
+  local photo_mode
+  fake.as_level_script(function()
+    photo_mode = trx.game.signals.is_photo_mode
+  end)
+  fake.end_level()
+  fake.set_photo_mode(true)
+  fake.tick()
+  local followed = photo_mode:get()
+  fake.set_photo_mode(false)
+  fake.tick()
+  assert(followed, "the signal stopped with the level")
+  assert(trx.game.signals.is_photo_mode == photo_mode, "the signal changed")
+end)
+
+test("a listener a level script attaches outlives the level", function()
+  local heard = {}
+  local listener
+  fake.as_level_script(function()
+    listener = trx.game.signals.is_photo_mode:on(function(value)
+      heard[#heard + 1] = value
+    end)
+  end)
+  fake.end_level()
+  fake.set_photo_mode(true)
+  fake.tick()
+  fake.set_photo_mode(false)
+  fake.tick()
+  assert(#heard == 2, "the listener heard " .. #heard .. " changes")
+  assert(listener:detach(), "the listener was already detached")
+  fake.set_photo_mode(true)
+  fake.tick()
+  fake.set_photo_mode(false)
+  fake.tick()
+  assert(#heard == 2, "the detached listener still heard changes")
+end)
+
+test("the game leaves once a script tells it what to play next", function()
+  assert(not trx.game.is_leaving, "it was leaving before it was told to")
+  trx.game.play_level(2)
+  assert(trx.game.is_leaving, "it did not take the next level")
+end)
+
+return h.report()

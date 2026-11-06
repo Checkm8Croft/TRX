@@ -32,7 +32,10 @@ void FakeGame_SetNGPlus(bool ngplus);
 // Return the assault-course run time from the current level timer.
 void FakeGame_SetRunTime(int32_t frames);
 
+// The frame that the fake ring's picked entry rests on, or -1 while it moves
+// or no ring is open.
+
 // The game flow as a test script sees it: fake.set_current_level(),
-// fake.set_current_title(), fake.set_in_cutscene(), fake.LEVEL_COUNT and
-// fake.NUMBERED_LEVEL_COUNT.
+// fake.set_current_title(), fake.set_current_cutscene(),
+// fake.set_in_cutscene(), fake.LEVEL_COUNT and fake.NUMBERED_LEVEL_COUNT.
 void FakeGame_PushLua(lua_State *L);

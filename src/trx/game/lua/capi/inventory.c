@@ -7,13 +7,13 @@
 #include <trx/game/gun/common.h>
 #include <trx/game/gun/registry.h>
 #include <trx/game/inventory.h>
-#include <trx/game/inventory_ring/types.h>
-#include <trx/game/inventory_ring/vars.h>
+#include <trx/game/lara.h>
 #include <trx/game/lua/common.h>
 #include <trx/game/lua/field.h>
 #include <trx/game/lua/registry.h>
 #include <trx/game/lua/struct.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/args.h>
+#include <trx/game/lua/utils/module.h>
 #include <trx/game/objects/common.h>
 #include <trx/game/savegame.h>
 
@@ -225,17 +225,56 @@ static int M_L_InvTake(lua_State *const L)
     return 1;
 }
 
-// inventory:shots(weapon) -> int
+// Reads a kind of ammunition the weapon takes, and raises for one it does not.
+static OBJECT_ID M_GetAmmoKind(
+    lua_State *const L, const int arg, const LARA_GUN_TYPE gun_type)
+{
+    const lua_Integer kind = luaL_checkinteger(L, arg);
+    if (!Gun_IsAmmoKind(gun_type, (OBJECT_ID)kind)) {
+        luaL_argerror(
+            L, arg,
+            String_FormatStatic(
+                "'%s' takes no ammunition %d",
+                Catalog_IDToKey(CATALOG_WEAPONS, gun_type), (int32_t)kind));
+    }
+    return (OBJECT_ID)kind;
+}
+
+// inventory:shots(weapon, kind?) -> int
 static int M_L_InvShots(lua_State *const L)
 {
     const INVENTORY_STATE *const state = M_CheckInventory(L, 1);
     const LARA_GUN_TYPE gun_type = M_GetWeapon(L, 2);
-    lua_pushinteger(
-        L, Inv_State_GetAmmo(state, gun_type) / Gun_GetRoundsPerShot(gun_type));
+    const int32_t rounds = lua_isnoneornil(L, 3)
+        ? Inv_State_GetAmmo(state, gun_type)
+        : Inv_State_GetKindAmmo(state, gun_type, M_GetAmmoKind(L, 3, gun_type));
+    lua_pushinteger(L, rounds / Gun_GetRoundsPerShot(gun_type));
     return 1;
 }
 
-// inventory:set_shots(weapon, count)
+// inventory:ammo_kind(weapon) -> object?
+static int M_L_InvAmmoKind(lua_State *const L)
+{
+    const INVENTORY_STATE *const state = M_CheckInventory(L, 1);
+    const OBJECT_ID kind = Inv_State_GetAmmoKind(state, M_GetWeapon(L, 2));
+    if (kind == NO_OBJECT) {
+        lua_pushnil(L);
+    } else {
+        lua_pushinteger(L, kind);
+    }
+    return 1;
+}
+
+// inventory:set_ammo_kind(weapon, kind)
+static int M_L_InvSetAmmoKind(lua_State *const L)
+{
+    INVENTORY_STATE *const state = M_CheckInventory(L, 1);
+    const LARA_GUN_TYPE gun_type = M_GetWeapon(L, 2);
+    Inv_State_SelectAmmoKind(state, gun_type, M_GetAmmoKind(L, 3, gun_type));
+    return 0;
+}
+
+// inventory:set_shots(weapon, count, kind?)
 static int M_L_InvSetShots(lua_State *const L)
 {
     INVENTORY_STATE *const state = M_CheckInventory(L, 1);
@@ -246,7 +285,10 @@ static int M_L_InvSetShots(lua_State *const L)
     }
     const int32_t rounds =
         (int32_t)MIN(shots, MAX_QTY) * Gun_GetRoundsPerShot(gun_type);
-    if (M_IsLive(state)) {
+    if (!lua_isnoneornil(L, 4)) {
+        Inv_State_SetKindAmmo(
+            state, gun_type, M_GetAmmoKind(L, 4, gun_type), rounds);
+    } else if (M_IsLive(state)) {
         Inv_SetAmmo(gun_type, rounds);
     } else {
         Inv_State_SetAmmo(state, gun_type, rounds);
@@ -260,6 +302,14 @@ static int M_L_InvHasWeapon(lua_State *const L)
     const INVENTORY_STATE *const state = M_CheckInventory(L, 1);
     lua_pushboolean(
         L, Inv_State_Has(state, Gun_GetGunObject(M_GetWeapon(L, 2))));
+    return 1;
+}
+
+// inventory:has_attachment(weapon) -> bool
+static int M_L_InvHasAttachment(lua_State *const L)
+{
+    const INVENTORY_STATE *const state = M_CheckInventory(L, 1);
+    lua_pushboolean(L, Inv_State_HasAttachment(state, M_GetWeapon(L, 2)));
     return 1;
 }
 
@@ -302,19 +352,6 @@ static int M_L_InvEntryCount(lua_State *const L)
     return 1;
 }
 
-// inventory:icon_of(object) -> object id or nil
-static int M_L_InvIconOf(lua_State *const L)
-{
-    M_CheckInventory(L, 1);
-    const OBJECT_ID icon_id = Inv_GetItemOption(LUA_CheckObjectID(L, 2));
-    if (icon_id == NO_OBJECT) {
-        lua_pushnil(L);
-    } else {
-        lua_pushinteger(L, icon_id);
-    }
-    return 1;
-}
-
 // inventory:can_add(object) -> bool
 //
 // The one question only the level being played can answer: whether it carries
@@ -326,7 +363,7 @@ static int M_L_InvCanAdd(lua_State *const L)
     return 1;
 }
 
-// trxc.inventory.get(level_num) -> INVENTORY_STATE handle or nil
+// trxc.inventory.get(level_num: trx.game.LevelNum): trx.inventory.Inventory?
 static int M_L_InvGetLevel(lua_State *const L)
 {
     int32_t num;
@@ -345,7 +382,7 @@ static int M_L_InvGetLevel(lua_State *const L)
     return 1;
 }
 
-// trxc.inventory.get_current() -> INVENTORY_STATE handle
+// trxc.inventory.get_current(): trx.inventory.Inventory
 static int M_L_InvGetCurrent(lua_State *const L)
 {
     LUA_Struct_Push(
@@ -374,91 +411,101 @@ static const luaL_Reg m_InventoryMethods[] = {
     { "take", M_L_InvTake },
     { "shots", M_L_InvShots },
     { "set_shots", M_L_InvSetShots },
+    { "ammo_kind", M_L_InvAmmoKind },
+    { "set_ammo_kind", M_L_InvSetAmmoKind },
     { "has_weapon", M_L_InvHasWeapon },
+    { "has_attachment", M_L_InvHasAttachment },
     { "entry", M_L_InvEntry },
     { "entry_at", M_L_InvEntryAt },
     { "entry_count", M_L_InvEntryCount },
-    { "icon_of", M_L_InvIconOf },
     { "can_add", M_L_InvCanAdd },
     { nullptr, nullptr },
 };
 
-static int32_t M_ReadRingInt(
-    lua_State *const L, const int idx, const char *const key,
-    const int32_t fallback)
+// trxc.inventory.combine_partners(object: trx.catalog.objects): trx.catalog.objects[]
+static int M_L_InvCombinePartners(lua_State *const L)
 {
-    lua_getfield(L, idx, key);
-    const int32_t value =
-        lua_isnil(L, -1) ? fallback : (int32_t)luaL_checkinteger(L, -1);
-    lua_pop(L, 1);
-    return value;
+    OBJECT_ID partners[64];
+    const int32_t count = Inv_GetCombinePartners(
+        (OBJECT_ID)luaL_checkinteger(L, 1), partners, 64);
+    lua_createtable(L, count, 0);
+    for (int32_t i = 0; i < count; i++) {
+        lua_pushinteger(L, partners[i]);
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
 }
 
-static INVENTORY_ITEM *M_FindRingItem(const OBJECT_ID object_id)
+// trxc.inventory.combine(object: trx.catalog.objects, partner: trx.catalog.objects): trx.catalog.objects?
+static int M_L_InvCombine(lua_State *const L)
 {
-    for (int32_t i = 0; i < g_InvRing_Items->count; i++) {
-        INVENTORY_ITEM *const item =
-            *(INVENTORY_ITEM **)Vector_Get(g_InvRing_Items, i);
-        if (item->object_id == object_id) {
-            return item;
-        }
+    const OBJECT_ID result =
+        Inv_Combine(LUA_CheckObjectID(L, 1), LUA_CheckObjectID(L, 2));
+    if (result == NO_OBJECT) {
+        lua_pushnil(L);
+        return 1;
     }
-    return nullptr;
+    lua_pushinteger(L, result);
+    return 1;
 }
 
-// trxc.inventory.declare_ring_item(spec)
-static int M_L_InvDeclareRingItem(lua_State *const L)
+// trxc.inventory.separate(object: trx.catalog.objects): trx.catalog.objects?
+static int M_L_InvSeparate(lua_State *const L)
 {
-    luaL_checktype(L, 1, LUA_TTABLE);
-    lua_getfield(L, 1, "object_id");
-    const char *const name = luaL_checkstring(L, -1);
-    const OBJECT_ID object_id = Object_IdFromKey(name);
-    if (object_id == NO_OBJECT) {
-        luaL_error(L, "unknown object '%s'", name);
+    const OBJECT_ID result = Inv_Separate(LUA_CheckObjectID(L, 1));
+    if (result == NO_OBJECT) {
+        lua_pushnil(L);
+        return 1;
     }
-    lua_pop(L, 1);
+    lua_pushinteger(L, result);
+    return 1;
+}
 
-    INVENTORY_ITEM *item = M_FindRingItem(object_id);
-    const bool is_new = item == nullptr;
-    if (is_new) {
-        item = Memory_Alloc(sizeof(*item));
-        item->object_id = object_id;
+// trxc.inventory.icon_of(object: trx.catalog.objects): trx.catalog.objects?
+static int M_L_InvIconOf(lua_State *const L)
+{
+    const OBJECT_ID icon_id = Inv_GetItemOption(LUA_CheckObjectID(L, 1));
+    if (icon_id == NO_OBJECT) {
+        lua_pushnil(L);
+    } else {
+        lua_pushinteger(L, icon_id);
     }
+    return 1;
+}
 
-#define M_READ(key, field) item->field = M_ReadRingInt(L, 1, key, item->field)
-    M_READ("frames_total", frames_total);
-    M_READ("current_frame", current_frame);
-    M_READ("goal_frame", goal_frame);
-    M_READ("open_frame", open_frame);
-    M_READ("anim_direction", anim_direction);
-    M_READ("anim_speed", anim_speed);
-    M_READ("anim_count", anim_count);
-    M_READ("x_rot_pt_sel", x_rot_pt_sel);
-    M_READ("x_rot_pt", x_rot_pt);
-    M_READ("x_rot_sel", x_rot_sel);
-    M_READ("x_rot_nosel", x_rot_nosel);
-    M_READ("x_rot", x_rot);
-    M_READ("y_rot_sel", y_rot_sel);
-    M_READ("y_rot", y_rot);
-    M_READ("y_trans_sel", y_trans_sel);
-    M_READ("y_trans", y_trans);
-    M_READ("z_trans_sel", z_trans_sel);
-    M_READ("z_trans", z_trans);
-    M_READ("meshes_sel", meshes_sel);
-    M_READ("meshes_drawn", meshes_drawn);
-    M_READ("inv_pos", inv_pos);
-#undef M_READ
-
-    if (is_new) {
-        Vector_Add(g_InvRing_Items, &item);
-    }
+// trxc.inventory.use(object: trx.catalog.objects)
+static int M_L_InvUse(lua_State *const L)
+{
+    Lara_UseItem(LUA_CheckObjectID(L, 1));
     return 0;
 }
 
+// trxc.inventory.actions(object: trx.catalog.objects): { use: boolean, examine: boolean, combine: boolean }
+static int M_L_InvActions(lua_State *const L)
+{
+    const INV_ITEM_ACTIONS actions =
+        Inv_GetItemActions(LUA_CheckObjectID(L, 1));
+    lua_createtable(L, 0, 4);
+    lua_pushboolean(L, actions.can_use);
+    lua_setfield(L, -2, "use");
+    lua_pushboolean(L, actions.can_examine);
+    lua_setfield(L, -2, "examine");
+    lua_pushboolean(L, actions.can_combine);
+    lua_setfield(L, -2, "combine");
+    lua_pushboolean(L, actions.can_separate);
+    lua_setfield(L, -2, "separate");
+    return 1;
+}
+
 static const luaL_Reg m_Module[] = {
+    { "actions", M_L_InvActions },
+    { "combine", M_L_InvCombine },
+    { "combine_partners", M_L_InvCombinePartners },
     { "get_current", M_L_InvGetCurrent },
     { "get", M_L_InvGetLevel },
-    { "declare_ring_item", M_L_InvDeclareRingItem },
+    { "icon_of", M_L_InvIconOf },
+    { "separate", M_L_InvSeparate },
+    { "use", M_L_InvUse },
     { nullptr, nullptr },
 };
 

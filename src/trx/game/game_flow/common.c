@@ -7,9 +7,11 @@
 #include <trx/debug.h>
 #include <trx/game/game_flow/vars.h>
 #include <trx/game/level/cache.h>
+#include <trx/game/locale/path.h>
 
 static const GF_LEVEL *m_CurrentLevel = nullptr;
 static GF_COMMAND m_OverrideCommand = { .action = GF_NOOP };
+static bool m_IsOverrideImmediate = true;
 
 static bool M_SkipLevel(const GF_LEVEL *const level)
 {
@@ -65,7 +67,9 @@ static void M_FreeLevelTable(GF_LEVEL_TABLE *const level_table)
 static void M_FreeFMVs(GAME_FLOW *const gf)
 {
     for (int32_t i = 0; i < gf->fmv_count; i++) {
-        Memory_FreePointer(&gf->fmvs[i].path);
+        GF_FMV *const fmv = &gf->fmvs[i];
+        LocalePath_Free(&fmv->localized_path);
+        Memory_FreePointer(&fmv->path);
     }
     Memory_FreePointer(&gf->fmvs);
     gf->fmv_count = 0;
@@ -79,6 +83,7 @@ void GF_Shutdown(void)
 {
     m_CurrentLevel = nullptr;
     m_OverrideCommand = (GF_COMMAND) { .action = GF_NOOP };
+    m_IsOverrideImmediate = true;
 
     LevelCache_Reset();
 
@@ -107,20 +112,24 @@ void GF_Shutdown(void)
     Memory_FreePointer(&gf->meta.extends);
     Memory_FreePointer(&gf->path);
 
-    // A mod switch loads the next gameflow into this same struct, and the
-    // reader only writes the fields its gameflow names. Anything left here
-    // would be read as the new mod's setting.
+    // Clear settings that the next game flow may omit.
     *gf = (GAME_FLOW) {};
 }
 
-void GF_OverrideCommand(const GF_COMMAND command)
+void GF_OverrideCommand(const GF_COMMAND command, const bool immediate)
 {
     m_OverrideCommand = command;
+    m_IsOverrideImmediate = immediate;
 }
 
 GF_COMMAND GF_GetOverrideCommand(void)
 {
     return m_OverrideCommand;
+}
+
+bool GF_IsOverrideImmediate(void)
+{
+    return m_IsOverrideImmediate;
 }
 
 GF_LEVEL_TABLE_TYPE GF_GetLevelTableType(const GF_LEVEL_TYPE level_type)
@@ -164,6 +173,19 @@ int32_t GF_GetLevelCount(const GF_LEVEL_TABLE_TYPE level_table_type)
         count++;
     }
     return count;
+}
+
+int32_t GF_GetGlobeEntryCount(void)
+{
+    return g_GameFlow.globe.count;
+}
+
+const GF_GLOBE_ENTRY *GF_GetGlobeEntry(const int32_t idx)
+{
+    if (idx < 0 || idx >= g_GameFlow.globe.count) {
+        return nullptr;
+    }
+    return &g_GameFlow.globe.entries[idx];
 }
 
 int32_t GF_GetFMVCount(void)

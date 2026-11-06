@@ -95,6 +95,7 @@ bool Lara_Interact_CanControl(
     case LARA_INTERACT_PICKUP:
         return !lara->interact_target.is_moving;
     case LARA_INTERACT_SWITCH:
+    case LARA_INTERACT_PUSHABLE:
         return Item_IsInactive(Item_Get(item_num));
     case LARA_INTERACT_DOOR:
         return !Item_IsInPlay(Item_Get(item_num));
@@ -108,12 +109,41 @@ void Lara_Interact_FinishControl(const LARA_INTERACT_MODE mode)
     LARA_INFO *const lara = Lara_GetLaraInfo();
     lara->head_rot.y = 0;
     lara->head_rot.x = 0;
-    lara->torso_rot.y = 0;
-    lara->torso_rot.x = 0;
     lara->gun_status = LGS_HANDS_BUSY;
 
     lara->interact_target.is_moving = false;
     if (mode == LARA_INTERACT_SWITCH || mode == LARA_INTERACT_FLOOR_SWITCH) {
         lara->interact_target.item_num = NO_ITEM;
     }
+}
+
+void Lara_Interact_Release(const int16_t item_num)
+{
+    if (!Lara_Interact_HasActiveTarget(item_num)) {
+        return;
+    }
+    LARA_INFO *const lara = Lara_GetLaraInfo();
+    lara->interact_target.is_moving = false;
+    lara->gun_status = LGS_ARMLESS;
+}
+
+bool Lara_Interact_MoveTo(const ITEM *const item, const XYZ_32 *const position)
+{
+    if (Lara_MovePosition(item, position)) {
+        return true;
+    }
+    Lara_GetLaraInfo()->interact_target.item_num = Item_GetIndex(item);
+    return false;
+}
+
+LARA_REACH Lara_Interact_Reach(
+    const ITEM *const item, const OBJECT_BOUNDS *const bounds,
+    const XYZ_32 *const position)
+{
+    if (!Lara_TestPosition(item, bounds)) {
+        Lara_Interact_Release(Item_GetIndex(item));
+        return LARA_REACH_OUT_OF_BOUNDS;
+    }
+    return Lara_Interact_MoveTo(item, position) ? LARA_REACH_ARRIVED
+                                                : LARA_REACH_APPROACHING;
 }

@@ -28,6 +28,9 @@ bool FlybyMode_Activate(const int32_t sequence_idx, const bool one_shot)
         return false;
     }
     M_CacheLaraInfo();
+    // Ignores the skip input until it is released. A held skip input repeats,
+    // so action held through the trigger would otherwise skip the sequence.
+    Input_HoldOffRole(INPUT_ROLE_MENU_SKIP);
     return true;
 }
 
@@ -70,7 +73,7 @@ void FlybyMode_PreControl(void)
         g_InputDB.look = false;
         g_InputDB.menu_skip = false;
         g_InputDB.option = false;
-        Input_HoldOffSkip();
+        Input_HoldOffSkip(INPUT_SKIP_IN_GAME);
         return;
     }
 

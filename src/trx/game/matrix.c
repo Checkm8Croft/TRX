@@ -104,9 +104,8 @@ static void M_Double3x3FromMatrix(const MATRIX *const m, double e[3][3])
     e[2][2] = m->_22 / s;
 }
 
-// Remove uniform scale if present (estimate from row lengths).
-// Use average row length to reduce noise.
-static void M_Double3x3RemoveScale(double e[3][3])
+// Estimate uniform scale from the average row length, to reduce noise.
+static double M_Double3x3Scale(const double e[3][3])
 {
     const double rl0 =
         sqrt(e[0][0] * e[0][0] + e[0][1] * e[0][1] + e[0][2] * e[0][2]);
@@ -114,7 +113,13 @@ static void M_Double3x3RemoveScale(double e[3][3])
         sqrt(e[1][0] * e[1][0] + e[1][1] * e[1][1] + e[1][2] * e[1][2]);
     const double rl2 =
         sqrt(e[2][0] * e[2][0] + e[2][1] * e[2][1] + e[2][2] * e[2][2]);
-    const double scale = (rl0 + rl1 + rl2) / 3.0;
+    return (rl0 + rl1 + rl2) / 3.0;
+}
+
+// Remove uniform scale if present.
+static void M_Double3x3RemoveScale(double e[3][3])
+{
+    const double scale = M_Double3x3Scale(e);
     if (scale <= 0.0) {
         return;
     }
@@ -434,11 +439,27 @@ static void M_Interpolate(
     double rate = (m_IMRate != 0) ? ((double)m_IMFrac / (double)m_IMRate) : 0.0;
     CLAMP(rate, 0.0, 1.0);
 
+    // The quaternions carry the rotation alone, so the scale is blended apart
+    // from them and applied to the result again.
+    double e1[3][3];
+    double e2[3][3];
+    M_Double3x3FromMatrix(m1, e1);
+    M_Double3x3FromMatrix(m2, e2);
+    const double scale_1 = M_Double3x3Scale(e1);
+    const double scale_2 = M_Double3x3Scale(e2);
+    const int32_t scale = (int32_t)llround(
+        (scale_1 + (scale_2 - scale_1) * rate) * (1 << W2V_SHIFT));
+
     QUATERNION q1, q2, q;
     M_MatrixToQuaternion(m1, &q1);
     M_MatrixToQuaternion(m2, &q2);
     M_QuaternionSlerp(&q1, &q2, rate, &q);
     M_MatrixFromQuaternion(&q, result);
+    if (scale != (1 << W2V_SHIFT)) {
+        M_ScaleX(result, scale);
+        M_ScaleY(result, scale);
+        M_ScaleZ(result, scale);
+    }
 
     result->_03 = (int32_t)llround(m1->_03 + (m2->_03 - m1->_03) * rate);
     result->_13 = (int32_t)llround(m1->_13 + (m2->_13 - m1->_13) * rate);
@@ -522,6 +543,32 @@ void Matrix_ScaleW2V(const XYZ_32 scale)
     m_MatrixStack[0] = g_ViewMatrix;
 }
 
+void Matrix_ShearW2V(const float kx, const float ky)
+{
+    g_ViewMatrix._00 += (int32_t)(kx * g_ViewMatrix._20);
+    g_ViewMatrix._01 += (int32_t)(kx * g_ViewMatrix._21);
+    g_ViewMatrix._02 += (int32_t)(kx * g_ViewMatrix._22);
+    g_ViewMatrix._03 += (int32_t)(kx * g_ViewMatrix._23);
+    g_ViewMatrix._10 += (int32_t)(ky * g_ViewMatrix._20);
+    g_ViewMatrix._11 += (int32_t)(ky * g_ViewMatrix._21);
+    g_ViewMatrix._12 += (int32_t)(ky * g_ViewMatrix._22);
+    g_ViewMatrix._13 += (int32_t)(ky * g_ViewMatrix._23);
+    m_MatrixStack[0] = g_ViewMatrix;
+}
+
+void Matrix_SquashW2V(void)
+{
+    g_ViewMatrix._10 -= g_ViewMatrix._10 >> 2;
+    g_ViewMatrix._11 -= g_ViewMatrix._11 >> 2;
+    g_ViewMatrix._12 -= g_ViewMatrix._12 >> 2;
+    g_ViewMatrix._03 = 0;
+    g_ViewMatrix._13 = 0;
+    g_ViewMatrix._23 = 0;
+    M_TranslateRel(
+        &g_ViewMatrix, (XYZ_32) { -g_ViewPos.x, -g_ViewPos.y, -g_ViewPos.z });
+    m_MatrixStack[0] = g_ViewMatrix;
+}
+
 bool Matrix_Push(void)
 {
     if (g_MatrixPtr + 1 - m_MatrixStack >= MAX_MATRICES) {
@@ -563,6 +610,13 @@ void Matrix_Scale(const int32_t scale)
     Matrix_ScaleX(scale);
     Matrix_ScaleY(scale);
     Matrix_ScaleZ(scale);
+}
+
+void Matrix_ScaleXYZ(const XYZ_32 scale)
+{
+    Matrix_ScaleX(scale.x);
+    Matrix_ScaleY(scale.y);
+    Matrix_ScaleZ(scale.z);
 }
 
 void Matrix_ScaleX(const int32_t scale)
@@ -625,6 +679,15 @@ void Matrix_RotZ_M(MATRIX *const m, const int16_t angle)
 XYZ_16 Matrix_SlerpRot16(
     const XYZ_16 rotation_1, const XYZ_16 rotation_2, const double t)
 {
+    // Returns the endpoints unchanged, because the round trip through
+    // fixed-point matrices loses precision and turns even equal rotations.
+    if (t >= 1.0 || XYZ_16_AreEquivalent(rotation_1, rotation_2)) {
+        return rotation_2;
+    }
+    if (t <= 0.0) {
+        return rotation_1;
+    }
+
     MATRIX m1 = g_IDMatrix;
     M_RotYXZ(&m1, rotation_1);
     MATRIX m2 = g_IDMatrix;

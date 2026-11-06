@@ -22,6 +22,8 @@ bool XYZ_32_IsNearby(XYZ_32 pos1, XYZ_32 pos2, int32_t distance);
 
 XYZ_32 XYZ_32_Add(XYZ_32 a, XYZ_32 b);
 XYZ_32 XYZ_32_Subtract(XYZ_32 a, XYZ_32 b);
+XYZ_16 XYZ_16_Add(XYZ_16 a, XYZ_16 b);
+XYZ_16 XYZ_16_Subtract(XYZ_16 a, XYZ_16 b);
 
 // An offset is nearly always known along the item it belongs to - z the way it
 // faces, x out to its right - while the world it has to land in is not turned
@@ -64,6 +66,8 @@ bool XYZ_32_ProjectPointOntoAxis(
     XYZ_32 origin, XYZ_32 axis, int64_t axis_len2, XYZ_32 *pos);
 
 bool XYZ_16_AreEquivalent(XYZ_16 rot1, XYZ_16 rot2);
+
+BOUNDS_32 BOUNDS_32_From16(const BOUNDS_16 *src);
 
 float XYZ_F_DotProduct(XYZ_F a, XYZ_F b);
 float XYZ_F_Length2(XYZ_F pos);

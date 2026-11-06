@@ -5,12 +5,12 @@
 #include <trx/game/game_flow/common.h>
 #include <trx/game/game_flow/sequencer.h>
 #include <trx/game/inventory.h>
-#include <trx/game/inventory_ring/control.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects/common.h>
 #include <trx/game/pathing.h>
 #include <trx/game/pathing/lot.h>
 #include <trx/game/rooms.h>
+#include <trx/game/ui/menu.h>
 #include <trx/version.h>
 
 typedef struct {
@@ -61,10 +61,10 @@ static bool M_ShowCrowbarInventory(void)
         return false;
     }
 
-    InvRing_SetRequestedObjectID(O_CROWBAR_OPTION);
+    UI_RequestItem(O_CROWBAR_OPTION);
     const GF_COMMAND gf_cmd = GF_ShowInventory(INV_KEYS_MODE);
     if (gf_cmd.action != GF_NOOP) {
-        GF_OverrideCommand(gf_cmd);
+        GF_OverrideCommand(gf_cmd, true);
     }
     return true;
 }
@@ -295,9 +295,8 @@ static void M_CrowbarCollision(
                 lara->interact_target.item_num = item_num;
                 lara->interact_target.is_moving = true;
             }
-        } else if (Lara_Interact_HasActiveTarget(item_num)) {
-            lara->interact_target.is_moving = false;
-            lara->gun_status = LGS_ARMLESS;
+        } else {
+            Lara_Interact_Release(item_num);
         }
 
         item->rot.y += DEG_180;
@@ -319,7 +318,7 @@ static void M_Setup(OBJECT *const obj)
 {
     obj->initialise_func = Door_Initialise;
     obj->control_func = M_Control;
-    obj->draw_func = Object_DrawUnclippedItem;
+    obj->draw_func = Item_DrawUnclipped;
     obj->collision_func = M_Collision;
     obj->priv_size = sizeof(M_PRIV);
     obj->save_flags = true;

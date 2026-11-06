@@ -1,7 +1,5 @@
-// A player's config of a handful of options, one of each shape that behaves
-// differently. The registry and the options are the real ones, holds and all;
-// what is faked is which options exist, how a value reads and writes as a
-// string, and what saving means.
+// Define the options used by the tests. Use the real registry and option types,
+// and fake only value access, available options, and saving.
 
 #include <fakes/config.h>
 
@@ -11,7 +9,9 @@
 #include <trx/config/common.h>
 #include <trx/config/priv.h>
 #include <trx/config/registry.h>
+#include <trx/core/dynamic_enum.h>
 #include <trx/core/enum_map.h>
+#include <trx/core/memory.h>
 #include <trx/core/utils.h>
 
 #include <stdio.h>
@@ -24,6 +24,8 @@ static double m_Brightness;
 static double m_MasterVolume;
 static RGB_888 m_WaterColor;
 static int32_t m_ShadowType;
+static bool m_EnableSmoothBars;
+static bool m_EnableWraparound;
 
 static const CONFIG_OPTION_DESC m_Descs[] = {
     { .name = "audio.enable_music",
@@ -57,7 +59,11 @@ static const CONFIG_OPTION_DESC m_Descs[] = {
       .percent = true },
     { .name = "ui.enable_smooth_bars",
       .default_value = { .type = TVT_BOOL, .as_bool = true },
-      .mirror = &g_ConfigStorage.ui.enable_smooth_bars },
+      .mirror = &m_EnableSmoothBars },
+    // Lists read this option to decide whether the cursor wraps around.
+    { .name = "ui.enable_wraparound",
+      .default_value = { .type = TVT_BOOL, .as_bool = true },
+      .mirror = &m_EnableWraparound },
 };
 
 static int32_t m_Listener = -1;
@@ -76,8 +82,7 @@ static void M_DefineEnums(void)
     EnumMap_Define("FAKE_SHADOW", "SHADOW_EXTRA_DARK", 2, "extra_dark");
 }
 
-// What the settings file would have taken. A change a hold applies is nobody's
-// to save, so only the ones the player made are recorded.
+// Record only changes made by the player, not changes applied by a hold.
 static void M_RecordWrite(const EVENT *const event, void *const user_data)
 {
     if (((const CONFIG_CHANGE *)event->data)->persist) {
@@ -148,6 +153,14 @@ static bool M_Parse(
         break;
     }
 
+    case TVT_DYNAMIC_ENUM:
+        if (!DynamicEnum_IsValidValue(
+                Config_Option_GetEnumKey(option), new_value)) {
+            return false;
+        }
+        value.as_str = new_value;
+        break;
+
     default:
         return false;
     }
@@ -174,9 +187,30 @@ const char *Config_Option_GetValueAsString(
         return Value_Format(TVT_RGB_888, nullptr, &option->value, false);
     case TVT_ENUM:
         return EnumMap_ToString(option->enum_map, option->value.as_int);
+    case TVT_DYNAMIC_ENUM:
+        return option->value.as_str != nullptr ? option->value.as_str : "";
     default:
         return "";
     }
+}
+
+bool Config_Option_AcceptsString(
+    const CONFIG_OPTION *const option, const char *const value)
+{
+    TRX_VALUE parsed;
+    return M_Parse(option, value, &parsed);
+}
+
+char *Config_Option_NormalizeValueString(
+    const CONFIG_OPTION *const option, const char *const value,
+    const bool human_readable)
+{
+    CONFIG_OPTION parsed = *option;
+    if (!M_Parse(option, value, &parsed.value)) {
+        return Memory_DupStr(value != nullptr ? value : "");
+    }
+    return Memory_DupStr(
+        Config_Option_GetValueAsString(&parsed, human_readable));
 }
 
 bool Config_Option_SetFromString(

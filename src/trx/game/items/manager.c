@@ -1,19 +1,22 @@
 #include <trx/game/items/manager.h>
 
+#include <trx/config.h>
 #include <trx/core/handle.h>
 #include <trx/core/log.h>
+#include <trx/core/math.h>
 #include <trx/core/memory.h>
 #include <trx/core/utils.h>
 #include <trx/debug.h>
 #include <trx/game/const.h>
+#include <trx/game/creature.h>
 #include <trx/game/game.h>
 #include <trx/game/game_buf.h>
-#include <trx/game/game_flow.h>
 #include <trx/game/items/carrier.h>
 #include <trx/game/items/col.h>
 #include <trx/game/lara/common.h>
 #include <trx/game/lua/events.h>
 #include <trx/game/objects.h>
+#include <trx/game/objects/families.h>
 #include <trx/game/output/const.h>
 #include <trx/game/pathing.h>
 #include <trx/game/rooms.h>
@@ -23,19 +26,66 @@
 
 #include <string.h>
 
+// The map lives as long as the level does, so nothing in it is freed.
+#define uthash_malloc(size) GameBuf_Alloc(size, GBUF_ITEMS)
+#define uthash_free(ptr, size)
+#include <uthash.h>
+
 // How far to one side a mesh must sit before it is worth asking which room it
 // landed in. A quarter of a tile keeps every upright item out of the search.
 #define M_MESH_OFFSET_MIN (WALL_L / 4)
+
+typedef struct {
+    int16_t item_num;
+    int16_t creator_num;
+    UT_hash_handle hh;
+} M_CREATOR;
 
 static int32_t m_LevelItemCount = 0;
 static int16_t m_MaxUsedItemCount = 0;
 static ITEM *m_Items = nullptr;
 static int16_t m_NextItemSimulated = NO_ITEM;
 static int16_t m_NextItemFree = NO_ITEM;
+
+// Which item made which, while the level and a save set their items up.
+static struct {
+    bool has_initialised_items;
+    int16_t initialising_item_num;
+    // The spawned item that made a live slot, or the one a free slot is kept
+    // for.
+    M_CREATOR *creators;
+    int32_t reserved_count;
+} m_Creation = {
+    .initialising_item_num = NO_ITEM,
+};
+
 // One generation per slot, kept apart from the pooled ITEM storage so it
 // outlives a level and a handle held across the change goes stale.
 static uint32_t m_ItemGens[MAX_ITEMS];
 static HANDLE_REGISTRY m_ItemHandles;
+
+static int16_t M_GetCreator(const int16_t item_num)
+{
+    M_CREATOR *entry = nullptr;
+    HASH_FIND(hh, m_Creation.creators, &item_num, sizeof(item_num), entry);
+    return entry != nullptr ? entry->creator_num : NO_ITEM;
+}
+
+static void M_SetCreator(const int16_t item_num, const int16_t creator_num)
+{
+    M_CREATOR *entry = nullptr;
+    HASH_FIND(hh, m_Creation.creators, &item_num, sizeof(item_num), entry);
+    if (entry == nullptr) {
+        if (creator_num == NO_ITEM) {
+            return;
+        }
+        entry = GameBuf_Alloc(sizeof(*entry), GBUF_ITEMS);
+        entry->item_num = item_num;
+        HASH_ADD(
+            hh, m_Creation.creators, item_num, sizeof(entry->item_num), entry);
+    }
+    entry->creator_num = creator_num;
+}
 
 // Takes the item out of every room. An item is drawn from as many rooms as its
 // bounds reach into, and which those were is not answerable from where the
@@ -175,6 +225,134 @@ static void M_ControlFades(void)
     }
 }
 
+static bool M_IsEnemy(const ITEM *const item)
+{
+    return ObjectFamily_Has(item->object_id, OBJ_FAMILY_CREATURE)
+        && !ObjectFamily_Has(item->object_id, OBJ_FAMILY_LOYAL)
+        && !Creature_IsAlly(item);
+}
+
+static float M_GetHitPointsScale(const ITEM *const item)
+{
+    if (item->object_id == O_LARA) {
+        return 1.0f;
+    }
+    float scale = g_Rules.health.scale;
+    if (M_IsEnemy(item)) {
+        scale *= g_Config.gameplay.enemy_health_scale;
+    }
+    return scale;
+}
+
+// The one place that moves an item's maximum. The current hit points move by
+// as much, and a dead item stays dead.
+static void M_SyncHitPoints(ITEM *const item)
+{
+    TRX_VALUE base;
+    if (!ObjectProperty_GetItemValue(item, "max_hit_points", &base)) {
+        return;
+    }
+    int32_t max_hit_points =
+        Math_ApplyPercent(base.as_int, M_GetHitPointsScale(item));
+    CLAMP(max_hit_points, 0, INT16_MAX);
+    if (max_hit_points == item->max_hit_points) {
+        return;
+    }
+    if (item->max_hit_points == 0) {
+        item->hit_points = max_hit_points;
+    } else if (item->hit_points > 0) {
+        item->hit_points += max_hit_points - item->max_hit_points;
+        CLAMP(item->hit_points, 1, max_hit_points);
+    }
+    item->max_hit_points = max_hit_points;
+}
+
+// The scale can change under a live item - a rule a script sets once the level
+// is up - so every item is held to it once a frame.
+static void M_SyncAllHitPoints(void)
+{
+    for (int16_t item_num = 0; item_num < m_MaxUsedItemCount; item_num++) {
+        M_SyncHitPoints(&m_Items[item_num]);
+    }
+}
+
+// The level loads its items before initialising any, and the items a level
+// item makes as it is initialised are made again with the level, so they are
+// level items too.
+static bool M_CountsIntoLevel(void)
+{
+    if (!Game_IsSettingUpItems()) {
+        return false;
+    }
+    if (m_Creation.initialising_item_num == NO_ITEM) {
+        return !m_Creation.has_initialised_items;
+    }
+    return m_Creation.initialising_item_num < m_LevelItemCount;
+}
+
+static void M_ResetSlot(const int16_t item_num)
+{
+    ITEM *const item = &m_Items[item_num];
+    if (M_GetCreator(item_num) != NO_ITEM) {
+        m_Creation.reserved_count--;
+    }
+    M_SetCreator(
+        item_num,
+        m_Creation.initialising_item_num >= m_LevelItemCount
+            ? m_Creation.initialising_item_num
+            : NO_ITEM);
+    item->init_flags = 0;
+    item->trigger = (ITEM_TRIGGER_STATE) { 0 };
+    item->is_destroyed = false;
+    item->is_finished = false;
+    // A recycled slot must not inherit the previous occupant's name.
+    item->name = nullptr;
+    Handle_RegistryBump(&m_ItemHandles, item_num);
+    ObjectProperty_ResetItem(item);
+    m_MaxUsedItemCount = MAX(m_MaxUsedItemCount, item_num + 1);
+}
+
+static int16_t M_FindFreeSlot(const int16_t reserved_for)
+{
+    for (int16_t free_num = m_NextItemFree; free_num != NO_ITEM;
+         free_num = m_Items[free_num].next_item) {
+        if (M_GetCreator(free_num) == reserved_for) {
+            return free_num;
+        }
+    }
+    return NO_ITEM;
+}
+
+static bool M_TakeFreeSlot(const int16_t item_num)
+{
+    int16_t prev_num = NO_ITEM;
+    for (int16_t free_num = m_NextItemFree; free_num != NO_ITEM;
+         free_num = m_Items[free_num].next_item) {
+        if (free_num == item_num) {
+            if (prev_num == NO_ITEM) {
+                m_NextItemFree = m_Items[item_num].next_item;
+            } else {
+                m_Items[prev_num].next_item = m_Items[item_num].next_item;
+            }
+            M_ResetSlot(item_num);
+            return true;
+        }
+        prev_num = free_num;
+    }
+    return false;
+}
+
+static bool M_IsFreeSlot(const int16_t item_num)
+{
+    for (int16_t free_num = m_NextItemFree; free_num != NO_ITEM;
+         free_num = m_Items[free_num].next_item) {
+        if (free_num == item_num) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void Item_InitialiseItems(const int32_t num_items)
 {
     // From here until live play begins, the level's cast and any save overlaid
@@ -187,6 +365,10 @@ void Item_InitialiseItems(const int32_t num_items)
     m_MaxUsedItemCount = num_items;
     m_NextItemFree = num_items;
     m_NextItemSimulated = NO_ITEM;
+
+    m_Creation = (typeof(m_Creation)) {
+        .initialising_item_num = NO_ITEM,
+    };
 
     for (int32_t i = 0; i < MAX_ITEMS; i++) {
         m_Items[i].properties = (ITEM_PROPERTY_SET) {};
@@ -202,6 +384,7 @@ void Item_InitialiseItems(const int32_t num_items)
     for (int32_t i = m_NextItemFree; i < MAX_ITEMS - 1; i++) {
         ITEM *const item = &m_Items[i];
         item->is_simulated = false;
+        item->is_destroyed = true;
         item->next_item = i + 1;
     }
     m_Items[MAX_ITEMS - 1].next_item = NO_ITEM;
@@ -217,6 +400,9 @@ void Item_Reset(void)
     m_Items = nullptr;
     m_NextItemSimulated = NO_ITEM;
     m_NextItemFree = NO_ITEM;
+    m_Creation = (typeof(m_Creation)) {
+        .initialising_item_num = NO_ITEM,
+    };
 }
 
 ITEM *Item_Get(const int16_t item_num)
@@ -304,29 +490,46 @@ int16_t Item_GetNextSimulated(void)
 
 int16_t Item_Create(void)
 {
-    const int16_t item_num = m_NextItemFree;
-    if (item_num != NO_ITEM) {
-        m_Items[item_num].init_flags = 0;
-        m_Items[item_num].trigger = (ITEM_TRIGGER_STATE) { 0 };
-        m_Items[item_num].is_destroyed = false;
-        m_Items[item_num].is_finished = false;
-        // A recycled slot must not inherit the previous occupant's name.
-        m_Items[item_num].name = nullptr;
-        Handle_RegistryBump(&m_ItemHandles, item_num);
-        ObjectProperty_ResetItem(&m_Items[item_num]);
-        m_NextItemFree = m_Items[item_num].next_item;
+    int16_t item_num = NO_ITEM;
+    if (m_Creation.reserved_count > 0
+        && m_Creation.initialising_item_num != NO_ITEM) {
+        item_num = M_FindFreeSlot(m_Creation.initialising_item_num);
     }
-    m_MaxUsedItemCount = MAX(m_MaxUsedItemCount, item_num + 1);
+    if (item_num == NO_ITEM) {
+        item_num = M_FindFreeSlot(NO_ITEM);
+    }
+    if (item_num == NO_ITEM || !M_TakeFreeSlot(item_num)) {
+        return NO_ITEM;
+    }
+    if (M_CountsIntoLevel()) {
+        m_LevelItemCount = MAX(m_LevelItemCount, item_num + 1);
+    }
     return item_num;
 }
 
-int16_t Item_CreateLevelItem(void)
+bool Item_Reserve(const int16_t item_num, const int16_t creator_num)
 {
-    const int16_t item_num = Item_Create();
-    if (item_num != NO_ITEM) {
-        m_LevelItemCount++;
+    if (item_num < 0 || item_num >= MAX_ITEMS) {
+        return false;
     }
-    return item_num;
+    if (creator_num == NO_ITEM) {
+        return M_TakeFreeSlot(item_num);
+    }
+    if (M_GetCreator(item_num) != NO_ITEM || !M_IsFreeSlot(item_num)) {
+        return false;
+    }
+    M_SetCreator(item_num, creator_num);
+    m_Creation.reserved_count++;
+    return true;
+}
+
+int16_t Item_GetCreator(const int16_t item_num)
+{
+    const ITEM *const item = Item_Get(item_num);
+    if (item == nullptr || item->is_destroyed) {
+        return NO_ITEM;
+    }
+    return M_GetCreator(item_num);
 }
 
 int16_t Item_Spawn(const ITEM *const item, const OBJECT_ID obj_id)
@@ -346,6 +549,7 @@ int16_t Item_Spawn(const ITEM *const item, const OBJECT_ID obj_id)
 
 void Item_Initialise(const int16_t item_num)
 {
+    m_Creation.has_initialised_items = true;
     ITEM *const item = Item_Get(item_num);
     if (Room_Get(item->room_num) == nullptr) {
         LOG_WARNING(
@@ -368,7 +572,7 @@ void Item_Initialise(const int16_t item_num)
     item->rot.z = 0;
     item->speed = 0;
     item->fall_speed = 0;
-    // Both are written by the max_hit_points property, once the item is far
+    // Both are seeded from the max_hit_points property, once the item is far
     // enough along to hold it.
     item->hit_points = 0;
     item->max_hit_points = 0;
@@ -379,6 +583,7 @@ void Item_Initialise(const int16_t item_num)
     item->ai_tag = 0;
     item->after_death = 0;
     item->fade = 0;
+    item->is_poisoned = false;
     item->creature_data = nullptr;
     item->extra_rotations = nullptr;
     item->priv = nullptr;
@@ -445,15 +650,13 @@ void Item_Initialise(const int16_t item_num)
 
     // Before the object's own initialiser, so it reads what it declared.
     ObjectProperty_ApplyToItem(item);
-
-    // TODO: remove GF check once demo config reset is run before level load
-    if (Game_IsBonusFlagSet(GBF_NGPLUS)
-        && GF_GetCurrentLevel()->type != GFL_DEMO) {
-        item->hit_points *= 2;
-    }
+    M_SyncHitPoints(item);
 
     if (obj->initialise_func != nullptr) {
+        const int16_t outer_item_num = m_Creation.initialising_item_num;
+        m_Creation.initialising_item_num = item_num;
         obj->initialise_func(item_num);
+        m_Creation.initialising_item_num = outer_item_num;
     }
 
     if (item->room_num != NO_ROOM) {
@@ -482,6 +685,8 @@ bool Item_IsFading(const ITEM *const item)
 
 void Item_Control(void)
 {
+    M_SyncAllHitPoints();
+
     int16_t item_num = Item_GetNextSimulated();
     while (item_num != NO_ITEM) {
         const ITEM *const item = Item_Get(item_num);
@@ -510,6 +715,19 @@ void Item_Destroy(const int16_t item_num)
     }
 
     item->is_destroyed = true;
+    M_SetCreator(item_num, NO_ITEM);
+    if (!Game_IsSettingUpItems()) {
+        Carrier_OnItemDestroyed(item_num);
+    }
+    M_CREATOR *entry;
+    M_CREATOR *tmp;
+    HASH_ITER(hh, m_Creation.creators, entry, tmp)
+    {
+        if (entry->creator_num == item_num
+            && !m_Items[entry->item_num].is_destroyed) {
+            entry->creator_num = NO_ITEM;
+        }
+    }
 
     // The removals above are what makes is_destroyed terminal; the struct's
     // axis invariants lean on it, so pin it at the sole writer.

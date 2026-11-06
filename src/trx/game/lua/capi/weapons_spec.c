@@ -339,6 +339,18 @@ static RESULT M_ReadObjects(
     return OK;
 }
 
+static RESULT M_ReadAttachment(
+    lua_State *const L, const int idx, WEAPON_INFO *const w)
+{
+    WEAPON_ATTACHMENT_INFO *const attachment = &w->attachment;
+    MUST(M_ReadObjectId(L, idx, "object", &attachment->object_id));
+    MUST(M_ReadObjectId(L, idx, "anim", &attachment->anim_object_id));
+    M_INT(L, idx, "inventory_meshes", attachment->inventory_meshes);
+    M_INT(L, idx, "fire_delay", attachment->fire_delay);
+    M_ROUTINE(L, idx, SightFire, "fire", attachment->fire_func);
+    return OK;
+}
+
 static RESULT M_ReadAmmo(
     lua_State *const L, const int idx, WEAPON_INFO *const w)
 {
@@ -424,6 +436,7 @@ static RESULT M_ReadSmoke(
     MUST(M_ReadXYZ(L, idx, "tip", &w->smoke_tip.right));
     MUST(M_ReadXYZ(L, idx, "tip_alt", &w->smoke_tip.left));
     M_INT(L, idx, "count", w->smoke_count);
+    M_INT(L, idx, "burst", w->smoke_burst);
     M_ROUTINE(L, idx, SmokeSize, "size", w->smoke_size_func);
     return OK;
 }
@@ -478,20 +491,21 @@ static RESULT M_ReadCheat(
 
 // clang-format off
 static const M_GROUP m_Groups[] = {
-    { "objects", M_ReadObjects },
-    { "meshes",  M_ReadMeshes },
-    { "ammo",    M_ReadAmmo },
-    { "aim",     M_ReadAim },
-    { "anim",    M_ReadAnim },
-    { "flash",   M_ReadFlash },
-    { "glow",    M_ReadGlow },
-    { "muzzle",  M_ReadMuzzle },
-    { "smoke",   M_ReadSmoke },
-    { "shell",   M_ReadShell },
-    { "sound",   M_ReadSound },
-    { "stow",    M_ReadStow },
-    { "save",    M_ReadSave },
-    { "cheat",   M_ReadCheat },
+    { "objects",    M_ReadObjects },
+    { "meshes",     M_ReadMeshes },
+    { "ammo",       M_ReadAmmo },
+    { "attachment", M_ReadAttachment },
+    { "aim",        M_ReadAim },
+    { "anim",       M_ReadAnim },
+    { "flash",      M_ReadFlash },
+    { "glow",       M_ReadGlow },
+    { "muzzle",     M_ReadMuzzle },
+    { "smoke",      M_ReadSmoke },
+    { "shell",      M_ReadShell },
+    { "sound",      M_ReadSound },
+    { "stow",       M_ReadStow },
+    { "save",       M_ReadSave },
+    { "cheat",      M_ReadCheat },
 };
 // clang-format on
 

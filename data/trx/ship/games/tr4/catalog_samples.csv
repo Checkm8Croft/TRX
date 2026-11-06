@@ -7,6 +7,9 @@
 8,   lara_pistols
 9,   lara_reload
 10,  lara_ricochet
+11,  pushable_stop
+12,  metal_scrape_loop_1
+20,  metal_scrape_loop_2
 23,  upv_harpoon
 27,  lara_bodysl
 30,  lara_fall
@@ -26,6 +29,7 @@
 53,  lara_fall_death
 56,  lara_flesh_wound
 60,  underwater
+63,  pushable_move
 66,  rock_fall_crumble
 67,  rock_fall_land
 69,  icicle
@@ -52,6 +56,7 @@
 119, target_hits
 120, target_smash
 121, lara_desert_eagle
+122, rolling_ball_fall
 131, cleaner_fusebox
 137, american_swat_fire
 147, spike_wall
@@ -60,12 +65,13 @@
 148, train_loop
 149, lowering_block
 150, loop_for_small_fires
-153, quad_idle
-155, quad_move
+153, jeep_idle
+155, jeep_move
 157, bats_1
 163, flood
 182, thunder
 191, cleaner_loop
+194, guide_scare
 195, rib_idle
 197, rib_moving
 202, quad_front_impact
@@ -80,10 +86,14 @@
 216, underwater_fan_off
 219, mine_cart_sreech_brake
 220, spanner_clunk
+235, lara_crossbow
 247, blowpipe_blow
+251, shockwave
+255, earthquake_2
 257, huge_rocket_loop
 258, shiva_sword_1
 259, shiva_sword_2
+262, sword_ricochet
 280, zipline_go
 281, zipline_stop
 285, lara_flare_ignite
@@ -106,7 +116,7 @@
 343, spikes
 344, sand_loop
 346, upv_loop
-347, upv_start
+347, hit_rock
 348, upv_stop
 351, lara_rope_creak
 352, sophia_summon
@@ -114,5 +124,6 @@
 354, sophia_summon_not
 361, triboss_take_hit
 362, triboss_turn_chair
+366, vehicle_hit_object
 370, lara_barefoot
 371, lara_barefoot_land

@@ -1,0 +1,364 @@
+#include <trx/config.h>
+#include <trx/core/math.h>
+#include <trx/core/utils.h>
+#include <trx/game/creature.h>
+#include <trx/game/effects.h>
+#include <trx/game/fx/water.h>
+#include <trx/game/gun/common.h>
+#include <trx/game/gun/misc.h>
+#include <trx/game/gun/registry.h>
+#include <trx/game/gun/smashing.h>
+#include <trx/game/items.h>
+#include <trx/game/lara.h>
+#include <trx/game/objects/common.h>
+#include <trx/game/objects/draw.h>
+#include <trx/game/objects/general/smashable.h>
+#include <trx/game/objects/projectiles/grenade_tr4.h>
+#include <trx/game/rooms.h>
+#include <trx/game/sound.h>
+#include <trx/game/sparks.h>
+#include <trx/game/stats.h>
+#include <trx/version.h>
+
+#define M_SPEED 200
+#define M_FALL_SPEED (M_SPEED - 10) // = 190
+
+// Caches what the object lookup answers, which no savegame carries.
+typedef struct {
+    LARA_GUN_TYPE gun_type;
+} M_PRIV;
+
+static void M_Initialise(const int16_t item_num)
+{
+    M_PRIV *const p = Item_Get(item_num)->priv;
+    p->gun_type = LGT_UNKNOWN;
+}
+
+static LARA_GUN_TYPE M_GetGunType(ITEM *const item)
+{
+    M_PRIV *const p = item->priv;
+    if (p->gun_type == LGT_UNKNOWN) {
+        p->gun_type = Gun_GetTypeForProjectile(item->object_id);
+    }
+    return p->gun_type;
+}
+
+static int32_t M_GetBlastRadius(void)
+{
+    return g_Config.gameplay.enable_bouncy_grenades ? WALL_L : WALL_L / 2;
+}
+
+static void M_SetTR3ProjectileShade(ITEM *const item)
+{
+    if (item == nullptr) {
+        return;
+    }
+
+    // OG TR3 uses `item->shade = -0x3DF0` on projectiles; in TRX any negative
+    // shade forces the dynamic/smoothed lighting path.
+    item->shade.value_1 = -1;
+    item->shade.value_2 = -1;
+}
+
+static void M_Explode(int16_t grenade_item_num, const XYZ_32 pos)
+{
+    const ITEM *const grenade_item = Item_Get(grenade_item_num);
+    const ROOM *const room = Room_Get(grenade_item->room_num);
+    const bool is_underwater = room != nullptr && room->flags.underwater;
+
+    if (g_TRVersion >= 3) {
+        if (is_underwater) {
+            Sparks_TriggerUnderwaterExplosion(grenade_item);
+        } else {
+            Sparks_TriggerExplosionSparks(
+                pos, 3, -2, 0, grenade_item->room_num);
+            for (int32_t i = 0; i < 2; i++) {
+                Sparks_TriggerExplosionSparks(
+                    pos, 3, -1, 0, grenade_item->room_num);
+            }
+        }
+
+        Sound_Effect(
+            SFX_EXPLOSION_1, &grenade_item->pos, 0x1800000 | SPM_PITCH);
+        Sound_Effect(SFX_EXPLOSION_2, &grenade_item->pos, SPM_NORMAL);
+    } else {
+        const int16_t effect_num =
+            Effect_Create(O_EXPLOSION_1, grenade_item->room_num);
+        if (effect_num != NO_EFFECT) {
+            EFFECT *const effect = Effect_Get(effect_num);
+            effect->pos = pos;
+            effect->speed = 0;
+            effect->frame_num = 0;
+            effect->counter = 0;
+        }
+
+        Sound_Effect(SFX_EXPLOSION_3, nullptr, SPM_NORMAL);
+    }
+
+    Creature_AlertNearbyGuards(grenade_item);
+    Item_Destroy(grenade_item_num);
+}
+
+static bool M_TryExplodeItem(
+    ITEM *const projectile_item, const GAME_VECTOR old_pos,
+    const int16_t target_item_num, const int32_t radius)
+{
+    ITEM *const target_item = Item_Get(target_item_num);
+
+    const OBJECT *const target_obj = Object_Get(target_item->object_id);
+    if (target_item == Lara_GetItem()) {
+        return false;
+    }
+    if (!target_item->is_collidable) {
+        return false;
+    }
+
+    if (!target_item->is_visible || target_obj->collision_func == nullptr) {
+        return false;
+    }
+
+    if (!Item_CanBeProjectileTarget(target_item)) {
+        return false;
+    }
+
+    const ANIM_FRAME *const frame = Item_GetBestFrame(target_item);
+    const BOUNDS_16 *const bounds = &frame->bounds;
+
+    const int32_t cdy = projectile_item->pos.y - target_item->pos.y;
+    if (cdy + radius < bounds->min.y || cdy - radius > bounds->max.y) {
+        return false;
+    }
+
+    const XYZ_32 now = XYZ_32_UnrotateYaw(
+        XYZ_32_Subtract(projectile_item->pos, target_item->pos),
+        target_item->rot.y);
+    const XYZ_32 old = XYZ_32_UnrotateYaw(
+        XYZ_32_Subtract(old_pos.pos, target_item->pos), target_item->rot.y);
+
+    if ((now.x + radius < bounds->min.x && old.x + radius < bounds->min.x)
+        || (now.x - radius > bounds->max.x && old.x - radius > bounds->max.x)) {
+        return false;
+    }
+
+    if ((now.z + radius < bounds->min.z && old.z + radius < bounds->min.z)
+        || (now.z - radius > bounds->max.z && old.z - radius > bounds->max.z)) {
+        return false;
+    }
+
+    if (!Item_CanTakeDamage(target_item)) {
+        return false;
+    }
+
+    const GAME_VECTOR hit_pos = {
+        .pos = projectile_item->pos,
+        .room_num = projectile_item->room_num,
+    };
+    Gun_HitTarget(
+        target_item, &old_pos, &hit_pos,
+        Gun_Registry_Get(M_GetGunType(projectile_item))->damage);
+    Stats_AddAmmoHits();
+
+    if (Gun_GetSmashPolicy(target_item) != GUN_SMASH_POLICY_NONE) {
+        Gun_SmashItem(target_item_num);
+    } else if (
+        target_item->hit_points <= 0 && Object_CanBeExploded(target_item)) {
+        Creature_Die(
+            target_item_num,
+            (CREATURE_DIE_ARGS) {
+                .explode = true,
+                .gib_flags = GIB_FLAME | GIB_SMOKE,
+            });
+    }
+    return true;
+}
+
+static void M_Control(const int16_t item_num)
+{
+    ITEM *const item = Item_Get(item_num);
+    const GAME_VECTOR old_pos = {
+        .pos = item->pos,
+        .room_num = item->room_num,
+    };
+
+    const ROOM *const room = Room_Get(item->room_num);
+    const bool was_underwater = room != nullptr && room->flags.underwater;
+
+    if (g_Config.gameplay.enable_bouncy_grenades) {
+        if (was_underwater) {
+            item->fall_speed += (5 - item->fall_speed) >> 1;
+            item->speed -= item->speed >> 2;
+            if (item->speed != 0) {
+                item->rot.z += DEG_1 * ((item->speed >> 4) + 3);
+                if (item->required_anim_state != 0) {
+                    item->rot.y += DEG_1 * ((item->speed >> 2) + 3);
+                } else {
+                    item->rot.x += DEG_1 * ((item->speed >> 2) + 3);
+                }
+            }
+        } else {
+            item->fall_speed += 3;
+            if (item->speed != 0) {
+                item->rot.z += DEG_1 * ((item->speed >> 2) + 7);
+                if (item->required_anim_state != 0) {
+                    item->rot.y += DEG_1 * ((item->speed >> 1) + 7);
+                } else {
+                    item->rot.x += DEG_1 * ((item->speed >> 1) + 7);
+                }
+            }
+        }
+    }
+
+    if (g_TRVersion >= 3) {
+        M_SetTR3ProjectileShade(item);
+        if (!was_underwater && item->speed != 0) {
+            const XYZ_32 back_64 =
+                XYZ_32_FromYawPitch(item->rot.y, item->rot.x, -64);
+            Sparks_TriggerRocketSmoke(
+                (XYZ_32) {
+                    .x = item->pos.x + back_64.x,
+                    .y = item->pos.y + back_64.y,
+                    .z = item->pos.z + back_64.z,
+                },
+                -1, item->room_num);
+        }
+    }
+
+    bool explode = false;
+    int32_t radius = 0;
+
+    if (g_Config.gameplay.enable_bouncy_grenades) {
+        XYZ_32 vel = XYZ_32_RotateYaw(
+            (XYZ_32) { .z = item->speed }, item->goal_anim_state);
+        vel.y = item->fall_speed;
+        item->pos = XYZ_32_Add(item->pos, vel);
+
+        const int16_t y_rot = item->rot.y;
+        item->rot.y = item->goal_anim_state;
+        Collide_DoProperDetection(item, old_pos.pos);
+        item->goal_anim_state = item->rot.y;
+        item->rot.y = y_rot;
+
+        if (item->hit_points > 0) {
+            item->hit_points--;
+
+            if (item->hit_points == 0) {
+                radius = M_GetBlastRadius();
+                explode = true;
+            }
+        }
+    } else {
+        item->speed--;
+        if (item->speed < M_FALL_SPEED) {
+            item->fall_speed++;
+        }
+        item->pos.y += item->fall_speed;
+        item->pos = XYZ_32_Add(
+            item->pos,
+            XYZ_32_FromYawPitch(item->rot.y, item->rot.x, item->speed));
+
+        int16_t room_num = item->room_num;
+        const SECTOR *const sector = Room_GetSector(item->pos, &room_num);
+        item->floor = Room_GetHeight(sector, item->pos);
+        Item_UpdateRoom(item_num, room_num);
+
+        if (item->pos.y >= item->floor
+            || item->pos.y <= Room_GetCeiling(sector, item->pos)) {
+            radius = M_GetBlastRadius();
+            explode = true;
+        }
+    }
+
+    if (g_TRVersion >= 3) {
+        const ROOM *const new_room = Room_Get(item->room_num);
+        const bool is_underwater =
+            new_room != nullptr && new_room->flags.underwater;
+        if (is_underwater && !was_underwater) {
+            const int32_t inner_y_vel =
+                -2048 - ((int32_t)item->fall_speed << 5);
+            const int32_t middle_y_vel =
+                -1024 - ((int32_t)item->fall_speed << 4);
+            FX_Water_SetupSplash(&(FX_WATER_SPLASH_SETUP) {
+                .pos = { .x = item->pos.x,
+                         .y = new_room->max_ceiling,
+                         .z = item->pos.z },
+                .inner_xz_off = 16,
+                .inner_xz_size = 12,
+                .inner_y_size = -96,
+                .inner_xz_vel = 160,
+                .inner_gravity = 128,
+                .inner_y_vel = inner_y_vel,
+                .inner_friction = 7,
+                .middle_xz_off = 24,
+                .middle_xz_size = 24,
+                .middle_y_size = -64,
+                .middle_xz_vel = 224,
+                .middle_gravity = 72,
+                .middle_y_vel = middle_y_vel,
+                .middle_friction = 8,
+                .outer_xz_off = 32,
+                .outer_xz_size = 32,
+                .outer_xz_vel = 272,
+                .outer_friction = 9,
+            });
+        }
+    }
+
+    const GAME_VECTOR new_pos = {
+        .pos = item->pos,
+        .room_num = item->room_num,
+    };
+    if (Gun_SmashItems(old_pos, new_pos, nullptr, item->object_id)
+        == PROJECTILE_HIT_STOP) {
+        explode = true;
+        radius = M_GetBlastRadius();
+    }
+
+    if (g_Config.gameplay.projectile_area_damage
+        == PROJECTILE_AREA_DAMAGE_MULTI_SWEEP) {
+        Room_GetNearbyRooms(item->pos, radius * 4, radius * 4, item->room_num);
+        for (int32_t i = 0; i < Room_DrawGetCount(); i++) {
+            const ROOM *const nearby_room = Room_Get(Room_DrawGetRoom(i));
+            for (int16_t target_item_num = nearby_room->item_num;
+                 target_item_num != NO_ITEM;
+                 target_item_num = Item_Get(target_item_num)->next_item) {
+                if (!M_TryExplodeItem(item, old_pos, target_item_num, radius)) {
+                    continue;
+                }
+
+                if (!explode) {
+                    explode = true;
+                    radius = M_GetBlastRadius();
+                    i = -1;
+                    break;
+                }
+            }
+        }
+    } else {
+        for (int16_t target_item_num = room->item_num;
+             target_item_num != NO_ITEM;
+             target_item_num = Item_Get(target_item_num)->next_item) {
+            if (M_TryExplodeItem(item, old_pos, target_item_num, radius)) {
+                explode = true;
+            }
+        }
+    }
+
+    if (explode) {
+        M_Explode(item_num, old_pos.pos);
+    }
+}
+
+static void M_Setup(OBJECT *const obj)
+{
+    if (g_TRVersion == 4) {
+        Grenade_TR4_Setup(obj);
+        return;
+    }
+    obj->initialise_func = M_Initialise;
+    obj->control_func = M_Control;
+    obj->draw_func = Object_DrawProjectile;
+    obj->priv_size = sizeof(M_PRIV);
+    obj->save_position = true;
+}
+
+REGISTER_OBJECT(O_GRENADE, M_Setup)

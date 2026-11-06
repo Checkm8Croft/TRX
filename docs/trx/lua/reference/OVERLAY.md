@@ -1,30 +1,106 @@
 ---
 title: Overlay
-order: 40
+order: 41
 ---
 
 <!--
   GENERATED FILE - do not edit.
-  Regenerate with: just lua-api-dump
+  Regenerate with: tools/lint/gen/lua_docs
   The public API is declared next to its implementation, in
-  src/lua/api/overlay.lua. Edit it there.
+  src/lua/trx/overlay.lua. Edit it there.
 -->
 
 ## <a id="overlay" name="overlay"></a>Overlay module
 
-What the engine draws over the game and no script owns: the pickups that slide in, the assault course digits, and the lines of text the rest of the engine asks for.
-
-Only what a script has to answer for is here. The lines of text are the engine's own, and a script neither reads nor writes them.
+What the game shows over the play: the pickups that slide in, the cinematic
+bars, and the caption and the arrows that the inventory ring, a demo or an
+FMV asks for. The shipped scripts draw all of it; the signals here
+say what to draw.
 
 ### Properties
 
-- <a id="overlay.has_letterbox" name="overlay.has_letterbox"></a>**`trx.overlay.has_letterbox`** (boolean). Whether the cinematic bars take any of the screen. It stays true while they
-  move, so a script can hold something back until they have gone. *(read-only)*
-- <a id="overlay.signals.letterbox" name="overlay.signals.letterbox"></a>**`trx.overlay.signals.letterbox`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when the cinematic bars take the screen and when they give it back. True
-  while they are moving, so a script can hold something back until they have gone. *(read-only)*
-- <a id="overlay.signals.health_bar_forced" name="overlay.signals.health_bar_forced"></a>**`trx.overlay.signals.health_bar_forced`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when something asks for Lara's health bar whatever else is on screen, which the inventory ring does while it shows a medipack. *(read-only)*
+- <a id="overlay.has_letterbox" name="overlay.has_letterbox"></a>**`trx.overlay.has_letterbox`** (boolean). Whether the cinematic bars take any of the screen. It stays true while they move, so a script can hold something back until they have gone. *(read-only)*
+- <a id="overlay.letterbox" name="overlay.letterbox"></a>**`trx.overlay.letterbox`** (number). How deep the cinematic bars are asked to be, as a fraction of the screen height each, from `0` to `0.5`. Setting it slides the bars there; `0` takes them away. Flyby cameras and cutscenes set it too, and the last request wins. [`trx.ui.working_area`](UI.md#ui.working_area) follows the bars as they move.
+- <a id="overlay.signals.caption" name="overlay.signals.caption"></a>**`trx.overlay.signals.caption`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Holds the caption at the bottom of the screen, such as the name of the entry under the cursor of the inventory ring, in the player's language, or nil for none. *(read-only)*
+- <a id="overlay.signals.caption_flashing" name="overlay.signals.caption_flashing"></a>**`trx.overlay.signals.caption_flashing`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Holds whether the caption flashes, as it does while a demo plays. *(read-only)*
+- <a id="overlay.signals.arrows" name="overlay.signals.arrows"></a>**`trx.overlay.signals.arrows`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Holds the arrows on screen, as a table that maps each [`trx.overlay.Arrow`](#overlay.Arrow) that shows to `true`. *(read-only)*
+- <a id="overlay.signals.version_shown" name="overlay.signals.version_shown"></a>**`trx.overlay.signals.version_shown`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Holds whether the game asks for its version on screen, as the title screen does. The `ui.show_title_version` setting decides whether it shows. *(read-only)*
+- <a id="overlay.signals.letterbox" name="overlay.signals.letterbox"></a>**`trx.overlay.signals.letterbox`** ([trx.signal.Signal](SIGNAL.md#signal.Signal)). Says when the cinematic bars take the screen and when they give it back. True while they are moving, so a script can hold something back until they have gone. *(read-only)*
+
+### Enums
+
+- <a id="overlay.Arrow" name="overlay.Arrow"></a>[lua]`trx.overlay.Arrow`
+
+    An arrow the interface can show.
+
+    - `trx.overlay.Arrow.TOP_LEFT`  
+        The top-left screen corner.
+    - `trx.overlay.Arrow.TOP_RIGHT`  
+        The top-right screen corner.
+    - `trx.overlay.Arrow.BOTTOM_LEFT`  
+        The bottom-left screen corner.
+    - `trx.overlay.Arrow.BOTTOM_RIGHT`  
+        The bottom-right screen corner.
+    - `trx.overlay.Arrow.CAPTION_LEFT`  
+        To the left of the caption.
+    - `trx.overlay.Arrow.CAPTION_RIGHT`  
+        To the right of the caption.
 
 ### Functions
 
 - <a id="overlay.signals" name="overlay.signals"></a>[lua]`trx.overlay.signals`  
   What the overlay tells a script, for the parts of it a script draws.
+
+- <a id="overlay.set_caption" name="overlay.set_caption"></a>[lua]`trx.overlay.set_caption([text], [opts])`  
+  Sets the caption at the bottom of the screen.
+
+  The inventory ring uses it for the selected entry. The text shows as given,
+  so the caller styles it. The caption reduces the safe area. Passing no value
+  removes it.
+
+  Parameters:
+  - <a id="overlay.set_caption.text" name="overlay.set_caption.text"></a>**`text`** (string or [trx.locale.Text](LOCALE.md#locale.Text), optional). Text to show. A [`trx.locale.Text`](LOCALE.md#locale.Text) follows the player's language. Omit this parameter to remove the caption.
+  - <a id="overlay.set_caption.opts" name="overlay.set_caption.opts"></a>**`opts`** (table, optional). How it shows.
+
+    Keys:
+    - <a id="overlay.set_caption.opts.flashing" name="overlay.set_caption.opts.flashing"></a>**`flashing`** (boolean, optional). Whether the caption flashes, as it does while a demo plays. `false` by default.
+
+  Example:
+  ```lua
+  trx.overlay.set_caption(trx.locale.get("general/misc/demo_mode"), {
+    flashing = true,
+  })
+  ```
+
+- <a id="overlay.show_version" name="overlay.show_version"></a>[lua]`trx.overlay.show_version(shown)`  
+  Asks for the game's version on screen, as the title screen does. The
+  `ui.show_title_version` setting decides whether it shows.
+
+  Parameters:
+  - <a id="overlay.show_version.shown" name="overlay.show_version.shown"></a>**`shown`** (boolean). Whether it is asked for.
+
+- <a id="overlay.show_arrow" name="overlay.show_arrow"></a>[lua]`trx.overlay.show_arrow(arrow, shown)`  
+  Shows or hides an interface arrow.
+
+  The caption arrows stand beside the caption that [`trx.overlay.set_caption`](#overlay.set_caption)
+  sets.
+
+  Parameters:
+  - <a id="overlay.show_arrow.arrow" name="overlay.show_arrow.arrow"></a>**`arrow`** ([trx.overlay.Arrow](#overlay.Arrow)). Which arrow to show.
+  - <a id="overlay.show_arrow.shown" name="overlay.show_arrow.shown"></a>**`shown`** (boolean). Whether it is on screen.
+
+- <a id="overlay.show_pickup" name="overlay.show_pickup"></a>[lua]`trx.overlay.show_pickup(object)`  
+  Shows an object in the bottom-right corner of the screen, as the game shows
+  a pickup Lara collects. It fires [`trx.events.on_show_pickup`](EVENTS.md#events.on_show_pickup), which the
+  shipped scripts answer by playing the secret music for a secret.
+
+  It does not add the object to Lara's inventory. Use
+  [`trx.inventory.Inventory:give`](INVENTORY.md#inventory.Inventory.give) for that.
+
+  Parameters:
+  - <a id="overlay.show_pickup.object" name="overlay.show_pickup.object"></a>**`object`** ([trx.catalog.objects](CATALOG.md#catalog.objects)). The object to show.
+
+  Example:
+  ```lua
+  trx.overlay.show_pickup(trx.catalog.objects.KEY_ITEM_1)
+  ```

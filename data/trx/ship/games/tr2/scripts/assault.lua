@@ -1,4 +1,4 @@
-require("common.assault")
+require("common.ui.hud.assault").setup()
 
 trx.events.on_game_start(function(is_save)
   trx.lara.holsters_visible = trx.lara.has_pistol_weapon
@@ -11,4 +11,8 @@ trx.events.on_game_start(function(is_save)
   else
     trx.music.tracks[5]:play()
   end
+end)
+
+trx.events.on_flip_effect(200, function(item, timer)
+  trx.music.tracks[36]:play({ mode = trx.music.PlayMode.OVERLAY })
 end)

@@ -8,8 +8,14 @@ typedef struct JSON_READ_IO JSON_READ_IO;
 typedef struct JSON_WRITE_IO JSON_WRITE_IO;
 
 void Sparks_Reset(void);
+// Calms the TR3 wind and skips its next update, as resetting Lara's hair does
+// in TR3. The skipped update makes no draws on the control random generator.
+void Sparks_ResetWind(void);
+// Advances the wind. TR3 runs it after Lara's control, as its hair code does;
+// the other games advance it with the rest of the sparks.
+void Sparks_UpdateWind(void);
 void Sparks_Control(void);
-void Sparks_Draw(void);
+void Sparks_DrawAll(void);
 
 // Writes and reads one spark. A sprite spark stores its object and sprite
 // offset. The owning pool stores the on flag and attachment.
@@ -28,7 +34,6 @@ void Sparks_DetachItem(int16_t item_num);
 
 XYZ_32 Sparks_GetWorldPos(const SPARK *spark);
 
-SPARK *Sparks_GetFreeSpark(void);
 SPARK *Sparks_GetSpark(int32_t idx);
 int32_t Sparks_GetMaxCount(void);
 
@@ -38,7 +43,9 @@ TRX_HANDLE Sparks_GetHandle(const SPARK *spark);
 // Resolves a handle to a live spark, or nullptr where the slot has been taken
 // for another spark, or holds one whose life has run out.
 SPARK *Sparks_FromHandle(TRX_HANDLE handle);
-SPARK *Sparks_InitialiseSpriteSpark(SPARK_SPRITE_TYPE type);
+SPARK *Sparks_InitialiseSpark(SPARK_CONTEXT context);
+SPARK *Sparks_InitialiseSpriteSpark(
+    SPARK_SPRITE_TYPE type, SPARK_CONTEXT context);
 int32_t Sparks_GetSpriteIndex(SPARK_SPRITE_TYPE offset);
 void Sparks_Sync(SPARK *spark);
 void Sparks_FinishSetup(SPARK *spark);

@@ -9,19 +9,18 @@
 #include <trx/game/gun.h>
 #include <trx/game/input.h>
 #include <trx/game/inventory.h>
-#include <trx/game/inventory_ring/control.h>
 #include <trx/game/lara.h>
 #include <trx/game/lua.h>
 #include <trx/game/objects/families.h>
 #include <trx/game/objects/general/flare_item.h>
 #include <trx/game/objects/links.h>
 #include <trx/game/output.h>
-#include <trx/game/overlay.h>
 #include <trx/game/random.h>
 #include <trx/game/rooms.h>
 #include <trx/game/savegame.h>
 #include <trx/game/sparks.h>
 #include <trx/game/stats.h>
+#include <trx/game/ui/menu.h>
 #include <trx/version.h>
 
 // clang-format off
@@ -142,6 +141,17 @@ static const XYZ_32 m_PickupPositionScion = { .x = 0, .y = 0, .z = -310 };
 static const XYZ_32 m_PickupPositionHidden = { .x = 0, .y = 0, .z = -690 };
 static const XYZ_32 m_PickupPositionCrowbar = { .x = 0, .y = 0, .z = 225 };
 
+static const LARA_ANIMATION_ID m_DuckedAnims[] = {
+    // clang-format off
+    LA_CRAWL_IDLE,
+    LA_CRAWL_PICKUP,
+    LA_CROUCH_IDLE,
+    LA_CROUCH_PICKUP,
+    LA_CROUCH_PICKUP_FLARE,
+    NO_CATALOG_ID,
+    // clang-format on
+};
+
 static RESULT M_LoadPriv(ITEM *const item, JSON_READ_IO *const io)
 {
     M_PRIV *const p = item->priv;
@@ -171,6 +181,16 @@ static void M_Initialise(const int16_t item_num)
     if (ObjectFamily_Has(item->object_id, OBJ_FAMILY_SECRET)) {
         const GF_LEVEL *const level = Game_GetCurrentLevel();
         p->secret_mask = Stats_GetSecretMaskForItem(level, item_num);
+    }
+
+    // TR4 draws a weapon lying in a level without the laser sight, which the
+    // model carries for the inventory to show once Lara holds a sight
+    // (tomb4 items.cpp, InitialiseItem).
+    if (g_TRVersion == 4
+        && (item->object_id == O_SHOTGUN_ITEM
+            || item->object_id == O_CROSSBOW_ITEM
+            || item->object_id == O_REVOLVER_ITEM)) {
+        item->mesh_bits = 1;
     }
 
     if (item->is_visible) {
@@ -256,12 +276,11 @@ static void M_SpawnPickupAid(const ITEM *const item)
             Sparks_TriggerPickupAid(pos, (XZ_32) {});
         }
     } else {
-        const int16_t effect_num = Effect_Create(item->room_num);
+        const int16_t effect_num = Effect_Create(O_PICKUP_AID, item->room_num);
         if (effect_num != NO_EFFECT) {
             EFFECT *const effect = Effect_Get(effect_num);
             effect->pos = pos;
             effect->counter = 0;
-            effect->object_id = O_PICKUP_AID;
             effect->frame_num = 0;
         }
     }
@@ -405,7 +424,7 @@ static void M_DoPickup(const int16_t item_num)
         return;
     }
 
-    Overlay_AddDisplayPickup(item->object_id);
+    UI_ShowPickup(item->object_id);
     if (ObjectFamily_Has(item->object_id, OBJ_FAMILY_SECRET)) {
         Stats_MarkSecretCollected(item);
         if (Stats_CheckAllLevelSecretsCollected()) {
@@ -591,8 +610,8 @@ static const BOUNDS_16 *M_FindPlinthBounds(const ITEM *const item)
         const STATIC_MESH *const mesh = &room->static_meshes[i];
         const STATIC_OBJECT_3D *const obj =
             Object_Get3DStatic(mesh->static_num);
-        if (!obj->visible || mesh->pos.x != item->pos.x
-            || mesh->pos.z != item->pos.z) {
+        if (!obj->visible || Room_IsStaticShattered(mesh)
+            || mesh->pos.x != item->pos.x || mesh->pos.z != item->pos.z) {
             continue;
         }
 
@@ -757,10 +776,10 @@ static bool M_ShowCrowbarInventory(void)
         return false;
     }
 
-    InvRing_SetRequestedObjectID(O_CROWBAR_OPTION);
+    UI_RequestItem(O_CROWBAR_OPTION);
     const GF_COMMAND gf_cmd = GF_ShowInventory(INV_KEYS_MODE);
     if (gf_cmd.action != GF_NOOP) {
-        GF_OverrideCommand(gf_cmd);
+        GF_OverrideCommand(gf_cmd, true);
     }
     return true;
 }
@@ -831,15 +850,7 @@ static void M_DoAboveWater(const int16_t item_num, ITEM *const lara_item)
 {
     ITEM *const item = Item_Get(item_num);
     const LARA_ANIMATION_ID anim = LA_U(Item_GetRelativeAnim(lara_item));
-
-    // clang-format off
-    const bool is_ducked = (
-        anim == LA_CRAWL_IDLE ||
-        anim == LA_CRAWL_PICKUP ||
-        anim == LA_CROUCH_IDLE ||
-        anim == LA_CROUCH_PICKUP ||
-        anim == LA_CROUCH_PICKUP_FLARE);
-    // clang-format on
+    const bool is_ducked = Lara_HasAnimation(m_DuckedAnims);
 
     if (g_Config.gameplay.enable_walk_to_items && !is_ducked) {
         M_DoControlled(item_num, lara_item);
@@ -879,7 +890,7 @@ static void M_DoAboveWater(const int16_t item_num, ITEM *const lara_item)
         && (lara->gun_status == LGS_ARMLESS || anim == LA_CRAWL_IDLE)
         && Lara_Interact_CanBegin(LARA_INTERACT_PICKUP)) {
         if (is_flare_item) {
-            if (g_TRVersion >= 4) {
+            if (is_ducked && !g_Config.gameplay.fix_lara_pickup_embed) {
                 const XYZ_32 pos = M_GetAlignmentPosition(item, false);
                 Lara_AlignPosition(item, &pos);
             }
@@ -972,9 +983,9 @@ static bool M_Draw(const ITEM *const item)
 {
     const M_PRIV *const p = item->priv;
     if (p->pickup_mode == PICKUP_MODE_CROWBAR) {
-        return Object_DrawAnimatingItem(item);
+        return Item_DrawAnimating(item);
     }
-    return Object_DrawPickupItem(item);
+    return Item_DrawPickup(item);
 }
 
 void Pickup_Setup(OBJECT *const obj)
@@ -1100,9 +1111,7 @@ void Pickup_Collect(const GAME_VECTOR pos, const PICKUP_MODE mode)
 
 // O_FLARE_ITEM registers its own specialized setup.
 #define X_PICKUP(item, option) REGISTER_OBJECT(item, Pickup_Setup)
-#define X_PICKUP_SPECIAL(item, option) REGISTER_OBJECT(item, Pickup_Setup)
 #define X_PICKUP_SUPPLY_VARIANT(item, option)
 #include <trx/game/objects/pickups.def>
 #undef X_PICKUP_SUPPLY_VARIANT
-#undef X_PICKUP_SPECIAL
 #undef X_PICKUP

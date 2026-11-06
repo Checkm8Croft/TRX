@@ -20,6 +20,7 @@
 #include <trx/game/shell.h>
 #include <trx/game/shell/events.h>
 
+#include <SDL2/SDL_gamecontroller.h>
 #include <ctype.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -46,6 +47,7 @@ typedef struct {
     int32_t brace_depth;
     bool in_quote;
     bool escaped;
+    char *end;
 } M_BLOCK_EVENT_CTX;
 
 // Parsed frame events
@@ -101,6 +103,9 @@ static bool M_ParseQuitEvent(const char *event_str);
 static bool M_ParseKeyDownEvent(const char *event_str);
 static bool M_ParseKeyUpEvent(const char *event_str);
 static bool M_ParseTextInputEvent(const char *event_str);
+static bool M_ParsePadDownEvent(const char *event_str);
+static bool M_ParsePadUpEvent(const char *event_str);
+static bool M_ParsePadAxisEvent(const char *event_str);
 static bool M_ParseCommandEvent(const char *event_str);
 static bool M_ParseNoopEvent(const char *event_str);
 static bool M_ParseLuaEvent(const char *event_str);
@@ -128,6 +133,7 @@ static const M_HEADER_HANDLER m_HeaderHandlers[] = {
 static const M_EVENT_HANDLER m_EventHandlers[] = {
     M_ParseQuitEvent,      M_ParseTestCaseEvent, M_ParseExpectEvent,
     M_ParseKeyDownEvent,   M_ParseKeyUpEvent,    M_ParseTextInputEvent,
+    M_ParsePadDownEvent,   M_ParsePadUpEvent,    M_ParsePadAxisEvent,
     M_ParseNoopEvent,      M_ParseCommandEvent,  M_ParseLuaEvent,
     M_ParseSkipStartEvent, M_ParseSkipEndEvent,  nullptr,
 };
@@ -389,8 +395,22 @@ static const char *M_GetBlockPayloadStartIfAny(const char *const evt)
     return nullptr;
 }
 
-static bool M_TryStartBlockEvent(
-    M_BLOCK_EVENT_CTX *const ctx, const char *const evt)
+// Joins a line onto the block event before it. The gap between the end of the
+// block and the start of the line holds the line end, any comment cut from the
+// line before, blank lines and indentation, and becomes one line break
+// followed by spaces.
+static void M_JoinBlockLine(M_BLOCK_EVENT_CTX *const ctx, char *const line)
+{
+    if (ctx->end < line) {
+        *ctx->end = '\n';
+        for (char *ch = ctx->end + 1; ch < line; ch++) {
+            *ch = ' ';
+        }
+    }
+    ctx->end = line + strlen(line);
+}
+
+static bool M_TryStartBlockEvent(M_BLOCK_EVENT_CTX *const ctx, char *const evt)
 {
     const char *const payload_start = M_GetBlockPayloadStartIfAny(evt);
     if (payload_start == nullptr || *payload_start != '{') {
@@ -398,6 +418,7 @@ static bool M_TryStartBlockEvent(
     }
 
     ctx->collecting = true;
+    ctx->end = evt + strlen(evt);
     ctx->brace_depth = 0;
     ctx->in_quote = false;
     ctx->escaped = false;
@@ -528,6 +549,84 @@ static bool M_ParseTextInputEvent(const char *const event_str)
     if (sscanf(event_str, fmt, &event.text.text) != 1) {
         return false;
     }
+    Shell_ProcessEvent(&event);
+    return true;
+}
+
+// Returns the quoted name in an instruction.
+static const char *M_ParseQuotedName(
+    const char *const event_str, const char *const prefix)
+{
+    if (strncmp(event_str, prefix, strlen(prefix)) != 0) {
+        return nullptr;
+    }
+    const char *const start = strchr(event_str + strlen(prefix), '"');
+    const char *const end = start != nullptr ? strchr(start + 1, '"') : nullptr;
+    if (start == nullptr || end == nullptr || end <= start + 1) {
+        LOG_WARNING("Malformed %s instruction: %s", prefix, event_str);
+        return nullptr;
+    }
+    return String_FormatStatic("%.*s", (int)(end - (start + 1)), start + 1);
+}
+
+static bool M_ParsePadButtonEvent(
+    const char *const event_str, const SDL_EventType type,
+    const char *const prefix)
+{
+    const char *const name = M_ParseQuotedName(event_str, prefix);
+    if (name == nullptr) {
+        return false;
+    }
+    const SDL_GameControllerButton button =
+        SDL_GameControllerGetButtonFromString(name);
+    if (button == SDL_CONTROLLER_BUTTON_INVALID) {
+        LOG_WARNING("Unknown controller button: %s", name);
+        return false;
+    }
+
+    SDL_Event event = { .type = type };
+    event.cbutton.button = (Uint8)button;
+    event.cbutton.state =
+        type == SDL_CONTROLLERBUTTONDOWN ? SDL_PRESSED : SDL_RELEASED;
+    Shell_ProcessEvent(&event);
+    return true;
+}
+
+static bool M_ParsePadDownEvent(const char *const event_str)
+{
+    return M_ParsePadButtonEvent(
+        event_str, SDL_CONTROLLERBUTTONDOWN, "pad-down");
+}
+
+static bool M_ParsePadUpEvent(const char *const event_str)
+{
+    return M_ParsePadButtonEvent(event_str, SDL_CONTROLLERBUTTONUP, "pad-up");
+}
+
+static bool M_ParsePadAxisEvent(const char *const event_str)
+{
+    const char *const prefix = "pad-axis";
+    const char *const name = M_ParseQuotedName(event_str, prefix);
+    if (name == nullptr) {
+        return false;
+    }
+    const SDL_GameControllerAxis axis =
+        SDL_GameControllerGetAxisFromString(name);
+    if (axis == SDL_CONTROLLER_AXIS_INVALID) {
+        LOG_WARNING("Unknown controller axis: %s", name);
+        return false;
+    }
+
+    const char *const value_str = strchr(strchr(event_str, '"') + 1, '"') + 1;
+    int32_t value;
+    if (sscanf(value_str, "%d", &value) != 1) {
+        LOG_WARNING("Malformed %s instruction: %s", prefix, event_str);
+        return false;
+    }
+
+    SDL_Event event = { .type = SDL_CONTROLLERAXISMOTION };
+    event.caxis.axis = (Uint8)axis;
+    event.caxis.value = (Sint16)value;
     Shell_ProcessEvent(&event);
     return true;
 }
@@ -873,8 +972,11 @@ static bool M_ParseStartup(const char *const line, M_PARSE_CTX *const ctx)
         Memory_FreePointer(&ctx->startup.settings.level_request.path);
         ctx->startup.settings.level_request.path =
             Memory_DupStr(String_FormatStatic("%.*s", (int)str_len, str));
-    } else if (sscanf(line, "startup save %d", &int_val) == 1) {
-        ctx->startup.settings.save_to_load = int_val - 1;
+    } else if (strncmp(line, "startup save ", strlen("startup save ")) == 0) {
+        if (!Shell_ParseSaveSlot(
+                line + strlen("startup save "), &ctx->startup.settings)) {
+            return false;
+        }
     } else {
         return false;
     }
@@ -1106,9 +1208,7 @@ SHELL_ARGS *TestReplay_Open(const char *path)
                 }
 
                 if (block_ctx.collecting) {
-                    if (evt > p->data) {
-                        evt[-1] = '\n';
-                    }
+                    M_JoinBlockLine(&block_ctx, evt);
                     M_ScanBraceState(
                         evt, &block_ctx.brace_depth, &block_ctx.in_quote,
                         &block_ctx.escaped);
@@ -1204,6 +1304,8 @@ void TestReplay_Start(void)
             LOG_WARNING("Unknown line: %s", ln);
         }
     }
+    // Use recorded controller input even when no controller is attached.
+    Input_Controller_SetAssumeAttached(true);
     // The settings the recording asked for are where this replay starts, not
     // something that moved while it ran.
     Config_DiscardPendingChanges();
@@ -1216,6 +1318,7 @@ void TestReplay_Close(void)
     M_PRIV *const p = &m_Priv;
     M_TestReportSummary();
     M_StopSkipping();
+    Input_Controller_SetAssumeAttached(false);
 
     if (p->test_mode.quiet_applied) {
         Log_SetMinLevel(p->test_mode.log_level_before_quiet);

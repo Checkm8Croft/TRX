@@ -1,4 +1,4 @@
-trx.events.on_game_start(function()
+trx.events.on_game_start(function(is_save)
   trx.objects.animating_13.properties.collidable = false
   trx.items[36].properties.switch_mode = trx.items.SwitchMode.HIDDEN_PICKUP
   trx.items[37].properties.switch_mode = trx.items.SwitchMode.HIDDEN_REACH
@@ -22,4 +22,20 @@ trx.events.on_game_start(function()
   trx.items[127].properties.pickup_mode = trx.items.PickupMode.HIDDEN
   trx.items[154].properties.pickup_mode = trx.items.PickupMode.HIDDEN
   trx.items[137].properties.pickup_mode = trx.items.PickupMode.CROWBAR
+
+  require("tr4.expanding_blocks").initialise(
+    trx.objects.raising_block_2,
+    true,
+    not is_save
+  )
 end)
+
+require("tr4.inv_setup").apply({
+  key_item_11 = { scale = 1200, offset_y = 5, rot_x = -90 },
+  key_item_12 = { scale = 768, offset_y = 4, rot_x = -90 },
+  puzzle_item_5 = { scale = 1200, offset_y = 23, rot_y = 90 },
+  puzzle_item_6 = { scale = 512, offset_y = 5, draws_at_pivot = true },
+  puzzle_item_7 = { scale = 512, offset_y = 5, draws_at_pivot = true },
+  puzzle_item_8 = { scale = 512, offset_y = 5, draws_at_pivot = true },
+  puzzle_item_9 = { scale = 512, offset_y = 5, draws_at_pivot = true },
+})

@@ -10,25 +10,8 @@
             "area_5": "\\{review}London",
             "area_6": "\\{review}Antarktis",
         },
-        "inventory_ring": {
-            "heading_fmt": "\\{color 5}%s",
-            "item_count_fmt": "\\{color 3}%s",
-            "object_name_fmt": "\\{color 5}%s",
-        },
         "misc": {
             "empty_slot_fmt": "- Leerer Slot -",
-        },
-        "overlay": {
-            "item_count_fmt_pc": "%s",
-            "item_count_fmt_ps1": "\\{color 3}%s",
-        },
-        "pause": {
-            "paused": "\\{color 5}Pause",
-        },
-        "stats": {
-            "assault_other_times_fmt": "\\{review}\\{color 2}%s",
-            "gym_assault_course": "\\{review}\\{color 5}Angriffskurs",
-            "gym_racetrack_course": "\\{review}\\{color 5}Rennstrecke",
         }
     },
     "objects": {
@@ -310,6 +293,53 @@
             "objects": {
                 "key_item_1": {
                     "name": "Schlüssel zum Gewölbe",
+                }
+            }
+        }
+    ],
+    "demos": [
+        {
+            "title": "Aldwych",
+            "objects": {
+                "key_item_1": {
+                    "name": "Wartungsraumschlüssel",
+                },
+                "key_item_2": {
+                    "name": "Solomon's Schlüssel",
+                },
+                "key_item_3": {
+                    "name": "Solomon's Schlüssel",
+                },
+                "puzzle_item_1": {
+                    "name": "Alter Penny",
+                },
+                "puzzle_item_2": {
+                    "name": "Ticket",
+                },
+                "puzzle_item_3": {
+                    "name": "Steinmetzhammer",
+                },
+                "puzzle_item_4": {
+                    "name": "Verzierter Stern",
+                }
+            }
+        },
+        {
+            "title": "Der Ganges",
+            "objects": {
+                "key_item_1": {
+                    "name": "Schlüssel zum Tor",
+                }
+            }
+        },
+        {
+            "title": "Wüste von Nevada",
+            "objects": {
+                "key_item_1": {
+                    "name": "Zugangskarte zum Generator",
+                },
+                "key_item_2": {
+                    "name": "Zündschlüssel",
                 }
             }
         }

@@ -31,13 +31,24 @@ void Input_Update(void);
 void Input_HoldOffRole(INPUT_ROLE role);
 
 // Ignores each role that can skip a scene until the player lets go, so the
-// press that ended the scene does not open the ring behind it.
-void Input_HoldOffSkip(void);
+// press that ended the scene does not act on what comes after it.
+void Input_HoldOffSkip(INPUT_SKIP_CONTEXT context);
 
 // Ignores each menu role until the player lets go, so a screen that opens with
 // no animation does not act on keys that were already down. Roles the game
 // itself reads, such as movement, are left alone.
 void Input_HoldOffMenu(void);
+
+// Hold a role inactive until suppression ends. Suppression remains after the
+// player releases the role. A suppressed movement role still drives the menu
+// role that it feeds.
+void Input_SuppressRole(INPUT_ROLE role, bool enabled);
+
+// Return whether a role is inactive because of suppression.
+bool Input_IsRoleSuppressed(INPUT_ROLE role);
+
+// Release all suppressed roles.
+void Input_ClearSuppressedRoles(void);
 
 // Reconciles the connected devices with the current configuration: enabled
 // backends acquire the hardware that is present, disabled ones release it.
@@ -55,6 +66,12 @@ bool Input_IsRoleRebindable(INPUT_ROLE role);
 
 // Checks whether the given role can be completely unbound by the player.
 bool Input_IsRoleUnbindable(INPUT_ROLE role);
+
+// Checks whether the player can clear one binding of a role: whether the slot
+// holds a key, and for a role that must keep a key, whether another slot holds
+// one too.
+bool Input_CanUnassignRole(
+    INPUT_BACKEND backend, INPUT_LAYOUT layout, INPUT_ROLE role, int32_t slot);
 
 // Checks whether the given role uses keys that fire immediately and cannot
 // be the first key of a combo (movement, jump, action, roll).
@@ -85,6 +102,13 @@ bool Input_IsHeld(INPUT_ROLE role);
 // on the game frame where the player starts to hold it.
 bool Input_IsPressed(INPUT_ROLE role);
 
+// Check a role as the script that holds the devices reads it: debounced, with
+// the menu keys repeating as the game's own menus repeat them, and less the
+// roles held off. Both report false while the game reads the devices itself,
+// and while the console is open.
+bool Input_Grab_IsHeld(INPUT_ROLE role);
+bool Input_Grab_IsPressed(INPUT_ROLE role);
+
 // Checks whether the key bound to the given role is down in the given layout,
 // bypassing Input_Update.
 bool Input_IsHeldEx(
@@ -109,6 +133,9 @@ const char *Input_GetKeyName(
 // Resets a layout to the default bindings.
 void Input_ResetLayout(INPUT_BACKEND backend, INPUT_LAYOUT layout);
 
+// Saves the bindings to the settings file, as a change the player made.
+void Input_SaveBindings(void);
+
 // Disables updating g_Input.
 void Input_EnterListenMode(void);
 
@@ -117,6 +144,10 @@ void Input_ExitListenMode(void);
 
 // Checks whether updates are disabled.
 bool Input_IsInListenMode(void);
+
+// Takes up what the player holds right now, so that an input held while the
+// game was not reading does not report a fresh press once it reads again.
+void Input_Settle(void);
 
 // Restores the user configuration by converting the JSON object back into the
 // original input layout.

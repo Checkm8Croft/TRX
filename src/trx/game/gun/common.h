@@ -25,6 +25,17 @@ LARA_GUN_TYPE Gun_GetTypeForObject(OBJECT_ID obj_id);
 // draws none.
 LARA_GUN_TYPE Gun_GetTypeForInputRole(INPUT_ROLE role);
 OBJECT_ID Gun_GetAmmoObject(LARA_GUN_TYPE gun_type);
+// Writes the kinds of ammunition a weapon takes, each named by the pickup it
+// arrives as, and returns how many. The first kind is the weapon's own
+// ammunition object, as Gun_GetAmmoObject gives it. The others are the further
+// boxes the weapon links to, where this game has them, in the order the
+// inventory lists them.
+int32_t Gun_GetAmmoKinds(
+    LARA_GUN_TYPE gun_type, OBJECT_ID kinds[MAX_AMMO_KINDS]);
+bool Gun_IsAmmoKind(LARA_GUN_TYPE gun_type, OBJECT_ID obj_id);
+// The object Lara holds a weapon as while it carries its attachment, or
+// NO_OBJECT where it carries none or the level has no such object.
+OBJECT_ID Gun_GetAttachedAnimObject(LARA_GUN_TYPE gun_type);
 // Ammunition is counted in rounds, one of which is what a single shot at a
 // target spends. The shotgun fires six of them at once.
 int32_t Gun_GetInitialRounds(LARA_GUN_TYPE gun_type);
@@ -74,6 +85,10 @@ LARA_GUN_TYPE Gun_GetFlareType(void);
 bool Gun_IsSinglePistolType(LARA_GUN_TYPE gun_type);
 // Whether Lara holds one of the weapon in each hand.
 bool Gun_IsDualPistolType(LARA_GUN_TYPE gun_type);
+// Moves a point on one of Lara's hands into world space. The TR3 demos take
+// it from her current animation, as the PS1 release does, and everything else
+// takes it from the pose last drawn.
+void Gun_GetHandPos(LARA_MESH hand, XYZ_32 *pos);
 
 void Gun_AddDynamicLight(void);
 void Gun_FireOverlaySound(const WEAPON_INFO *weapon);

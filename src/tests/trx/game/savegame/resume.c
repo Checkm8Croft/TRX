@@ -31,6 +31,7 @@
 #define M_SECOND 2
 #define M_CURRENT 3
 #define M_PISTOL_ROUNDS 50
+#define M_FLARE_MAX_AGE 900
 #define M_GUN_TYPES                                                            \
     {                                                                          \
         { .gun_type = LGT_PISTOLS, .save_resume_has_key = "has_pistols" },     \
@@ -61,6 +62,8 @@ static INVENTORY_STATE m_LiveInv;
 static LARA_INFO m_Lara;
 static ITEM m_LaraItem;
 static bool m_BonusFlag;
+static int32_t m_RulesResets;
+static int32_t m_CutSeqResets;
 
 // The code counts only the gun types registered in the engine, not the number
 // of weapon slots.
@@ -73,6 +76,8 @@ static void M_SetUp(void)
     g_TRVersion = 1;
     g_Rules = (RULES) {};
     m_BonusFlag = false;
+    m_RulesResets = 0;
+    m_CutSeqResets = 0;
     memcpy(m_GunTypes, (WEAPON_INFO[])M_GUN_TYPES, sizeof(m_GunTypes));
     m_LiveInv = (INVENTORY_STATE) {};
     m_Lara = (LARA_INFO) {};
@@ -172,6 +177,21 @@ void Inv_State_SetAmmo(
         (INVENTORY_AMMO) { .gun_type = gun_type, .rounds = rounds };
 }
 
+void Inv_State_CopyAttachments(
+    INVENTORY_STATE *const dst, const INVENTORY_STATE *const src)
+{
+    memcpy(dst->attached, src->attached, sizeof(dst->attached));
+    dst->attached_count = src->attached_count;
+}
+
+// Every weapon here takes one kind of ammunition.
+void Inv_State_FillAmmo(
+    INVENTORY_STATE *const state, const LARA_GUN_TYPE gun_type,
+    const int32_t rounds)
+{
+    Inv_State_SetAmmo(state, gun_type, rounds);
+}
+
 int32_t Inv_State_GetAmmo(
     const INVENTORY_STATE *const state, const LARA_GUN_TYPE gun_type)
 {
@@ -249,6 +269,21 @@ bool Gun_IsRifleType(const LARA_GUN_TYPE gun_type)
     return gun_type == LGT_SHOTGUN;
 }
 
+bool Gun_IsFlareType(const LARA_GUN_TYPE gun_type)
+{
+    return gun_type == LGT_FLARE;
+}
+
+bool Gun_Flare_IsMeshActive(void)
+{
+    return Gun_IsFlareType(m_Lara.gun_type);
+}
+
+bool Gun_Flare_HasExpired(void)
+{
+    return m_Lara.flare.age <= 0 || m_Lara.flare.age >= M_FLARE_MAX_AGE;
+}
+
 LARA_GUN_TYPE Gun_GetHolsterChoice(const INVENTORY_STATE *const inv)
 {
     return LGT_PISTOLS;
@@ -263,10 +298,12 @@ RULES g_Rules;
 
 void Rules_Reset(void)
 {
+    m_RulesResets++;
 }
 
 void CutSeq_SetPlayedMask(const uint64_t mask)
 {
+    m_CutSeqResets++;
 }
 
 const char *EnumMap_ToString(const char *const enum_name, const int32_t value)
@@ -365,6 +402,32 @@ TEST(a_fresh_playthrough_offers_the_gym_and_the_first_level_alone)
     CHECK(!SG_Resume_GetEntry(&m_MainLevels[M_SECOND])->flags.available);
     CHECK(!SG_Resume_GetEntry(&m_MainLevels[M_SECOND])->level_completed);
     CHECK_EQ_INT(SG_Resume_CountCompletedLevels(), 0);
+}
+
+TEST(clearing_the_entries_leaves_the_rest_of_the_playthrough)
+{
+    M_SetUp();
+    SG_Resume_GetEntry(&m_MainLevels[M_SECOND])->level_completed = true;
+    m_Lara.wet[0] = 1;
+
+    SG_Resume_ClearEntries();
+
+    CHECK(!SG_Resume_GetEntry(&m_MainLevels[M_SECOND])->level_completed);
+    CHECK_EQ_INT(m_Lara.wet[0], 1);
+    CHECK_EQ_INT(m_RulesResets, 0);
+    CHECK_EQ_INT(m_CutSeqResets, 0);
+}
+
+TEST(a_fresh_playthrough_resets_the_rest_of_it_too)
+{
+    M_SetUp();
+    m_Lara.wet[0] = 1;
+
+    SG_Resume_ResetAllEntries();
+
+    CHECK_EQ_INT(m_Lara.wet[0], 0);
+    CHECK_EQ_INT(m_RulesResets, 1);
+    CHECK_EQ_INT(m_CutSeqResets, 1);
 }
 
 TEST(the_first_level_starts_with_her_pistols_and_nothing_else)
@@ -487,6 +550,44 @@ TEST(keeping_plot_items_hands_the_whole_inventory_on)
     CHECK_EQ_INT(Inv_State_GetCount(&entry->inv, O_KEY_ITEM_1), 1);
     CHECK_EQ_INT(Inv_State_GetCount(&entry->inv, O_SMALL_MEDIPACK_ITEM), 2);
     CHECK_EQ_INT(Inv_State_GetAmmo(&entry->inv, LGT_UZIS), 30);
+}
+
+// TR4 lets Lara walk into the next level with the flare she is holding, and it
+// carries on burning from where it was.
+TEST(storing_the_game_takes_a_lit_flare_into_the_entry_in_tr4)
+{
+    M_SetUp();
+    g_TRVersion = 4;
+    m_Lara.gun_type = LGT_FLARE;
+    m_Lara.flare.age = 300;
+
+    SG_Resume_StoreGameToEntry(&m_MainLevels[M_SECOND]);
+
+    CHECK_EQ_INT(SG_Resume_GetEntry(&m_MainLevels[M_SECOND])->flare_age, 300);
+}
+
+TEST(storing_the_game_leaves_a_burnt_out_flare_behind)
+{
+    M_SetUp();
+    g_TRVersion = 4;
+    m_Lara.gun_type = LGT_FLARE;
+    m_Lara.flare.age = M_FLARE_MAX_AGE;
+
+    SG_Resume_StoreGameToEntry(&m_MainLevels[M_SECOND]);
+
+    CHECK_EQ_INT(SG_Resume_GetEntry(&m_MainLevels[M_SECOND])->flare_age, 0);
+}
+
+TEST(storing_the_game_leaves_the_flare_behind_before_tr4)
+{
+    M_SetUp();
+    g_TRVersion = 3;
+    m_Lara.gun_type = LGT_FLARE;
+    m_Lara.flare.age = 300;
+
+    SG_Resume_StoreGameToEntry(&m_MainLevels[M_SECOND]);
+
+    CHECK_EQ_INT(SG_Resume_GetEntry(&m_MainLevels[M_SECOND])->flare_age, 0);
 }
 
 TEST(mirroring_puts_the_level_into_the_entry_a_save_writes_from)

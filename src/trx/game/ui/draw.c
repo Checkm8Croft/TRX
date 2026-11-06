@@ -2,16 +2,26 @@
 
 #include <trx/core/memory.h>
 #include <trx/core/vector.h>
+#include <trx/debug.h>
+#include <trx/game/anims/types.h>
+#include <trx/game/camera.h>
+#include <trx/game/const.h>
+#include <trx/game/game.h>
 #include <trx/game/objects.h>
 #include <trx/game/output/common.h>
+#include <trx/game/output/const.h>
 #include <trx/game/output/overlay.h>
+#include <trx/game/output/scene_compositor.h>
 #include <trx/game/output/sources/ui.h>
 #include <trx/game/output/state.h>
+#include <trx/game/ui/common.h>
 #include <trx/game/ui/scaler.h>
-#include <trx/game/ui/settings.h>
 #include <trx/game/viewport.h>
+#include <trx/gl/renderer.h>
 #include <trx/version.h>
 
+#include <math.h>
+#include <stddef.h>
 #include <string.h>
 
 #define M_WHITE ((RGBA_F) { 1.0f, 1.0f, 1.0f, 1.0f })
@@ -29,12 +39,14 @@ typedef struct M_DRAW_OP {
 typedef struct {
     M_DRAW_OP base;
     UI_STYLE ui_style;
+    UI_MENU_COLORS colors;
     int32_t x0, x1, y, z;
 } M_DRAW_OP_HORZ_LINE;
 
 typedef struct {
     M_DRAW_OP base;
     UI_STYLE ui_style;
+    UI_MENU_COLORS colors;
     int32_t x0, y0, x1, y1, z;
     TEXT_STYLE text_style;
 } M_DRAW_OP_TEXT_RECT;
@@ -59,14 +71,72 @@ typedef struct {
 
 typedef struct {
     M_DRAW_OP base;
+    float x0, y0, x1, y1, width;
+    int32_t z;
+    RGBA_8888 color;
+} M_DRAW_OP_LINE;
+
+typedef struct {
+    M_DRAW_OP base;
+    int32_t sprite_idx;
+    int32_t x0, y0, x1, y1, z;
+    RGBA_F color;
+} M_DRAW_OP_SPRITE_RECT;
+
+typedef struct {
+    M_DRAW_OP base;
     const char *path;
     int32_t x0, y0, x1, y1;
     float opacity;
 } M_DRAW_OP_IMAGE;
 
 typedef struct {
+    M_DRAW_OP base;
+    OBJECT_ID object_id;
+    uint32_t mesh_mask;
+    int32_t x, y, w, h;
+    XYZ_16 rot;
+    bool held;
+    int16_t tilt;
+    bool has_light;
+    OUTPUT_UI_MESH_LIGHT light;
+    bool has_world;
+    OUTPUT_UI_MESH_WORLD world;
+} M_DRAW_OP_MODEL;
+
+typedef struct {
+    M_DRAW_OP base;
+    const char *path;
+    bool mono;
+    float dim;
+} M_DRAW_OP_BACKGROUND;
+
+typedef struct {
+    M_DRAW_OP base;
+    float opacity;
+} M_DRAW_OP_DARKEN;
+
+typedef struct {
+    M_DRAW_OP base;
+    BACKGROUND_TYPE style;
+    float progress;
+    const char *path;
+} M_DRAW_OP_BACKDROP;
+
+typedef struct {
+    M_DRAW_OP base;
+    void (*draw)(const void *args);
+    max_align_t args[];
+} M_DRAW_OP_OVERLAY;
+
+typedef struct {
+    int32_t slot;
+    float opacity;
+} M_SNAPSHOT_SLOT;
+
+typedef struct {
     MEMORY_ARENA_ALLOCATOR alloc;
-    VECTOR *ops;
+    VECTOR *ops[UI_LAYER_NUMBER_OF];
 } M_PRIV;
 
 static M_PRIV m_Priv = {
@@ -89,7 +159,7 @@ static void M_DrawScreenQuad(
         .tr = tr,
         .bl = bl,
         .br = br,
-        .z = Output_GetNearZ_UI() + z,
+        .z = OUTPUT_UI_NEAR_Z + z,
     });
 }
 
@@ -142,7 +212,7 @@ static void M_DrawOp_HorizontalLine(const M_DRAW_OP *const base)
     if (g_TRVersion == 1 && op->ui_style == UI_STYLE_PC) {
         const float e =
             UI_Scaler_Calc(M_OUTLINE_THICKNESS, UI_SCALER_TARGET_TEXT);
-        const UI_MENU_COLORS_PC *const c = UI_Settings_GetMenuColorsPC();
+        const UI_MENU_COLORS_PC *const c = &op->colors.pc;
         M_DrawScreenQuad(
             op->x0, op->y - e, op->x1, op->y, op->z, c->outline_light,
             c->outline_light, c->outline_light, c->outline_light);
@@ -157,7 +227,7 @@ static void M_DrawOp_HorizontalLine(const M_DRAW_OP *const base)
     } else if (g_TRVersion >= 3 && op->ui_style == UI_STYLE_PC) {
         const float e1 = UI_Scaler_Calc(1.0f, UI_SCALER_TARGET_TEXT);
         const float e2 = e1 / 3.0f;
-        const UI_MENU_COLORS_PC *const c = UI_Settings_GetMenuColorsPC();
+        const UI_MENU_COLORS_PC *const c = &op->colors.pc;
         M_DrawScreenQuad(
             op->x0, op->y - e1, op->x1, op->y + e1, op->z, c->outline_dark,
             c->outline_dark, c->outline_dark, c->outline_dark);
@@ -167,7 +237,7 @@ static void M_DrawOp_HorizontalLine(const M_DRAW_OP *const base)
     } else {
         const float e =
             UI_Scaler_Calc(M_OUTLINE_THICKNESS, UI_SCALER_TARGET_TEXT);
-        const UI_MENU_COLORS_PS1 *const c = UI_Settings_GetMenuColorsPS1();
+        const UI_MENU_COLORS_PS1 *const c = &op->colors.ps1;
         M_DrawScreenQuad(
             op->x0, op->y - e, op->x1, op->y + e, op->z, c->outline_bl,
             c->outline_br, c->outline_bl, c->outline_br);
@@ -179,7 +249,7 @@ static void M_DrawOp_TextBackground(const M_DRAW_OP *const base)
     const M_DRAW_OP_TEXT_RECT *const op = (const M_DRAW_OP_TEXT_RECT *)base;
     switch (op->ui_style) {
     case UI_STYLE_PC: {
-        const UI_MENU_COLORS_PC *const c = UI_Settings_GetMenuColorsPC();
+        const UI_MENU_COLORS_PC *const c = &op->colors.pc;
         const RGBA_8888 *const ramp = op->text_style == TS_BACKGROUND_HEAVY
             ? c->background_heavy
             : c->background;
@@ -190,7 +260,7 @@ static void M_DrawOp_TextBackground(const M_DRAW_OP *const base)
     }
 
     case UI_STYLE_PS1: {
-        const UI_MENU_COLORS_PS1 *const c = UI_Settings_GetMenuColorsPS1();
+        const UI_MENU_COLORS_PS1 *const c = &op->colors.ps1;
         const int32_t xm = (op->x0 + op->x1) / 2;
         const int32_t ym = (op->y0 + op->y1) / 2;
         RGBA_8888 edge, center;
@@ -238,7 +308,7 @@ static void M_DrawOp_TextOutline(const M_DRAW_OP *const base)
     switch (op->ui_style) {
     case UI_STYLE_PC:
         if (g_TRVersion == 1) {
-            const UI_MENU_COLORS_PC *const c = UI_Settings_GetMenuColorsPC();
+            const UI_MENU_COLORS_PC *const c = &op->colors.pc;
             const float thickness =
                 UI_Scaler_Calc(M_OUTLINE_THICKNESS, UI_SCALER_TARGET_TEXT);
             Output_DrawScreenFrame(
@@ -279,7 +349,7 @@ static void M_DrawOp_TextOutline(const M_DRAW_OP *const base)
             M_DrawScreenSprite(
                 x0, y0, op->z, scale_h, h, mesh_idx + 7, neutral);
         } else if (g_TRVersion >= 3) {
-            const UI_MENU_COLORS_PC *const c = UI_Settings_GetMenuColorsPC();
+            const UI_MENU_COLORS_PC *const c = &op->colors.pc;
             const float thickness = UI_Scaler_Calc(1.0f, UI_SCALER_TARGET_TEXT);
             Output_DrawScreenFrame(
                 x0, y0, x1 - x0, y1 - y0, c->outline_dark, c->outline_dark,
@@ -292,7 +362,7 @@ static void M_DrawOp_TextOutline(const M_DRAW_OP *const base)
         break;
 
     case UI_STYLE_PS1: {
-        const UI_MENU_COLORS_PS1 *const c = UI_Settings_GetMenuColorsPS1();
+        const UI_MENU_COLORS_PS1 *const c = &op->colors.ps1;
         switch (op->text_style) {
         case TS_BACKGROUND:
         case TS_BACKGROUND_HEAVY:
@@ -340,9 +410,127 @@ static void M_DrawOp_Circle(const M_DRAW_OP *const base)
         .cy = op->cy,
         .r_inner = op->r_inner,
         .r_outer = op->r_outer,
-        .z = Output_GetNearZ_UI() + op->z,
+        .z = OUTPUT_UI_NEAR_Z + op->z,
         .color = op->color,
     });
+}
+
+static void M_DrawOp_SpriteRect(const M_DRAW_OP *const base)
+{
+    const M_DRAW_OP_SPRITE_RECT *const op = (const M_DRAW_OP_SPRITE_RECT *)base;
+    OutputSource_UI_StageSprite((OUTPUT_UI_SPRITE) {
+        .sprite_idx = op->sprite_idx,
+        .x0 = op->x0,
+        .y0 = op->y0,
+        .x1 = op->x1,
+        .y1 = op->y1,
+        .z = OUTPUT_UI_NEAR_Z + op->z,
+        .color = { op->color, op->color, op->color, op->color },
+    });
+}
+
+static void M_DrawOp_Line(const M_DRAW_OP *const base)
+{
+    const M_DRAW_OP_LINE *const op = (const M_DRAW_OP_LINE *)base;
+    OutputSource_UI_StageLine((OUTPUT_UI_LINE) {
+        .x0 = op->x0,
+        .y0 = op->y0,
+        .x1 = op->x1,
+        .y1 = op->y1,
+        .width = op->width,
+        .z = OUTPUT_UI_NEAR_Z + op->z,
+        .color = op->color,
+    });
+}
+
+static void M_DrawOp_Model(const M_DRAW_OP *const base)
+{
+    const M_DRAW_OP_MODEL *const op = (const M_DRAW_OP_MODEL *)base;
+    const OBJECT *const object = Object_Get(op->object_id);
+    if (object == nullptr || !object->loaded) {
+        return;
+    }
+    // An object with no model of its own draws nothing.
+    const ANIM *const anim = Object_GetAnim(object, 0);
+    if (anim == nullptr || anim->frame_ptr == nullptr) {
+        return;
+    }
+    // The model goes between what was painted before it and what is painted
+    // after it, so the interface stacks in the order it was painted.
+    SceneCompositor_Flush();
+    OutputSource_UI_StageMesh((OUTPUT_UI_MESH) {
+        .object = object,
+        .rect = { .x = op->x, .y = op->y, .w = op->w, .h = op->h },
+        .mesh_mask = op->mesh_mask,
+        .rot = op->rot,
+        .held = op->held,
+        .tilt = op->tilt,
+        .light = op->has_light ? &op->light : nullptr,
+        .world = op->has_world ? &op->world : nullptr,
+    });
+    SceneCompositor_Flush();
+}
+
+// The overlay draws at the next flush, so a flush before and after puts it
+// between what was painted before it and what is painted after it.
+static void M_DrawSnapshot(const void *const args)
+{
+    Output_Overlay_DrawSnapshot(*(const float *)args);
+}
+
+static void M_DrawSnapshotSlot(const void *const args)
+{
+    const M_SNAPSHOT_SLOT *const slot = args;
+    Output_Overlay_DrawSnapshotSlot(slot->slot, slot->opacity);
+}
+
+static void M_DrawOp_Overlay(const M_DRAW_OP *const base)
+{
+    const M_DRAW_OP_OVERLAY *const op = (const M_DRAW_OP_OVERLAY *)base;
+    SceneCompositor_Flush();
+    op->draw(op->args);
+    SceneCompositor_Flush();
+}
+
+static void M_DrawOp_Darken(const M_DRAW_OP *const base)
+{
+    const M_DRAW_OP_DARKEN *const op = (const M_DRAW_OP_DARKEN *)base;
+    SceneCompositor_Flush();
+    Output_Overlay_DrawBlackRectangle(op->opacity);
+    SceneCompositor_Flush();
+}
+
+static void M_DrawOp_Background(const M_DRAW_OP *const base)
+{
+    const M_DRAW_OP_BACKGROUND *const op = (const M_DRAW_OP_BACKGROUND *)base;
+    SceneCompositor_Flush();
+    const bool own_target = TRX_GL_Renderer_BeginUiScenePass();
+    if (op->path == nullptr) {
+        Output_Overlay_DrawBlackRectangle(1.0f);
+    } else {
+        if (op->mono) {
+            Output_Overlay_DrawImageMono(op->path, 1.0f);
+        } else {
+            Output_Overlay_DrawImage(op->path);
+        }
+        Output_Overlay_DrawBlackRectangle(op->dim);
+    }
+    SceneCompositor_Flush();
+    if (own_target) {
+        TRX_GL_Renderer_EndUiScenePass();
+    }
+}
+
+static void M_DrawOp_Backdrop(const M_DRAW_OP *const base)
+{
+    const M_DRAW_OP_BACKDROP *const op = (const M_DRAW_OP_BACKDROP *)base;
+    SceneCompositor_Flush();
+    const bool own_target = TRX_GL_Renderer_BeginUiScenePass();
+    Output_Overlay_DrawBackground(op->style, op->progress, op->path);
+    SceneCompositor_Flush();
+    if (own_target) {
+        TRX_GL_Renderer_EndUiScenePass();
+    }
 }
 
 // Allocate a new deferred draw operation in the arena.
@@ -360,6 +548,7 @@ static void M_DrawOp_Image(const M_DRAW_OP *const base)
     if (viewport.w <= 0 || viewport.h <= 0) {
         return;
     }
+    SceneCompositor_Flush();
     Output_Overlay_DrawImageInBox(
         op->path,
         (OUTPUT_OVERLAY_BOX) {
@@ -369,12 +558,25 @@ static void M_DrawOp_Image(const M_DRAW_OP *const base)
             .y1 = op->y1 / (float)viewport.h,
         },
         op->opacity);
+    SceneCompositor_Flush();
 }
 
 static inline void M_ScheduleOp(M_DRAW_OP *const op)
 {
     M_PRIV *const p = &m_Priv;
-    Vector_Add(p->ops, &op);
+    Vector_Add(p->ops[UI_GetLayer()], &op);
+}
+
+// Schedules a draw under the whole interface, whichever layer is painting.
+static void M_ScheduleBackdropOp(
+    const M_DRAW_OP_FUNC draw_func, const size_t size,
+    const M_DRAW_OP *const op_src)
+{
+    M_PRIV *const p = &m_Priv;
+    M_DRAW_OP *const op = M_ArenaAlloc(size);
+    memcpy(op, op_src, size);
+    op->draw = draw_func;
+    Vector_Add(p->ops[UI_LAYER_BACKDROP], &op);
 }
 
 static void M_ScheduleOpHelper(
@@ -387,15 +589,45 @@ static void M_ScheduleOpHelper(
     M_ScheduleOp(op);
 }
 
+static OUTPUT_UI_MESH_LIGHT M_CopyLight(const UI_MODEL_LIGHT *const light)
+{
+    OUTPUT_UI_MESH_LIGHT mesh_light = {};
+    if (light != nullptr) {
+        mesh_light.ambient = light->ambient;
+        mesh_light.light_count = light->light_count;
+        for (int32_t i = 0; i < light->light_count; i++) {
+            mesh_light.lights[i].dir = light->lights[i].dir;
+            mesh_light.lights[i].color = light->lights[i].color;
+        }
+        mesh_light.lit_mask = light->lit_mask;
+        memcpy(mesh_light.colors, light->colors, sizeof(mesh_light.colors));
+    }
+    return mesh_light;
+}
+
+static OUTPUT_UI_MESH_STEP M_ToMeshStep(const UI_MODEL_STEP kind)
+{
+    switch (kind) {
+    case UI_MODEL_STEP_TURN:
+        return OUTPUT_UI_MESH_STEP_TURN;
+    case UI_MODEL_STEP_SCALE:
+        return OUTPUT_UI_MESH_STEP_SCALE;
+    case UI_MODEL_STEP_MOVE:
+        break;
+    }
+    return OUTPUT_UI_MESH_STEP_MOVE;
+}
+
 void UI_ScheduleDrawTextBackground(
-    const UI_STYLE ui_style, const int32_t sx, const int32_t sy,
-    const int32_t z, const int32_t w, const int32_t h,
-    const TEXT_STYLE text_style)
+    const UI_STYLE ui_style, const UI_MENU_COLORS *const colors,
+    const int32_t sx, const int32_t sy, const int32_t z, const int32_t w,
+    const int32_t h, const TEXT_STYLE text_style)
 {
     M_SCHEDULE_OP(
         M_DrawOp_TextBackground,
         ((M_DRAW_OP_TEXT_RECT) {
             .ui_style = ui_style,
+            .colors = *colors,
             .x0 = sx,
             .y0 = sy,
             .x1 = sx + w,
@@ -406,14 +638,15 @@ void UI_ScheduleDrawTextBackground(
 }
 
 void UI_ScheduleDrawTextOutline(
-    const UI_STYLE ui_style, const int32_t sx, const int32_t sy,
-    const int32_t z, const int32_t w, const int32_t h,
-    const TEXT_STYLE text_style)
+    const UI_STYLE ui_style, const UI_MENU_COLORS *const colors,
+    const int32_t sx, const int32_t sy, const int32_t z, const int32_t w,
+    const int32_t h, const TEXT_STYLE text_style)
 {
     M_SCHEDULE_OP(
         M_DrawOp_TextOutline,
         ((M_DRAW_OP_TEXT_RECT) {
             .ui_style = ui_style,
+            .colors = *colors,
             .x0 = sx,
             .y0 = sy,
             .x1 = sx + w,
@@ -445,6 +678,13 @@ void UI_ScheduleDrawScreenSprite(
         }));
 }
 
+RESULT UI_GetImageSize(
+    const char *const path, int32_t *const out_width, int32_t *const out_height)
+{
+    MUST(Output_Overlay_GetImageSize(path, out_width, out_height));
+    return OK;
+}
+
 void UI_ScheduleDrawImage(
     const char *const path, const int32_t x0, const int32_t y0,
     const int32_t x1, const int32_t y1, const float opacity)
@@ -464,6 +704,36 @@ void UI_ScheduleDrawImage(
             .y1 = y1,
             .opacity = opacity,
         }));
+}
+
+void UI_ScheduleDrawOverlay(
+    void (*const draw)(const void *args), const void *const args,
+    const size_t args_size)
+{
+    M_DRAW_OP_OVERLAY *const op =
+        M_ArenaAlloc(sizeof(M_DRAW_OP_OVERLAY) + args_size);
+    op->base.draw = M_DrawOp_Overlay;
+    op->draw = draw;
+    if (args_size > 0) {
+        memcpy(op->args, args, args_size);
+    }
+    M_ScheduleOp(&op->base);
+}
+
+void UI_ScheduleDrawSnapshot(const float opacity)
+{
+    UI_ScheduleDrawOverlay(M_DrawSnapshot, &opacity, sizeof(opacity));
+}
+
+void UI_ScheduleDrawScreenBlack(const float opacity)
+{
+    if (opacity <= 0.0f) {
+        return;
+    }
+    UI_ScheduleDrawScreenFlatQuad(
+        0, 0, 0, Viewport_GetWidth(VIEWPORT_UI),
+        Viewport_GetHeight(VIEWPORT_UI),
+        (RGBA_8888) { .a = (uint8_t)(MIN(opacity, 1.0f) * 255.0f + 0.5f) });
 }
 
 void UI_ScheduleDrawScreenFlatQuad(
@@ -506,13 +776,14 @@ void UI_ScheduleDrawScreenGradientQuad(
 }
 
 void UI_ScheduleDrawHorizontalLine(
-    const UI_STYLE ui_style, const int32_t x0, const int32_t x1,
-    const int32_t y, const int32_t z)
+    const UI_STYLE ui_style, const UI_MENU_COLORS *const colors,
+    const int32_t x0, const int32_t x1, const int32_t y, const int32_t z)
 {
     M_SCHEDULE_OP(
         M_DrawOp_HorizontalLine,
         ((M_DRAW_OP_HORZ_LINE) {
             .ui_style = ui_style,
+            .colors = *colors,
             .x0 = x0,
             .x1 = x1,
             .y = y,
@@ -536,11 +807,157 @@ void UI_ScheduleDrawScreenCircle(
         }));
 }
 
+void UI_ScheduleDrawScreenSpriteRect(
+    const int32_t sprite_idx, const int32_t x0, const int32_t y0,
+    const int32_t x1, const int32_t y1, const int32_t z, const RGBA_F color)
+{
+    M_SCHEDULE_OP(
+        M_DrawOp_SpriteRect,
+        ((M_DRAW_OP_SPRITE_RECT) {
+            .sprite_idx = sprite_idx,
+            .x0 = x0,
+            .y0 = y0,
+            .x1 = x1,
+            .y1 = y1,
+            .z = z,
+            .color = color,
+        }));
+}
+
+void UI_ScheduleDrawScreenLine(
+    const float x0, const float y0, const float x1, const float y1,
+    const float width, const int32_t z, const RGBA_8888 color)
+{
+    M_SCHEDULE_OP(
+        M_DrawOp_Line,
+        ((M_DRAW_OP_LINE) {
+            .x0 = x0,
+            .y0 = y0,
+            .x1 = x1,
+            .y1 = y1,
+            .width = width,
+            .z = z,
+            .color = color,
+        }));
+}
+
+void UI_ScheduleDrawModel(
+    const OBJECT_ID object_id, const uint32_t mesh_mask, const int32_t sx,
+    const int32_t sy, const int32_t w, const int32_t h, const XYZ_16 rot,
+    const bool held, const int16_t tilt, const UI_MODEL_LIGHT *const light)
+{
+    M_SCHEDULE_OP(
+        M_DrawOp_Model,
+        ((M_DRAW_OP_MODEL) {
+            .object_id = object_id,
+            .mesh_mask = mesh_mask,
+            .x = sx,
+            .y = sy,
+            .w = w,
+            .h = h,
+            .rot = rot,
+            .held = held,
+            .tilt = tilt,
+            .has_light = light != nullptr,
+            .light = M_CopyLight(light),
+        }));
+}
+
+void UI_ScheduleDrawModelInWorld(
+    const OBJECT_ID object_id, const uint32_t mesh_mask,
+    const UI_MODEL_WORLD *const world, const UI_MODEL_LIGHT *const light)
+{
+    OUTPUT_UI_MESH_WORLD mesh_world = {
+        .camera_pos = world->camera_pos,
+        .camera_target = world->camera_target,
+        .fov = world->fov,
+        .step_count = world->step_count,
+        .frame = world->frame,
+        .next_frame = world->next_frame,
+        .blend = world->blend,
+        .bone_count = world->bone_count,
+        .at_pivot = world->at_pivot,
+        .faded_mask = world->faded_mask,
+        .center_x = world->center_x,
+        .center_y = world->center_y,
+        .opacity = world->opacity,
+    };
+    memcpy(
+        mesh_world.mesh_opacity, world->mesh_opacity,
+        sizeof(mesh_world.mesh_opacity));
+    for (int32_t i = 0; i < world->step_count; i++) {
+        mesh_world.steps[i].kind = M_ToMeshStep(world->steps[i].kind);
+        mesh_world.steps[i].vec = world->steps[i].vec;
+    }
+    for (int32_t i = 0; i < world->bone_count; i++) {
+        mesh_world.bones[i].bone = world->bones[i].bone;
+        mesh_world.bones[i].axes = world->bones[i].axes;
+        mesh_world.bones[i].rot = world->bones[i].rot;
+    }
+    const M_DRAW_OP_MODEL op = {
+        .object_id = object_id,
+        .mesh_mask = mesh_mask,
+        .has_light = light != nullptr,
+        .light = M_CopyLight(light),
+        .has_world = true,
+        .world = mesh_world,
+    };
+    M_ScheduleBackdropOp(M_DrawOp_Model, sizeof(op), &op.base);
+}
+
+void UI_ScheduleDrawBackground(
+    const char *const path, const bool mono, const float dim)
+{
+    char *owned_path = nullptr;
+    if (path != nullptr) {
+        const size_t size = strlen(path) + 1;
+        owned_path = M_ArenaAlloc(size);
+        memcpy(owned_path, path, size);
+    }
+    const M_DRAW_OP_BACKGROUND op = {
+        .path = owned_path,
+        .mono = mono,
+        .dim = dim,
+    };
+    M_ScheduleBackdropOp(M_DrawOp_Background, sizeof(op), &op.base);
+}
+
+void UI_ScheduleDrawBackdrop(
+    const BACKGROUND_TYPE style, const float progress, const char *const path)
+{
+    char *owned_path = nullptr;
+    if (path != nullptr) {
+        const size_t size = strlen(path) + 1;
+        owned_path = M_ArenaAlloc(size);
+        memcpy(owned_path, path, size);
+    }
+    const M_DRAW_OP_BACKDROP op = {
+        .style = style,
+        .progress = progress,
+        .path = owned_path,
+    };
+    M_ScheduleBackdropOp(M_DrawOp_Backdrop, sizeof(op), &op.base);
+}
+
+void UI_ScheduleDrawDarken(const float opacity)
+{
+    const M_DRAW_OP_DARKEN op = { .opacity = opacity };
+    M_ScheduleBackdropOp(M_DrawOp_Darken, sizeof(op), &op.base);
+}
+
+void UI_ScheduleDrawSnapshotSlot(const int32_t slot, const float opacity)
+{
+    const M_SNAPSHOT_SLOT args = { .slot = slot, .opacity = opacity };
+    UI_ScheduleDrawOverlay(M_DrawSnapshotSlot, &args, sizeof(args));
+}
+
 void UI_InitDraw(void)
 {
     M_PRIV *const p = &m_Priv;
-    if (p->ops == nullptr) {
-        p->ops = Vector_Create(sizeof(M_DRAW_OP *));
+    for (int32_t i = 0; i < UI_LAYER_NUMBER_OF; i++) {
+        if (p->ops[i] == nullptr) {
+            p->ops[i] = Vector_Create(sizeof(M_DRAW_OP *));
+        }
     }
 }
 
@@ -548,24 +965,40 @@ void UI_ShutdownDraw(void)
 {
     M_PRIV *const p = &m_Priv;
     Memory_ArenaFree(&p->alloc);
-    if (p->ops != nullptr) {
-        Vector_Free(p->ops);
-        p->ops = nullptr;
+    for (int32_t i = 0; i < UI_LAYER_NUMBER_OF; i++) {
+        if (p->ops[i] != nullptr) {
+            Vector_Free(p->ops[i]);
+            p->ops[i] = nullptr;
+        }
     }
 }
 
 void UI_ClearDraw(void)
 {
     M_PRIV *const p = &m_Priv;
-    Vector_Clear(p->ops);
+    for (int32_t i = 0; i < UI_LAYER_NUMBER_OF; i++) {
+        Vector_Clear(p->ops[i]);
+    }
     Memory_ArenaReset(&p->alloc);
 }
 
 void UI_Draw(void)
 {
-    M_PRIV *const p = &m_Priv;
-    for (int32_t i = 0; i < m_Priv.ops->count; i++) {
-        const M_DRAW_OP *const op = *(M_DRAW_OP **)Vector_Get(m_Priv.ops, i);
-        op->draw(op);
+    SOFT_ASSERT(
+        !OutputSource_UI_HasStaged() && !Output_Overlay_HasPending(),
+        "a draw was staged outside the interface layers");
+    for (int32_t layer = 0; layer < UI_LAYER_NUMBER_OF; layer++) {
+        const VECTOR *const ops = m_Priv.ops[layer];
+        for (int32_t i = 0; i < ops->count; i++) {
+            const M_DRAW_OP *const op = *(M_DRAW_OP **)Vector_Get(ops, i);
+            op->draw(op);
+        }
+    }
+}
+
+void UI_DrawBinocularMask(void)
+{
+    if (Game_IsPlaying() && Camera_Binoculars_IsActive()) {
+        OutputSource_UI_StageBinocularMask(Camera_Binoculars_IsLaserSight());
     }
 }

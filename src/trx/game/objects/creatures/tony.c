@@ -1,5 +1,3 @@
-#include "tony_internal.h"
-
 #include <trx/core/json/util/read_io.h>
 #include <trx/core/json/util/write_io.h>
 #include <trx/core/utils.h>
@@ -8,6 +6,7 @@
 #include <trx/game/items/carrier.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects/common.h>
+#include <trx/game/objects/projectiles/tony_fire_ball.h>
 #include <trx/game/output.h>
 #include <trx/game/output/sources/poly_fx.h>
 #include <trx/game/pathing.h>
@@ -101,7 +100,8 @@ static void M_TriggerFlame(int16_t item_num, int32_t node)
         return;
     }
 
-    SPARK *const spark = Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION);
+    SPARK *const spark =
+        Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION, SPARK_CONTEXT_FIRE);
     if (spark == nullptr) {
         return;
     }
@@ -609,7 +609,7 @@ static bool M_Draw(const ITEM *const item)
         return false;
     }
 
-    const bool result = Object_DrawAnimatingItem(item);
+    const bool result = Item_DrawAnimating(item);
     if (p->explode_count != 0) {
         if (p->explode_count != 0 && p->explode_count <= 64) {
             M_DrawShield(item);

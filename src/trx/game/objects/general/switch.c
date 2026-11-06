@@ -280,9 +280,8 @@ static void M_CollisionControlled(
             } else {
                 lara->interact_target.item_num = item_num;
             }
-        } else if (Lara_Interact_HasActiveTarget(item_num)) {
-            lara->interact_target.is_moving = false;
-            lara->gun_status = LGS_ARMLESS;
+        } else {
+            Lara_Interact_Release(item_num);
         }
     } else if (
         lara_item->current_anim_state != LS(LS_SWITCH_ON)
@@ -501,7 +500,7 @@ static void M_SetupUWCeiling(OBJECT *const obj)
 static void M_SetupAirlock(OBJECT *const obj)
 {
     M_SetupCommon(obj);
-    obj->draw_func = Object_DrawUnclippedItem;
+    obj->draw_func = Item_DrawUnclipped;
 }
 
 static void M_SetupJump(OBJECT *const obj)

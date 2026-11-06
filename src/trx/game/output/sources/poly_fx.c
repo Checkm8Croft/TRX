@@ -26,9 +26,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-// The smallest size a blood drop is drawn at, in the screen pixels of the
-// REF_PERSP reference viewport.
-#define M_BLOOD_MIN_SIZE 16
+// The smallest size a blood drop shrinks to as it falls, in the size units of
+// the spark. It matches the smallest size a TR4 drop spawns at.
+#define M_BLOOD_MIN_SIZE 8
 
 typedef struct {
     XYZW_F pos;
@@ -342,10 +342,12 @@ static bool M_UsesFxBuffer(const M_PRIV *const p)
 
 // Redirects rendering into the FX buffer, with the geometry depth brought
 // down to its resolution so occlusion still applies. The buffer starts white
-// for the subtractive pass and black for the additive one: with the pass
-// blend functions left in place, it accumulates the product of the
-// subtractive prims or the sum of the additive ones, which is what the pass
-// would have multiplied into or added onto the scene.
+// for a multiplying subtractive pass and black otherwise. With the pass blend
+// functions left in place, it accumulates the product of the subtractive
+// prims, or the sum of the additive ones, which is what the pass would have
+// multiplied into or added onto the scene. Under PlayStation blending the
+// subtractive prims are summed as well, and the sum is subtracted from the
+// scene.
 static void M_BeginFxBuffer(M_PRIV *const p, const SCENE_PASS pass)
 {
     const VIEWPORT_RECT scene = Viewport_GetRect(VIEWPORT_SCENE);
@@ -369,12 +371,17 @@ static void M_BeginFxBuffer(M_PRIV *const p, const SCENE_PASS pass)
 
     TRX_GL_FBO_Bind(&p->fx_fbo);
     glViewport(0, 0, scene.width, scene.height);
-    if (pass == SCENE_PASS_BLEND_SUB) {
+    const bool ps1_blending = g_Config.rendering.enable_ps1_blending;
+    if (pass == SCENE_PASS_BLEND_SUB && !ps1_blending) {
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
     } else {
         glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
     }
     glClear(GL_COLOR_BUFFER_BIT);
+    if (pass == SCENE_PASS_BLEND_SUB && ps1_blending) {
+        glBlendEquation(GL_FUNC_ADD);
+        glBlendFunc(GL_ONE, GL_ONE);
+    }
     TRX_GL_CheckError();
 }
 
@@ -396,7 +403,11 @@ static void M_EndFxBuffer(M_PRIV *const p, const SCENE_PASS pass)
     Output_Shader_Bind(p->fx_blit_shader);
     glBindVertexArray(p->fx_blit_vao);
     glDisable(GL_DEPTH_TEST);
-    if (pass == SCENE_PASS_BLEND_SUB) {
+    if (pass == SCENE_PASS_BLEND_SUB
+        && g_Config.rendering.enable_ps1_blending) {
+        glBlendEquation(GL_FUNC_REVERSE_SUBTRACT);
+        glBlendFunc(GL_ONE, GL_ONE);
+    } else if (pass == SCENE_PASS_BLEND_SUB) {
         glBlendFunc(GL_ZERO, GL_SRC_COLOR);
     } else {
         glBlendFunc(GL_ONE, GL_ONE);
@@ -404,7 +415,7 @@ static void M_EndFxBuffer(M_PRIV *const p, const SCENE_PASS pass)
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
     if (pass == SCENE_PASS_BLEND_SUB) {
-        glBlendFunc(GL_ZERO, GL_ONE_MINUS_SRC_COLOR);
+        SceneCompositor_SetSubtractiveBlend();
     } else {
         glBlendFunc(GL_SRC_ALPHA, GL_ONE);
     }
@@ -683,20 +694,20 @@ void OutputSource_PolyFX_StageSpriteTriWorld(
     const RGBA_8888 color[3], const DRAW_TYPE draw_type)
 {
     OutputSource_PolyFX_StageSpriteTriWorldDepth(
-        sprite_idx, world_pos, color, 0.0f, draw_type);
+        sprite_idx, world_pos, color, 0, 0.0f, draw_type);
 }
 
 void OutputSource_PolyFX_StageSpriteTriWorldDepth(
     const int32_t sprite_idx, const XYZ_32 world_pos[3],
-    const RGBA_8888 color[3], const float z_depth_adjust,
+    const RGBA_8888 color[3], const uint16_t flags, const float z_depth_adjust,
     const DRAW_TYPE draw_type)
 {
     M_PRIV *const p = &m_Priv;
     VECTOR *const target = M_GetScheduledVectorForDrawType(p, draw_type);
     M_StagePrim(
         sprite_idx, 3, &world_pos[0], nullptr, &color[0],
-        VERT_NO_LIGHTING | VERT_NO_WIBBLE, z_depth_adjust, (float)SHADE_NEUTRAL,
-        nullptr, target);
+        VERT_NO_LIGHTING | VERT_NO_WIBBLE | flags, z_depth_adjust,
+        (float)SHADE_NEUTRAL, nullptr, target);
 }
 
 void OutputSource_PolyFX_StageSpriteTriWorldLight(
@@ -965,15 +976,19 @@ void OutputSource_PolyFX_StageSpark(const SPARK *const spark)
     int32_t sw = render_width;
     int32_t sh = render_height;
 
+    // The original clamps blood drops in screen pixels, which makes them grow
+    // with distance and shrink close up. The floor is applied to the size of
+    // the drop instead, so that it keeps a fixed size in the world.
+    if (g_TRVersion == 4 && (spark->flags & SPARK_F_BLOOD) != 0U) {
+        CLAMPL(sw, M_BLOOD_MIN_SIZE);
+        CLAMPL(sh, M_BLOOD_MIN_SIZE);
+    }
+
     const bool use_sprite = (spark->flags & SPARK_F_SPRITE) != 0U;
     if ((spark->flags & SPARK_F_SCALE) != 0U) {
         const int32_t scalar = spark->scalar;
         sw = (int32_t)(((((int64_t)sw * REF_PERSP) << scalar) / vpos_z));
         sh = (int32_t)(((((int64_t)sh * REF_PERSP) << scalar) / vpos_z));
-    }
-    if (g_TRVersion == 4 && (spark->flags & SPARK_F_BLOOD) != 0U) {
-        CLAMP(sw, M_BLOOD_MIN_SIZE, render_width << 3);
-        CLAMP(sh, M_BLOOD_MIN_SIZE, render_height << 3);
     }
 
     // A spark that does not scale keeps the size the original gave it in the
@@ -990,16 +1005,6 @@ void OutputSource_PolyFX_StageSpark(const SPARK *const spark)
     };
 
     RGBA_8888 color = { render_color.r, render_color.g, render_color.b, 255 };
-
-    // The OG TR4 submits spark colors raw with specular disabled, skipping
-    // CalcColorSplit; the TR4 shader lights sprite verts in the 128-neutral
-    // scale, so halve to compensate. Flat sparks modulate without the
-    // doubling and stay raw.
-    if (g_TRVersion == 4 && (spark->flags & SPARK_F_SPRITE) != 0U) {
-        color.r >>= 1;
-        color.g >>= 1;
-        color.b >>= 1;
-    }
 
     if ((spark->flags & SPARK_F_ROTATE) != 0U) {
         const int32_t rot_angle = use_current_state
@@ -1026,6 +1031,15 @@ void OutputSource_PolyFX_StageSpark(const SPARK *const spark)
         sprite_idx = -1;
         if (draw_type == DRAW_BLEND_ADD
             || draw_type == DRAW_REFLECTIVE_BLEND_ADD) {
+            color.a = 128;
+        } else if (
+            spark->context == SPARK_CONTEXT_BLOOD
+            && g_Config.rendering.enable_ps1_blending) {
+            // The PlayStation mixes blood half and half with the scene. The
+            // framebuffer blend is premultiplied, so the color is halved too.
+            color.r >>= 1;
+            color.g >>= 1;
+            color.b >>= 1;
             color.a = 128;
         }
         draw_type = DRAW_BLEND;

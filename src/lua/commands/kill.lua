@@ -52,14 +52,16 @@ local function cheat_kill(item)
   end
 
   trx.sound.play(trx.catalog.samples.EXPLOSION_1, { pos = item.pos })
-  item:die(true)
+  item:die({ explode = true })
   return true
 end
 
+-- Leaves out what cannot take damage, such as the TR4 enemy jeep, which has no
+-- death of its own. Only a kill by name reaches it.
 local function hostiles()
   local result = {}
   for _, item in ipairs(trx.items.query:matches()) do
-    if item.is_hostile then
+    if item.is_hostile and item.can_take_damage then
       result[#result + 1] = item
     end
   end
@@ -103,7 +105,11 @@ local function kill_all()
 end
 
 local function kill_nearest()
-  local lara_pos = trx.lara.item.pos
+  local lara = trx.lara.item
+  if lara == nil then
+    return trx.console.Result.UNAVAILABLE
+  end
+  local lara_pos = lara.pos
 
   -- One scan: kill everything within a sector, and remember the nearest within
   -- five in case nothing was that close.

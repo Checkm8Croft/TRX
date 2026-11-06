@@ -8,6 +8,7 @@
 #include <trx/game/lara.h>
 #include <trx/game/matrix.h>
 #include <trx/game/objects/common.h>
+#include <trx/game/output/flash.h>
 #include <trx/game/output/shaders/mesh.h>
 #include <trx/game/output/sources/poly_fx.h>
 #include <trx/game/output/state.h>
@@ -16,6 +17,7 @@
 #include <trx/game/rooms.h>
 #include <trx/game/sparks/enum.h>
 #include <trx/game/viewport.h>
+#include <trx/version.h>
 
 #include <math.h>
 
@@ -25,7 +27,6 @@
 #define M_MAX_CENTER_DIST 640
 // Proximity beyond which the full-screen flash kicks in.
 #define M_FLASH_THRESHOLD 544
-#define M_FLASH_FADER_MAX 32
 // View depth (world units) the screen-space ghost trail is anchored at; the
 // negative clip-space depth bias then pulls it in front of the scene like the
 // OG's near-plane sprites. The depth-tested sun disk uses a separate,
@@ -75,8 +76,6 @@ static const M_GHOST m_Ghosts[] = {
 static bool m_SunEnabled = false;
 static XYZ_32 m_SunPos = {};
 static RGB_888 m_SunColor = {};
-static int32_t m_FlashFader = 0;
-static RGB_888 m_FlashColor = {};
 
 static int32_t M_GetSpriteIndex(const int32_t slot)
 {
@@ -173,9 +172,13 @@ static void M_StageGhost(
         { h, -h },
     };
     const RGBA_8888 colors[4] = { color, color, color, color };
+    // The OG TR4 draws flare sprites on the 128-neutral scale
+    // (DrawSprite runs the color through CalcColorSplit).
+    const uint16_t scale_flags = g_TRVersion == 4 ? VERT_OVERBRIGHT : 0;
     OutputSource_PolyFX_StageQuadExtDepth(
         sprite_idx, world_pos, disp, colors,
-        VERT_NO_LIGHTING | VERT_NO_WIBBLE | VERT_BILLBOARD | VERT_ABS_SPRITE,
+        VERT_NO_LIGHTING | VERT_NO_WIBBLE | VERT_BILLBOARD | VERT_ABS_SPRITE
+            | scale_flags,
         depth_test ? 0.0f : -(float)view_dist, DRAW_BLEND_ADD);
 }
 
@@ -183,18 +186,20 @@ static void M_StageFlare(
     const XYZ_32 flare_pos, const int16_t flare_room, const RGB_888 color,
     const bool is_object)
 {
-    const ITEM *const lara_item = Lara_GetItem();
-    if (lara_item == nullptr) {
-        return;
-    }
+    // The flare anchors to Lara, as the OG places it. The level view a
+    // loading screen shows is not hers, so there it anchors to the camera and
+    // sits where that view sees it.
+    const ITEM *const lara_item =
+        g_Camera.type == CAM_LOADING_SCREEN ? nullptr : Lara_GetItem();
+    const XYZ_32 view_pos =
+        lara_item != nullptr ? lara_item->pos : g_Camera.pos.pos;
 
     XYZ_32 pos = flare_pos;
     int16_t room_num = NO_ROOM;
 
     if (is_object) {
-        if (ABS(pos.x - lara_item->pos.x) > 0x8000
-            || ABS(pos.y - lara_item->pos.y) > 0x8000
-            || ABS(pos.z - lara_item->pos.z) > 0x8000) {
+        if (ABS(pos.x - view_pos.x) > 0x8000 || ABS(pos.y - view_pos.y) > 0x8000
+            || ABS(pos.z - view_pos.z) > 0x8000) {
             return;
         }
         room_num = flare_room;
@@ -254,17 +259,16 @@ static void M_StageFlare(
         return;
     }
 
-    // Project relative to Lara like the OG, halving the sun vector until it
-    // is in representable range.
+    // Halve the sun vector until it is in representable range.
     XYZ_32 vec;
     if (is_object) {
-        vec.x = pos.x - lara_item->pos.x;
-        vec.y = pos.y - lara_item->pos.y;
-        vec.z = pos.z - lara_item->pos.z;
+        vec.x = pos.x - view_pos.x;
+        vec.y = pos.y - view_pos.y;
+        vec.z = pos.z - view_pos.z;
     } else {
-        vec.x = flare_pos.x - lara_item->pos.x;
-        vec.y = flare_pos.y - lara_item->pos.y;
-        vec.z = flare_pos.z - lara_item->pos.z;
+        vec.x = flare_pos.x - view_pos.x;
+        vec.y = flare_pos.y - view_pos.y;
+        vec.z = flare_pos.z - view_pos.z;
         while (ABS(vec.x) > 0x7F00 || ABS(vec.y) > 0x7F00
                || ABS(vec.z) > 0x7F00) {
             vec.x >>= 1;
@@ -274,9 +278,9 @@ static void M_StageFlare(
     }
 
     const XYZ_32 world = {
-        .x = lara_item->pos.x + vec.x,
-        .y = lara_item->pos.y + vec.y,
-        .z = lara_item->pos.z + vec.z,
+        .x = view_pos.x + vec.x,
+        .y = view_pos.y + vec.y,
+        .z = view_pos.z + vec.z,
     };
     float sx, sy;
     if (!M_ProjectToScreen(world, &sx, &sy)) {
@@ -296,10 +300,11 @@ static void M_StageFlare(
     if (los) {
         const int32_t flash = intensity - M_FLASH_THRESHOLD;
         if (flash > 0) {
-            m_FlashFader = M_FLASH_FADER_MAX;
-            m_FlashColor.r = color.r * flash / M_MAX_CENTER_DIST;
-            m_FlashColor.g = color.g * flash / M_MAX_CENTER_DIST;
-            m_FlashColor.b = color.b * flash / M_MAX_CENTER_DIST;
+            Output_Flash_Trigger((RGB_888) {
+                .r = color.r * flash / M_MAX_CENTER_DIST,
+                .g = color.g * flash / M_MAX_CENTER_DIST,
+                .b = color.b * flash / M_MAX_CENTER_DIST,
+            });
         }
     }
 
@@ -345,52 +350,11 @@ static void M_StageFlare(
     }
 }
 
-static void M_StageFlash(void)
-{
-    if (m_FlashFader <= 0) {
-        return;
-    }
-    const RGBA_8888 color = {
-        .r = m_FlashColor.r * m_FlashFader / M_FLASH_FADER_MAX,
-        .g = m_FlashColor.g * m_FlashFader / M_FLASH_FADER_MAX,
-        .b = m_FlashColor.b * m_FlashFader / M_FLASH_FADER_MAX,
-        .a = 255,
-    };
-    // A single flat additive billboard covering the whole screen.
-    const float half_w = (float)((double)Viewport_GetWidth(VIEWPORT_GAME) / 2.0
-                                 * M_GHOST_VIEW_DIST / g_PhdPersp);
-    const float half_h = (float)((double)Viewport_GetHeight(VIEWPORT_GAME) / 2.0
-                                 * M_GHOST_VIEW_DIST / g_PhdPersp);
-
-    const MATRIX *const m = &g_ViewMatrix;
-    const double w2v = (double)(1 << W2V_SHIFT);
-    const XYZ_32 anchor = {
-        .x = g_ViewPos.x + (int32_t)(m->_20 * M_GHOST_VIEW_DIST / w2v),
-        .y = g_ViewPos.y + (int32_t)(m->_21 * M_GHOST_VIEW_DIST / w2v),
-        .z = g_ViewPos.z + (int32_t)(m->_22 * M_GHOST_VIEW_DIST / w2v),
-    };
-    const XYZ_32 world_pos[4] = { anchor, anchor, anchor, anchor };
-    const float disp[4][2] = {
-        { -half_w, -half_h },
-        { -half_w, half_h },
-        { half_w, half_h },
-        { half_w, -half_h },
-    };
-    const RGBA_8888 colors[4] = { color, color, color, color };
-    OutputSource_PolyFX_StageQuadExtDepth(
-        -1, world_pos, disp, colors,
-        VERT_FLAT_SHADED | VERT_NO_LIGHTING | VERT_NO_WIBBLE | VERT_BILLBOARD
-            | VERT_ABS_SPRITE,
-        -(float)M_GHOST_VIEW_DIST, DRAW_BLEND_ADD);
-}
-
 void Output_LensFlares_Reset(void)
 {
     m_SunEnabled = false;
     m_SunPos = (XYZ_32) {};
     m_SunColor = (RGB_888) {};
-    m_FlashFader = 0;
-    m_FlashColor = (RGB_888) {};
 }
 
 void Output_LensFlares_SetSun(const XYZ_32 pos, const RGB_888 color)
@@ -400,20 +364,11 @@ void Output_LensFlares_SetSun(const XYZ_32 pos, const RGB_888 color)
     m_SunColor = color;
 }
 
-void Output_LensFlares_Update(void)
-{
-    if (m_FlashFader > 0) {
-        m_FlashFader -= 2;
-        CLAMPL(m_FlashFader, 0);
-    }
-}
-
 void Output_LensFlares_Draw(void)
 {
     if (m_SunEnabled) {
         M_StageFlare(m_SunPos, NO_ROOM, m_SunColor, false);
     }
-    M_StageFlash();
 }
 
 bool Output_LensFlares_DrawObject(const ITEM *const item)

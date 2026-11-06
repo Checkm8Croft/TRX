@@ -28,16 +28,17 @@ static void M_Control(const int16_t effect_num)
     }
 }
 
-// Returning false leaves the flash mesh itself to the generic effect drawing.
+// Draws the glow around the flash where the game shows one, then the flash
+// mesh itself.
 static bool M_Draw(const EFFECT *const effect)
 {
     if (g_TRVersion < 3 && !g_Config.visuals.enable_gun_glow) {
-        return false;
+        return Effect_Draw(effect);
     }
 
     const OBJECT *const glow_obj = Object_Get(O_GLOW);
     if (!glow_obj->loaded) {
-        return false;
+        return Effect_Draw(effect);
     }
 
     const bool is_tr3 = g_TRVersion >= 3;
@@ -47,14 +48,13 @@ static bool M_Draw(const EFFECT *const effect)
         effect->interp.result.pos.x, effect->interp.result.pos.y,
         effect->interp.result.pos.z, glow_obj->mesh_idx,
         is_tr3 ? SHADE_NEUTRAL : 0, tint, DRAW_BLEND_ADD, is_tr3 ? 1.0f : 2.0f);
-    return false;
+    return Effect_Draw(effect);
 }
 
 static void M_Setup(OBJECT *const obj)
 {
     obj->effect_control_func = M_Control;
     obj->effect_draw_func = M_Draw;
-    Gun_ApplyFlashSemiTransparency();
 }
 
 REGISTER_OBJECT(O_GUN_FLASH, M_Setup)

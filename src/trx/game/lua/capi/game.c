@@ -1,19 +1,27 @@
 #include <trx/config.h>
+#include <trx/game/camera.h>
 #include <trx/game/clock/common.h>
 #include <trx/game/const.h>
 #include <trx/game/demo.h>
+#include <trx/game/game.h>
 #include <trx/game/game/state.h>
 #include <trx/game/game_flow.h>
 #include <trx/game/game_flow/types.h>
+#include <trx/game/gym.h>
 #include <trx/game/lua/common.h>
 #include <trx/game/lua/field.h>
 #include <trx/game/lua/registry.h>
 #include <trx/game/lua/struct.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/args.h>
+#include <trx/game/lua/utils/game_flow.h>
+#include <trx/game/lua/utils/level.h>
+#include <trx/game/lua/utils/module.h>
+#include <trx/game/lua/utils/savegame.h>
 #include <trx/game/output/func.h>
 #include <trx/game/photo_mode.h>
 #include <trx/game/savegame.h>
 #include <trx/game/screenshot.h>
+#include <trx/game/shell/common.h>
 #include <trx/version.h>
 
 #include <lauxlib.h>
@@ -36,6 +44,13 @@ static bool M_GetOrdinal(const void *const self, TRX_VALUE *const out)
     return true;
 }
 
+static bool M_GetIsCompleted(const void *const self, TRX_VALUE *const out)
+{
+    const RESUME_INFO *const resume = SG_Resume_GetEntry(self);
+    *out = Value_Make_TVT_BOOL(resume != nullptr && resume->level_completed);
+    return true;
+}
+
 // clang-format off
 static const FIELD_DESC m_Fields[] = {
     FIELD_FN("num", TVT_S32, M_GetOrdinal, nullptr),
@@ -47,6 +62,7 @@ static const FIELD_DESC m_Fields[] = {
     FIELD_RO(GF_LEVEL, lara_outfit),
     FIELD_RO(GF_LEVEL, music_track),
     FIELD_RO(GF_LEVEL, water_particles),
+    FIELD_FN("is_completed", TVT_BOOL, M_GetIsCompleted, nullptr),
 
     // what the stats screen must not count against the player
     FIELD_RO(GF_LEVEL, unobtainable.pickups),
@@ -139,14 +155,14 @@ static void M_PushLevel(
         (TRX_HANDLE) { .id = M_PACK(table_type, num) });
 }
 
-// trxc.game.get_version() → int
+// trxc.game.get_version(): integer
 static int M_L_GameVersion(lua_State *const L)
 {
     lua_pushinteger(L, g_TRVersion);
     return 1;
 }
 
-// trxc.game.count_levels() → int
+// trxc.game.count_levels(table_type: trx.game.LevelTable): integer
 static int M_L_GameCountLevels(lua_State *const L)
 {
     const GF_LEVEL_TABLE_TYPE table_type = M_CheckTableType(L, 1);
@@ -170,7 +186,7 @@ static const GF_LEVEL *M_CheckLevel(
     return level;
 }
 
-// trxc.game.get_level(table_type, num) -> GF_LEVEL handle or nil
+// trxc.game.get_level(table_type: trx.game.LevelTable, num: integer): trx.game.Level?
 // Ordinal 0 is the gym, so the range starts there.
 static int M_L_GameGetLevel(lua_State *const L)
 {
@@ -184,7 +200,7 @@ static int M_L_GameGetLevel(lua_State *const L)
     return 1;
 }
 
-// trxc.game.get_current_level() -> GF_LEVEL handle or nil
+// trxc.game.get_current_level(): trx.game.Level?
 static int M_L_GameGetCurrentLevel(lua_State *const L)
 {
     const GF_LEVEL *const level = GF_GetCurrentLevel();
@@ -192,87 +208,108 @@ static int M_L_GameGetCurrentLevel(lua_State *const L)
         lua_pushnil(L);
         return 1;
     }
-    const GF_LEVEL_TABLE_TYPE table_type = GF_GetLevelTableType(level->type);
-    // A gym has no number and reads 0, which is also the number
-    // GF_GetLevelByOrdinalNumber hands it back on.
-    const int32_t num = table_type == GFLT_TITLE
-        ? 1
-        : GF_GetLevelOrdinalNumber(table_type, level);
-    M_PushLevel(L, table_type, num);
+    LUA_PushLevel(L, level);
     return 1;
 }
 
-// trxc.game.is_loaded() -> bool
+// trxc.game.is_loaded(): boolean
 static int M_L_GameIsLoaded(lua_State *const L)
 {
     lua_pushboolean(L, Game_IsLoaded());
     return 1;
 }
 
-// trxc.game.measured_fps() -> int
+// trxc.game.measured_fps(): integer
 static int M_L_GameMeasuredFPS(lua_State *const L)
 {
     lua_pushinteger(L, Output_GetMeasuredFPS());
     return 1;
 }
 
-// trxc.game.is_playing() -> bool
+// trxc.game.is_playing(): boolean
 static int M_L_GameIsPlaying(lua_State *const L)
 {
     lua_pushboolean(L, Game_IsPlaying());
     return 1;
 }
 
-// trxc.game.is_playable() -> bool
+// trxc.game.is_playable(): boolean
 static int M_L_GameIsPlayable(lua_State *const L)
 {
     lua_pushboolean(L, Game_IsPlayable());
     return 1;
 }
 
-// trxc.game.real_time() -> number
+// trxc.game.real_time(): trx.game.Seconds
 static int M_L_GameRealTime(lua_State *const L)
 {
     lua_pushnumber(L, Clock_GetRealTime());
     return 1;
 }
 
-// trxc.game.tr_version() -> integer
+// trxc.game.sim_time(): trx.game.Seconds
+static int M_L_GameSimTime(lua_State *const L)
+{
+    lua_pushnumber(L, Clock_GetSimTime());
+    return 1;
+}
+
+// trxc.game.cutscene_frame(): integer?
+static int M_L_GameCutsceneFrame(lua_State *const L)
+{
+    const GF_LEVEL *const level = GF_GetCurrentLevel();
+    if (level == nullptr || level->type != GFL_CUTSCENE) {
+        lua_pushnil(L);
+        return 1;
+    }
+    lua_pushinteger(L, Camera_GetCineData()->frame_idx);
+    return 1;
+}
+
+// trxc.game.tr_version(): integer
 static int M_L_GameTRVersion(lua_State *const L)
 {
     lua_pushinteger(L, g_TRVersion);
     return 1;
 }
 
-// trxc.game.is_suspended() -> bool
+// trxc.game.is_suspended(): boolean
 static int M_L_GameIsSuspended(lua_State *const L)
 {
     lua_pushboolean(L, Game_IsLoaded() && !Game_IsPlaying());
     return 1;
 }
 
-// trxc.game.is_photo_mode() -> bool
+// trxc.game.is_leaving(): boolean
+static int M_L_GameIsLeaving(lua_State *const L)
+{
+    lua_pushboolean(
+        L, Shell_IsExiting() || GF_GetOverrideCommand().action != GF_NOOP);
+    return 1;
+}
+
+// trxc.game.is_photo_mode(): boolean
 static int M_L_GameIsPhotoMode(lua_State *const L)
 {
     lua_pushboolean(L, PhotoMode_IsActive());
     return 1;
 }
 
-// trxc.game.photo_mode_target() -> integer
+// trxc.game.photo_mode_target(): trx.game.PhotoModeTarget
 static int M_L_GamePhotoModeTarget(lua_State *const L)
 {
     lua_pushinteger(L, PhotoMode_GetCurrentMode());
     return 1;
 }
 
-// trxc.game.is_ngplus() -> bool
+// trxc.game.is_ngplus(): boolean
 static int M_L_GameIsNGPlus(lua_State *const L)
 {
     lua_pushboolean(L, Game_IsBonusFlagSet(GBF_NGPLUS));
     return 1;
 }
 
-// trxc.game.play_level(num) → nil
+// trxc.game.play_level(num: trx.game.LevelNum, opts?: trx.game.play_level.opts)
 // What the game flow's commands carry is the level's place in its table, which
 // is GF_LEVEL.num - the same number the `play` console command hands them.
 static int M_L_GamePlayLevel(lua_State *const L)
@@ -285,15 +322,51 @@ static int M_L_GamePlayLevel(lua_State *const L)
     // carrying on reaching it. Without it the level continues from the one in
     // progress, which is recorded as the previous level.
     bool select = false;
+    bool has_ng_plus = false;
+    bool ng_plus = false;
+    SAVEGAME_SLOT_REF from_save = SG_Manager_InvalidSlot();
     if (!lua_isnoneornil(L, 2)) {
         luaL_checktype(L, 2, LUA_TTABLE);
         lua_getfield(L, 2, "select");
         select = lua_toboolean(L, -1);
         lua_pop(L, 1);
+        lua_getfield(L, 2, "ng_plus");
+        has_ng_plus = !lua_isnil(L, -1);
+        ng_plus = lua_toboolean(L, -1);
+        lua_pop(L, 1);
+        lua_getfield(L, 2, "from_save");
+        if (!lua_isnil(L, -1)) {
+            luaL_argcheck(L, select, 2, "from_save needs select");
+            luaL_checktype(L, -1, LUA_TTABLE);
+            const int from_save_idx = lua_gettop(L);
+            lua_getfield(L, from_save_idx, "slot_num");
+            lua_getfield(L, from_save_idx, "pool");
+            from_save = LUA_ResolveSaveSlot(
+                luaL_checkinteger(L, from_save_idx + 1),
+                lua_isnil(L, from_save_idx + 2)
+                    ? SAVEGAME_SLOT_POOL_NORMAL
+                    : LUA_CheckSavePool(L, from_save_idx + 2));
+            luaL_argcheck(
+                L, SG_Manager_IsValidSlotRef(from_save), 2,
+                "no such save slot");
+            lua_pop(L, 2);
+        }
+        lua_pop(L, 1);
+    }
+
+    if (has_ng_plus) {
+        Game_SetBonusFlag(ng_plus ? GBF_NGPLUS : GBF_NONE);
     }
 
     if (select) {
-        GF_OverrideCommand((GF_COMMAND) {
+        // The game flow rebuilds Lara's loadout from the bound save, or as if
+        // the game had been played from the first level when none is bound.
+        if (SG_Manager_IsValidSlotRef(from_save)) {
+            SG_Manager_BindSlot(from_save);
+        } else {
+            SG_Manager_UnbindSlot();
+        }
+        LUA_OverrideCommand((GF_COMMAND) {
             .action = GF_SELECT_GAME,
             .param = next_level->num,
         });
@@ -308,21 +381,21 @@ static int M_L_GamePlayLevel(lua_State *const L)
             resume->prev_level = current_level->num;
         }
     }
-    GF_OverrideCommand((GF_COMMAND) {
+    LUA_OverrideCommand((GF_COMMAND) {
         .action = GF_START_GAME,
         .param = next_level->num,
     });
     return 0;
 }
 
-// trxc.game.count_fmvs() → int
+// trxc.game.count_fmvs(): integer
 static int M_L_GameCountFMVs(lua_State *const L)
 {
     lua_pushinteger(L, GF_GetFMVCount());
     return 1;
 }
 
-// trxc.game.get_fmv(num) → GF_FMV handle or nil
+// trxc.game.get_fmv(num: trx.game.FMVNum): trx.game.FMV?
 static int M_L_GameGetFMV(lua_State *const L)
 {
     int32_t num;
@@ -334,7 +407,7 @@ static int M_L_GameGetFMV(lua_State *const L)
     return 1;
 }
 
-// trxc.game.play_fmv(num) → nil
+// trxc.game.play_fmv(num: trx.game.FMVNum)
 // The movie plays over the level or the menu on screen and hands it back,
 // unlike the play_* verbs, whose commands derail the game flow.
 static int M_L_GamePlayFMV(lua_State *const L)
@@ -344,26 +417,30 @@ static int M_L_GamePlayFMV(lua_State *const L)
         ? GF_GetFMV(num)
         : nullptr;
     luaL_argcheck(L, fmv != nullptr, 1, "unknown FMV");
-    GF_OverrideCommand((GF_COMMAND) {
-        .action = GF_START_FMV,
-        .param = GF_GetFMVNumber(fmv),
-    });
+    GF_OverrideCommand(
+        (GF_COMMAND) {
+            .action = GF_START_FMV,
+            .param = GF_GetFMVNumber(fmv),
+        },
+        true);
     return 0;
 }
 
-// trxc.game.play_cutscene(num) → nil
+// trxc.game.play_cutscene(num: trx.game.LevelNum)
 static int M_L_GamePlayCutscene(lua_State *const L)
 {
     const GF_LEVEL *const level =
         M_CheckLevel(L, 1, GFLT_CUTSCENES, "unknown cutscene");
-    GF_OverrideCommand((GF_COMMAND) {
-        .action = GF_START_CINE,
-        .param = level->num,
-    });
+    GF_OverrideCommand(
+        (GF_COMMAND) {
+            .action = GF_START_CINE,
+            .param = level->num,
+        },
+        true);
     return 0;
 }
 
-// trxc.game.play_demo([num]) → GF_LEVEL handle or nil
+// trxc.game.play_demo(num?: trx.game.DemoNum): trx.game.Level?
 // With no number, the next demo in rotation plays - the one the attract mode
 // would show next, since both draw from Demo_ChooseLevel.
 static int M_L_GamePlayDemo(lua_State *const L)
@@ -379,15 +456,17 @@ static int M_L_GamePlayDemo(lua_State *const L)
     } else {
         level = M_CheckLevel(L, 1, GFLT_DEMOS, "unknown demo");
     }
-    GF_OverrideCommand((GF_COMMAND) {
-        .action = GF_START_DEMO,
-        .param = level->num,
-    });
+    GF_OverrideCommand(
+        (GF_COMMAND) {
+            .action = GF_START_DEMO,
+            .param = level->num,
+        },
+        true);
     M_PushLevel(L, GFLT_DEMOS, GF_GetLevelOrdinalNumber(GFLT_DEMOS, level));
     return 1;
 }
 
-// trxc.game.play_gym() → nil
+// trxc.game.play_gym()
 //
 // A gym has no ordinal, so play_level cannot reach it. It is started through
 // GF_SELECT_GAME, as the `gym` console command starts it.
@@ -397,10 +476,13 @@ static int M_L_GamePlayGym(lua_State *const L)
     if (gym_level == nullptr) {
         return luaL_error(L, "this game has no gym");
     }
-    GF_OverrideCommand((GF_COMMAND) {
-        .action = GF_SELECT_GAME,
-        .param = gym_level->num,
-    });
+    SG_Manager_UnbindSlot();
+    GF_OverrideCommand(
+        (GF_COMMAND) {
+            .action = GF_SELECT_GAME,
+            .param = gym_level->num,
+        },
+        true);
     return 0;
 }
 
@@ -411,21 +493,66 @@ static int M_L_GameEndLevel(lua_State *const L)
     return 0;
 }
 
+// trxc.game.start_new_game(ng_plus?: boolean)
+static int M_L_GameStartNewGame(lua_State *const L)
+{
+    const bool ng_plus = lua_toboolean(L, 1);
+    const GF_LEVEL *const first_level = GF_GetFirstLevel();
+    if (first_level == nullptr) {
+        return luaL_error(L, "this game has no first level");
+    }
+    LUA_OverrideCommand((GF_COMMAND) {
+        .action = GF_NEW_GAME,
+        .param = ng_plus ? GBF_NGPLUS : GBF_NONE,
+    });
+    return 0;
+}
+
+static bool M_IsRestartableLevel(const GF_LEVEL *const level)
+{
+    return level != nullptr
+        && (level->type == GFL_NORMAL || level->type == GFL_GYM
+            || level->type == GFL_BONUS);
+}
+
+// trxc.game.is_restartable_level(): boolean
+static int M_L_GameIsRestartableLevel(lua_State *const L)
+{
+    lua_pushboolean(L, M_IsRestartableLevel(Game_GetCurrentLevel()));
+    return 1;
+}
+
+// trxc.game.restart_level()
+static int M_L_GameRestartLevel(lua_State *const L)
+{
+    const GF_LEVEL *const level = Game_GetCurrentLevel();
+    if (!M_IsRestartableLevel(level)) {
+        return luaL_error(L, "this level cannot be restarted");
+    }
+    LUA_OverrideCommand((GF_COMMAND) {
+        .action = GF_RESTART_GAME,
+        .param = level->num,
+    });
+    return 0;
+}
+
 // trxc.game.exit_to_title()
 static int M_L_GameExitToTitle(lua_State *const L)
 {
-    GF_OverrideCommand((GF_COMMAND) { .action = GF_EXIT_TO_TITLE });
+    LUA_OverrideCommand((GF_COMMAND) { .action = GF_EXIT_TO_TITLE });
     return 0;
 }
 
 // trxc.game.exit_game()
 static int M_L_GameExitGame(lua_State *const L)
 {
-    GF_OverrideCommand((GF_COMMAND) { .action = GF_EXIT_GAME });
+    // Applies at once, even from a menu. The exit fade covers the menu as it
+    // holds still, so a menu that faded out first would fade twice.
+    GF_OverrideCommand((GF_COMMAND) { .action = GF_EXIT_GAME }, true);
     return 0;
 }
 
-// trxc.game.screenshot([path])
+// trxc.game.screenshot(path?: string)
 static int M_L_GameScreenshot(lua_State *const L)
 {
     if (lua_isnoneornil(L, 1)) {
@@ -436,7 +563,53 @@ static int M_L_GameScreenshot(lua_State *const L)
     return 0;
 }
 
+static void M_PushAngleField(
+    lua_State *const L, const char *const key, const int16_t value)
+{
+    lua_pushinteger(L, value);
+    lua_setfield(L, -2, key);
+}
+
+// trxc.game.globe(): trx.game.GlobeArea[]
+static int M_L_GameGlobe(lua_State *const L)
+{
+    const int32_t count = GF_GetGlobeEntryCount();
+    lua_createtable(L, count, 0);
+    for (int32_t i = 0; i < count; i++) {
+        const GF_GLOBE_ENTRY *const entry = GF_GetGlobeEntry(i);
+        lua_createtable(L, 0, 5);
+
+        lua_createtable(L, 0, 3);
+        M_PushAngleField(L, "x", entry->rot.x);
+        M_PushAngleField(L, "y", entry->rot.y);
+        M_PushAngleField(L, "z", entry->rot.z);
+        lua_setfield(L, -2, "rot");
+
+        lua_pushinteger(L, entry->mesh_idx);
+        lua_setfield(L, -2, "mesh");
+
+        M_PushLevel(L, GFLT_MAIN, entry->start_level_ordinal);
+        lua_setfield(L, -2, "start_level");
+        M_PushLevel(L, GFLT_MAIN, entry->completion_level_ordinal);
+        lua_setfield(L, -2, "completion_level");
+
+        lua_newtable(L);
+        int32_t prereq_count = 0;
+        for (int32_t bit = 0; bit < 32; bit++) {
+            if ((entry->prereq_mask & (1u << bit)) != 0) {
+                lua_pushinteger(L, bit + 1);
+                lua_rawseti(L, -2, ++prereq_count);
+            }
+        }
+        lua_setfield(L, -2, "prereqs");
+
+        lua_rawseti(L, -2, i + 1);
+    }
+    return 1;
+}
+
 static const luaL_Reg m_Module[] = {
+    { "globe", M_L_GameGlobe },
     { "get_version", M_L_GameVersion },
     { "count_levels", M_L_GameCountLevels },
     { "get_level", M_L_GameGetLevel },
@@ -446,8 +619,11 @@ static const luaL_Reg m_Module[] = {
     { "is_playing", M_L_GameIsPlaying },
     { "is_playable", M_L_GameIsPlayable },
     { "tr_version", M_L_GameTRVersion },
+    { "cutscene_frame", M_L_GameCutsceneFrame },
     { "real_time", M_L_GameRealTime },
+    { "sim_time", M_L_GameSimTime },
     { "is_suspended", M_L_GameIsSuspended },
+    { "is_leaving", M_L_GameIsLeaving },
     { "is_photo_mode", M_L_GameIsPhotoMode },
     { "photo_mode_target", M_L_GamePhotoModeTarget },
     { "is_ngplus", M_L_GameIsNGPlus },
@@ -460,6 +636,9 @@ static const luaL_Reg m_Module[] = {
     { "play_gym", M_L_GamePlayGym },
     { "screenshot", M_L_GameScreenshot },
     { "end_level", M_L_GameEndLevel },
+    { "restart_level", M_L_GameRestartLevel },
+    { "is_restartable_level", M_L_GameIsRestartableLevel },
+    { "start_new_game", M_L_GameStartNewGame },
     { "exit_to_title", M_L_GameExitToTitle },
     { "exit_game", M_L_GameExitGame },
     { nullptr, nullptr },
@@ -473,11 +652,24 @@ static void M_Create(lua_State *const L)
 
     // The frame rate and the build's version are values, not functions.
     LUA_GetModule(L, "game");
+    // trxc.game.LOGIC_FPS: integer
     lua_pushinteger(L, LOGIC_FPS);
     lua_setfield(L, -2, "LOGIC_FPS");
+    // trxc.game.TRX_VERSION: string
     lua_pushstring(L, g_TRXVersion);
     lua_setfield(L, -2, "TRX_VERSION");
     lua_pop(L, 1);
+}
+
+void LUA_PushLevel(lua_State *const L, const GF_LEVEL *const level)
+{
+    const GF_LEVEL_TABLE_TYPE table_type = GF_GetLevelTableType(level->type);
+    // A gym has no number and reads 0, which is also the number
+    // GF_GetLevelByOrdinalNumber hands it back on.
+    const int32_t num = table_type == GFLT_TITLE
+        ? 1
+        : GF_GetLevelOrdinalNumber(table_type, level);
+    M_PushLevel(L, table_type, num);
 }
 
 REGISTER_LUA_CAPI(.create = M_Create)

@@ -2,6 +2,7 @@
 
 #include <trx/game/fx/weather.h>
 #include <trx/game/game_flow/enum.h>
+#include <trx/game/locale/types.h>
 #include <trx/game/music/ids.h>
 #include <trx/game/objects/types.h>
 
@@ -65,6 +66,15 @@ typedef struct {
     RGB_888 color;
 } GF_SETUP_LENS_FLARE_DATA;
 
+typedef struct {
+    XYZ_32 source;
+    XYZ_32 target;
+    int16_t room_num;
+    double display_time;
+    double fade_in_time;
+    double fade_out_time;
+} GF_LOADING_CAMERA_DATA;
+
 // ----------------------------------------------------------------------------
 // Game flow level structures
 // ----------------------------------------------------------------------------
@@ -75,7 +85,9 @@ typedef struct {
 } INJECTION_DATA;
 
 typedef struct {
+    // The retail file as the game flow loaded it, for scripts to read.
     const char *path;
+    LOCALE_PATH localized_path;
     bool is_legal;
     bool is_credit;
     bool is_intro;
@@ -150,6 +162,9 @@ typedef struct {
     int32_t count;
     GF_LEVEL *levels;
 } GF_LEVEL_TABLE;
+
+// How many areas the globe that picks the next adventure can hold.
+#define MAX_GLOBE_ZONES 6
 
 typedef struct {
     XYZ_16 rot;

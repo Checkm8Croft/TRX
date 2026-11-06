@@ -6,6 +6,8 @@
 -- The models come from bfg.bin. The script refers to them by name, so it
 -- does not depend on object slots. The same file works for every game.
 
+local inventory_ring = require("common.ui.ring")
+
 local OBJECTS = trx.catalog.Context.OBJECTS
 
 local WEAPON_KEY = "dash:bfg9000"
@@ -23,6 +25,7 @@ local SPLASH_SPEED_MIN = 16
 local SPLASH_SPEED_SPAN = 0x1F
 local SPLASH_COUNT_MIN = 2
 local SPLASH_COUNT_SPAN = 3
+---@type table<integer, integer>
 local FALLOFF = { [0] = 13, 7, 7, 7, 7 }
 local HIT_RANGE = 512
 local BLAST_RADIUS = 1024
@@ -45,22 +48,36 @@ local floor = math.floor
 local Spark = trx.fx.SparkType
 local Draw = trx.fx.DrawType
 
-local fire_sample = trx.catalog.mint(trx.catalog.Context.SAMPLES, FIRE_KEY)
-local arrive_sample = trx.catalog.mint(trx.catalog.Context.SAMPLES, ARRIVE_KEY)
+---@param context trx.catalog.Context
+---@param key string
+---@return trx.catalog.Id
+local function mint(context, key)
+  local id = trx.catalog.mint(context, key)
+  if id == nil then
+    error(("cannot mint %s"):format(key), 2)
+  end
+  return id
+end
 
-local ball = trx.catalog.mint(OBJECTS, BALL_KEY)
-trx.catalog.mint(OBJECTS, HELD_KEY)
-local gun_item = trx.catalog.mint(OBJECTS, GUN_KEY)
-local ammo_item = trx.catalog.mint(OBJECTS, AMMO_KEY)
+local fire_sample = mint(trx.catalog.Context.SAMPLES, FIRE_KEY)
+local arrive_sample = mint(trx.catalog.Context.SAMPLES, ARRIVE_KEY)
+
+local ball = mint(OBJECTS, BALL_KEY)
+mint(OBJECTS, HELD_KEY)
+local gun_item = mint(OBJECTS, GUN_KEY)
+local ammo_item = mint(OBJECTS, AMMO_KEY)
 
 local state = {}
 
 local pending_splash = 0
 
+---@type trx.items.Item?
 local incoming = nil
 
+---@type trx.catalog.weapons?
 local weapon_id
 
+---@type trx.items.Item?
 local landed = nil
 
 local function shown(n)
@@ -180,9 +197,19 @@ end
 local function burst(item, own, from)
   -- A ball that reaches a wall stops with its centre in the wall, and the
   -- blast needs a point a room holds, so it is nudged back into the room.
-  local centre = inside(item.pos)
-    or inside(from)
-    or trx.rooms.find_valid_pos(item.pos, item.room_num)
+  -- find_valid_pos moves a point sideways only, so a point below the floor
+  -- is also lifted onto the floor.
+  local centre = inside(item.pos) or inside(from)
+  if centre == nil then
+    local valid, room_num = trx.rooms.find_valid_pos(item.pos, item.room_num)
+    if valid ~= nil then
+      local ground = trx.rooms.floor_height(valid, room_num)
+      if ground ~= nil then
+        valid.y = math.min(valid.y, ground)
+      end
+      centre = inside(valid)
+    end
+  end
   if centre == nil then
     drop(item)
     return
@@ -220,10 +247,15 @@ local function burst(item, own, from)
   for _, target in
     ipairs(trx.items.query:in_sphere(centre, BLAST_RADIUS):in_play():matches())
   do
-    if target.is_hostile and target.is_alive and target.num ~= item.num then
+    if target.is_alive and target.num ~= item.num then
       burn_green(target)
       if target.hit_points <= BLAST_DAMAGE then
-        target:die(true, GREEN_FLAME, lara)
+        target:die({
+          explode = true,
+          gibs = { flame = true, smoke = true },
+          flame_variant = GREEN_FLAME,
+          sender = lara,
+        })
       else
         target:take_damage(BLAST_DAMAGE, lara)
       end
@@ -242,8 +274,8 @@ local function land(item, from)
   if gun == nil then
     -- Nowhere to set it down, so it goes straight into the backpack rather
     -- than being lost.
-    trx.inventory:give(gun_item)
-    trx.inventory:set_shots(trx.catalog.weapons[WEAPON_KEY], FUN_AMMO)
+    trx.inventory.give(gun_item)
+    trx.inventory.set_shots(trx.catalog.weapons[WEAPON_KEY], FUN_AMMO)
     trx.console.log(trx.locale.get("console/cmd/bignasty/got"))
   end
   landed = gun
@@ -285,6 +317,7 @@ local function tracer(item, target)
   end
 end
 
+---@param item trx.items.Item
 local function control(item)
   local own = ball_state(item)
   own.age = own.age + 1
@@ -396,11 +429,11 @@ local function control(item)
     trx.fx.emit_light({
       pos = pos,
       radius = falloff * 256,
-      color = trx.math.color(
-        shown(0x40),
-        255 - shown(0x20),
-        192 - shown(0x20)
-      ),
+      color = {
+        r = shown(0x40),
+        g = 255 - shown(0x20),
+        b = 192 - shown(0x20),
+      },
     })
   end
 end
@@ -441,7 +474,7 @@ local function claimed()
     return true
   end
   incoming = nil
-  return trx.inventory:has_weapon(weapon_id)
+  return weapon_id ~= nil and trx.inventory.has_weapon(weapon_id)
     or #trx.items.query:of_object(gun_item):present():matches() > 0
 end
 
@@ -494,7 +527,25 @@ trx.objects.declare(ball, {
   control = control,
 })
 
-if trx.weapons.get("mp5") == nil then
+-- The weapon builds on the MP5 where the game has one, and on the grenade gun
+-- otherwise, as TR4 has no MP5.
+local BASES = {
+  { weapon = "mp5", anim = "lara_mp5" },
+  { weapon = "grenade", anim = "lara_grenade_gun" },
+}
+
+local function find_base()
+  for _, candidate in ipairs(BASES) do
+    local weapon = trx.weapons.get(candidate.weapon)
+    if weapon ~= nil and weapon.object ~= nil then
+      return candidate
+    end
+  end
+  return nil
+end
+
+local base = find_base()
+if base == nil then
   return
 end
 
@@ -519,7 +570,7 @@ trx.objects[ball]:add_family("projectile")
 trx.objects[gun_item]:link("gun_to_ammo", ammo_item)
 
 for i, key in ipairs({ GUN_KEY, AMMO_KEY }) do
-  trx.inventory.declare_ring_item({
+  inventory_ring.declare_item({
     object_id = key,
     frames_total = 1,
     anim_direction = 1,
@@ -537,7 +588,7 @@ trx.events.on_game_start(function()
 end)
 
 trx.weapons.declare(WEAPON_KEY, {
-  base = "mp5",
+  base = base.weapon,
   kind = "rifle",
   is_launcher = true,
   is_machine_gun = false,
@@ -548,7 +599,7 @@ trx.weapons.declare(WEAPON_KEY, {
   objects = {
     pickup = GUN_KEY,
     ammo = AMMO_KEY,
-    anim = "lara_mp5",
+    anim = base.anim,
     projectile = BALL_KEY,
   },
   meshes = {
@@ -591,15 +642,15 @@ trx.events.after_control(function()
       -- The gun only leaves the world by being taken, which is the moment
       -- it says its name.
       landed = nil
-      if trx.inventory:has_weapon(weapon_id) then
-        trx.inventory:set_shots(weapon_id, FUN_AMMO)
+      if trx.inventory.has_weapon(weapon_id) then
+        trx.inventory.set_shots(weapon_id, FUN_AMMO)
         trx.console.log(trx.locale.get("console/cmd/bignasty/got"))
       end
     else
       trx.fx.emit_light({
         pos = { x = landed.pos.x, y = landed.pos.y - 128, z = landed.pos.z },
         radius = 2048,
-        color = trx.math.color(GLOW_TINT.r, GLOW_TINT.g, GLOW_TINT.b),
+        color = GLOW_TINT,
       })
     end
   end
@@ -609,7 +660,7 @@ trx.events.after_control(function()
   trx.fx.emit_light({
     pos = { x = lara.pos.x, y = lara.pos.y - 384, z = lara.pos.z },
     radius = CARRY_LIGHT_RADIUS,
-    color = trx.math.color(GLOW_TINT.r, GLOW_TINT.g, GLOW_TINT.b),
+    color = GLOW_TINT,
   })
 end)
 
@@ -628,7 +679,7 @@ trx.console.register({
   help = "console/cmd/bignasty/help",
   run = function()
     local lara = trx.lara.item
-    if lara == nil or not trx.inventory:can_add(gun_item) then
+    if lara == nil or not trx.inventory.can_add(gun_item) then
       return trx.console.Result.FAILURE,
         trx.locale.get("console/cmd/bignasty/failure")
     end
@@ -640,12 +691,12 @@ trx.console.register({
     if not deliver(lara) then
       -- Nowhere above her to throw from, so the gun goes straight into the
       -- backpack rather than the cheat failing, and that is its taking.
-      trx.inventory:give(gun_item)
-      trx.inventory:set_shots(weapon_id, FUN_AMMO)
+      trx.inventory.give(gun_item)
+      trx.inventory.set_shots(weapon_id, FUN_AMMO)
       trx.console.log(trx.locale.get("console/cmd/bignasty/got"))
     end
     trx.sound.play(arrive_sample, { pos = lara.pos })
-    return trx.console.Result.SUCCESS,
-      trx.locale.get(SUCCESS_LINES[shown(#SUCCESS_LINES) + 1])
+    return trx.console.Result.OK,
+      trx.locale.get(trx.random.draw:choice(SUCCESS_LINES))
   end,
 })

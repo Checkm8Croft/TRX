@@ -32,6 +32,20 @@ void TRX_GL_Renderer_BindUiFbo(void);
 // source.
 GLuint TRX_GL_Renderer_GetGeometryFboId(void);
 
+// Starts drawing over the interface at the scene resolution, so that the
+// upscaling factor applies to what is drawn as it applies to the scene. Used
+// for models in a world of their own and for backdrops. Returns false, having
+// changed nothing, where the scene is not upscaled or the UI framebuffer is not
+// the one bound: drawing then goes where it is.
+bool TRX_GL_Renderer_BeginUiScenePass(void);
+
+// Stretches what was drawn since TRX_GL_Renderer_BeginUiScenePass onto the UI
+// framebuffer, over what is there, with the upscaling filter. Leaves the UI
+// framebuffer bound with its viewport and premultiplied blending on; the
+// program, vertex array, sampler and texture of unit 0 are the renderer's
+// own, and depth testing and culling are off.
+void TRX_GL_Renderer_EndUiScenePass(void);
+
 // Resize the framebuffers to the current viewport sizes. The renderer does
 // this itself once the frame has been presented; call it when the viewports
 // change between frames, so the next frame is not drawn into framebuffers of
@@ -43,6 +57,10 @@ void TRX_GL_Renderer_SyncFboSizes(void);
 // the memory carried before; whichever of them the driver presents next then
 // shows an older frame.
 void TRX_GL_Renderer_BlankWindow(void);
+
+// Makes each frame present black while it is set. The frame is still drawn
+// and put together in full, so the graphics card does the same work.
+void TRX_GL_Renderer_SetOutputBlank(bool is_blank);
 
 // Resolve the geometry framebuffer down to VIEWPORT_SCENE and return the GL
 // object id holding the result (3D scene only, no UI). Multisampling and

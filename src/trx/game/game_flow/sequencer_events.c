@@ -2,23 +2,29 @@
 
 #include <trx/config.h>
 #include <trx/core/log.h>
+#include <trx/core/memory.h>
 #include <trx/debug.h>
 #include <trx/game/const.h>
 #include <trx/game/fmv.h>
 #include <trx/game/game.h>
+#include <trx/game/game_flow/common.h>
 #include <trx/game/game_flow/sequencer.h>
 #include <trx/game/game_flow/util.h>
 #include <trx/game/game_flow/vars.h>
+#include <trx/game/gun.h>
 #include <trx/game/hub.h>
 #include <trx/game/lara.h>
+#include <trx/game/locale/common.h>
 #include <trx/game/lua.h>
+#include <trx/game/lua/hooks.h>
 #include <trx/game/music.h>
-#include <trx/game/option/passport.h>
 #include <trx/game/output.h>
 #include <trx/game/paths.h>
 #include <trx/game/phase.h>
+#include <trx/game/phase/phase_loading_camera.h>
 #include <trx/game/savegame.h>
 #include <trx/game/stats.h>
+#include <trx/game/waypoint.h>
 #include <trx/version.h>
 
 #define M_GF_HANDLER(name)                                                     \
@@ -45,6 +51,7 @@
     X(GFS_REMOVE_BINOCULARS, M_HandleInventoryModifier)                        \
     X(GFS_RESET_HUB,         M_HandleInventoryModifier)                        \
     X(GFS_LOADING_SCREEN,    M_HandlePicture)                                  \
+    X(GFS_LOADING_CAMERA,    M_HandleLoadingCamera)                            \
     X(GFS_DISPLAY_PICTURE,   M_HandlePicture)                                  \
     X(GFS_LEVEL_STATS,       M_HandleLevelStats)                               \
     X(GFS_TOTAL_STATS,       M_HandleTotalStats)                               \
@@ -61,6 +68,10 @@
 #define X(id, name) M_GF_HANDLER(name);
 X_EVENT_HANDLER_LIST
 #undef X
+
+static const GF_LOADING_CAMERA_DATA *m_PendingLoadingCamera = nullptr;
+static bool m_IsLevelEnding = false;
+static bool m_IsResumingLevelEnd = false;
 
 static GF_SEQUENCE_EVENT_HANDLER m_EventHandlers[GFS_NUMBER_OF] = {
 #define X(id, name) [id] = name,
@@ -82,6 +93,18 @@ static void M_FinishLevelBasic(void)
     if (resume != nullptr) {
         resume->flags.available = true;
         resume->level_completed = true;
+    }
+}
+
+// Hands what Lara carries on to the next level. A level resumed from a save
+// made as it ended was never played, and hands on what the save kept.
+static void M_StoreGameToNextLevel(
+    const GF_LEVEL *const current_level, const GF_LEVEL *const next_level)
+{
+    if (m_IsResumingLevelEnd) {
+        SG_Resume_CarryGameToEntry(current_level, next_level);
+    } else {
+        SG_Resume_StoreGameToEntry(next_level);
     }
 }
 
@@ -115,15 +138,23 @@ M_GF_HANDLER(M_HandleLevelComplete)
         *out_cmd = (GF_COMMAND) { .action = GF_NOOP };
         return OK;
     }
-    SG_Resume_StoreGameToEntry(next_level);
+    M_StoreGameToNextLevel(current_level, next_level);
     GF_InventoryModifier_ApplyHubReset(current_level, next_level);
+    if (GF_IsHubReset(current_level, next_level)) {
+        Waypoint_Reset();
+    }
     RESUME_INFO *const next_resume = SG_Resume_GetEntry(next_level);
     if (next_resume != nullptr) {
         next_resume->prev_level = current_level->num;
     }
-    if (next_level->type == GFL_BONUS && !Stats_CheckAllSecretsCollected()) {
-        *out_cmd = (GF_COMMAND) { .action = GF_EXIT_TO_TITLE };
-        return OK;
+    if (next_level->type == GFL_BONUS) {
+        const bool unlocked = Stats_CheckAllSecretsCollected();
+        if (!LUA_Hooks_CallBool(
+                LUA_HOOK_BONUS_CHECK, 0, unlocked, LUA_ARG_LEVEL(next_level),
+                LUA_ARG_BOOL(unlocked))) {
+            *out_cmd = (GF_COMMAND) { .action = GF_EXIT_TO_TITLE };
+            return OK;
+        }
     }
     *out_cmd = (GF_COMMAND) {
         .action = GF_START_GAME,
@@ -177,17 +208,16 @@ M_GF_HANDLER(M_HandlePlayLevel)
             if (resume != nullptr && resume->burning) {
                 Lara_CatchFire();
             }
+            if (resume != nullptr && resume->flare_age > 0) {
+                Gun_Flare_Hold(resume->flare_age);
+            }
+        }
+        if (Lara_GetItem() != nullptr) {
+            Gun_EnsureReady();
         }
         break;
     }
     GF_DisableObjectsIfNeeded();
-
-    const SAVE_CRYSTAL_MODE crystal_mode = g_Config.gameplay.save_crystal_mode;
-    g_Passport.ask_for_save = (crystal_mode == SAVE_CRYSTAL_SAVE
-                               || crystal_mode == SAVE_CRYSTAL_SAVE_PICKUP)
-        && seq_ctx == GFSC_NORMAL
-        && GF_GetLevelTableType(level->type) == GFLT_MAIN
-        && level != GF_GetFirstLevel() && level != GF_GetGymLevel();
 
     ASSERT(GF_GetCurrentLevel() == level);
     if (level->type == GFL_DEMO) {
@@ -253,7 +283,10 @@ M_GF_HANDLER(M_HandlePlayFMV)
         *out_cmd = gf_cmd;
         return OK;
     }
-    SHOULD(FMV_Play(fmv->path));
+    char *path = Locale_ResolvePath(
+        LOCALE_ROLE_AUDIO, GAME_DYNAMIC_PATH_FMV_FILE, &fmv->localized_path);
+    SHOULD(FMV_Play(path));
+    Memory_FreePointer(&path);
     *out_cmd = gf_cmd;
     return OK;
 }
@@ -315,7 +348,6 @@ M_GF_HANDLER(M_HandlePicture)
         .display_time = data->display_time,
         .fade_in_time = data->fade_in_time,
         .fade_out_time = data->fade_out_time,
-        .display_time_includes_fades = g_TRVersion >= 2,
         .loading_pic = event->type == GFS_LOADING_SCREEN,
         .block_cross_fade_in = is_after_fmv,
     });
@@ -323,6 +355,115 @@ M_GF_HANDLER(M_HandlePicture)
     Phase_Picture_Destroy(phase);
     *out_cmd = gf_cmd;
     return OK;
+}
+
+static bool M_AreLoadingScreensWanted(const GF_SEQUENCE_CONTEXT seq_ctx)
+{
+    if (g_Config.gameplay.loading_screens == LOADING_SCREENS_DISABLED
+        || seq_ctx == GFSC_STORY) {
+        return false;
+    }
+    return g_Config.gameplay.loading_screens != LOADING_SCREENS_NEW_GAMES
+        || seq_ctx == GFSC_NORMAL || seq_ctx == GFSC_SELECT;
+}
+
+static void M_ShowLoadingCamera(const GF_LOADING_CAMERA_DATA *const data)
+{
+    const GF_COMMAND stashed_cmd = GF_GetOverrideCommand();
+    const bool stashed_immediate = GF_IsOverrideImmediate();
+    GF_OverrideCommand((GF_COMMAND) { .action = GF_NOOP }, true);
+
+    // Pauses rather than stops the music, because a saved game has already
+    // restored its music by the time the camera shows.
+    Music_Pause();
+    PHASE *const phase =
+        Phase_LoadingCamera_Create((PHASE_LOADING_CAMERA_ARGS) {
+            .source = data->source,
+            .target = data->target,
+            .room_num = data->room_num,
+            .display_time = data->display_time,
+            .fade_in_time = data->fade_in_time,
+            .fade_out_time = data->fade_out_time,
+        });
+    const GF_COMMAND gf_cmd = PhaseExecutor_Run(phase);
+    Phase_LoadingCamera_Destroy(phase);
+    Music_Unpause();
+
+    // A command raised during the camera, such as a console command, is about
+    // what the player just did and wins over the stashed one. The executor
+    // consumes the override when it returns one, so it is reposted here.
+    if (gf_cmd.action != GF_NOOP) {
+        GF_OverrideCommand(gf_cmd, true);
+    } else if (GF_GetOverrideCommand().action == GF_NOOP) {
+        GF_OverrideCommand(stashed_cmd, stashed_immediate);
+    }
+}
+
+static void M_SetupSkyLayer(const GF_SETUP_HORIZON_DATA *const data)
+{
+    Output_Sky_SetLayer(data->layer, data->color, data->speed);
+    Output_Sky_SetColorAdd(data->color_add);
+    Output_Sky_SetFogGradient(data->fog_gradient);
+}
+
+M_GF_HANDLER(M_HandleLoadingCamera)
+{
+    *out_cmd = (GF_COMMAND) { .action = GF_NOOP };
+    m_PendingLoadingCamera = nullptr;
+    if (level == GF_GetTitleLevel() || !M_AreLoadingScreensWanted(seq_ctx)) {
+        return OK;
+    }
+    m_PendingLoadingCamera =
+        (const GF_LOADING_CAMERA_DATA *)sequence->events[event_idx].data;
+    return OK;
+}
+
+static bool M_LeadsToLevel(
+    const GF_SEQUENCE *const sequence, const int32_t event_idx)
+{
+    for (int32_t i = event_idx + 1; i < sequence->length; i++) {
+        const GF_SEQUENCE_EVENT_TYPE type = sequence->events[i].type;
+        if (type == GFS_LEVEL_COMPLETE || type == GFS_GLOBE_SELECT) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void GF_ShowPendingLoadingCamera(void)
+{
+    const GF_LOADING_CAMERA_DATA *const data = m_PendingLoadingCamera;
+    m_PendingLoadingCamera = nullptr;
+    if (data != nullptr) {
+        M_ShowLoadingCamera(data);
+    }
+}
+
+void GF_SetupTitleSequences(const GF_LEVEL *const level)
+{
+    const GF_SEQUENCE *const sequence = &level->sequence;
+    for (int32_t i = 0; i < sequence->length; i++) {
+        const GF_SEQUENCE_EVENT *const event = &sequence->events[i];
+        if (event->type == GFS_SETUP_HORIZON) {
+            const GF_SETUP_HORIZON_DATA *const data = event->data;
+            M_SetupSkyLayer(data);
+        }
+    }
+}
+
+void GF_ShowTitleLoadingCamera(const GF_LEVEL *const level)
+{
+    if (!M_AreLoadingScreensWanted(GFSC_NORMAL)) {
+        return;
+    }
+    const GF_SEQUENCE *const sequence = &level->sequence;
+    for (int32_t i = 0; i < sequence->length; i++) {
+        if (sequence->events[i].type == GFS_LOADING_CAMERA) {
+            M_ShowLoadingCamera(
+                (const GF_LOADING_CAMERA_DATA *)sequence->events[i].data);
+            return;
+        }
+    }
 }
 
 M_GF_HANDLER(M_HandleInventoryModifier)
@@ -340,15 +481,19 @@ M_GF_HANDLER(M_HandleLevelStats)
         return OK;
     }
 
+    const bool offers_save = M_LeadsToLevel(sequence, event_idx)
+        && LUA_Hooks_CallBool(LUA_HOOK_SAVE_OFFER, 0, false,
+                              LUA_ARG_LEVEL(level));
+    m_IsLevelEnding = true;
     PHASE *const phase = Phase_Stats_Create((PHASE_STATS_ARGS) {
-        .background_type = Game_IsInGym() ? BK_TRANSPARENT_MEDIUM
-                                          : g_Config.ui.stats_background_style,
         .level_num = -1,
         .show_final_stats = false,
         .use_bare_style = g_Config.ui.stats.style == STATS_STYLE_BARE,
+        .offers_save = offers_save,
     });
     gf_cmd = PhaseExecutor_Run(phase);
     Phase_Stats_Destroy(phase);
+    m_IsLevelEnding = false;
     *out_cmd = gf_cmd;
     return OK;
 }
@@ -366,7 +511,6 @@ M_GF_HANDLER(M_HandleTotalStats)
     }
     const GF_SEQUENCE_EVENT *const event = &sequence->events[event_idx];
     PHASE *const phase = Phase_Stats_Create((PHASE_STATS_ARGS) {
-        .background_type = BK_IMAGE,
         .background_path = event->data,
         .show_final_stats = true,
         .use_bare_style = false,
@@ -393,7 +537,7 @@ M_GF_HANDLER(M_HandleGlobeSelect)
         const GF_LEVEL *const current_level = Game_GetCurrentLevel();
         const GF_LEVEL *const next_level = GF_GetLevel(GFLT_MAIN, gf_cmd.param);
         if (next_level != nullptr) {
-            SG_Resume_StoreGameToEntry(next_level);
+            M_StoreGameToNextLevel(current_level, next_level);
             RESUME_INFO *const next_resume = SG_Resume_GetEntry(next_level);
             if (next_resume != nullptr) {
                 next_resume->prev_level =
@@ -431,9 +575,7 @@ M_GF_HANDLER(M_HandleSetupHorizon)
     if (seq_ctx != GFSC_STORY) {
         const GF_SEQUENCE_EVENT *const event = &sequence->events[event_idx];
         const GF_SETUP_HORIZON_DATA *const data = event->data;
-        Output_Sky_SetLayer(data->layer, data->color, data->speed);
-        Output_Sky_SetColorAdd(data->color_add);
-        Output_Sky_SetFogGradient(data->fog_gradient);
+        M_SetupSkyLayer(data);
     }
     *out_cmd = (GF_COMMAND) { .action = GF_NOOP };
     return OK;
@@ -485,6 +627,16 @@ M_GF_HANDLER(M_HandleDisableFloor)
     }
     *out_cmd = gf_cmd;
     return OK;
+}
+
+bool GF_IsLevelEnding(void)
+{
+    return m_IsLevelEnding;
+}
+
+void GF_SetResumingLevelEnd(const bool resuming)
+{
+    m_IsResumingLevelEnd = resuming;
 }
 
 GF_SEQUENCE_EVENT_HANDLER GF_GetSequenceEventHandler(

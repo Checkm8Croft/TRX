@@ -100,15 +100,19 @@ If you install everything correctly, your game directory should look more or les
 │   │   ├── meshes_tr3.glsl
 │   │   ├── meshes_tr4.glsl
 │   │   ├── meshes_tr12.glsl
-│   │   └── ui.glsl
+│   │   ├── ui.glsl
+│   │   └── vertex_id.glsl
 │   ├── base_strings-de.json5
 │   ├── base_strings-en-gb.json5
+│   ├── base_strings-es.json5
 │   ├── base_strings-fr.json5
 │   ├── base_strings-gd.json5
 │   ├── base_strings-it.json5
 │   ├── base_strings-pl.json5
 │   ├── base_strings-ru.json5
+│   ├── base_strings-uk.json5
 │   ├── base_strings.json5
+│   ├── object_combos.json5
 │   ├── object_families.json5
 │   ├── object_links.json5
 │   ├── outfits.json5
@@ -133,6 +137,25 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── snow.rpl
 │   │   │   └── vision.rpl
 │   │   ├── images
+│   │   │   ├── og
+│   │   │   │   ├── pc
+│   │   │   │   │   ├── credits_1.webp
+│   │   │   │   │   ├── credits_2.webp
+│   │   │   │   │   ├── credits_3.webp
+│   │   │   │   │   ├── eidos.webp
+│   │   │   │   │   ├── end.webp
+│   │   │   │   │   ├── install.webp
+│   │   │   │   │   └── title.webp
+│   │   │   │   └── ps1
+│   │   │   │       ├── atlantis.webp
+│   │   │   │       ├── credits_ps1.webp
+│   │   │   │       ├── egypt.webp
+│   │   │   │       ├── eidos.webp
+│   │   │   │       ├── end.webp
+│   │   │   │       ├── greece.webp
+│   │   │   │       ├── gym.webp
+│   │   │   │       ├── peru.webp
+│   │   │   │       └── title.webp
 │   │   │   ├── atlantis.webp
 │   │   │   ├── credits_1.webp
 │   │   │   ├── credits_2.webp
@@ -153,6 +176,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── atlantis_door_sfx.bin
 │   │   │   ├── atlantis_fd.bin
 │   │   │   ├── atlantis_itemrots.bin
+│   │   │   ├── atlantis_ps1_blend.bin
 │   │   │   ├── atlantis_textures.bin
 │   │   │   ├── binoculars.bin
 │   │   │   ├── bubbles.bin
@@ -168,18 +192,24 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── cistern_fd.bin
 │   │   │   ├── cistern_itemrots.bin
 │   │   │   ├── cistern_plants.bin
+│   │   │   ├── cistern_ps1_blend.bin
 │   │   │   ├── cistern_skybox.bin
 │   │   │   ├── cistern_textures.bin
 │   │   │   ├── colosseum_fd.bin
 │   │   │   ├── colosseum_itemrots.bin
+│   │   │   ├── colosseum_ps1_blend.bin
 │   │   │   ├── colosseum_skybox.bin
 │   │   │   ├── colosseum_textures.bin
+│   │   │   ├── controls_models.bin
 │   │   │   ├── crystal.bin
+│   │   │   ├── cut1_ps1_blend.bin
 │   │   │   ├── cut1_setup.bin
 │   │   │   ├── cut1_textures.bin
 │   │   │   ├── cut2_setup.bin
+│   │   │   ├── cut3_ps1_blend.bin
 │   │   │   ├── cut3_setup.bin
 │   │   │   ├── cut3_textures.bin
+│   │   │   ├── cut4_ps1_blend.bin
 │   │   │   ├── cut4_setup.bin
 │   │   │   ├── cut4_textures.bin
 │   │   │   ├── door58_frames.bin
@@ -197,19 +227,23 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── folly_fd.bin
 │   │   │   ├── folly_itemrots.bin
 │   │   │   ├── folly_pickup_meshes.bin
+│   │   │   ├── folly_ps1_blend.bin
 │   │   │   ├── folly_textures.bin
 │   │   │   ├── font.bin
 │   │   │   ├── gun_glow.bin
+│   │   │   ├── gym_ps1_blend.bin
 │   │   │   ├── gym_textures.bin
 │   │   │   ├── hive_crystals.bin
 │   │   │   ├── hive_fd.bin
 │   │   │   ├── hive_itemrots.bin
 │   │   │   ├── hive_textures.bin
 │   │   │   ├── inv_background.bin
+│   │   │   ├── item_sprites.bin
 │   │   │   ├── khamoon_fd.bin
 │   │   │   ├── khamoon_itemrots.bin
 │   │   │   ├── khamoon_meshfixes.bin
 │   │   │   ├── khamoon_mummy.bin
+│   │   │   ├── khamoon_ps1_blend.bin
 │   │   │   ├── khamoon_textures.bin
 │   │   │   ├── lara_animations.bin
 │   │   │   ├── lara_extra.bin
@@ -218,18 +252,21 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── lara_gym_guns.bin
 │   │   │   ├── lara_outfits.bin
 │   │   │   ├── midas_itemrots.bin
+│   │   │   ├── midas_ps1_blend.bin
 │   │   │   ├── midas_textures.bin
 │   │   │   ├── mines_cameras.bin
 │   │   │   ├── mines_door_sfx.bin
 │   │   │   ├── mines_fd.bin
 │   │   │   ├── mines_itemrots.bin
 │   │   │   ├── mines_meshfixes.bin
+│   │   │   ├── mines_ps1_blend.bin
 │   │   │   ├── mines_pushblocks.bin
 │   │   │   ├── mines_textures.bin
 │   │   │   ├── misc_sprites.bin
 │   │   │   ├── obelisk_fd.bin
 │   │   │   ├── obelisk_itemrots.bin
 │   │   │   ├── obelisk_meshfixes.bin
+│   │   │   ├── obelisk_ps1_blend.bin
 │   │   │   ├── obelisk_skybox.bin
 │   │   │   ├── obelisk_textures.bin
 │   │   │   ├── panther_sfx.bin
@@ -238,14 +275,17 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── pickup_aid.bin
 │   │   │   ├── pyramid_fd.bin
 │   │   │   ├── pyramid_itemrots.bin
+│   │   │   ├── pyramid_ps1_blend.bin
 │   │   │   ├── pyramid_textures.bin
 │   │   │   ├── qualopec_door_sfx.bin
 │   │   │   ├── qualopec_fd.bin
 │   │   │   ├── qualopec_itemrots.bin
+│   │   │   ├── qualopec_ps1_blend.bin
 │   │   │   ├── qualopec_textures.bin
 │   │   │   ├── sanctuary_fd.bin
 │   │   │   ├── sanctuary_itemrots.bin
 │   │   │   ├── sanctuary_meshfixes.bin
+│   │   │   ├── sanctuary_ps1_blend.bin
 │   │   │   ├── sanctuary_scion.bin
 │   │   │   ├── sanctuary_textures.bin
 │   │   │   ├── scion_alignment.bin
@@ -260,6 +300,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── stronghold_textures.bin
 │   │   │   ├── tihocan_fd.bin
 │   │   │   ├── tihocan_itemrots.bin
+│   │   │   ├── tihocan_ps1_blend.bin
 │   │   │   ├── tihocan_skybox.bin
 │   │   │   ├── tihocan_textures.bin
 │   │   │   ├── title_textures.bin
@@ -267,10 +308,12 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── uzi_sfx.bin
 │   │   │   ├── valley_fd.bin
 │   │   │   ├── valley_itemrots.bin
+│   │   │   ├── valley_ps1_blend.bin
 │   │   │   ├── valley_skybox.bin
 │   │   │   ├── valley_textures.bin
 │   │   │   ├── vilcabamba_door_sfx.bin
 │   │   │   ├── vilcabamba_itemrots.bin
+│   │   │   ├── vilcabamba_ps1_blend.bin
 │   │   │   ├── vilcabamba_textures.bin
 │   │   │   ├── wall_switch_sfx.bin
 │   │   │   └── winston_model.bin
@@ -372,33 +415,43 @@ If you install everything correctly, your game directory should look more or les
 │   │   ├── inv_ring.json5
 │   │   ├── strings-de.json5
 │   │   ├── strings-en-gb.json5
+│   │   ├── strings-es.json5
 │   │   ├── strings-fr.json5
 │   │   ├── strings-gd.json5
 │   │   ├── strings-it.json5
 │   │   ├── strings-pl.json5
 │   │   ├── strings-ru.json5
+│   │   ├── strings-uk.json5
 │   │   ├── strings.json5
 │   │   └── weapons.json5
 │   ├── tr1-demo-pc
 │   │   ├── gameflow.json5
 │   │   ├── strings-de.json5
+│   │   ├── strings-es.json5
 │   │   ├── strings-fr.json5
 │   │   ├── strings-gd.json5
 │   │   ├── strings-it.json5
 │   │   ├── strings-pl.json5
 │   │   ├── strings-ru.json5
+│   │   ├── strings-uk.json5
 │   │   └── strings.json5
 │   ├── tr1-level
 │   │   ├── gameflow.json5
 │   │   ├── strings-de.json5
+│   │   ├── strings-es.json5
 │   │   ├── strings-fr.json5
 │   │   ├── strings-gd.json5
 │   │   ├── strings-it.json5
 │   │   ├── strings-pl.json5
 │   │   ├── strings-ru.json5
+│   │   ├── strings-uk.json5
 │   │   └── strings.json5
 │   ├── tr1-ub
 │   │   ├── images
+│   │   │   ├── og
+│   │   │   │   └── pc
+│   │   │   │       ├── credits_ub.webp
+│   │   │   │       └── title_ub.webp
 │   │   │   ├── credits_ub.webp
 │   │   │   ├── title_ub.webp
 │   │   │   ├── ub_loading1.webp
@@ -412,11 +465,13 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   └── _game.lua
 │   │   ├── gameflow.json5
 │   │   ├── strings-de.json5
+│   │   ├── strings-es.json5
 │   │   ├── strings-fr.json5
 │   │   ├── strings-gd.json5
 │   │   ├── strings-it.json5
 │   │   ├── strings-pl.json5
 │   │   ├── strings-ru.json5
+│   │   ├── strings-uk.json5
 │   │   └── strings.json5
 │   ├── tr2
 │   │   ├── fmv
@@ -470,24 +525,25 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   │   ├── title_us.webp
 │   │   │   │   └── venice.webp
 │   │   │   ├── og
-│   │   │   │   ├── china.webp
-│   │   │   │   ├── credit01.webp
-│   │   │   │   ├── credit02.webp
-│   │   │   │   ├── credit03.webp
-│   │   │   │   ├── credit04.webp
-│   │   │   │   ├── credit05.webp
-│   │   │   │   ├── credit06.webp
-│   │   │   │   ├── credit07.webp
-│   │   │   │   ├── credit08.webp
-│   │   │   │   ├── end.webp
-│   │   │   │   ├── legal.webp
-│   │   │   │   ├── mansion.webp
-│   │   │   │   ├── rig.webp
-│   │   │   │   ├── tibet.webp
-│   │   │   │   ├── titan.webp
-│   │   │   │   ├── title_eu.webp
-│   │   │   │   ├── title_us.webp
-│   │   │   │   └── venice.webp
+│   │   │   │   └── pc
+│   │   │   │       ├── china.webp
+│   │   │   │       ├── credit01.webp
+│   │   │   │       ├── credit02.webp
+│   │   │   │       ├── credit03.webp
+│   │   │   │       ├── credit04.webp
+│   │   │   │       ├── credit05.webp
+│   │   │   │       ├── credit06.webp
+│   │   │   │       ├── credit07.webp
+│   │   │   │       ├── credit08.webp
+│   │   │   │       ├── end.webp
+│   │   │   │       ├── legal.webp
+│   │   │   │       ├── mansion.webp
+│   │   │   │       ├── rig.webp
+│   │   │   │       ├── tibet.webp
+│   │   │   │       ├── titan.webp
+│   │   │   │       ├── title_eu.webp
+│   │   │   │       ├── title_us.webp
+│   │   │   │       └── venice.webp
 │   │   │   ├── china.webp
 │   │   │   ├── credit01.webp
 │   │   │   ├── credit02.webp
@@ -514,10 +570,12 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── barkhang_itemrots.bin
 │   │   │   ├── barkhang_music_tracks.bin
 │   │   │   ├── barkhang_pickup_meshes.bin
+│   │   │   ├── barkhang_ps1_blend.bin
 │   │   │   ├── barkhang_sfx.bin
 │   │   │   ├── barkhang_textures.bin
 │   │   │   ├── bartoli_crystals.bin
 │   │   │   ├── bartoli_music_tracks.bin
+│   │   │   ├── bartoli_ps1_blend.bin
 │   │   │   ├── bartoli_secret_fd.bin
 │   │   │   ├── bartoli_textures.bin
 │   │   │   ├── binoculars.bin
@@ -528,6 +586,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── catacombs_fd.bin
 │   │   │   ├── catacombs_itemrots.bin
 │   │   │   ├── catacombs_music_tracks.bin
+│   │   │   ├── catacombs_ps1_blend.bin
 │   │   │   ├── catacombs_textures.bin
 │   │   │   ├── coldwar_crystals.bin
 │   │   │   ├── coldwar_fd.bin
@@ -537,9 +596,12 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── coldwar_textures.bin
 │   │   │   ├── common_pickup_meshes.bin
 │   │   │   ├── common_pickup_meshes_gm.bin
+│   │   │   ├── controls_models.bin
 │   │   │   ├── crystal.bin
 │   │   │   ├── cut2_setup.bin
 │   │   │   ├── cut2_textures.bin
+│   │   │   ├── cut3_gunflash.bin
+│   │   │   ├── cut3_ps1_blend.bin
 │   │   │   ├── cut3_setup.bin
 │   │   │   ├── cut3_textures.bin
 │   │   │   ├── cut4_setup.bin
@@ -552,6 +614,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── deck_music_tracks.bin
 │   │   │   ├── deck_pickup_meshes.bin
 │   │   │   ├── deck_plants.bin
+│   │   │   ├── deck_ps1_blend.bin
 │   │   │   ├── deck_secret_fd.bin
 │   │   │   ├── deck_textures.bin
 │   │   │   ├── detonator_lights.bin
@@ -560,6 +623,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── diving_itemrots.bin
 │   │   │   ├── diving_music_tracks.bin
 │   │   │   ├── diving_pickup_meshes.bin
+│   │   │   ├── diving_ps1_blend.bin
 │   │   │   ├── diving_sfx.bin
 │   │   │   ├── diving_textures.bin
 │   │   │   ├── door106_sfx.bin
@@ -573,13 +637,16 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── fathoms_itemrots.bin
 │   │   │   ├── fathoms_music_tracks.bin
 │   │   │   ├── fathoms_plants.bin
+│   │   │   ├── fathoms_ps1_blend.bin
 │   │   │   ├── fathoms_secret_fd.bin
 │   │   │   ├── fathoms_textures.bin
 │   │   │   ├── floating_crystals.bin
 │   │   │   ├── floating_fd.bin
+│   │   │   ├── floating_item_sprites.bin
 │   │   │   ├── floating_itemrots.bin
 │   │   │   ├── floating_music_tracks.bin
 │   │   │   ├── floating_pickup_meshes.bin
+│   │   │   ├── floating_ps1_blend.bin
 │   │   │   ├── floating_textures.bin
 │   │   │   ├── font.bin
 │   │   │   ├── fools_crystals.bin
@@ -596,10 +663,12 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── guardian_death_commands.bin
 │   │   │   ├── gym_fd.bin
 │   │   │   ├── gym_music_tracks.bin
+│   │   │   ├── gym_ps1_blend.bin
 │   │   │   ├── gym_sfx.bin
 │   │   │   ├── gym_textures.bin
 │   │   │   ├── house_itemrots.bin
 │   │   │   ├── house_music_tracks.bin
+│   │   │   ├── house_ps1_blend.bin
 │   │   │   ├── house_sfx.bin
 │   │   │   ├── house_shower_frames.bin
 │   │   │   ├── house_textures.bin
@@ -611,7 +680,9 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── kingdom_textures.bin
 │   │   │   ├── lair_bartolipos.bin
 │   │   │   ├── lair_crystals.bin
+│   │   │   ├── lair_item_sprites.bin
 │   │   │   ├── lair_music_tracks.bin
+│   │   │   ├── lair_ps1_blend.bin
 │   │   │   ├── lair_textures.bin
 │   │   │   ├── lara_animations.bin
 │   │   │   ├── lara_extra.bin
@@ -627,6 +698,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── living_itemrots.bin
 │   │   │   ├── living_music_tracks.bin
 │   │   │   ├── living_pickup_meshes.bin
+│   │   │   ├── living_ps1_blend.bin
 │   │   │   ├── living_secret_fd.bin
 │   │   │   ├── living_sfx.bin
 │   │   │   ├── living_textures.bin
@@ -636,12 +708,14 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── opera_fd.bin
 │   │   │   ├── opera_itemrots.bin
 │   │   │   ├── opera_music_tracks.bin
+│   │   │   ├── opera_ps1_blend.bin
 │   │   │   ├── opera_sfx.bin
 │   │   │   ├── opera_textures.bin
 │   │   │   ├── palace_crystals.bin
 │   │   │   ├── palace_fd.bin
 │   │   │   ├── palace_itemrots.bin
 │   │   │   ├── palace_music_tracks.bin
+│   │   │   ├── palace_ps1_blend.bin
 │   │   │   ├── palace_secret_fd.bin
 │   │   │   ├── palace_textures.bin
 │   │   │   ├── pda_model.bin
@@ -652,6 +726,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── rig_itemrots.bin
 │   │   │   ├── rig_music_tracks.bin
 │   │   │   ├── rig_pickup_meshes.bin
+│   │   │   ├── rig_ps1_blend.bin
 │   │   │   ├── rig_textures.bin
 │   │   │   ├── scuba_sfx.bin
 │   │   │   ├── seaweed_collision.bin
@@ -663,7 +738,9 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── tibet_fd.bin
 │   │   │   ├── tibet_itemrots.bin
 │   │   │   ├── tibet_music_tracks.bin
+│   │   │   ├── tibet_ps1_blend.bin
 │   │   │   ├── tibet_textures.bin
+│   │   │   ├── title_ps1_blend.bin
 │   │   │   ├── title_textures.bin
 │   │   │   ├── vegas_crystals.bin
 │   │   │   ├── vegas_fd.bin
@@ -674,11 +751,13 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── venice_fd.bin
 │   │   │   ├── venice_itemrots.bin
 │   │   │   ├── venice_music_tracks.bin
+│   │   │   ├── venice_ps1_blend.bin
 │   │   │   ├── venice_textures.bin
 │   │   │   ├── wall_cameras.bin
 │   │   │   ├── wall_crystals.bin
 │   │   │   ├── wall_itemrots.bin
 │   │   │   ├── wall_music_tracks.bin
+│   │   │   ├── wall_ps1_blend.bin
 │   │   │   ├── wall_switch_sfx.bin
 │   │   │   ├── wall_textures.bin
 │   │   │   ├── winston_model.bin
@@ -690,6 +769,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── wreck_music_tracks.bin
 │   │   │   ├── wreck_pickup_meshes.bin
 │   │   │   ├── wreck_plants.bin
+│   │   │   ├── wreck_ps1_blend.bin
 │   │   │   ├── wreck_secret_fd.bin
 │   │   │   ├── wreck_textures.bin
 │   │   │   ├── xian_crystals.bin
@@ -697,6 +777,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── xian_itemrots.bin
 │   │   │   ├── xian_music_tracks.bin
 │   │   │   ├── xian_pickup_meshes.bin
+│   │   │   ├── xian_ps1_blend.bin
 │   │   │   ├── xian_sfx.bin
 │   │   │   └── xian_textures.bin
 │   │   ├── levels
@@ -803,10 +884,13 @@ If you install everything correctly, your game directory should look more or les
 │   │   ├── main.sfx
 │   │   ├── strings-de.json5
 │   │   ├── strings-en-gb.json5
+│   │   ├── strings-es.json5
 │   │   ├── strings-fr.json5
 │   │   ├── strings-gd.json5
 │   │   ├── strings-it.json5
 │   │   ├── strings-pl.json5
+│   │   ├── strings-ru.json5
+│   │   ├── strings-uk.json5
 │   │   ├── strings.json5
 │   │   └── weapons.json5
 │   ├── tr2-gm
@@ -836,10 +920,11 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   │   ├── title_eu_gm.webp
 │   │   │   │   └── title_us_gm.webp
 │   │   │   ├── og
-│   │   │   │   ├── credit00_gm.webp
-│   │   │   │   ├── credit07_gm.webp
-│   │   │   │   ├── title_eu_gm.webp
-│   │   │   │   └── title_us_gm.webp
+│   │   │   │   └── pc
+│   │   │   │       ├── credit00_gm.webp
+│   │   │   │       ├── credit07_gm.webp
+│   │   │   │       ├── title_eu_gm.webp
+│   │   │   │       └── title_us_gm.webp
 │   │   │   ├── credit00_gm.webp
 │   │   │   ├── credit07_gm.webp
 │   │   │   ├── gm_level1.webp
@@ -866,18 +951,24 @@ If you install everything correctly, your game directory should look more or les
 │   │   ├── gameflow.json5
 │   │   ├── main.sfx
 │   │   ├── strings-de.json5
+│   │   ├── strings-es.json5
 │   │   ├── strings-fr.json5
 │   │   ├── strings-gd.json5
 │   │   ├── strings-it.json5
 │   │   ├── strings-pl.json5
+│   │   ├── strings-ru.json5
+│   │   ├── strings-uk.json5
 │   │   └── strings.json5
 │   ├── tr2-level
 │   │   ├── gameflow.json5
 │   │   ├── strings-de.json5
+│   │   ├── strings-es.json5
 │   │   ├── strings-fr.json5
 │   │   ├── strings-gd.json5
 │   │   ├── strings-it.json5
 │   │   ├── strings-pl.json5
+│   │   ├── strings-ru.json5
+│   │   ├── strings-uk.json5
 │   │   └── strings.json5
 │   ├── tr3
 │   │   ├── audio
@@ -946,27 +1037,28 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   │   ├── title_eu.webp
 │   │   │   │   └── title_us.webp
 │   │   │   ├── og
-│   │   │   │   ├── antarc.webp
-│   │   │   │   ├── credit01.webp
-│   │   │   │   ├── credit02.webp
-│   │   │   │   ├── credit03.webp
-│   │   │   │   ├── credit04.webp
-│   │   │   │   ├── credit05.webp
-│   │   │   │   ├── credit06.webp
-│   │   │   │   ├── credit07.webp
-│   │   │   │   ├── credit08.webp
-│   │   │   │   ├── credit09.webp
-│   │   │   │   ├── house.webp
-│   │   │   │   ├── india.webp
-│   │   │   │   ├── legal_eu.webp
-│   │   │   │   ├── legal_us.webp
-│   │   │   │   ├── london.webp
-│   │   │   │   ├── nevada.webp
-│   │   │   │   ├── southpac.webp
-│   │   │   │   ├── theend2.webp
-│   │   │   │   ├── theend.webp
-│   │   │   │   ├── title_eu.webp
-│   │   │   │   └── title_us.webp
+│   │   │   │   └── pc
+│   │   │   │       ├── antarc.webp
+│   │   │   │       ├── credit01.webp
+│   │   │   │       ├── credit02.webp
+│   │   │   │       ├── credit03.webp
+│   │   │   │       ├── credit04.webp
+│   │   │   │       ├── credit05.webp
+│   │   │   │       ├── credit06.webp
+│   │   │   │       ├── credit07.webp
+│   │   │   │       ├── credit08.webp
+│   │   │   │       ├── credit09.webp
+│   │   │   │       ├── house.webp
+│   │   │   │       ├── india.webp
+│   │   │   │       ├── legal_eu.webp
+│   │   │   │       ├── legal_us.webp
+│   │   │   │       ├── london.webp
+│   │   │   │       ├── nevada.webp
+│   │   │   │       ├── southpac.webp
+│   │   │   │       ├── theend2.webp
+│   │   │   │       ├── theend.webp
+│   │   │   │       ├── title_eu.webp
+│   │   │   │       └── title_us.webp
 │   │   │   ├── antarc.webp
 │   │   │   ├── credit01.webp
 │   │   │   ├── credit02.webp
@@ -991,6 +1083,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   ├── injections
 │   │   │   ├── alarm_sfx.bin
 │   │   │   ├── aldwych_animating_bounds.bin
+│   │   │   ├── aldwych_demo.bin
 │   │   │   ├── aldwych_fd.bin
 │   │   │   ├── aldwych_pickup_meshes.bin
 │   │   │   ├── aldwych_textures.bin
@@ -1030,6 +1123,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── compound_fd.bin
 │   │   │   ├── compound_patrol.bin
 │   │   │   ├── compound_textures.bin
+│   │   │   ├── controls_models.bin
 │   │   │   ├── crash_animating_bounds.bin
 │   │   │   ├── crash_pickup_meshes.bin
 │   │   │   ├── crash_sky.bin
@@ -1038,7 +1132,6 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── cut1_setup.bin
 │   │   │   ├── cut2_setup.bin
 │   │   │   ├── cut3_setup.bin
-│   │   │   ├── cut3_shell.bin
 │   │   │   ├── cut4_setup.bin
 │   │   │   ├── cut5_setup.bin
 │   │   │   ├── cut5_textures.bin
@@ -1053,6 +1146,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── flamethrower_sfx.bin
 │   │   │   ├── font.bin
 │   │   │   ├── ganges_animating_bounds.bin
+│   │   │   ├── ganges_demo.bin
 │   │   │   ├── ganges_door131_frames.bin
 │   │   │   ├── ganges_textures.bin
 │   │   │   ├── globe_model.bin
@@ -1084,6 +1178,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── mines_textures.bin
 │   │   │   ├── misc_sprites.bin
 │   │   │   ├── nevada_animating_bounds.bin
+│   │   │   ├── nevada_demo.bin
 │   │   │   ├── nevada_door132_frames.bin
 │   │   │   ├── nevada_sky.bin
 │   │   │   ├── nevada_textures.bin
@@ -1097,6 +1192,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── reunion_flames.bin
 │   │   │   ├── reunion_textures.bin
 │   │   │   ├── scotland_crystals.bin
+│   │   │   ├── scotland_fd.bin
 │   │   │   ├── scotland_sky.bin
 │   │   │   ├── scotland_textures.bin
 │   │   │   ├── sparks_gfx.bin
@@ -1162,6 +1258,7 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── city.lua
 │   │   │   ├── compound.lua
 │   │   │   ├── crash.lua
+│   │   │   ├── cut3.lua
 │   │   │   ├── cut8.lua
 │   │   │   ├── house.lua
 │   │   │   ├── jungle.lua
@@ -1187,10 +1284,13 @@ If you install everything correctly, your game directory should look more or les
 │   │   ├── inv_ring.json5
 │   │   ├── main.sfx
 │   │   ├── strings-de.json5
+│   │   ├── strings-es.json5
 │   │   ├── strings-fr.json5
 │   │   ├── strings-gd.json5
 │   │   ├── strings-it.json5
 │   │   ├── strings-pl.json5
+│   │   ├── strings-ru.json5
+│   │   ├── strings-uk.json5
 │   │   ├── strings.json5
 │   │   ├── tombpc.dat
 │   │   └── weapons.json5
@@ -1240,6 +1340,26 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   │   ├── undersea.webp
 │   │   │   │   ├── willard.webp
 │   │   │   │   └── zoo.webp
+│   │   │   ├── og
+│   │   │   │   └── pc
+│   │   │   │       ├── chunnel.webp
+│   │   │   │       ├── credit01_us_la.webp
+│   │   │   │       ├── credit02_la.webp
+│   │   │   │       ├── credit03_la.webp
+│   │   │   │       ├── credit04_la.webp
+│   │   │   │       ├── credit05_la.webp
+│   │   │   │       ├── credit06_la.webp
+│   │   │   │       ├── credit07_la.webp
+│   │   │   │       ├── credit08_la.webp
+│   │   │   │       ├── credit09_la.webp
+│   │   │   │       ├── highland.webp
+│   │   │   │       ├── legal_eu_la.webp
+│   │   │   │       ├── slinc.webp
+│   │   │   │       ├── theend_la.webp
+│   │   │   │       ├── title_eu_la.webp
+│   │   │   │       ├── undersea.webp
+│   │   │   │       ├── willard.webp
+│   │   │   │       └── zoo.webp
 │   │   │   ├── chunnel.webp
 │   │   │   ├── credit01_eu_la.webp
 │   │   │   ├── credit01_us_la.webp
@@ -1273,42 +1393,65 @@ If you install everything correctly, your game directory should look more or les
 │   │   ├── scripts
 │   │   │   ├── _game.lua
 │   │   │   ├── chunnel.lua
+│   │   │   ├── scotland.lua
 │   │   │   ├── slinc.lua
 │   │   │   ├── undersea.lua
 │   │   │   └── zoo.lua
 │   │   ├── gameflow.json5
 │   │   ├── main.sfx
 │   │   ├── strings-de.json5
+│   │   ├── strings-es.json5
 │   │   ├── strings-fr.json5
 │   │   ├── strings-gd.json5
 │   │   ├── strings-it.json5
 │   │   ├── strings-pl.json5
+│   │   ├── strings-ru.json5
+│   │   ├── strings-uk.json5
 │   │   └── strings.json5
 │   ├── tr3-level
 │   │   ├── gameflow.json5
+│   │   ├── strings-de.json5
+│   │   ├── strings-es.json5
 │   │   ├── strings-fr.json5
 │   │   ├── strings-gd.json5
 │   │   ├── strings-it.json5
 │   │   ├── strings-pl.json5
+│   │   ├── strings-ru.json5
+│   │   ├── strings-uk.json5
 │   │   └── strings.json5
 │   ├── tr4
 │   │   ├── injections
 │   │   │   ├── angkor_fd.bin
 │   │   │   ├── angkor_textures.bin
+│   │   │   ├── burial_animating_bounds.bin
+│   │   │   ├── burial_fd.bin
+│   │   │   ├── burial_textures.bin
+│   │   │   ├── controls_models.bin
 │   │   │   ├── font.bin
+│   │   │   ├── guide_gun.bin
+│   │   │   ├── henchman_jeep.bin
 │   │   │   ├── inventory_models.bin
 │   │   │   ├── karnak_fd.bin
+│   │   │   ├── kv5_textures.bin
 │   │   │   ├── lara_animations.bin
 │   │   │   ├── lara_outfits.bin
 │   │   │   ├── pickup_aid.bin
 │   │   │   ├── race_fd.bin
 │   │   │   ├── race_textures.bin
+│   │   │   ├── semerkhet_bolt.bin
+│   │   │   ├── seth_fd.bin
+│   │   │   ├── seth_textures.bin
 │   │   │   ├── shadow_sprite.bin
+│   │   │   ├── shell_casings.bin
 │   │   │   ├── sparks_gfx.bin
-│   │   │   └── title_textures.bin
+│   │   │   ├── title_textures.bin
+│   │   │   ├── valley_fd.bin
+│   │   │   └── valley_textures.bin
 │   │   ├── modules
 │   │   │   ├── cutscenes.lua
+│   │   │   ├── expanding_blocks.lua
 │   │   │   ├── fog.lua
+│   │   │   ├── inv_setup.lua
 │   │   │   ├── logo.lua
 │   │   │   └── race_timer.lua
 │   │   ├── scripts
@@ -1321,11 +1464,13 @@ If you install everything correctly, your game directory should look more or les
 │   │   │   ├── cortyard.lua
 │   │   │   ├── csplit1.lua
 │   │   │   ├── csplit2.lua
+│   │   │   ├── hall.lua
 │   │   │   ├── highstrt.lua
 │   │   │   ├── jeepchas.lua
 │   │   │   ├── jeepchs2.lua
 │   │   │   ├── joby1a.lua
 │   │   │   ├── joby2.lua
+│   │   │   ├── joby3a.lua
 │   │   │   ├── joby3b.lua
 │   │   │   ├── joby4a.lua
 │   │   │   ├── joby4b.lua
@@ -1357,28 +1502,128 @@ If you install everything correctly, your game directory should look more or les
 │   │   ├── gameflow.json5
 │   │   ├── inv_ring.json5
 │   │   ├── strings-de.json5
+│   │   ├── strings-es.json5
+│   │   ├── strings-fr.json5
+│   │   ├── strings-gd.json5
 │   │   ├── strings-it.json5
+│   │   ├── strings-pl.json5
+│   │   ├── strings-ru.json5
+│   │   ├── strings-uk.json5
 │   │   ├── strings.json5
 │   │   └── weapons.json5
 │   └── tr4-level
 │       ├── gameflow.json5
+│       ├── strings-de.json5
+│       ├── strings-es.json5
+│       ├── strings-fr.json5
+│       ├── strings-gd.json5
 │       ├── strings-it.json5
+│       ├── strings-pl.json5
+│       ├── strings-ru.json5
+│       ├── strings-uk.json5
 │       └── strings.json5
 ├── modules
-│   ├── overlay
-│   │   ├── init.lua
-│   │   └── photo_mode.lua
-│   ├── assault.lua
+│   ├── ui
+│   │   ├── flat_menu
+│   │   │   ├── arrows.lua
+│   │   │   ├── death.lua
+│   │   │   ├── init.lua
+│   │   │   ├── items.lua
+│   │   │   ├── list.lua
+│   │   │   ├── options.lua
+│   │   │   ├── pause.lua
+│   │   │   ├── saves.lua
+│   │   │   ├── sound.lua
+│   │   │   ├── stats.lua
+│   │   │   ├── strip.lua
+│   │   │   ├── text.lua
+│   │   │   └── title.lua
+│   │   ├── hud
+│   │   │   ├── overlay
+│   │   │   │   ├── ammo.lua
+│   │   │   │   ├── bars.lua
+│   │   │   │   ├── init.lua
+│   │   │   │   ├── photo_mode.lua
+│   │   │   │   ├── pickups.lua
+│   │   │   │   ├── place.lua
+│   │   │   │   ├── readouts.lua
+│   │   │   │   └── speedometer.lua
+│   │   │   ├── assault.lua
+│   │   │   └── legend.lua
+│   │   ├── ring
+│   │   │   ├── entries.lua
+│   │   │   ├── init.lua
+│   │   │   ├── motion.lua
+│   │   │   ├── screen.lua
+│   │   │   └── weapon.lua
+│   │   ├── screens
+│   │   │   ├── passport
+│   │   │   │   ├── book.lua
+│   │   │   │   ├── init.lua
+│   │   │   │   ├── pages.lua
+│   │   │   │   └── rows.lua
+│   │   │   ├── stats
+│   │   │   │   ├── box.lua
+│   │   │   │   ├── counts.lua
+│   │   │   │   ├── init.lua
+│   │   │   │   └── rows.lua
+│   │   │   ├── combine.lua
+│   │   │   ├── examine.lua
+│   │   │   ├── globe.lua
+│   │   │   ├── level_view.lua
+│   │   │   ├── pause.lua
+│   │   │   ├── picture.lua
+│   │   │   └── settings.lua
+│   │   ├── settings
+│   │   │   ├── color_editor.lua
+│   │   │   ├── controls.lua
+│   │   │   ├── dialog.lua
+│   │   │   ├── editor.lua
+│   │   │   ├── handlers.lua
+│   │   │   ├── preset_tab.lua
+│   │   │   ├── presets.lua
+│   │   │   ├── rows.lua
+│   │   │   └── tabs.lua
+│   │   ├── widgets
+│   │   │   ├── color.lua
+│   │   │   ├── hold_button.lua
+│   │   │   ├── loading_bar.lua
+│   │   │   ├── requester.lua
+│   │   │   ├── row_arrows.lua
+│   │   │   ├── tab_switch.lua
+│   │   │   ├── text_dialog.lua
+│   │   │   └── window.lua
+│   │   ├── accent.lua
+│   │   ├── ammo.lua
+│   │   ├── attachment.lua
+│   │   ├── captions.lua
+│   │   ├── compass.lua
+│   │   ├── controls_model.lua
+│   │   ├── delete_save.lua
+│   │   ├── fade.lua
+│   │   ├── level_start.lua
+│   │   ├── menu.lua
+│   │   ├── metrics.lua
+│   │   ├── ring_hints.lua
+│   │   ├── scroll.lua
+│   │   ├── title_page.lua
+│   │   └── value.lua
+│   ├── ammo_cycle.lua
 │   ├── inv_ring.lua
-│   ├── legend.lua
+│   ├── ngplus.lua
 │   ├── save_crystal.lua
+│   ├── secret_music.lua
+│   ├── timer.lua
 │   ├── water_color.lua
 │   └── weapons.lua
 ├── scripts
 │   ├── bignasty
 │   │   ├── bfg.bin
 │   │   └── init.lua
+│   ├── ammo_cycle.lua
 │   ├── inv_ring.lua
+│   ├── secret_music.lua
+│   ├── ui.lua
 │   └── weapons.lua
 └── TRX.exe</code></pre>
 </details>
@@ -1509,15 +1754,19 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   ├── meshes_tr3.glsl
     │   │   │   ├── meshes_tr4.glsl
     │   │   │   ├── meshes_tr12.glsl
-    │   │   │   └── ui.glsl
+    │   │   │   ├── ui.glsl
+    │   │   │   └── vertex_id.glsl
     │   │   ├── base_strings-de.json5
     │   │   ├── base_strings-en-gb.json5
+    │   │   ├── base_strings-es.json5
     │   │   ├── base_strings-fr.json5
     │   │   ├── base_strings-gd.json5
     │   │   ├── base_strings-it.json5
     │   │   ├── base_strings-pl.json5
     │   │   ├── base_strings-ru.json5
+    │   │   ├── base_strings-uk.json5
     │   │   ├── base_strings.json5
+    │   │   ├── object_combos.json5
     │   │   ├── object_families.json5
     │   │   ├── object_links.json5
     │   │   ├── outfits.json5
@@ -1542,6 +1791,25 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── snow.rpl
     │   │   │   │   └── vision.rpl
     │   │   │   ├── images
+    │   │   │   │   ├── og
+    │   │   │   │   │   ├── pc
+    │   │   │   │   │   │   ├── credits_1.webp
+    │   │   │   │   │   │   ├── credits_2.webp
+    │   │   │   │   │   │   ├── credits_3.webp
+    │   │   │   │   │   │   ├── eidos.webp
+    │   │   │   │   │   │   ├── end.webp
+    │   │   │   │   │   │   ├── install.webp
+    │   │   │   │   │   │   └── title.webp
+    │   │   │   │   │   └── ps1
+    │   │   │   │   │       ├── atlantis.webp
+    │   │   │   │   │       ├── credits_ps1.webp
+    │   │   │   │   │       ├── egypt.webp
+    │   │   │   │   │       ├── eidos.webp
+    │   │   │   │   │       ├── end.webp
+    │   │   │   │   │       ├── greece.webp
+    │   │   │   │   │       ├── gym.webp
+    │   │   │   │   │       ├── peru.webp
+    │   │   │   │   │       └── title.webp
     │   │   │   │   ├── atlantis.webp
     │   │   │   │   ├── credits_1.webp
     │   │   │   │   ├── credits_2.webp
@@ -1562,6 +1830,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── atlantis_door_sfx.bin
     │   │   │   │   ├── atlantis_fd.bin
     │   │   │   │   ├── atlantis_itemrots.bin
+    │   │   │   │   ├── atlantis_ps1_blend.bin
     │   │   │   │   ├── atlantis_textures.bin
     │   │   │   │   ├── binoculars.bin
     │   │   │   │   ├── bubbles.bin
@@ -1577,18 +1846,24 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── cistern_fd.bin
     │   │   │   │   ├── cistern_itemrots.bin
     │   │   │   │   ├── cistern_plants.bin
+    │   │   │   │   ├── cistern_ps1_blend.bin
     │   │   │   │   ├── cistern_skybox.bin
     │   │   │   │   ├── cistern_textures.bin
     │   │   │   │   ├── colosseum_fd.bin
     │   │   │   │   ├── colosseum_itemrots.bin
+    │   │   │   │   ├── colosseum_ps1_blend.bin
     │   │   │   │   ├── colosseum_skybox.bin
     │   │   │   │   ├── colosseum_textures.bin
+    │   │   │   │   ├── controls_models.bin
     │   │   │   │   ├── crystal.bin
+    │   │   │   │   ├── cut1_ps1_blend.bin
     │   │   │   │   ├── cut1_setup.bin
     │   │   │   │   ├── cut1_textures.bin
     │   │   │   │   ├── cut2_setup.bin
+    │   │   │   │   ├── cut3_ps1_blend.bin
     │   │   │   │   ├── cut3_setup.bin
     │   │   │   │   ├── cut3_textures.bin
+    │   │   │   │   ├── cut4_ps1_blend.bin
     │   │   │   │   ├── cut4_setup.bin
     │   │   │   │   ├── cut4_textures.bin
     │   │   │   │   ├── door58_frames.bin
@@ -1606,19 +1881,23 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── folly_fd.bin
     │   │   │   │   ├── folly_itemrots.bin
     │   │   │   │   ├── folly_pickup_meshes.bin
+    │   │   │   │   ├── folly_ps1_blend.bin
     │   │   │   │   ├── folly_textures.bin
     │   │   │   │   ├── font.bin
     │   │   │   │   ├── gun_glow.bin
+    │   │   │   │   ├── gym_ps1_blend.bin
     │   │   │   │   ├── gym_textures.bin
     │   │   │   │   ├── hive_crystals.bin
     │   │   │   │   ├── hive_fd.bin
     │   │   │   │   ├── hive_itemrots.bin
     │   │   │   │   ├── hive_textures.bin
     │   │   │   │   ├── inv_background.bin
+    │   │   │   │   ├── item_sprites.bin
     │   │   │   │   ├── khamoon_fd.bin
     │   │   │   │   ├── khamoon_itemrots.bin
     │   │   │   │   ├── khamoon_meshfixes.bin
     │   │   │   │   ├── khamoon_mummy.bin
+    │   │   │   │   ├── khamoon_ps1_blend.bin
     │   │   │   │   ├── khamoon_textures.bin
     │   │   │   │   ├── lara_animations.bin
     │   │   │   │   ├── lara_extra.bin
@@ -1627,18 +1906,21 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── lara_gym_guns.bin
     │   │   │   │   ├── lara_outfits.bin
     │   │   │   │   ├── midas_itemrots.bin
+    │   │   │   │   ├── midas_ps1_blend.bin
     │   │   │   │   ├── midas_textures.bin
     │   │   │   │   ├── mines_cameras.bin
     │   │   │   │   ├── mines_door_sfx.bin
     │   │   │   │   ├── mines_fd.bin
     │   │   │   │   ├── mines_itemrots.bin
     │   │   │   │   ├── mines_meshfixes.bin
+    │   │   │   │   ├── mines_ps1_blend.bin
     │   │   │   │   ├── mines_pushblocks.bin
     │   │   │   │   ├── mines_textures.bin
     │   │   │   │   ├── misc_sprites.bin
     │   │   │   │   ├── obelisk_fd.bin
     │   │   │   │   ├── obelisk_itemrots.bin
     │   │   │   │   ├── obelisk_meshfixes.bin
+    │   │   │   │   ├── obelisk_ps1_blend.bin
     │   │   │   │   ├── obelisk_skybox.bin
     │   │   │   │   ├── obelisk_textures.bin
     │   │   │   │   ├── panther_sfx.bin
@@ -1647,14 +1929,17 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── pickup_aid.bin
     │   │   │   │   ├── pyramid_fd.bin
     │   │   │   │   ├── pyramid_itemrots.bin
+    │   │   │   │   ├── pyramid_ps1_blend.bin
     │   │   │   │   ├── pyramid_textures.bin
     │   │   │   │   ├── qualopec_door_sfx.bin
     │   │   │   │   ├── qualopec_fd.bin
     │   │   │   │   ├── qualopec_itemrots.bin
+    │   │   │   │   ├── qualopec_ps1_blend.bin
     │   │   │   │   ├── qualopec_textures.bin
     │   │   │   │   ├── sanctuary_fd.bin
     │   │   │   │   ├── sanctuary_itemrots.bin
     │   │   │   │   ├── sanctuary_meshfixes.bin
+    │   │   │   │   ├── sanctuary_ps1_blend.bin
     │   │   │   │   ├── sanctuary_scion.bin
     │   │   │   │   ├── sanctuary_textures.bin
     │   │   │   │   ├── scion_alignment.bin
@@ -1669,6 +1954,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── stronghold_textures.bin
     │   │   │   │   ├── tihocan_fd.bin
     │   │   │   │   ├── tihocan_itemrots.bin
+    │   │   │   │   ├── tihocan_ps1_blend.bin
     │   │   │   │   ├── tihocan_skybox.bin
     │   │   │   │   ├── tihocan_textures.bin
     │   │   │   │   ├── title_textures.bin
@@ -1676,10 +1962,12 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── uzi_sfx.bin
     │   │   │   │   ├── valley_fd.bin
     │   │   │   │   ├── valley_itemrots.bin
+    │   │   │   │   ├── valley_ps1_blend.bin
     │   │   │   │   ├── valley_skybox.bin
     │   │   │   │   ├── valley_textures.bin
     │   │   │   │   ├── vilcabamba_door_sfx.bin
     │   │   │   │   ├── vilcabamba_itemrots.bin
+    │   │   │   │   ├── vilcabamba_ps1_blend.bin
     │   │   │   │   ├── vilcabamba_textures.bin
     │   │   │   │   ├── wall_switch_sfx.bin
     │   │   │   │   └── winston_model.bin
@@ -1781,33 +2069,43 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   ├── inv_ring.json5
     │   │   │   ├── strings-de.json5
     │   │   │   ├── strings-en-gb.json5
+    │   │   │   ├── strings-es.json5
     │   │   │   ├── strings-fr.json5
     │   │   │   ├── strings-gd.json5
     │   │   │   ├── strings-it.json5
     │   │   │   ├── strings-pl.json5
     │   │   │   ├── strings-ru.json5
+    │   │   │   ├── strings-uk.json5
     │   │   │   ├── strings.json5
     │   │   │   └── weapons.json5
     │   │   ├── tr1-demo-pc
     │   │   │   ├── gameflow.json5
     │   │   │   ├── strings-de.json5
+    │   │   │   ├── strings-es.json5
     │   │   │   ├── strings-fr.json5
     │   │   │   ├── strings-gd.json5
     │   │   │   ├── strings-it.json5
     │   │   │   ├── strings-pl.json5
     │   │   │   ├── strings-ru.json5
+    │   │   │   ├── strings-uk.json5
     │   │   │   └── strings.json5
     │   │   ├── tr1-level
     │   │   │   ├── gameflow.json5
     │   │   │   ├── strings-de.json5
+    │   │   │   ├── strings-es.json5
     │   │   │   ├── strings-fr.json5
     │   │   │   ├── strings-gd.json5
     │   │   │   ├── strings-it.json5
     │   │   │   ├── strings-pl.json5
     │   │   │   ├── strings-ru.json5
+    │   │   │   ├── strings-uk.json5
     │   │   │   └── strings.json5
     │   │   ├── tr1-ub
     │   │   │   ├── images
+    │   │   │   │   ├── og
+    │   │   │   │   │   └── pc
+    │   │   │   │   │       ├── credits_ub.webp
+    │   │   │   │   │       └── title_ub.webp
     │   │   │   │   ├── credits_ub.webp
     │   │   │   │   ├── title_ub.webp
     │   │   │   │   ├── ub_loading1.webp
@@ -1821,11 +2119,13 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   └── _game.lua
     │   │   │   ├── gameflow.json5
     │   │   │   ├── strings-de.json5
+    │   │   │   ├── strings-es.json5
     │   │   │   ├── strings-fr.json5
     │   │   │   ├── strings-gd.json5
     │   │   │   ├── strings-it.json5
     │   │   │   ├── strings-pl.json5
     │   │   │   ├── strings-ru.json5
+    │   │   │   ├── strings-uk.json5
     │   │   │   └── strings.json5
     │   │   ├── tr2
     │   │   │   ├── fmv
@@ -1879,24 +2179,25 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   │   ├── title_us.webp
     │   │   │   │   │   └── venice.webp
     │   │   │   │   ├── og
-    │   │   │   │   │   ├── china.webp
-    │   │   │   │   │   ├── credit01.webp
-    │   │   │   │   │   ├── credit02.webp
-    │   │   │   │   │   ├── credit03.webp
-    │   │   │   │   │   ├── credit04.webp
-    │   │   │   │   │   ├── credit05.webp
-    │   │   │   │   │   ├── credit06.webp
-    │   │   │   │   │   ├── credit07.webp
-    │   │   │   │   │   ├── credit08.webp
-    │   │   │   │   │   ├── end.webp
-    │   │   │   │   │   ├── legal.webp
-    │   │   │   │   │   ├── mansion.webp
-    │   │   │   │   │   ├── rig.webp
-    │   │   │   │   │   ├── tibet.webp
-    │   │   │   │   │   ├── titan.webp
-    │   │   │   │   │   ├── title_eu.webp
-    │   │   │   │   │   ├── title_us.webp
-    │   │   │   │   │   └── venice.webp
+    │   │   │   │   │   └── pc
+    │   │   │   │   │       ├── china.webp
+    │   │   │   │   │       ├── credit01.webp
+    │   │   │   │   │       ├── credit02.webp
+    │   │   │   │   │       ├── credit03.webp
+    │   │   │   │   │       ├── credit04.webp
+    │   │   │   │   │       ├── credit05.webp
+    │   │   │   │   │       ├── credit06.webp
+    │   │   │   │   │       ├── credit07.webp
+    │   │   │   │   │       ├── credit08.webp
+    │   │   │   │   │       ├── end.webp
+    │   │   │   │   │       ├── legal.webp
+    │   │   │   │   │       ├── mansion.webp
+    │   │   │   │   │       ├── rig.webp
+    │   │   │   │   │       ├── tibet.webp
+    │   │   │   │   │       ├── titan.webp
+    │   │   │   │   │       ├── title_eu.webp
+    │   │   │   │   │       ├── title_us.webp
+    │   │   │   │   │       └── venice.webp
     │   │   │   │   ├── china.webp
     │   │   │   │   ├── credit01.webp
     │   │   │   │   ├── credit02.webp
@@ -1923,10 +2224,12 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── barkhang_itemrots.bin
     │   │   │   │   ├── barkhang_music_tracks.bin
     │   │   │   │   ├── barkhang_pickup_meshes.bin
+    │   │   │   │   ├── barkhang_ps1_blend.bin
     │   │   │   │   ├── barkhang_sfx.bin
     │   │   │   │   ├── barkhang_textures.bin
     │   │   │   │   ├── bartoli_crystals.bin
     │   │   │   │   ├── bartoli_music_tracks.bin
+    │   │   │   │   ├── bartoli_ps1_blend.bin
     │   │   │   │   ├── bartoli_secret_fd.bin
     │   │   │   │   ├── bartoli_textures.bin
     │   │   │   │   ├── binoculars.bin
@@ -1937,6 +2240,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── catacombs_fd.bin
     │   │   │   │   ├── catacombs_itemrots.bin
     │   │   │   │   ├── catacombs_music_tracks.bin
+    │   │   │   │   ├── catacombs_ps1_blend.bin
     │   │   │   │   ├── catacombs_textures.bin
     │   │   │   │   ├── coldwar_crystals.bin
     │   │   │   │   ├── coldwar_fd.bin
@@ -1946,9 +2250,12 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── coldwar_textures.bin
     │   │   │   │   ├── common_pickup_meshes.bin
     │   │   │   │   ├── common_pickup_meshes_gm.bin
+    │   │   │   │   ├── controls_models.bin
     │   │   │   │   ├── crystal.bin
     │   │   │   │   ├── cut2_setup.bin
     │   │   │   │   ├── cut2_textures.bin
+    │   │   │   │   ├── cut3_gunflash.bin
+    │   │   │   │   ├── cut3_ps1_blend.bin
     │   │   │   │   ├── cut3_setup.bin
     │   │   │   │   ├── cut3_textures.bin
     │   │   │   │   ├── cut4_setup.bin
@@ -1961,6 +2268,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── deck_music_tracks.bin
     │   │   │   │   ├── deck_pickup_meshes.bin
     │   │   │   │   ├── deck_plants.bin
+    │   │   │   │   ├── deck_ps1_blend.bin
     │   │   │   │   ├── deck_secret_fd.bin
     │   │   │   │   ├── deck_textures.bin
     │   │   │   │   ├── detonator_lights.bin
@@ -1969,6 +2277,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── diving_itemrots.bin
     │   │   │   │   ├── diving_music_tracks.bin
     │   │   │   │   ├── diving_pickup_meshes.bin
+    │   │   │   │   ├── diving_ps1_blend.bin
     │   │   │   │   ├── diving_sfx.bin
     │   │   │   │   ├── diving_textures.bin
     │   │   │   │   ├── door106_sfx.bin
@@ -1982,13 +2291,16 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── fathoms_itemrots.bin
     │   │   │   │   ├── fathoms_music_tracks.bin
     │   │   │   │   ├── fathoms_plants.bin
+    │   │   │   │   ├── fathoms_ps1_blend.bin
     │   │   │   │   ├── fathoms_secret_fd.bin
     │   │   │   │   ├── fathoms_textures.bin
     │   │   │   │   ├── floating_crystals.bin
     │   │   │   │   ├── floating_fd.bin
+    │   │   │   │   ├── floating_item_sprites.bin
     │   │   │   │   ├── floating_itemrots.bin
     │   │   │   │   ├── floating_music_tracks.bin
     │   │   │   │   ├── floating_pickup_meshes.bin
+    │   │   │   │   ├── floating_ps1_blend.bin
     │   │   │   │   ├── floating_textures.bin
     │   │   │   │   ├── font.bin
     │   │   │   │   ├── fools_crystals.bin
@@ -2005,10 +2317,12 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── guardian_death_commands.bin
     │   │   │   │   ├── gym_fd.bin
     │   │   │   │   ├── gym_music_tracks.bin
+    │   │   │   │   ├── gym_ps1_blend.bin
     │   │   │   │   ├── gym_sfx.bin
     │   │   │   │   ├── gym_textures.bin
     │   │   │   │   ├── house_itemrots.bin
     │   │   │   │   ├── house_music_tracks.bin
+    │   │   │   │   ├── house_ps1_blend.bin
     │   │   │   │   ├── house_sfx.bin
     │   │   │   │   ├── house_shower_frames.bin
     │   │   │   │   ├── house_textures.bin
@@ -2020,7 +2334,9 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── kingdom_textures.bin
     │   │   │   │   ├── lair_bartolipos.bin
     │   │   │   │   ├── lair_crystals.bin
+    │   │   │   │   ├── lair_item_sprites.bin
     │   │   │   │   ├── lair_music_tracks.bin
+    │   │   │   │   ├── lair_ps1_blend.bin
     │   │   │   │   ├── lair_textures.bin
     │   │   │   │   ├── lara_animations.bin
     │   │   │   │   ├── lara_extra.bin
@@ -2036,6 +2352,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── living_itemrots.bin
     │   │   │   │   ├── living_music_tracks.bin
     │   │   │   │   ├── living_pickup_meshes.bin
+    │   │   │   │   ├── living_ps1_blend.bin
     │   │   │   │   ├── living_secret_fd.bin
     │   │   │   │   ├── living_sfx.bin
     │   │   │   │   ├── living_textures.bin
@@ -2045,12 +2362,14 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── opera_fd.bin
     │   │   │   │   ├── opera_itemrots.bin
     │   │   │   │   ├── opera_music_tracks.bin
+    │   │   │   │   ├── opera_ps1_blend.bin
     │   │   │   │   ├── opera_sfx.bin
     │   │   │   │   ├── opera_textures.bin
     │   │   │   │   ├── palace_crystals.bin
     │   │   │   │   ├── palace_fd.bin
     │   │   │   │   ├── palace_itemrots.bin
     │   │   │   │   ├── palace_music_tracks.bin
+    │   │   │   │   ├── palace_ps1_blend.bin
     │   │   │   │   ├── palace_secret_fd.bin
     │   │   │   │   ├── palace_textures.bin
     │   │   │   │   ├── pda_model.bin
@@ -2061,6 +2380,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── rig_itemrots.bin
     │   │   │   │   ├── rig_music_tracks.bin
     │   │   │   │   ├── rig_pickup_meshes.bin
+    │   │   │   │   ├── rig_ps1_blend.bin
     │   │   │   │   ├── rig_textures.bin
     │   │   │   │   ├── scuba_sfx.bin
     │   │   │   │   ├── seaweed_collision.bin
@@ -2072,7 +2392,9 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── tibet_fd.bin
     │   │   │   │   ├── tibet_itemrots.bin
     │   │   │   │   ├── tibet_music_tracks.bin
+    │   │   │   │   ├── tibet_ps1_blend.bin
     │   │   │   │   ├── tibet_textures.bin
+    │   │   │   │   ├── title_ps1_blend.bin
     │   │   │   │   ├── title_textures.bin
     │   │   │   │   ├── vegas_crystals.bin
     │   │   │   │   ├── vegas_fd.bin
@@ -2083,11 +2405,13 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── venice_fd.bin
     │   │   │   │   ├── venice_itemrots.bin
     │   │   │   │   ├── venice_music_tracks.bin
+    │   │   │   │   ├── venice_ps1_blend.bin
     │   │   │   │   ├── venice_textures.bin
     │   │   │   │   ├── wall_cameras.bin
     │   │   │   │   ├── wall_crystals.bin
     │   │   │   │   ├── wall_itemrots.bin
     │   │   │   │   ├── wall_music_tracks.bin
+    │   │   │   │   ├── wall_ps1_blend.bin
     │   │   │   │   ├── wall_switch_sfx.bin
     │   │   │   │   ├── wall_textures.bin
     │   │   │   │   ├── winston_model.bin
@@ -2099,6 +2423,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── wreck_music_tracks.bin
     │   │   │   │   ├── wreck_pickup_meshes.bin
     │   │   │   │   ├── wreck_plants.bin
+    │   │   │   │   ├── wreck_ps1_blend.bin
     │   │   │   │   ├── wreck_secret_fd.bin
     │   │   │   │   ├── wreck_textures.bin
     │   │   │   │   ├── xian_crystals.bin
@@ -2106,6 +2431,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── xian_itemrots.bin
     │   │   │   │   ├── xian_music_tracks.bin
     │   │   │   │   ├── xian_pickup_meshes.bin
+    │   │   │   │   ├── xian_ps1_blend.bin
     │   │   │   │   ├── xian_sfx.bin
     │   │   │   │   └── xian_textures.bin
     │   │   │   ├── levels
@@ -2212,10 +2538,13 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   ├── main.sfx
     │   │   │   ├── strings-de.json5
     │   │   │   ├── strings-en-gb.json5
+    │   │   │   ├── strings-es.json5
     │   │   │   ├── strings-fr.json5
     │   │   │   ├── strings-gd.json5
     │   │   │   ├── strings-it.json5
     │   │   │   ├── strings-pl.json5
+    │   │   │   ├── strings-ru.json5
+    │   │   │   ├── strings-uk.json5
     │   │   │   ├── strings.json5
     │   │   │   └── weapons.json5
     │   │   ├── tr2-gm
@@ -2245,10 +2574,11 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   │   ├── title_eu_gm.webp
     │   │   │   │   │   └── title_us_gm.webp
     │   │   │   │   ├── og
-    │   │   │   │   │   ├── credit00_gm.webp
-    │   │   │   │   │   ├── credit07_gm.webp
-    │   │   │   │   │   ├── title_eu_gm.webp
-    │   │   │   │   │   └── title_us_gm.webp
+    │   │   │   │   │   └── pc
+    │   │   │   │   │       ├── credit00_gm.webp
+    │   │   │   │   │       ├── credit07_gm.webp
+    │   │   │   │   │       ├── title_eu_gm.webp
+    │   │   │   │   │       └── title_us_gm.webp
     │   │   │   │   ├── credit00_gm.webp
     │   │   │   │   ├── credit07_gm.webp
     │   │   │   │   ├── gm_level1.webp
@@ -2275,18 +2605,24 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   ├── gameflow.json5
     │   │   │   ├── main.sfx
     │   │   │   ├── strings-de.json5
+    │   │   │   ├── strings-es.json5
     │   │   │   ├── strings-fr.json5
     │   │   │   ├── strings-gd.json5
     │   │   │   ├── strings-it.json5
     │   │   │   ├── strings-pl.json5
+    │   │   │   ├── strings-ru.json5
+    │   │   │   ├── strings-uk.json5
     │   │   │   └── strings.json5
     │   │   ├── tr2-level
     │   │   │   ├── gameflow.json5
     │   │   │   ├── strings-de.json5
+    │   │   │   ├── strings-es.json5
     │   │   │   ├── strings-fr.json5
     │   │   │   ├── strings-gd.json5
     │   │   │   ├── strings-it.json5
     │   │   │   ├── strings-pl.json5
+    │   │   │   ├── strings-ru.json5
+    │   │   │   ├── strings-uk.json5
     │   │   │   └── strings.json5
     │   │   ├── tr3
     │   │   │   ├── audio
@@ -2355,27 +2691,28 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   │   ├── title_eu.webp
     │   │   │   │   │   └── title_us.webp
     │   │   │   │   ├── og
-    │   │   │   │   │   ├── antarc.webp
-    │   │   │   │   │   ├── credit01.webp
-    │   │   │   │   │   ├── credit02.webp
-    │   │   │   │   │   ├── credit03.webp
-    │   │   │   │   │   ├── credit04.webp
-    │   │   │   │   │   ├── credit05.webp
-    │   │   │   │   │   ├── credit06.webp
-    │   │   │   │   │   ├── credit07.webp
-    │   │   │   │   │   ├── credit08.webp
-    │   │   │   │   │   ├── credit09.webp
-    │   │   │   │   │   ├── house.webp
-    │   │   │   │   │   ├── india.webp
-    │   │   │   │   │   ├── legal_eu.webp
-    │   │   │   │   │   ├── legal_us.webp
-    │   │   │   │   │   ├── london.webp
-    │   │   │   │   │   ├── nevada.webp
-    │   │   │   │   │   ├── southpac.webp
-    │   │   │   │   │   ├── theend2.webp
-    │   │   │   │   │   ├── theend.webp
-    │   │   │   │   │   ├── title_eu.webp
-    │   │   │   │   │   └── title_us.webp
+    │   │   │   │   │   └── pc
+    │   │   │   │   │       ├── antarc.webp
+    │   │   │   │   │       ├── credit01.webp
+    │   │   │   │   │       ├── credit02.webp
+    │   │   │   │   │       ├── credit03.webp
+    │   │   │   │   │       ├── credit04.webp
+    │   │   │   │   │       ├── credit05.webp
+    │   │   │   │   │       ├── credit06.webp
+    │   │   │   │   │       ├── credit07.webp
+    │   │   │   │   │       ├── credit08.webp
+    │   │   │   │   │       ├── credit09.webp
+    │   │   │   │   │       ├── house.webp
+    │   │   │   │   │       ├── india.webp
+    │   │   │   │   │       ├── legal_eu.webp
+    │   │   │   │   │       ├── legal_us.webp
+    │   │   │   │   │       ├── london.webp
+    │   │   │   │   │       ├── nevada.webp
+    │   │   │   │   │       ├── southpac.webp
+    │   │   │   │   │       ├── theend2.webp
+    │   │   │   │   │       ├── theend.webp
+    │   │   │   │   │       ├── title_eu.webp
+    │   │   │   │   │       └── title_us.webp
     │   │   │   │   ├── antarc.webp
     │   │   │   │   ├── credit01.webp
     │   │   │   │   ├── credit02.webp
@@ -2400,6 +2737,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   ├── injections
     │   │   │   │   ├── alarm_sfx.bin
     │   │   │   │   ├── aldwych_animating_bounds.bin
+    │   │   │   │   ├── aldwych_demo.bin
     │   │   │   │   ├── aldwych_fd.bin
     │   │   │   │   ├── aldwych_pickup_meshes.bin
     │   │   │   │   ├── aldwych_textures.bin
@@ -2439,6 +2777,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── compound_fd.bin
     │   │   │   │   ├── compound_patrol.bin
     │   │   │   │   ├── compound_textures.bin
+    │   │   │   │   ├── controls_models.bin
     │   │   │   │   ├── crash_animating_bounds.bin
     │   │   │   │   ├── crash_pickup_meshes.bin
     │   │   │   │   ├── crash_sky.bin
@@ -2447,7 +2786,6 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── cut1_setup.bin
     │   │   │   │   ├── cut2_setup.bin
     │   │   │   │   ├── cut3_setup.bin
-    │   │   │   │   ├── cut3_shell.bin
     │   │   │   │   ├── cut4_setup.bin
     │   │   │   │   ├── cut5_setup.bin
     │   │   │   │   ├── cut5_textures.bin
@@ -2462,6 +2800,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── flamethrower_sfx.bin
     │   │   │   │   ├── font.bin
     │   │   │   │   ├── ganges_animating_bounds.bin
+    │   │   │   │   ├── ganges_demo.bin
     │   │   │   │   ├── ganges_door131_frames.bin
     │   │   │   │   ├── ganges_textures.bin
     │   │   │   │   ├── globe_model.bin
@@ -2493,6 +2832,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── mines_textures.bin
     │   │   │   │   ├── misc_sprites.bin
     │   │   │   │   ├── nevada_animating_bounds.bin
+    │   │   │   │   ├── nevada_demo.bin
     │   │   │   │   ├── nevada_door132_frames.bin
     │   │   │   │   ├── nevada_sky.bin
     │   │   │   │   ├── nevada_textures.bin
@@ -2506,6 +2846,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── reunion_flames.bin
     │   │   │   │   ├── reunion_textures.bin
     │   │   │   │   ├── scotland_crystals.bin
+    │   │   │   │   ├── scotland_fd.bin
     │   │   │   │   ├── scotland_sky.bin
     │   │   │   │   ├── scotland_textures.bin
     │   │   │   │   ├── sparks_gfx.bin
@@ -2571,6 +2912,7 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── city.lua
     │   │   │   │   ├── compound.lua
     │   │   │   │   ├── crash.lua
+    │   │   │   │   ├── cut3.lua
     │   │   │   │   ├── cut8.lua
     │   │   │   │   ├── house.lua
     │   │   │   │   ├── jungle.lua
@@ -2596,10 +2938,13 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   ├── inv_ring.json5
     │   │   │   ├── main.sfx
     │   │   │   ├── strings-de.json5
+    │   │   │   ├── strings-es.json5
     │   │   │   ├── strings-fr.json5
     │   │   │   ├── strings-gd.json5
     │   │   │   ├── strings-it.json5
     │   │   │   ├── strings-pl.json5
+    │   │   │   ├── strings-ru.json5
+    │   │   │   ├── strings-uk.json5
     │   │   │   ├── strings.json5
     │   │   │   ├── tombpc.dat
     │   │   │   └── weapons.json5
@@ -2649,6 +2994,26 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   │   ├── undersea.webp
     │   │   │   │   │   ├── willard.webp
     │   │   │   │   │   └── zoo.webp
+    │   │   │   │   ├── og
+    │   │   │   │   │   └── pc
+    │   │   │   │   │       ├── chunnel.webp
+    │   │   │   │   │       ├── credit01_us_la.webp
+    │   │   │   │   │       ├── credit02_la.webp
+    │   │   │   │   │       ├── credit03_la.webp
+    │   │   │   │   │       ├── credit04_la.webp
+    │   │   │   │   │       ├── credit05_la.webp
+    │   │   │   │   │       ├── credit06_la.webp
+    │   │   │   │   │       ├── credit07_la.webp
+    │   │   │   │   │       ├── credit08_la.webp
+    │   │   │   │   │       ├── credit09_la.webp
+    │   │   │   │   │       ├── highland.webp
+    │   │   │   │   │       ├── legal_eu_la.webp
+    │   │   │   │   │       ├── slinc.webp
+    │   │   │   │   │       ├── theend_la.webp
+    │   │   │   │   │       ├── title_eu_la.webp
+    │   │   │   │   │       ├── undersea.webp
+    │   │   │   │   │       ├── willard.webp
+    │   │   │   │   │       └── zoo.webp
     │   │   │   │   ├── chunnel.webp
     │   │   │   │   ├── credit01_eu_la.webp
     │   │   │   │   ├── credit01_us_la.webp
@@ -2682,42 +3047,65 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   ├── scripts
     │   │   │   │   ├── _game.lua
     │   │   │   │   ├── chunnel.lua
+    │   │   │   │   ├── scotland.lua
     │   │   │   │   ├── slinc.lua
     │   │   │   │   ├── undersea.lua
     │   │   │   │   └── zoo.lua
     │   │   │   ├── gameflow.json5
     │   │   │   ├── main.sfx
     │   │   │   ├── strings-de.json5
+    │   │   │   ├── strings-es.json5
     │   │   │   ├── strings-fr.json5
     │   │   │   ├── strings-gd.json5
     │   │   │   ├── strings-it.json5
     │   │   │   ├── strings-pl.json5
+    │   │   │   ├── strings-ru.json5
+    │   │   │   ├── strings-uk.json5
     │   │   │   └── strings.json5
     │   │   ├── tr3-level
     │   │   │   ├── gameflow.json5
+    │   │   │   ├── strings-de.json5
+    │   │   │   ├── strings-es.json5
     │   │   │   ├── strings-fr.json5
     │   │   │   ├── strings-gd.json5
     │   │   │   ├── strings-it.json5
     │   │   │   ├── strings-pl.json5
+    │   │   │   ├── strings-ru.json5
+    │   │   │   ├── strings-uk.json5
     │   │   │   └── strings.json5
     │   │   ├── tr4
     │   │   │   ├── injections
     │   │   │   │   ├── angkor_fd.bin
     │   │   │   │   ├── angkor_textures.bin
+    │   │   │   │   ├── burial_animating_bounds.bin
+    │   │   │   │   ├── burial_fd.bin
+    │   │   │   │   ├── burial_textures.bin
+    │   │   │   │   ├── controls_models.bin
     │   │   │   │   ├── font.bin
+    │   │   │   │   ├── guide_gun.bin
+    │   │   │   │   ├── henchman_jeep.bin
     │   │   │   │   ├── inventory_models.bin
     │   │   │   │   ├── karnak_fd.bin
+    │   │   │   │   ├── kv5_textures.bin
     │   │   │   │   ├── lara_animations.bin
     │   │   │   │   ├── lara_outfits.bin
     │   │   │   │   ├── pickup_aid.bin
     │   │   │   │   ├── race_fd.bin
     │   │   │   │   ├── race_textures.bin
+    │   │   │   │   ├── semerkhet_bolt.bin
+    │   │   │   │   ├── seth_fd.bin
+    │   │   │   │   ├── seth_textures.bin
     │   │   │   │   ├── shadow_sprite.bin
+    │   │   │   │   ├── shell_casings.bin
     │   │   │   │   ├── sparks_gfx.bin
-    │   │   │   │   └── title_textures.bin
+    │   │   │   │   ├── title_textures.bin
+    │   │   │   │   ├── valley_fd.bin
+    │   │   │   │   └── valley_textures.bin
     │   │   │   ├── modules
     │   │   │   │   ├── cutscenes.lua
+    │   │   │   │   ├── expanding_blocks.lua
     │   │   │   │   ├── fog.lua
+    │   │   │   │   ├── inv_setup.lua
     │   │   │   │   ├── logo.lua
     │   │   │   │   └── race_timer.lua
     │   │   │   ├── scripts
@@ -2730,11 +3118,13 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   │   ├── cortyard.lua
     │   │   │   │   ├── csplit1.lua
     │   │   │   │   ├── csplit2.lua
+    │   │   │   │   ├── hall.lua
     │   │   │   │   ├── highstrt.lua
     │   │   │   │   ├── jeepchas.lua
     │   │   │   │   ├── jeepchs2.lua
     │   │   │   │   ├── joby1a.lua
     │   │   │   │   ├── joby2.lua
+    │   │   │   │   ├── joby3a.lua
     │   │   │   │   ├── joby3b.lua
     │   │   │   │   ├── joby4a.lua
     │   │   │   │   ├── joby4b.lua
@@ -2766,28 +3156,128 @@ Inside `TRX.app`, `Contents/Resources` should use the same combined layout as th
     │   │   │   ├── gameflow.json5
     │   │   │   ├── inv_ring.json5
     │   │   │   ├── strings-de.json5
+    │   │   │   ├── strings-es.json5
+    │   │   │   ├── strings-fr.json5
+    │   │   │   ├── strings-gd.json5
     │   │   │   ├── strings-it.json5
+    │   │   │   ├── strings-pl.json5
+    │   │   │   ├── strings-ru.json5
+    │   │   │   ├── strings-uk.json5
     │   │   │   ├── strings.json5
     │   │   │   └── weapons.json5
     │   │   └── tr4-level
     │   │       ├── gameflow.json5
+    │   │       ├── strings-de.json5
+    │   │       ├── strings-es.json5
+    │   │       ├── strings-fr.json5
+    │   │       ├── strings-gd.json5
     │   │       ├── strings-it.json5
+    │   │       ├── strings-pl.json5
+    │   │       ├── strings-ru.json5
+    │   │       ├── strings-uk.json5
     │   │       └── strings.json5
     │   ├── modules
-    │   │   ├── overlay
-    │   │   │   ├── init.lua
-    │   │   │   └── photo_mode.lua
-    │   │   ├── assault.lua
+    │   │   ├── ui
+    │   │   │   ├── flat_menu
+    │   │   │   │   ├── arrows.lua
+    │   │   │   │   ├── death.lua
+    │   │   │   │   ├── init.lua
+    │   │   │   │   ├── items.lua
+    │   │   │   │   ├── list.lua
+    │   │   │   │   ├── options.lua
+    │   │   │   │   ├── pause.lua
+    │   │   │   │   ├── saves.lua
+    │   │   │   │   ├── sound.lua
+    │   │   │   │   ├── stats.lua
+    │   │   │   │   ├── strip.lua
+    │   │   │   │   ├── text.lua
+    │   │   │   │   └── title.lua
+    │   │   │   ├── hud
+    │   │   │   │   ├── overlay
+    │   │   │   │   │   ├── ammo.lua
+    │   │   │   │   │   ├── bars.lua
+    │   │   │   │   │   ├── init.lua
+    │   │   │   │   │   ├── photo_mode.lua
+    │   │   │   │   │   ├── pickups.lua
+    │   │   │   │   │   ├── place.lua
+    │   │   │   │   │   ├── readouts.lua
+    │   │   │   │   │   └── speedometer.lua
+    │   │   │   │   ├── assault.lua
+    │   │   │   │   └── legend.lua
+    │   │   │   ├── ring
+    │   │   │   │   ├── entries.lua
+    │   │   │   │   ├── init.lua
+    │   │   │   │   ├── motion.lua
+    │   │   │   │   ├── screen.lua
+    │   │   │   │   └── weapon.lua
+    │   │   │   ├── screens
+    │   │   │   │   ├── passport
+    │   │   │   │   │   ├── book.lua
+    │   │   │   │   │   ├── init.lua
+    │   │   │   │   │   ├── pages.lua
+    │   │   │   │   │   └── rows.lua
+    │   │   │   │   ├── stats
+    │   │   │   │   │   ├── box.lua
+    │   │   │   │   │   ├── counts.lua
+    │   │   │   │   │   ├── init.lua
+    │   │   │   │   │   └── rows.lua
+    │   │   │   │   ├── combine.lua
+    │   │   │   │   ├── examine.lua
+    │   │   │   │   ├── globe.lua
+    │   │   │   │   ├── level_view.lua
+    │   │   │   │   ├── pause.lua
+    │   │   │   │   ├── picture.lua
+    │   │   │   │   └── settings.lua
+    │   │   │   ├── settings
+    │   │   │   │   ├── color_editor.lua
+    │   │   │   │   ├── controls.lua
+    │   │   │   │   ├── dialog.lua
+    │   │   │   │   ├── editor.lua
+    │   │   │   │   ├── handlers.lua
+    │   │   │   │   ├── preset_tab.lua
+    │   │   │   │   ├── presets.lua
+    │   │   │   │   ├── rows.lua
+    │   │   │   │   └── tabs.lua
+    │   │   │   ├── widgets
+    │   │   │   │   ├── color.lua
+    │   │   │   │   ├── hold_button.lua
+    │   │   │   │   ├── loading_bar.lua
+    │   │   │   │   ├── requester.lua
+    │   │   │   │   ├── row_arrows.lua
+    │   │   │   │   ├── tab_switch.lua
+    │   │   │   │   ├── text_dialog.lua
+    │   │   │   │   └── window.lua
+    │   │   │   ├── accent.lua
+    │   │   │   ├── ammo.lua
+    │   │   │   ├── attachment.lua
+    │   │   │   ├── captions.lua
+    │   │   │   ├── compass.lua
+    │   │   │   ├── controls_model.lua
+    │   │   │   ├── delete_save.lua
+    │   │   │   ├── fade.lua
+    │   │   │   ├── level_start.lua
+    │   │   │   ├── menu.lua
+    │   │   │   ├── metrics.lua
+    │   │   │   ├── ring_hints.lua
+    │   │   │   ├── scroll.lua
+    │   │   │   ├── title_page.lua
+    │   │   │   └── value.lua
+    │   │   ├── ammo_cycle.lua
     │   │   ├── inv_ring.lua
-    │   │   ├── legend.lua
+    │   │   ├── ngplus.lua
     │   │   ├── save_crystal.lua
+    │   │   ├── secret_music.lua
+    │   │   ├── timer.lua
     │   │   ├── water_color.lua
     │   │   └── weapons.lua
     │   ├── scripts
     │   │   ├── bignasty
     │   │   │   ├── bfg.bin
     │   │   │   └── init.lua
+    │   │   ├── ammo_cycle.lua
     │   │   ├── inv_ring.lua
+    │   │   ├── secret_music.lua
+    │   │   ├── ui.lua
     │   │   └── weapons.lua
     │   └── icon.icns
     ├── _CodeSignature
@@ -2867,3 +3357,25 @@ following structure:
 
 When in doubt, please refer to the "Verifying installation" detailed file
 listings that show where each individual file should go.
+
+# Adding other dubs
+
+Each original release shipped one dub on its disc. TRX plays the files you
+copied as they are, and can also hold the FMVs, music and speech of other dubs
+next to them, so that you can switch between them in Sound → Voice language.
+
+Put a dub in a folder named after its language code inside the folder its
+retail files go to. The Italian TR3 FMVs go in `games/tr3/fmv/it/`, and the
+Italian TR4 speech in `games/tr4/audio/it/`. A dub only needs the files that
+differ: anything it leaves out plays from the retail files.
+
+Voice language offers:
+
+- **Auto**: the dub of the text language where it is installed, and the
+  retail files otherwise.
+- **Retail**: the files you copied, ignoring any dub folders.
+- each dub found in a dub folder, or named by the game flow, such as the
+  Italian TR3 FMVs.
+
+A change takes effect from the next FMV or track that plays. A TR2 or TR3
+`cdaudio` file is picked when the game starts.

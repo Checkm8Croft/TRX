@@ -7,6 +7,148 @@ order: 3
 
 ## TRX
 
+### Version 1.11 to 1.12
+
+1. **`display_time` no longer counts the fades**
+   The time a `display_picture` or `loading_screen` event states is the time
+   the picture stays on screen, and the fades run on top of it. TR2, TR3 and
+   TR4 used to take the fades out of that time, so a picture stayed up for
+   less than it asked for. A gameflow that worked around this needs its
+   numbers lowered by `fade_in_time` plus `fade_out_time`. A `loading_screen`
+   that states no `display_time` now takes two seconds rather than five.
+
+2. **`trx.items.Item:die` takes a table**
+   The arguments are named rather than positional:
+   - `item:die(true, 254, trx.lara.item)` becomes
+     `item:die({ explode = true, flame_variant = 254, sender = trx.lara.item })`
+   - `gibs` sets the effects for the flying body parts. It supports `flame`,
+     `smoke`, `blast` and `blood`. If it is left out, the parts do not draw
+     these effects.
+
+3. **`trx.items.Item:shatter` takes a table**
+   The table supports `gibs`, `mesh_bits`, `speed`, `fall_speed`, `damage` and
+   `flame_variant`:
+   - `item:shatter(5, 254)` becomes
+     `item:shatter({ damage = 5, flame_variant = 254 })`
+
+4. **The inventory ring moved to the shipped interface**
+   `trx.inventory` now holds only what Lara carries. The ring is drawn by
+   the shipped `common.ui.ring` module, which holds its entries:
+   - `trx.inventory.declare_ring_item` becomes
+     `require("common.ui.ring").declare_item`
+
+5. **`trx.savegame.load` raises an error for an empty slot**
+   A script that can name an empty slot must check it with
+   `trx.savegame.is_free` first.
+
+6. **The passport is a script**
+   The engine no longer draws the passport. The shipped
+   `modules/ui/screens/passport` module does, as the
+   `trx.ui.Screen.RING_ENTRY` screen of the passport entry. A mod that defines that screen with `override = true` replaces the
+   whole menu.
+
+   The module, not the engine, now declares the strings that only the
+   passport uses. The strings files still provide their text and translations.
+
+7. **`trx.inventory` and `trx.stats` take a dot**
+   Their functions are plain functions, not methods of the inventory Lara
+   carries or of the level being played:
+   - `trx.inventory:give(object)` becomes `trx.inventory.give(object)`
+   - `trx.inventory:icon_of(object)` becomes `trx.inventory.icon_of(object)`
+   - `trx.stats:give_secret(1)` becomes `trx.stats.give_secret(1)`
+
+   A `trx.inventory.Inventory` or `trx.stats.Stats` reached through
+   `trx.game.Level` still takes a colon.
+
+8. **Drawing hooks moved to the modules that draw**
+   The interface and the scene are now drawn through the module that owns
+   them, rather than through `trx.events`:
+   - `trx.events.on_ui_draw` becomes `trx.ui.on_reserve`
+   - `trx.events.on_ui_paint` becomes `trx.ui.on_paint`
+
+   The handlers take the same arguments and return the same listeners.
+
+9. **Fire heads no longer require a timer**
+   OG TR3 used a fire head's timer value from its trigger to control how long it
+   blew fire for before resetting and looping. This is now a property on the
+   object and so the trigger timer returns to having normal effect. Update any
+   triggers as required and set the fire head's `blow_time` property value.
+
+10. **The shipped overlay modules moved to `modules/ui/hud`**
+    The modules that draw the overlay, the assault course readouts and the
+    level captions now sit in `modules/ui/hud`. Require them by their place,
+    for example `require("common.ui.hud.overlay")` in place of
+    `require("common.overlay")`.
+
+11. **A released widget cannot be used again**
+    `trx.ui.Widget:release` ends the widget and every widget under it, and
+    returns nothing. A released widget cannot go in a region, a layer or
+    another widget, so build a new one instead. A layer that closes releases
+    its widgets in the same way. Releasing a widget that another widget or a
+    layer holds is an error: release the holder.
+
+12. **`trx.ui.Widget:wakes_on` is gone**
+    A widget follows every signal that it reads while it measures, however it
+    reads it. Remove the calls.
+
+13. **`trx.ui.regions.fallback` is gone**
+    A region draws nothing while no widget in it is visible. A script that
+    drew something in that case gives that widget a `visible` signal of its
+    own, such as `~bar_visible`, and places it in the region.
+
+14. **`trx.ui.widgets.Row` is gone**
+    Build the row as a horizontal `trx.ui.widgets.Stack`: a `Label` of
+    `\{button left}`, the widget, and a `Label` of `\{button right}`, each
+    arrow in a `trx.ui.widgets.Blank` that blanks it when `left` or `right`
+    did not take it.
+
+15. **`h_bars` of `trx.ui.widgets.Resize` is gone**
+    A `trx.ui.widgets.Bar` follows the player's bar scale on its own. Give
+    `h` a plain height for any other widget.
+
+16. **`trx.signal.Signal:above` is gone**
+    Use `trx.signal.Signal:map`: `poison:above(0)` becomes
+    `poison:map(function(value) return type(value) == "number" and value > 0 end)`.
+
+17. **`shown` is now `visible`**
+    Every widget takes `visible` in place of `shown`, with the same meaning: a
+    widget that is not visible keeps no room and leaves no gap.
+    - `shown` → `visible`
+    - `trx.ui.Widget:is_shown` → `trx.ui.Widget:is_visible`
+
+18. **`hidden` is gone**
+    A widget that keeps its room but draws nothing goes in a
+    `trx.ui.widgets.Blank`: `Label({ text = t, hidden = h })` becomes
+    `Blank({ when = h, child = Label({ text = t }) })`.
+
+19. **`trx.overlay.signals.health_bar_forced` is gone**
+    The inventory ring says when it asks for Lara's health bar through the
+    signals of the shipped `common.ui.ring` module:
+    - `trx.overlay.signals.health_bar_forced` →
+      `require("common.ui.ring").signals.health_bar`
+
+20. **Strings that only styled other text are gone**
+    The shipped `common.ui.accent` module styles text by what it is:
+    `accent.text(name, accent.Role.NAME)` gives the look of an entry's name.
+    These strings are gone:
+    - `general/inventory_ring/heading_fmt`
+    - `general/inventory_ring/object_name_fmt`
+    - `general/inventory_ring/item_count_fmt`
+    - `general/overlay/item_count_fmt_pc`
+    - `general/overlay/item_count_fmt_ps1`
+    - `general/stats/assault_best_time_fmt`
+    - `general/stats/assault_other_times_fmt`
+
+21. **Text names its colours by their shades**
+    The numbered colours of the text markup and `\{dim}` are gone. A colour
+    is `#rrggbb` or `#rrggbbaa`, one for a flat colour or two for one that
+    grades from the top of a glyph to its bottom, with `pulse` for one that
+    brightens and dims. In TR4, a channel of `80` draws a glyph as it is:
+    - `\{color 6}` → `\{color #c08040 #401000}` in TR4
+    - `\{dim}…\{/dim}` → `\{color #808080}…\{/color}`, or `#404040` in TR4
+    The shipped `common.ui.accent` module names the colours each game uses:
+    `accent.text(text, accent.Role.DIM)`.
+
 ### Version 1.10 to 1.11
 
 1. **The waterfall mist object was renamed**
@@ -377,6 +519,14 @@ order: 3
      is `kind`
 
    The game reports a value with the wrong type and stops reading the file.
+
+16. **End-level trigger parameters now have meaning**
+   In OG TR1-3, assigning a parameter to end-level triggers served no purpose;
+   the gameflow always dictated the level sequencing. 1.11 introduces basic
+   support for hubs, allowing triggers to dictate which level comes next. Legacy
+   levels that use these parameters incorrectly will need to be amended and
+   recompiled; using parameter 0 is recommended to allow the gameflow sequencing
+   to take precedence.
 
 ### Version 1.9 to 1.10
 

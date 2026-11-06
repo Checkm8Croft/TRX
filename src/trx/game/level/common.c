@@ -3,10 +3,11 @@
 #include <trx/core/log.h>
 #include <trx/game/camera.h>
 #include <trx/game/cutseq/playback.h>
+#include <trx/game/demo.h>
 #include <trx/game/effects.h>
 #include <trx/game/fx.h>
 #include <trx/game/game.h>
-#include <trx/game/game_strings/table.h>
+#include <trx/game/game_strings/manager.h>
 #include <trx/game/gym.h>
 #include <trx/game/items.h>
 #include <trx/game/lara.h>
@@ -17,12 +18,9 @@
 #include <trx/game/lua/store.h>
 #include <trx/game/music.h>
 #include <trx/game/objects.h>
-#include <trx/game/option.h>
 #include <trx/game/output.h>
 #include <trx/game/output/overlay.h>
-#include <trx/game/overlay.h>
 #include <trx/game/pathing.h>
-#include <trx/game/random.h>
 #include <trx/game/savegame.h>
 #include <trx/game/sound.h>
 #include <trx/game/sparks.h>
@@ -47,6 +45,7 @@ void Level_Unload(void)
     Sound_ResetSamples();
 
     Lara_InitialiseLoad(NO_ITEM);
+    Lara_Mesh_Reset();
     Lara_Vehicle_SetIndex(NO_ITEM);
 
     Gym_TrackManager_Reset(GYM_TRACK_ASSAULT);
@@ -59,6 +58,7 @@ void Level_Unload(void)
     Object_Reset();
     Camera_Reset();
     Walkable_Reset();
+    Room_ResetShatteredStatics();
 
     Output_SetTimeInGame(0.0f);
     Output_Overlay_SetLetterbox(0.0f);
@@ -80,8 +80,7 @@ RESULT Level_Initialise(
     BENCHMARK benchmark = Benchmark_Start();
     LOG_DEBUG("num=%d (%s)", level->num, level->path);
     if (level->type == GFL_DEMO) {
-        Random_SeedDraw(0xD371F947);
-        Random_SeedControl(0xD371F947);
+        Demo_Initialise();
     }
 
     // Before the incoming level takes over as the current one, so a script
@@ -130,7 +129,7 @@ RESULT Level_Initialise(
     Output_SetSkyboxEnabled(Object_Get(O_SKYBOX)->loaded);
     Output_DispatchLevelLoad();
 
-    GameStringTable_Apply(level);
+    GameStringManager_Apply(level);
 
     Effect_InitialiseArray();
     LOT_InitialiseArray();
@@ -138,9 +137,6 @@ RESULT Level_Initialise(
     FX_Weather_SetWeather(level->weather_type);
     Level_ResetSettingOverrides();
     Sparks_Reset();
-
-    Option_Reset();
-    Overlay_Reset();
 
     // Every other level type reaches Lara_Initialise through the sequencer;
     // the title is loaded on its own, and still has to dress her for the

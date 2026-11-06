@@ -4,9 +4,9 @@
 #include <trx/core/utils.h>
 #include <trx/game/creature.h>
 #include <trx/game/gun/common.h>
+#include <trx/game/items/draw.h>
 #include <trx/game/lara.h>
 #include <trx/game/objects/common.h>
-#include <trx/game/objects/draw.h>
 #include <trx/game/objects/property.h>
 #include <trx/game/pathing.h>
 #include <trx/game/random.h>
@@ -23,6 +23,7 @@
 #define M_WALK_TURN      (4 * DEG_1)
 #define M_PINCER_RANGE   SQUARE(WALL_L * 5 / 4)
 #define M_CHOPPER_RANGE  SQUARE(WALL_L * 4 / 3)
+#define M_SWORD_HAND     (1u << 10)
 // clang-format on
 
 typedef enum {
@@ -59,12 +60,12 @@ static BITE m_LeftBlade = {
     .mesh_num = 13,
 };
 
-static bool M_ShouldSpawnBlood(const ITEM *const item)
+static ITEM_HIT_EFFECT M_GetHitEffect(const ITEM *const item)
 {
     if (item->current_anim_state != M_STATE_WAIT_DEF
         && item->current_anim_state != M_STATE_WALK_DEF
         && item->current_anim_state != M_STATE_START) {
-        return true;
+        return ITEM_HIT_BLOOD;
     }
 
     const ITEM *const lara_item = Lara_GetItem();
@@ -72,17 +73,17 @@ static bool M_ShouldSpawnBlood(const ITEM *const item)
     const int32_t dz = item->pos.z - lara_item->pos.z;
     const int16_t angle = DEG_180 - item->rot.y + Math_Atan(dz, dx);
     if (angle <= -DEG_90 || angle >= DEG_90) {
-        return true;
+        return ITEM_HIT_BLOOD;
     }
 
     const LARA_INFO *const lara = Lara_GetLaraInfo();
     // XXX: This uses Lara's currently equipped gun. If she swaps weapons before
     // a projectile impact resolves, this can differ from the projectile weapon.
     if (Gun_FiresProjectile(lara->gun_type)) {
-        return true;
+        return ITEM_HIT_BLOOD;
     }
 
-    return false;
+    return ITEM_HIT_RICOCHET;
 }
 
 static void M_TriggerSmoke(const XYZ_32 pos, const bool uw)
@@ -95,7 +96,8 @@ static void M_TriggerSmoke(const XYZ_32 pos, const bool uw)
         return;
     }
 
-    SPARK *const spark = Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION);
+    SPARK *const spark =
+        Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION, SPARK_CONTEXT_SMOKE);
     if (spark == nullptr) {
         return;
     }
@@ -486,8 +488,18 @@ static bool M_Draw(const ITEM *const item)
         M_TriggerSmoke(smoke_pos, true);
     }
 
+    // A dead statue that dropped a sword draws without the hand that held it.
+    const bool is_hand_lost = item->hit_points <= 0 && !Item_IsInPlay(item)
+        && item->carried_item != nullptr
+        && (item->mesh_bits & M_SWORD_HAND) == 0;
     const OBJECT *const swap = Object_Get(O_MESH_SWAP_1);
-    return Object_DrawAnimatingItemWithSwap(item, swap, item->mesh_bits);
+    return Item_DrawAnimatingEx(
+        item,
+        &(ITEM_DRAW_DESC) {
+            .mesh_mask = item->mesh_bits,
+            .mesh_swap = swap,
+            .hide_mask = is_hand_lost ? M_SWORD_HAND : 0,
+        });
 }
 
 static void M_Setup(OBJECT *const obj)
@@ -509,7 +521,7 @@ static void M_Setup(OBJECT *const obj)
     obj->initialise_func = M_Initialise;
     obj->control_func = M_Control;
     obj->collision_func = Creature_Collision;
-    obj->should_spawn_blood_func = M_ShouldSpawnBlood;
+    obj->get_hit_effect_func = M_GetHitEffect;
     obj->draw_func = M_Draw;
     obj->priv_size = sizeof(M_PRIV);
     obj->priv_load_func = M_LoadPriv;

@@ -10,9 +10,9 @@
 #include <trx/game/inventory.h>
 #include <trx/game/objects.h>
 #include <trx/game/objects/families.h>
-#include <trx/game/overlay.h>
 #include <trx/game/savegame.h>
 #include <trx/game/stats.h>
+#include <trx/game/ui/menu.h>
 
 #include <string.h>
 
@@ -114,7 +114,7 @@ static void M_ModifyResumeInfo_Item(
 
 static void M_CollectNewPickup(const OBJECT_ID object_id)
 {
-    Overlay_AddDisplayPickup(object_id);
+    UI_ShowPickup(object_id);
     Stats_AddPickup();
 }
 
@@ -263,18 +263,12 @@ int32_t GF_GetSecretRewardCount(const GF_LEVEL *const level)
     return sum;
 }
 
-void GF_InventoryModifier_ApplyHubReset(
+bool GF_IsHubReset(
     const GF_LEVEL *const level, const GF_LEVEL *const next_level)
 {
     if (level == nullptr || next_level == nullptr) {
-        return;
+        return false;
     }
-    RESUME_INFO *const resume = SG_Resume_GetEntry(next_level);
-    if (resume == nullptr) {
-        return;
-    }
-
-    bool resets = false;
     for (int32_t i = 0; i < level->sequence.length; i++) {
         const GF_SEQUENCE_EVENT *const event = &level->sequence.events[i];
         if (event->type != GFS_RESET_HUB) {
@@ -282,11 +276,20 @@ void GF_InventoryModifier_ApplyHubReset(
         }
         const int32_t level_idx = (int32_t)(intptr_t)event->data;
         if (GF_GetLevel(GFLT_MAIN, level_idx - 1) == next_level) {
-            resets = true;
-            break;
+            return true;
         }
     }
-    if (!resets) {
+    return false;
+}
+
+void GF_InventoryModifier_ApplyHubReset(
+    const GF_LEVEL *const level, const GF_LEVEL *const next_level)
+{
+    if (!GF_IsHubReset(level, next_level)) {
+        return;
+    }
+    RESUME_INFO *const resume = SG_Resume_GetEntry(next_level);
+    if (resume == nullptr) {
         return;
     }
 
@@ -315,8 +318,9 @@ void GF_InventoryModifier_ApplyToResumeInfo(const GF_LEVEL *const level)
 
     const LARA_GUN_TYPE default_gun = Gun_GetDefaultType();
     const OBJECT_ID default_gun_object = Gun_GetGunObject(default_gun);
-    const bool default_gun_given =
-        !Inv_State_Has(&resume->inv, default_gun_object)
+    // A game can name no default weapon, and then Lara is given none.
+    const bool default_gun_given = default_gun_object != NO_OBJECT
+        && !Inv_State_Has(&resume->inv, default_gun_object)
         && *M_Add2InvItem(default_gun_object) != 0;
     if (default_gun_given) {
         Inv_State_SetCount(&resume->inv, default_gun_object, 1);
@@ -383,8 +387,10 @@ void GF_InventoryModifier_Apply(
 
     if (type == GF_INV_SECRET) {
         const LARA_GUN_TYPE default_gun = Gun_GetDefaultType();
-        if (*M_Add2InvItem(Gun_GetGunObject(default_gun))) {
-            Inv_AddItem(Gun_GetGunObject(default_gun));
+        const OBJECT_ID default_gun_object = Gun_GetGunObject(default_gun);
+        if (default_gun_object != NO_OBJECT
+            && *M_Add2InvItem(default_gun_object)) {
+            Inv_AddItem(default_gun_object);
             if (resume->equipped_gun_type == LGT_UNARMED) {
                 resume->equipped_gun_type = default_gun;
             }

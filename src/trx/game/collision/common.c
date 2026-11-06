@@ -3,6 +3,7 @@
 #include <trx/config.h>
 #include <trx/core/utils.h>
 #include <trx/game/anims/walk.h>
+#include <trx/game/demo.h>
 #include <trx/game/interpolation.h>
 #include <trx/game/items.h>
 #include <trx/game/items/anim.h>
@@ -13,6 +14,50 @@
 #include <trx/version.h>
 
 #define M_HEADROOM 160 // Additional collision space above Lara's head.
+#define M_CORNER_DISTANCE 250
+#define M_CORNER_TURN DEG_90
+#define M_CORNER_TURN_BACK 0x3000
+
+// Tests a point 250 units away from the item towards one of its sides.
+static bool M_IsCornerBlocked(
+    const COLL_INFO *const coll, const XYZ_32 pos, const int32_t y,
+    const int32_t y_top, const int16_t room_num, const int16_t angle)
+{
+    const XYZ_32 sample_pos = {
+        .x = pos.x + ((M_CORNER_DISTANCE * Math_Sin(angle)) >> W2V_SHIFT),
+        .y = y_top,
+        .z = pos.z + ((M_CORNER_DISTANCE * Math_Cos(angle)) >> W2V_SHIFT),
+    };
+    int16_t sample_room_num = room_num;
+    const SECTOR *const sector = Room_GetSector(sample_pos, &sample_room_num);
+    int32_t height = Room_GetHeight(sector, sample_pos);
+    if (height != NO_HEIGHT) {
+        height -= pos.y;
+    }
+    int32_t ceiling = Room_GetCeiling(sector, sample_pos);
+    if (ceiling != NO_HEIGHT) {
+        ceiling -= y;
+    }
+    return height > coll->bad_pos || height < coll->bad_neg
+        || ceiling > coll->bad_ceiling;
+}
+
+// The PS1 release stops the item where it was when both of its front corners
+// are blocked, and its demos depend on it.
+static bool M_ArePS1CornersBlocked(
+    const COLL_INFO *const coll, const XYZ_32 pos, const int32_t y,
+    const int32_t y_top, const int16_t room_num)
+{
+    if (!Demo_UsesPS1Rules()) {
+        return false;
+    }
+    const int32_t turn = ABS(Lara_GetItem()->rot.y - coll->facing) > 0x7000
+        ? M_CORNER_TURN_BACK
+        : M_CORNER_TURN;
+    return M_IsCornerBlocked(coll, pos, y, y_top, room_num, coll->facing - turn)
+        && M_IsCornerBlocked(
+               coll, pos, y, y_top, room_num, coll->facing + turn);
+}
 
 static bool M_IsOnWalkable(
     const SECTOR *const sector, const XYZ_32 pos, const int32_t room_height)
@@ -124,6 +169,55 @@ static void M_FillSide(
         side->floor = NO_HEIGHT;
         side->ceiling = NO_HEIGHT;
     }
+}
+
+// Returns whether a point lies within radius of a box that turns about the
+// Y axis, with 128 units to spare on each side.
+static bool M_IsNearBox(
+    const XYZ_32 point, const XYZ_32 box_pos, const int16_t box_rot_y,
+    const BOUNDS_16 *const bounds, const int32_t radius)
+{
+    const int32_t reach = radius + 128;
+    if (point.y + reach < box_pos.y + bounds->min.y
+        || point.y - reach > box_pos.y + bounds->max.y) {
+        return false;
+    }
+
+    const int32_t sy = Math_Sin(box_rot_y);
+    const int32_t cy = Math_Cos(box_rot_y);
+    const int32_t dx = point.x - box_pos.x;
+    const int32_t dz = point.z - box_pos.z;
+    const int32_t x = (dx * cy - sy * dz) >> W2V_SHIFT;
+    if (x + reach < bounds->min.x || x - reach > bounds->max.x) {
+        return false;
+    }
+    const int32_t z = (dx * sy + cy * dz) >> W2V_SHIFT;
+    return z + reach >= bounds->min.z && z - reach <= bounds->max.z;
+}
+
+static bool M_CanCollide(
+    const ITEM *const item, const ITEM *const other, const bool skip_invisible,
+    const bool include_lara)
+{
+    const ITEM *const lara_item = Lara_GetItem();
+    if (other == item || (!include_lara && other == lara_item)
+        || other->clear_body) {
+        return false;
+    }
+
+    // TODO: TR4 also leaves out the burning floor, which TRX lacks.
+    const OBJECT *const obj = Object_Get(other->object_id);
+    if (other != lara_item
+        && (obj->collision_func == nullptr || obj->draw_func == nullptr)) {
+        return false;
+    }
+    if (other->mesh_bits == 0 || (skip_invisible && !other->is_visible)) {
+        return false;
+    }
+
+    const XYZ_32 diff = XYZ_32_Subtract(item->pos, other->pos);
+    return ABS(diff.x) <= WALL_L * 2 && ABS(diff.y) <= WALL_L * 2
+        && ABS(diff.z) <= WALL_L * 2;
 }
 
 int32_t Collide_GetSpheres(
@@ -423,6 +517,13 @@ void Collide_GetCollisionInfo(
         coll->coll_type = COLL_TOP;
     }
 
+    if (M_ArePS1CornersBlocked(coll, pos, y, y_top, prev_room_num)) {
+        coll->shift.x = coll->old_pos.x - pos.x;
+        coll->shift.z = coll->old_pos.z - pos.z;
+        coll->coll_type = COLL_FRONT;
+        return;
+    }
+
     if (coll->side_front.floor > coll->bad_pos
         || coll->side_front.floor < coll->bad_neg
         || coll->side_front.ceiling > coll->bad_ceiling) {
@@ -544,7 +645,7 @@ bool Collide_CollideStaticObjects(
             const STATIC_OBJECT_3D *const obj =
                 Object_Get3DStatic(mesh->static_num);
 
-            if (!obj->collidable) {
+            if (!obj->collidable || Room_IsStaticShattered(mesh)) {
                 continue;
             }
 
@@ -1125,4 +1226,62 @@ void Collide_ShiftItem(ITEM *const item, COLL_INFO *const coll)
     coll->shift.x = 0;
     coll->shift.y = 0;
     coll->shift.z = 0;
+}
+
+void Collide_GetCollidedObjects(
+    const ITEM *const item, const int32_t radius, const bool skip_invisible,
+    const bool include_lara, COLLIDED_OBJECTS *const out)
+{
+    out->item_count = 0;
+    out->static_count = 0;
+
+    int16_t rooms[COLLIDE_MAX_COLLIDED];
+    int32_t room_count = 0;
+    rooms[room_count++] = item->room_num;
+    const PORTALS *const portals = Room_Get(item->room_num)->portals;
+    for (int32_t i = 0; portals != nullptr && i < portals->count; i++) {
+        const int16_t room_num = portals->portal[i].room_num;
+        bool known = false;
+        for (int32_t j = 0; j < room_count; j++) {
+            known = known || rooms[j] == room_num;
+        }
+        if (!known && room_count < COLLIDE_MAX_COLLIDED) {
+            rooms[room_count++] = room_num;
+        }
+    }
+
+    for (int32_t i = 0; i < room_count; i++) {
+        const ROOM *const room = Room_Get(rooms[i]);
+        for (int32_t j = 0; j < room->num_static_meshes; j++) {
+            const STATIC_MESH *const mesh = &room->static_meshes[j];
+            const STATIC_OBJECT_3D *const obj =
+                Object_Get3DStatic(mesh->static_num);
+            if (Room_IsStaticShattered(mesh)
+                || out->static_count >= COLLIDE_MAX_COLLIDED
+                || !M_IsNearBox(
+                    item->pos, mesh->pos, mesh->rot.y, &obj->collision_bounds,
+                    radius)) {
+                continue;
+            }
+            out->statics[out->static_count++] = mesh;
+        }
+    }
+
+    for (int32_t i = 0; i < room_count; i++) {
+        for (int16_t item_num = Room_Get(rooms[i])->item_num;
+             item_num != NO_ITEM; item_num = Item_Get(item_num)->next_item) {
+            ITEM *const other = Item_Get(item_num);
+            if (out->item_count >= COLLIDE_MAX_COLLIDED
+                || !M_CanCollide(item, other, skip_invisible, include_lara)) {
+                continue;
+            }
+            // TODO: TR4 gives its turn switch a box of its own, and TRX lacks
+            // the switch.
+            const BOUNDS_16 *const bounds = &Item_GetBestFrame(other)->bounds;
+            if (M_IsNearBox(
+                    item->pos, other->pos, other->rot.y, bounds, radius)) {
+                out->items[out->item_count++] = other;
+            }
+        }
+    }
 }

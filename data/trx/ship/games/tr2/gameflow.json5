@@ -24,9 +24,11 @@
             "font.bin",
             "inv_background.bin",
             "pda_model.bin",
+            "controls_models.bin",
             "title_textures.bin",
             "misc_sprites.bin",
             "common_pickup_meshes.bin",
+            "title_ps1_blend.bin",
         ]
     },
 
@@ -36,6 +38,7 @@
         "font.bin",
         "lara_animations.bin",
         "pda_model.bin",
+        "controls_models.bin",
         "pickup_aid.bin",
         "crystal.bin",
         "winston_model.bin",
@@ -72,10 +75,12 @@
                 "lara_gym_guns.bin",
                 "lara_animations.bin",
                 "pda_model.bin",
+                "controls_models.bin",
                 "pickup_aid.bin",
                 "misc_sprites.bin",
                 "lara_outfits.bin",
                 "binoculars.bin",
+                "gym_ps1_blend.bin",
             ],
         },
 
@@ -111,6 +116,7 @@
                 "wall_music_tracks.bin",
                 "wall_textures.bin",
                 "wall_crystals.bin",
+                "wall_ps1_blend.bin",
             ],
         },
 
@@ -136,6 +142,7 @@
                 "venice_music_tracks.bin",
                 "venice_textures.bin",
                 "venice_crystals.bin",
+                "venice_ps1_blend.bin",
             ],
         },
 
@@ -163,6 +170,7 @@
                 "detonator_lights.bin",
                 "bartoli_crystals.bin",
                 "boat_sfx.bin",
+                "bartoli_ps1_blend.bin",
             ],
         },
 
@@ -193,6 +201,7 @@
                 "opera_music_tracks.bin",
                 "opera_sfx.bin",
                 "opera_crystals.bin",
+                "opera_ps1_blend.bin",
             ],
             "unobtainable_kills": 1,
         },
@@ -223,6 +232,7 @@
                 "rig_textures.bin",
                 "scuba_sfx.bin",
                 "rig_crystals.bin",
+                "rig_ps1_blend.bin",
             ],
         },
 
@@ -252,6 +262,7 @@
                 "lara_guns.bin",
                 "scuba_sfx.bin",
                 "diving_crystals.bin",
+                "diving_ps1_blend.bin",
             ],
         },
 
@@ -281,6 +292,7 @@
                 "scuba_sfx.bin",
                 "wall_switch_sfx.bin",
                 "fathoms_crystals.bin",
+                "fathoms_ps1_blend.bin",
             ],
         },
 
@@ -312,6 +324,7 @@
                 "wreck_textures.bin",
                 "wall_switch_sfx.bin",
                 "wreck_crystals.bin",
+                "wreck_ps1_blend.bin",
             ],
             "unobtainable_kills": 1,
         },
@@ -343,6 +356,7 @@
                 "scuba_sfx.bin",
                 "wall_switch_sfx.bin",
                 "living_crystals.bin",
+                "living_ps1_blend.bin",
             ],
         },
 
@@ -375,6 +389,7 @@
                 "scuba_sfx.bin",
                 "wall_switch_sfx.bin",
                 "deck_crystals.bin",
+                "deck_ps1_blend.bin",
             ],
         },
 
@@ -403,6 +418,7 @@
                 "tibet_textures.bin",
                 "wall_switch_sfx.bin",
                 "tibet_crystals.bin",
+                "tibet_ps1_blend.bin",
             ],
         },
 
@@ -430,6 +446,7 @@
                 "lara_guns.bin",
                 "barkhang_crystals.bin",
                 "barkhang_sfx.bin",
+                "barkhang_ps1_blend.bin",
             ],
             "unobtainable_pickups": 2,
             "unobtainable_kills": 1,
@@ -459,6 +476,7 @@
                 "door108_sfx.bin",
                 "lara_guns.bin",
                 "catacombs_crystals.bin",
+                "catacombs_ps1_blend.bin",
             ],
             "unobtainable_pickups": 1,
         },
@@ -488,6 +506,7 @@
                 "palace_textures.bin",
                 "portcullis_sfx.bin",
                 "palace_crystals.bin",
+                "palace_ps1_blend.bin",
             ],
         },
 
@@ -517,6 +536,7 @@
                 "xian_sfx.bin",
                 "xian_textures.bin",
                 "xian_crystals.bin",
+                "xian_ps1_blend.bin",
             ],
             "unobtainable_pickups": 1,
         },
@@ -543,6 +563,8 @@
                 "floating_pickup_meshes.bin",
                 "floating_textures.bin",
                 "floating_crystals.bin",
+                "floating_item_sprites.bin",
+                "floating_ps1_blend.bin",
             ],
         },
 
@@ -568,6 +590,8 @@
                 "lara_guns.bin",
                 "portcullis_sfx.bin",
                 "lair_crystals.bin",
+                "lair_item_sprites.bin",
+                "lair_ps1_blend.bin",
             ],
         },
 
@@ -607,6 +631,7 @@
                 "house_shower_frames.bin",
                 "house_textures.bin",
                 "lara_house_guns.bin",
+                "house_ps1_blend.bin",
             ],
         },
     ],
@@ -723,11 +748,13 @@
             "inherit_injections": false,
             "injections": [
                 "cut3_setup.bin",
+                "cut3_gunflash.bin",
                 "cut3_textures.bin",
                 "font.bin",
                 "photo.bin",
                 "misc_sprites.bin",
                 "lara_outfits.bin",
+                "cut3_ps1_blend.bin",
             ],
         },
         {
@@ -777,6 +804,7 @@
         "fix_chainblock_secret_sound",
         "enable_compass_stats",
         "enable_swamp_sidestepping",
+        "enable_monkey_bar_edge_deflect",
         "enable_monkey_bar_shimmy_turn",
         "enable_wading",
         "restore_ps1_enemies",

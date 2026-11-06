@@ -76,7 +76,8 @@ static BITE m_GasHit = {
 static void M_TriggerGas(
     const XYZ_32 pos, const XYZ_32 vel, const int32_t effect_num)
 {
-    SPARK *const spark = Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION);
+    SPARK *const spark =
+        Sparks_InitialiseSpriteSpark(SPARK_TYPE_EXPLOSION, SPARK_CONTEXT_GAS);
     if (spark == nullptr) {
         return;
     }
@@ -166,7 +167,7 @@ static void M_TriggerGas(
 static int16_t M_TriggerGasThrower(
     const ITEM *const item, const BITE *const bite, const int16_t speed)
 {
-    const int16_t effect_num = Effect_Create(item->room_num);
+    const int16_t effect_num = Effect_Create(O_MISSILE_POISON, item->room_num);
     if (effect_num == NO_ITEM) {
         return NO_ITEM;
     }
@@ -192,7 +193,6 @@ static int16_t M_TriggerGasThrower(
     effect->rot.z = 0;
     effect->rot.y = angles[0];
     effect->speed = speed << 2;
-    effect->object_id = O_MISSILE_POISON;
     effect->counter = 20;
     M_TriggerGas((XYZ_32) {}, (XYZ_32) {}, effect_num);
 
@@ -224,7 +224,7 @@ static bool M_IsEnemyBoxSearchable(const ITEM *const enemy)
         return false;
     }
 
-    return (box->overlap_index & BOX_BLOCKED_SEARCH) != 0;
+    return (box->overlap_index & BOX_BLOCKABLE) != 0;
 }
 
 static void M_Control(const int16_t item_num)
@@ -246,7 +246,12 @@ static void M_Control(const int16_t item_num)
             item->current_anim_state = M_STATE_DEATH;
         } else if (
             TribeBoss_IsLizardActive() && Item_GetRelativeFrame(item) == 50) {
-            Creature_Die(item_num, (CREATURE_DIE_ARGS) { .explode = true });
+            Creature_Die(
+                item_num,
+                (CREATURE_DIE_ARGS) {
+                    .explode = true,
+                    .gib_flags = GIB_FLAME | GIB_SMOKE,
+                });
         }
     } else {
         AI_INFO info;

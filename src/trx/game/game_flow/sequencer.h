@@ -2,8 +2,8 @@
 
 #include <trx/core/result.h>
 #include <trx/game/game_flow/types.h>
-#include <trx/game/inventory_ring/types.h>
 #include <trx/game/savegame/types.h>
+#include <trx/game/ui/menu.h>
 
 GF_COMMAND GF_EnterPhotoMode(void);
 GF_COMMAND GF_PauseGame(void);
@@ -44,5 +44,9 @@ RESULT GF_InterpretSequence(
 RESULT GF_DoLevelSequence(
     const GF_LEVEL *start_level, GF_SEQUENCE_CONTEXT seq_ctx,
     GF_COMMAND *out_cmd);
+
+// Returns whether a level has ended and shows its statistics. A save made
+// then holds the playthrough without the level, and resumes after them.
+bool GF_IsLevelEnding(void);
 
 RESULT GF_PlayAvailableStory(SAVEGAME_SLOT_REF slot, GF_COMMAND *out_cmd);

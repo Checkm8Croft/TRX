@@ -85,8 +85,10 @@ static void M_CrouchShift(ITEM *const item, COLL_INFO *const coll)
             item->pos, Lara_GetLaraInfo()->move_angle, STEP_L / 8);
         int16_t room_num = item->room_num;
         const SECTOR *const sector = Room_GetSector(pos, &room_num);
-        const int32_t height = Room_GetHeightEx(sector, pos, true, NO_ITEM);
-        const int32_t ceiling = Room_GetCeilingEx(sector, pos, true);
+        const int32_t height = Room_GetHeightEx(
+            sector, pos, &(ROOM_HEIGHT_CTX) { .fix_tilts = true });
+        const int32_t ceiling = Room_GetCeilingEx(
+            sector, pos, &(ROOM_HEIGHT_CTX) { .fix_tilts = true });
         if (ABS(height - ceiling) < ABS(M_CROUCH_CEILING_THRESHOLD)) {
             item->pos = coll->old_pos;
             return;
@@ -94,7 +96,7 @@ static void M_CrouchShift(ITEM *const item, COLL_INFO *const coll)
     }
 
     Lara_Col_Shift(coll);
-    item->pos.y += coll->side_mid.floor;
+    Lara_Col_AlignToFloor(item, coll);
 }
 
 static void M_Crouch(ITEM *const item, COLL_INFO *const coll)
@@ -179,7 +181,7 @@ static void M_CrouchRoll(ITEM *const item, COLL_INFO *const coll)
             item->pos = coll->old_pos;
             item->speed = 0;
         } else {
-            item->pos.y += coll->side_mid.floor;
+            Lara_Col_AlignToFloor(item, coll);
         }
     }
 }
@@ -378,6 +380,17 @@ static void M_CrawlTurn(ITEM *const item, COLL_INFO *const coll)
     Collide_GetCollisionInfo(
         coll, item->pos, item->room_num, LARA_HEIGHT_CROUCH);
     Lara_Col_CrawlTilt(item);
+
+    if (!g_Config.gameplay.fix_falling_glitch) {
+        return;
+    }
+
+    if (g_Config.gameplay.fix_descending_glitch
+        && Lara_Col_Fallen(item, coll)) {
+        Lara_GetLaraInfo()->gun_status = LGS_ARMLESS;
+    } else if (coll->side_mid.floor > -STEP_L) {
+        Lara_Col_AlignToFloor(item, coll);
+    }
 }
 
 static void M_CrawlBack(ITEM *const item, COLL_INFO *const coll)
@@ -412,7 +425,7 @@ static void M_CrawlBack(ITEM *const item, COLL_INFO *const coll)
         lara->gun_status = LGS_ARMLESS;
     } else {
         Lara_Col_Shift(coll);
-        item->pos.y += coll->side_mid.floor;
+        Lara_Col_AlignToFloor(item, coll);
         lara->move_angle = item->rot.y;
     }
 }

@@ -10,25 +10,8 @@
             "area_5": "Lunnainn",
             "area_6": "An Antartaig",
         },
-        "inventory_ring": {
-            "heading_fmt": "\\{color 5}%s",
-            "item_count_fmt": "\\{color 3}%s",
-            "object_name_fmt": "\\{color 5}%s",
-        },
         "misc": {
             "empty_slot_fmt": "- Slot Falamh -",
-        },
-        "overlay": {
-            "item_count_fmt_pc": "%s",
-            "item_count_fmt_ps1": "\\{color 3}%s",
-        },
-        "pause": {
-            "paused": "\\{color 5}Air a stad",
-        },
-        "stats": {
-            "assault_other_times_fmt": "\\{color 2}%s",
-            "gym_assault_course": "\\{color 5}Cùrsa Ionnsaigh",
-            "gym_racetrack_course": "\\{color 5}Cùrsa Rèis",
         }
     },
     "objects": {
@@ -310,6 +293,53 @@
             "objects": {
                 "key_item_1": {
                     "name": "Iuchair an Ionmhais",
+                }
+            }
+        }
+    ],
+    "demos": [
+        {
+            "title": "Aldwych",
+            "objects": {
+                "key_item_1": {
+                    "name": "Iuchair a' Chàraidh",
+                },
+                "key_item_2": {
+                    "name": "Iuchair Sholaimh",
+                },
+                "key_item_3": {
+                    "name": "Iuchair Sholaimh",
+                },
+                "puzzle_item_1": {
+                    "name": "Seann Bhonn-airgid",
+                },
+                "puzzle_item_2": {
+                    "name": "Tiocaid",
+                },
+                "puzzle_item_3": {
+                    "name": "Òrd Clachaireachd",
+                },
+                "puzzle_item_4": {
+                    "name": "Rionnag Sgeadaichte",
+                }
+            }
+        },
+        {
+            "title": "Abhainn nan Ganges",
+            "objects": {
+                "key_item_1": {
+                    "name": "Iuchair a' Gheata",
+                }
+            }
+        },
+        {
+            "title": "Fàsach Nebhada",
+            "objects": {
+                "key_item_1": {
+                    "name": "Cead-inntrigidh a' Ghineadair",
+                },
+                "key_item_2": {
+                    "name": "Suidse an Spreadhaidh",
                 }
             }
         }

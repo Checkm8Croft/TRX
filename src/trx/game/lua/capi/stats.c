@@ -4,7 +4,9 @@
 #include <trx/game/lua/field.h>
 #include <trx/game/lua/registry.h>
 #include <trx/game/lua/struct.h>
-#include <trx/game/lua/utils.h>
+#include <trx/game/lua/utils/args.h>
+#include <trx/game/lua/utils/module.h>
+#include <trx/game/objects/families.h>
 #include <trx/game/stats.h>
 
 #include <lauxlib.h>
@@ -129,7 +131,7 @@ static const GF_LEVEL *M_CheckStatsLevel(lua_State *const L, const int arg)
     return M_GetPackedLevel(ref->handle.id);
 }
 
-// trxc.stats.get(num) -> LEVEL_STATS handle or nil
+// trxc.stats.get(num: trx.game.LevelNum): trx.stats.Stats?
 static int M_L_StatsGet(lua_State *const L)
 {
     int32_t num;
@@ -141,14 +143,14 @@ static int M_L_StatsGet(lua_State *const L)
     return 1;
 }
 
-// trxc.stats.get_current() -> LEVEL_STATS handle or nil
+// trxc.stats.get_current(): trx.stats.Stats?
 static int M_L_StatsGetCurrent(lua_State *const L)
 {
     M_PushStats(L, Game_GetCurrentLevel());
     return 1;
 }
 
-// trxc.stats.category(stats, id) -> STATS_CATEGORY handle or nil
+// trxc.stats.category(stats: trx.stats.Stats, id: integer): trx.stats.Category?
 static int M_L_StatsCategory(lua_State *const L)
 {
     const LUA_STRUCT_REF *const ref =
@@ -167,7 +169,9 @@ static int M_L_StatsCategory(lua_State *const L)
     return 1;
 }
 
-// trxc.stats.kill_split(stats) -> allies, enemies
+// trxc.stats.kill_split(stats: trx.stats.Stats): integer?, integer?
+// Returns the ally and enemy kill counts, or nothing where the level has no
+// maximum statistics.
 static int M_L_StatsKillSplit(lua_State *const L)
 {
     const GF_LEVEL *const level = M_CheckStatsLevel(L, 1);
@@ -180,14 +184,14 @@ static int M_L_StatsKillSplit(lua_State *const L)
     return 2;
 }
 
-// trxc.stats.allies_hurt(stats) -> bool
+// trxc.stats.allies_hurt(stats: trx.stats.Stats): boolean
 static int M_L_StatsAlliesHurt(lua_State *const L)
 {
     lua_pushboolean(L, Stats_HaveAlliesBeenHurt(M_CheckStatsLevel(L, 1)));
     return 1;
 }
 
-// stats:secret_list() -> { { num=, found= }, ... }
+// stats:secret_list() -> { { num=, found=, icon= }, ... }
 static int M_L_StatsSecretList(lua_State *const L)
 {
     const GF_LEVEL *const level = M_CheckStatsLevel(L, 1);
@@ -203,6 +207,12 @@ static int M_L_StatsSecretList(lua_State *const L)
         lua_setfield(L, -2, "num");
         lua_pushboolean(L, Stats_HasSecret(level, i));
         lua_setfield(L, -2, "found");
+        const OBJECT_ID object_id = Stats_GetSecretObject(level, i);
+        if (object_id != NO_OBJECT) {
+            lua_pushinteger(
+                L, ObjectFamily_GetIndex(object_id, OBJ_FAMILY_SECRET) + 1);
+            lua_setfield(L, -2, "icon");
+        }
         lua_seti(L, -2, out_idx);
         out_idx++;
     }
@@ -228,6 +238,13 @@ static int M_L_StatsTakeSecret(lua_State *const L)
     return 1;
 }
 
+// trxc.stats.has_crystals(): boolean
+static int M_L_StatsHasCrystals(lua_State *const L)
+{
+    lua_pushboolean(L, Stats_GameHasCrystals());
+    return 1;
+}
+
 static const luaL_Reg m_StatsMethods[] = {
     { "secret_list", M_L_StatsSecretList },
     { "give_secret", M_L_StatsGiveSecret },
@@ -241,6 +258,7 @@ static const luaL_Reg m_Module[] = {
     { "category", M_L_StatsCategory },
     { "kill_split", M_L_StatsKillSplit },
     { "allies_hurt", M_L_StatsAlliesHurt },
+    { "has_crystals", M_L_StatsHasCrystals },
     { nullptr, nullptr },
 };
 

@@ -103,7 +103,7 @@ The keys a weapon states on its own:
   <tr valign="top">
     <td><code>fire</code></td>
     <td>String</td>
-    <td>What the weapon does when fired: <code>generic</code>, <code>m16</code>, <code>grenade</code>, <code>rocket</code> or <code>harpoon</code>. A script may provide a function instead.</td>
+    <td>What the weapon does when fired: <code>generic</code>, <code>shotgun_tr4</code>, <code>m16</code>, <code>crossbow</code>, <code>grenade</code>, <code>grenade_tr4</code>, <code>rocket</code> or <code>harpoon</code>. A script may provide a function instead.</td>
   </tr>
   <tr valign="top">
     <td><code>is_available</code></td>
@@ -219,6 +219,46 @@ The keys a weapon states on its own:
     <td><code>icon</code></td>
     <td>String</td>
     <td>The icon the ammunition counter shows beside the number of shots left.</td>
+  </tr>
+</table>
+
+### `attachment`
+
+What the weapon can carry attached, as the TR4 revolver and crossbow carry the
+laser sight. The player combines the attachment with the weapon in the
+inventory, and separates it again. Lara carries one of each attachment at
+most, loose or on a weapon.
+
+<table>
+  <tr valign="top" align="left">
+    <th>Property</th>
+    <th>Type</th>
+    <th>Description</th>
+  </tr>
+  <tr valign="top">
+    <td><code>object</code></td>
+    <td>String</td>
+    <td>The pickup that attaches.</td>
+  </tr>
+  <tr valign="top">
+    <td><code>anim</code></td>
+    <td>String</td>
+    <td>The object that Lara's right hand is drawn from while she holds the weapon with the attachment.</td>
+  </tr>
+  <tr valign="top">
+    <td><code>inventory_meshes</code></td>
+    <td>Integer</td>
+    <td>The meshes that the inventory draws the weapon with while the weapon carries the attachment, one bit each.</td>
+  </tr>
+  <tr valign="top">
+    <td><code>fire_delay</code></td>
+    <td>Integer</td>
+    <td>The ticks between two shots through the laser sight view, which a weapon with an attachment opens while the player holds the look key.</td>
+  </tr>
+  <tr valign="top">
+    <td><code>fire</code></td>
+    <td>String</td>
+    <td>What a shot through the laser sight view does: <code>crossbow</code> sends a bolt toward where the sight points. A weapon that names nothing hits at once where the sight points.</td>
   </tr>
 </table>
 
@@ -423,7 +463,7 @@ The keys a weapon states on its own:
   <tr valign="top">
     <td><code>tip</code></td>
     <td>XYZ</td>
-    <td>The far end of the barrel. A weapon that names one drives its smoke along the barrel and throws sparks with it; one that does not lets the smoke drift.</td>
+    <td>The far end of the barrel. A weapon that names one drives its smoke along the barrel, and in TR3 throws sparks with it; one that does not lets the smoke drift.</td>
   </tr>
   <tr valign="top">
     <td><code>tip_alt</code></td>
@@ -434,6 +474,11 @@ The keys a weapon states on its own:
     <td><code>count</code></td>
     <td>Integer</td>
     <td>How many smoke effect instances to spawn upon shooting.</td>
+  </tr>
+  <tr valign="top">
+    <td><code>burst</code></td>
+    <td>Integer</td>
+    <td>How many puffs a shot drives along the barrel, for a weapon that names a <code>tip</code>.</td>
   </tr>
   <tr valign="top">
     <td><code>size</code></td>

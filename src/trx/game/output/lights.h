@@ -10,6 +10,7 @@
 void Output_Lights_Init(void);
 void Output_Lights_Shutdown(void);
 void Output_Lights_ObserveLevelLoad(void);
+void Output_Lights_ObserveRoomFlip(const ROOM *room);
 
 void Output_CalculateLight(XYZ_32 pos, int16_t room_num);
 void Output_CalculateStaticLight(int16_t adder);
@@ -17,7 +18,17 @@ void Output_CalculateStaticLightRGB15(int16_t rgb15);
 void Output_CalculateStaticLightRGB_F(RGB_F rgb);
 void Output_CalculateStaticMeshLight(XYZ_32 pos, SHADE shade, const ROOM *room);
 void Output_CalculateObjectLighting(const ITEM *item, const BOUNDS_16 *bounds);
+// Lights an item by its room, and ignores the static shade of the item.
+void Output_CalculateObjectRoomLighting(
+    const ITEM *item, const BOUNDS_16 *bounds);
+// Lowers the shade of the light calculated last, so that the meshes drawn
+// next show brighter.
+void Output_BrightenLight(int32_t shade);
 void Output_CalculateObjectLightingAt(
+    const ITEM *item, const GAME_VECTOR sample_pos);
+// Lights a cutscene actor from the room at the sample position, rather than
+// from the room the item is in.
+void Output_CalculateActorLightingAt(
     const ITEM *item, const GAME_VECTOR sample_pos);
 int32_t Output_GetRoomLightShade(ROOM_LIGHT_MODE mode);
 

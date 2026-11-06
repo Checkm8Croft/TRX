@@ -1,66 +1,61 @@
 #include <trx/game/effects/draw.h>
 
-#include <trx/game/effects/const.h>
-#include <trx/game/effects/manager.h>
 #include <trx/game/matrix.h>
 #include <trx/game/objects.h>
+#include <trx/game/objects/draw.h>
 #include <trx/game/objects/families.h>
 #include <trx/game/output.h>
-#include <trx/version.h>
 
-void Effect_Draw(const int16_t effect_num)
+static void M_DrawSprite(
+    const EFFECT *const effect, const EFFECT_DRAW_DESC *const desc)
 {
-    const EFFECT *const effect = Effect_Get(effect_num);
     const OBJECT *const obj = Object_Get(effect->object_id);
-    if (!obj->loaded) {
-        return;
+    const RGBA_F tint =
+        ObjectFamily_Has(effect->object_id, OBJ_FAMILY_WATER_SPRITE)
+        ? COLOR_RGBA_F_WHITE
+        : Output_GetTint();
+    int16_t shade = effect->shade;
+    if (shade == -1 || desc->room_light) {
+        Output_CalculateLight(effect->pos, effect->room_num);
+        Output_BrightenLight(desc->brightness);
+        shade = Output_GetLightAdder();
     }
+    Output_DrawSprite(
+        effect->interp.result.pos.x, effect->interp.result.pos.y,
+        effect->interp.result.pos.z, obj->mesh_idx - effect->frame_num, shade,
+        tint, Output_GetSpriteDrawType(obj), 1.0f);
+}
 
-    // TR3 uses BUBBLES1 as a dummy effect carrier and renders the bubble via
-    // an attached spark; keep TR1/TR2 legacy bubble rendering intact.
-    if (g_TRVersion == 3 && effect->object_id == O_BUBBLE_1) {
-        return;
-    }
-
-    if (effect->object_id == O_GLOW) {
-        Output_DrawSprite(
-            effect->interp.result.pos.x, effect->interp.result.pos.y,
-            effect->interp.result.pos.z, Object_Get(O_GLOW)->mesh_idx,
-            effect->shade, COLOR_RGBA_F_WHITE, DRAW_BLEND, 1.0f);
-        return;
-    }
-
-    if (obj->effect_draw_func != nullptr) {
-        if (obj->effect_draw_func(effect)) {
-            return;
-        }
-    }
-
-    if (obj->mesh_count < 0) {
-        const RGBA_F tint =
-            ObjectFamily_Has(effect->object_id, OBJ_FAMILY_WATER_SPRITE)
-            ? COLOR_RGBA_F_WHITE
-            : Output_GetTint();
-        int16_t shade = effect->shade;
-        if (shade == -1) {
-            Output_CalculateLight(effect->pos, effect->room_num);
-            shade = Output_GetLightAdder();
-        }
-        Output_DrawSprite(
-            effect->interp.result.pos.x, effect->interp.result.pos.y,
-            effect->interp.result.pos.z, obj->mesh_idx - effect->frame_num,
-            shade, tint, DRAW_BLEND, 1.0f);
+static void M_DrawMesh(
+    const EFFECT *const effect, const EFFECT_DRAW_DESC *const desc)
+{
+    const OBJECT *const obj = Object_Get(effect->object_id);
+    Matrix_Push();
+    Matrix_TranslateAbs32(effect->interp.result.pos);
+    Matrix_Rot16(effect->interp.result.rot);
+    if (obj->mesh_count != 0 && !desc->room_light) {
+        Output_CalculateStaticLight(effect->shade);
     } else {
-        Matrix_Push();
-        Matrix_TranslateAbs32(effect->interp.result.pos);
-        Matrix_Rot16(effect->interp.result.rot);
-        if (obj->mesh_count != 0) {
-            Output_CalculateStaticLight(effect->shade);
-            Object_DrawMesh(obj->mesh_idx, -1, false);
-        } else {
-            Output_CalculateLight(effect->interp.result.pos, effect->room_num);
-            Object_DrawMesh(effect->frame_num, -1, false);
-        }
-        Matrix_Pop();
+        Output_CalculateLight(effect->interp.result.pos, effect->room_num);
     }
+    Output_BrightenLight(desc->brightness);
+    Object_DrawMesh(
+        obj->mesh_count != 0 ? obj->mesh_idx : effect->frame_num, -1, false);
+    Matrix_Pop();
+}
+
+bool Effect_Draw(const EFFECT *const effect)
+{
+    return Effect_DrawEx(effect, &(EFFECT_DRAW_DESC) {});
+}
+
+bool Effect_DrawEx(
+    const EFFECT *const effect, const EFFECT_DRAW_DESC *const desc)
+{
+    if (Object_Get(effect->object_id)->mesh_count < 0) {
+        M_DrawSprite(effect, desc);
+    } else {
+        M_DrawMesh(effect, desc);
+    }
+    return true;
 }

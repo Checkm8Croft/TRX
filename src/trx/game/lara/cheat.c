@@ -34,7 +34,7 @@ static void M_GiveAllGunsImpl(const bool ignore_exclusions)
             continue;
         }
         if (Lara_Cheat_GiveGun(gun_type, ignore_exclusions)) {
-            Inv_SetAmmo(gun_type, bonus_flag ? 10001 : info->cheat_ammo);
+            Inv_FillAmmo(gun_type, bonus_flag ? 10001 : info->cheat_ammo);
         }
     }
 }
@@ -282,7 +282,11 @@ bool Lara_Cheat_ExitFlyMode(void)
         lara_info->torso_rot.y = 0;
     }
 
-    if (lara_info->gun_item_num != NO_ITEM) {
+    // A flare being put away keeps going, so that it finishes leaving her
+    // hand rather than leaving her holding nothing in its place.
+    const bool is_flare_undrawing = lara_info->gun_status == LGS_UNDRAW
+        && lara_info->gun_type == Gun_GetFlareType();
+    if (lara_info->gun_item_num != NO_ITEM || is_flare_undrawing) {
         lara_info->gun_status = LGS_UNDRAW;
     } else {
         lara_info->gun_status = LGS_ARMLESS;
@@ -309,8 +313,10 @@ bool Lara_Cheat_Teleport(XYZ_32 pos, int16_t room_num)
     }
 
     const SECTOR *const sector = Room_GetSector(pos, &room_num);
-    const int32_t height = Room_GetHeightEx(sector, pos, true, NO_ITEM);
-    const int32_t ceiling = Room_GetCeilingEx(sector, pos, true);
+    const int32_t height =
+        Room_GetHeightEx(sector, pos, &(ROOM_HEIGHT_CTX) { .fix_tilts = true });
+    const int32_t ceiling = Room_GetCeilingEx(
+        sector, pos, &(ROOM_HEIGHT_CTX) { .fix_tilts = true });
     if (height == NO_HEIGHT || ceiling == NO_HEIGHT) {
         return false;
     }

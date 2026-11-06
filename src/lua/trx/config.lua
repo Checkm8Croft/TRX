@@ -1,0 +1,456 @@
+local raw = trxc.config
+local h = require("trx.internal.helpers")
+
+require("trx.locale")
+require("trx.math")
+
+---@class (partial) trx
+---@field config trx.config
+
+---Module for reading, changing and declaring engine settings.
+---
+---These are the player's settings, not the level's. `trx.config.set` writes to
+---them and keeps the change: it is remembered across saves and relaunches,
+---exactly as if the player had made it themselves. A level that wants to tint
+---the water or pull the fog in wants `trx.config.override` instead, which
+---lasts as long as the script keeps it and leaves the player's own value
+---untouched underneath.
+---
+---A game can also add settings of its own with `trx.config.declare`: they are
+---saved and loaded with the player's own, and shown in the settings menu where
+---the declaration asks for. A setting a game's `scripts/_game.lua` declares
+---belongs to that game and goes when it does.
+---@trx.module 27
+---@class (exact) trx.config
+local M = h.module("config")
+
+trx.locale.declare({
+  ["console/config/accepted_bool"] = "on, off",
+  ["console/config/accepted_decimal"] = "[decimal]",
+  ["console/config/accepted_integer"] = "[integer]",
+  ["console/config/accepted_percent"] = "[integer]",
+})
+
+---Everything about a setting but the value it holds now.
+---
+---`trx.config.describe` hands one back and `trx.config.declare` takes one, so
+---what a script reads of a setting is what a script writes to make one. The
+---row a declaration asks for is the part `trx.config.describe` does not
+---report: see `trx.config.Row`.
+---@trx.record
+---@class trx.config.Shape
+---@field key string Dotted path the setting answers to. The last segment is what the settings file keys it on, so it has to differ from every other setting's.
+---@field kind string One of `boolean`, `integer`, `number`, `color`, `enum`, `dynamic_enum` or `string`. A declaration writes `boolean`, `integer` or `dynamic_enum`; the rest name storage the engine owns. <!--noref: color, enum, dynamic_enum-->
+---@field percent? boolean Marks a number stored 0-1 but entered and shown as a 0-100 percentage.
+---@field default any What the setting holds until the player changes it, and what `trx.config.reset` puts back.
+---@field values? (string|trx.config.Value)[] What the setting accepts, for the enum kinds. A declared `dynamic_enum` needs them, and they have to list the default. A value given as text takes the label `settings/<key>/values/<value>`. <!--noref: dynamic_enum-->
+---@field min? integer Lowest value a number takes. Absent, it takes as low a number as it can hold.
+---@field max? integer Highest value a number takes. Absent, it takes as high a number as it can hold.
+---@field ui? trx.config.Row The row a declared setting takes in the settings menu. Without one the setting has no row, and is the script's to read and write.
+
+---The settings row a declared setting is shown on: where it sits, and what it
+---does that the setting itself cannot say.
+---
+---Every callback below is optional, and one that raises is logged and answered
+---as though it were absent. They are read as the setting is declared and are
+---not reported back by `trx.config.describe`.
+---@trx.record
+---@class trx.config.Row
+---@field tab string Settings tab the row sits on: `gameplay_general`, `gameplay_controls`, `gameplay_mods`, `gameplay_fixes`, `graphic_visuals`, `graphic_ui`, `graphic_ui_stats`, `graphic_ui_bars`, `graphic_rendering`, `sound_volume` or `sound_misc`. <!--noref: gameplay_general, gameplay_controls, gameplay_mods, gameplay_fixes, graphic_visuals, graphic_ui, graphic_ui_stats, graphic_ui_bars, graphic_rendering, sound_volume, sound_misc-->
+---@field before? string Setting the row sits above. Steadier than a position: the row stays put when the tab is reordered.
+---@field after? string Setting the row sits below. The row lands at the end of the tab where neither anchor is given.
+---@field delta_fast? integer How far one press moves a number. One step where it is absent.
+---@field delta_slow? integer How far one press moves a number while fine adjustment is held.
+---@field format_value? function Called with the value, returning what the row prints in place of it.
+---@field is_available? function Called with the value. Return false to grey the row out: it stays visible, and the player cannot move it.
+---@field is_visible? function Called with the value. Return false to leave the row out of the tab.
+---@field can_change_value? function Called with the value and the direction, `-1` or `1`. Return false to refuse that press.
+---@field request_change_value? function Called with the value and the direction. Return true to take the press over; the row is left alone, and moving the setting is the script's to do.
+
+---Reads a setting. The value comes back as the type the option is declared
+---with, so a boolean option reads as a boolean and a color as a
+---`trx.math.Color`. Enums read as strings.
+---
+---```lua
+---if trx.config.get("audio.enable_music") then
+---  trx.music.play(trx.catalog.music.SECRET)
+---end
+---```
+---@param key string Dotted path, e.g. `visuals.water_color`. <!--noref: visuals.water_color-->
+---@return any # Raises if no option has that key.
+---@type fun(key: string): any
+M.get = raw.get
+
+---Everything about a setting but the value it holds now: what it is, what it
+---accepts, and what it falls back to. This is the shape `trx.config.declare`
+---takes, so a script can read one setting and declare another like it.
+---
+---```lua
+---for _, value in ipairs(trx.config.describe("visuals.shadow_type").values) do
+---  trx.log.info(value)
+---end
+---```
+---@param key string Dotted path.
+---@return trx.config.Shape # What the setting is and how it is entered.
+---@type fun(key: string): trx.config.Shape
+M.describe = raw.describe
+
+-- The console spells enum values and keys with dashes for underscores.
+local function display(text)
+  return (text:gsub("_", "-"))
+end
+
+---The current value as the console prints it: `1` or `0` for a boolean, two
+---decimals for a plain number, a 0-100 percentage where the option is one, and
+---enum values with dashes for underscores.
+---
+---```lua
+---trx.console.log(trx.config.format_value("visuals.fov"))
+---```
+---@param key string Dotted path.
+---@return string # The text, ready to print.
+function M.format_value(key)
+  local desc = raw.describe(key)
+  local value = raw.get(key)
+  if value == nil then
+    return "(null)"
+  end
+  if desc.kind == "boolean" then
+    return value and "1" or "0"
+  end
+  if desc.percent then
+    return ("%.0f%%"):format(value * 100)
+  end
+  if desc.kind == "number" then
+    return ("%.2f"):format(value)
+  end
+  if desc.kind == "enum" or desc.kind == "dynamic_enum" then
+    -- A dynamic enum with nothing chosen reads back as an empty string, which
+    -- prints as nothing; say so plainly instead.
+    if value == "" then
+      return "(null)"
+    end
+    return display(value)
+  end
+  return tostring(value)
+end
+
+---What a setting accepts, as text for an error message: `on, off` for a
+---boolean, a marker like `[integer]` for the number kinds, or the value names
+---for the enum kinds, with dashes for underscores.
+---@param key string Dotted path.
+---@return string? # `nil` for the kinds with nothing to list, such as a color.
+function M.accepted_values(key)
+  local desc = raw.describe(key)
+  if desc.kind == "boolean" then
+    return trx.locale.get("console/config/accepted_bool")
+  end
+  if desc.kind == "integer" then
+    return trx.locale.get("console/config/accepted_integer")
+  end
+  if desc.kind == "number" then
+    if desc.percent then
+      return trx.locale.get("console/config/accepted_percent")
+    end
+    return trx.locale.get("console/config/accepted_decimal")
+  end
+  if desc.kind == "enum" or desc.kind == "dynamic_enum" then
+    local values = {}
+    for _, value in ipairs(desc.values or {}) do
+      values[#values + 1] = display(value)
+    end
+    return table.concat(values, ", ")
+  end
+  return nil
+end
+
+---Changes the player's setting, and keeps the change. Raises if the key is
+---unknown or the value will not parse.
+---
+---The old value is not kept anywhere: the new one becomes the active setting
+---as if the player had chosen it, and is remembered across saves and
+---relaunches. Prefer `trx.config.override` for anything a level wants only
+---while it is running.
+---@param key string Dotted path.
+---@param value any A boolean, a number, or a string, matching the option's type. A color is a `trx.math.Color` or the hex text one is written as. An enum value is taken in either spelling: underscores or the dashes the console shows.
+---@param force? boolean Write through a setting the game flow enforces.
+function M.set(key, value, force)
+  local ok, err = pcall(raw.set, key, value, force)
+  if ok then
+    return
+  end
+  -- Enum values are shown with dashes for underscores, so they are taken
+  -- in either spelling as well.
+  if type(value) == "string" then
+    local kind = raw.describe(key).kind
+    if kind == "enum" or kind == "dynamic_enum" then
+      local variants = { (value:gsub("_", "-")), (value:gsub("-", "_")) }
+      for _, variant in ipairs(variants) do
+        if variant ~= value and pcall(raw.set, key, variant, force) then
+          return
+        end
+      end
+    end
+  end
+  error(err, 0)
+end
+
+---Puts a setting back to its default, and keeps the change, as
+---`trx.config.set` does.
+---@param key string Dotted path.
+---@param force? boolean As for `trx.config.set`.
+---@return boolean # `false` when a script or the game flow is holding the setting (see `trx.config.is_overridden`).
+---@type fun(key: string, force?: boolean): boolean
+M.reset = raw.reset
+
+---Changes a setting for as long as the script keeps the override, without
+---touching the player's own value.
+---
+---The player's value sits underneath and comes back on `trx.config.restore`.
+---Nothing is written to disk. Overrides stack, so one can be pushed over
+---another; each `trx.config.restore` lifts one off. A setting the game flow
+---enforces cannot be overridden.
+---
+---```lua
+---trx.config.override("visuals.water_color", "0080ff")
+----- ... and when the level is done with it:
+---trx.config.restore("visuals.water_color")
+---```
+---@param key string Dotted path.
+---@param value any As for `trx.config.set`.
+---@type fun(key: string, value: any)
+M.override = raw.override
+
+---Lifts one override off a setting, putting back the value underneath it.
+---@param key string Dotted path.
+---@return boolean # `false` if the setting was not overridden.
+---@type fun(key: string): boolean
+M.restore = raw.restore
+
+---Whether a script or the game flow is currently holding this setting away
+---from the player's own value.
+---@param key string Dotted path.
+---@return boolean # True while an override stands, and false once the last is lifted.
+---@type fun(key: string): boolean
+M.is_overridden = raw.is_overridden
+
+---Whether a setting holds the value it falls back to.
+---@param key string Dotted path.
+---@return boolean # True where the value equals the default.
+---@type fun(key: string): boolean
+M.is_default = raw.is_default
+
+---Whether the game flow keeps a setting out of the settings menu, as it does
+---for one that a game does not use.
+---@param key string Dotted path.
+---@return boolean # True where the setting is hidden.
+---@type fun(key: string): boolean
+M.is_hidden = raw.is_hidden
+
+---One value that an enum setting takes, as the settings menu shows it.
+---@trx.record
+---@class trx.config.Label
+---@field value string The value, as `trx.config.set` takes it.
+---@field label string What the menu shows for it, in the player's language.
+---@field enabled boolean Whether the value can be picked now. A dynamic enum can switch values off, such as a language whose files are missing.
+
+---The values that an enum setting takes, in the order the game defines them,
+---with what the settings menu shows for each. Any other setting has none.
+---
+---```lua
+---for _, entry in ipairs(trx.config.labels("visuals.shadow_type")) do
+---  trx.log.info(entry.value .. " = " .. entry.label)
+---end
+---```
+---@param key string Dotted path.
+---@return trx.config.Label[] # The values, empty for a setting that is not an enum.
+---@type fun(key: string): trx.config.Label[]
+M.labels = raw.labels
+
+---One value that a declared `dynamic_enum` setting takes, with the label of
+---its own that the settings menu shows for it. <!--noref: dynamic_enum-->
+---@trx.record
+---@class trx.config.Value
+---@field value string The value, as `trx.config.set` takes it.
+---@field label? string The game string of what the settings menu shows for it. The value itself by default.
+
+---@class (exact) trx.config.to_string.options
+---@field human? boolean Whether to write the text as the settings menu shows it, with labels in the player's language, rather than as the settings file stores it. `false` by default.
+---@field value? any A value to write in place of the setting's own. It is read as `trx.config.set` reads it.
+
+---A setting's value as text: as the settings file stores it, or as the
+---settings menu shows it.
+---
+---```lua
+---local shown = trx.config.to_string("visuals.shadow_type", { human = true })
+---```
+---@param key string Dotted path.
+---@param options? trx.config.to_string.options How to write it, and which value.
+---@return string? # The text, or `nil` where `value` is one the setting does not accept. <!--noref: value-->
+function M.to_string(key, options)
+  options = options or {}
+  return raw.to_string(key, options.human == true, options.value)
+end
+
+local ROW_CALLBACKS = {
+  "format_value",
+  "is_available",
+  "is_visible",
+  "can_change_value",
+  "request_change_value",
+}
+
+-- The rows declared so far, in order.
+local declared_rows = {}
+
+-- Raises where a row names no tab, or gives something other than a function
+-- for a callback. Which tabs exist is the settings menu's to say.
+local function check_row(row)
+  if type(row.tab) ~= "string" then
+    error("a settings row needs a tab", 3)
+  end
+  for _, name in ipairs(ROW_CALLBACKS) do
+    if row[name] ~= nil and type(row[name]) ~= "function" then
+      error(("settings row field '%s' must be a function"):format(name), 3)
+    end
+  end
+end
+
+---Adds a setting of the game's own.
+---
+---The declaration carries no text. The engine derives `settings/<key>/title`,
+---`settings/<key>/description` and, for an enum,
+---`settings/<key>/values/<value>`, and looks each up in the game strings, so a
+---declared setting is translated as every other one is.
+---
+---The setting comes up holding the player's saved value for it, whether the
+---declaration runs before the settings file is read or after.
+---
+---Raises where the key is taken, or where the declaration describes a setting
+---that could hold nothing it allows: an enum defaulting to a value it does not
+---list, or an integer defaulting outside its own bounds.
+---
+---```lua
+---trx.config.declare({
+---  key = "mod.water_color_mode",
+---  kind = "dynamic_enum",
+---  values = { "tombati", "dos", "custom" },
+---  default = "custom",
+---  ui = {
+---    tab = "graphic_visuals",
+---    before = "visuals.water_color",
+---  },
+---})
+---```
+---@param spec trx.config.Shape The setting's declaration.
+function M.declare(spec)
+  if spec.ui ~= nil then
+    check_row(spec.ui)
+  end
+  raw.declare(spec)
+  if spec.ui ~= nil then
+    declared_rows[#declared_rows + 1] = { key = spec.key, row = spec.ui }
+  end
+end
+
+---A setting a script declared with a row in the settings menu.
+---@trx.record
+---@class trx.config.DeclaredRow
+---@field key string The setting.
+---@field row trx.config.Row The row, as the declaration gave it.
+
+---The rows that scripts asked for in the settings menu, in the order the
+---settings were declared. The settings menu reads them to place each row.
+---@return trx.config.DeclaredRow[] # The rows.
+function M.declared_rows()
+  local result = {}
+  for i, entry in ipairs(declared_rows) do
+    result[i] = { key = entry.key, row = entry.row }
+  end
+  return result
+end
+
+-- What on_change hands back. The engine keys a watcher by a number, and the
+-- number is the module's business rather than a script's.
+
+---A setting being watched. `trx.config.on_change` hands one back, and holding
+---it is what lets the watcher be dropped later. A watcher is spent once
+---detached, and the end of a level spends every one a level script attached.
+---@class (exact) trx.config.Watcher
+local Watcher = h.class("config.Watcher")
+
+---Stops the watcher, which hears of no further change.
+---@return boolean # Whether it was still watching.
+function Watcher:detach()
+  return raw.off_change(rawget(self, "_id"))
+end
+
+---Calls `fn(value)` whenever the setting changes, and once as the watcher is
+---attached with the value it holds now - so a script applies the player's
+---saved value rather than waiting for them to touch it again.
+---
+---A watcher that changes a setting itself is heard by that setting's watchers
+---too. One that raises is logged and the rest still run; it is called again on
+---the next change.
+---
+---A watcher a level script attaches goes when the level ends, as a
+---`trx.events` listener does. One a game script attaches stays for as long as
+---the game.
+---
+---A level script runs before the level is read, where a handler can reach
+---nothing the level carries. The call for the value in force therefore waits
+---until the level has its objects. Every other watcher is called as it is
+---attached.
+---
+---```lua
+---local watcher = trx.config.on_change("mod.scanlines", function(value)
+---  trx.log.info("scanlines are now " .. tostring(value))
+---end)
+----- ... and when the script is done with it:
+---watcher:detach()
+---```
+---@param key string Dotted path to watch.
+---@param fn function Called with the setting's value.
+---@return trx.config.Watcher # The watcher, for dropping it later.
+function M.on_change(key, fn)
+  return setmetatable({ _id = raw.on_change(key, fn) }, Watcher)
+end
+
+---Every setting and its current value.
+---
+---```lua
+---for key, value in pairs(trx.config.list()) do
+---  trx.log.info(key .. " = " .. tostring(value))
+---end
+---```
+---@return table # Maps each option's key to its value.
+---@type fun(): table
+M.list = raw.list
+
+---What the settings tell a script about themselves.
+---@class (exact) trx.config.signals
+---@trx.readonly changed
+---@field changed trx.signal.Signal Says when any setting changes. It holds a count that goes up with each change, whichever settings moved. A widget that follows several settings at once listens to this rather than to each of them.
+M.signals = h.namespace("config.signals")
+
+-- The engine says when the settings change, so the signal follows without a
+-- poll. The hook is attached as the module loads, so it belongs to no level.
+local changed = nil --[[@as trx.signal.Signal?]]
+local changed_count = 0
+raw.on_any_change(function()
+  changed_count = changed_count + 1
+  if changed ~= nil then
+    changed:set(changed_count)
+  end
+end)
+
+h.properties(M.signals, "config.signals", {
+  changed = {
+    get = function()
+      if changed == nil then
+        changed = trx.signal.new(changed_count)
+      end
+      return changed
+    end,
+  },
+})
