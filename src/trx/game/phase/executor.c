@@ -29,6 +29,7 @@
 #include <trx/game/viewport.h>
 #include <trx/gl/context.h>
 #include <trx/gl/gpu_timer.h>
+#include <trx/gl/probe.h>
 #include <trx/gl/renderer.h>
 #include <trx/gl/track.h>
 
@@ -264,6 +265,7 @@ static PHASE_CONTROL M_Control(PHASE *const phase)
 static void M_Draw(PHASE *const phase)
 {
     BENCHMARK benchmark = Benchmark_Start();
+    TRX_PROBE_BEGIN(DRAW);
 
     Output_BeginScene();
     Output_SwitchViewport(VIEWPORT_GAME);
@@ -305,10 +307,13 @@ static void M_Draw(PHASE *const phase)
                 TRX_GL_GpuTimer_GetMs(SCENE_PASS_UI)));
     }
 
+    TRX_PROBE_END(DRAW);
     if (!Output_IsHeadless()
         || TRX_GL_Context_GetScheduledScreenshotPath() != nullptr) {
+        TRX_PROBE_BEGIN(FLIP);
         const Uint64 flip_start = SDL_GetPerformanceCounter();
         Output_FlipScreen();
+        TRX_PROBE_END(FLIP);
         m_LastFlipMs = (double)(SDL_GetPerformanceCounter() - flip_start)
             * 1000.0 / (double)SDL_GetPerformanceFrequency();
     } else {
@@ -423,7 +428,9 @@ GF_COMMAND PhaseExecutor_Run(PHASE *const phase)
         int32_t nframes = Clock_WaitTick();
         int32_t frame = 0;
         while (true) {
+            TRX_PROBE_BEGIN(CONTROL);
             const PHASE_CONTROL control = M_Control(phase);
+            TRX_PROBE_END(CONTROL);
             if (control.action == PHASE_ACTION_END
                 || control.action == PHASE_ACTION_END_FAST) {
                 if (Shell_IsExiting()) {

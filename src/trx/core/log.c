@@ -92,6 +92,16 @@ void Log_Message(
         fprintf(m_LogHandle, "\n");
 
         va_end(vb);
+
+#if defined(TRX_TARGET_IOS)
+        // iOS usually kills the process instead of letting it exit, so whatever
+        // is still in the 64 KiB file buffer would be lost and the log would
+        // stay empty. Warnings and errors are rare enough to afford a write
+        // each; info and debug lines, which can be per-frame, stay buffered.
+        if (level >= LOG_LEVEL_WARNING) {
+            fflush(m_LogHandle);
+        }
+#endif
     }
 
     // print to stdout

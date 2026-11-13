@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
 import os
 import shutil
+import sys
 import zipfile
 from pathlib import Path
+
+# Optional first argument: the build directory to package (a sibling of
+# tools/, as the relative paths below assume). Defaults to the debug build.
+BUILD_DIR = sys.argv[1] if len(sys.argv) > 1 else "build-ios-arm64"
 
 def copy_item(src, dst):
     """Copia sia file che directory in modo sicuro."""
@@ -22,7 +27,7 @@ def copy_item(src, dst):
         shutil.copy2(src_path, dst_path)
 
 def create_app():
-    os.chdir("build-ios-arm64")
+    os.chdir(BUILD_DIR)
     
     if os.path.exists("Payload"):
         shutil.rmtree("Payload")
@@ -33,7 +38,7 @@ def copy_files():
     copy_item("TRX", f"{app_dir}/TRX")
     copy_item("../tools/shared/ios/Info.plist", f"{app_dir}/Info.plist")
     copy_item("../tools/shared/ios/LaunchScreen.storyboardc", f"{app_dir}/LaunchScreen.storyboardc")
-    copy_item("../data/trx/mac/icon.icns", f"{app_dir}/icon.icns")
+    copy_item("../data/trx/icon.png", f"{app_dir}/icon.png")
     copy_item("../data/trx/ship/cfg", f"{app_dir}/cfg")
 
     if os.path.exists(f"{app_dir}/TRX"):

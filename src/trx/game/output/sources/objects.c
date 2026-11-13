@@ -11,6 +11,7 @@
 #include <trx/game/output/lights/priv.h>
 #include <trx/game/output/mesh_batcher/mesh_builder.h>
 #include <trx/game/output/state.h>
+#include <trx/game/output/textures.h>
 #include <trx/game/output/water.h>
 #include <trx/version.h>
 
@@ -148,6 +149,26 @@ static bool M_IsReflectiveFace(
     return !obj_mesh->suppress_reflections
         && (obj_mesh->enable_reflections || face->enable_reflections);
 }
+
+#if defined(TRX_TARGET_IOS)
+// Whether any face of the mesh reflects, by the same rule as the faces the
+// vertex flags are built from.
+static bool M_MeshReflects(const OBJECT_MESH *const obj_mesh)
+{
+    if (obj_mesh->suppress_reflections) {
+        return false;
+    }
+    if (obj_mesh->enable_reflections) {
+        return true;
+    }
+    for (int32_t i = 0; i < obj_mesh->all_faces.count; i++) {
+        if (obj_mesh->all_faces.data[i].enable_reflections) {
+            return true;
+        }
+    }
+    return false;
+}
+#endif
 
 static void M_AddObjectFace(
     MESH_BUILDER *const builder, const OBJECT_MESH *const obj_mesh,
@@ -604,6 +625,14 @@ void OutputSource_Objects_ObserveObjectMeshGeometry(
 
 void OutputSource_Objects_StageObjectMesh(const OBJECT_MESH *const mesh)
 {
+#if defined(TRX_TARGET_IOS)
+    // See Output_Textures_UpdateEnvironmentMap(): on iOS the environment map
+    // is only updated after a frame that drew a mesh that reflects.
+    if (g_Config.visuals.enable_reflections
+        && !Output_Textures_IsReflectiveDrawNoted() && M_MeshReflects(mesh)) {
+        Output_Textures_NoteReflectiveDraw();
+    }
+#endif
     M_Stage(mesh);
 }
 

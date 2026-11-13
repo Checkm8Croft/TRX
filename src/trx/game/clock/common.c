@@ -8,6 +8,7 @@
 #include <trx/game/replay/test_recorder.h>
 #include <trx/game/replay/test_replay.h>
 #include <trx/game/shell/common.h>
+#include <trx/gl/probe.h>
 
 #include <SDL2/SDL_stdinc.h>
 #include <SDL2/SDL_timer.h>
@@ -145,7 +146,7 @@ void Clock_SyncTick(void)
     m_Accumulator = 0.0;
 }
 
-int32_t Clock_WaitTick(void)
+static int32_t M_WaitTick(void)
 {
     if (m_IsFixedFPS) {
         // Above 1x the extra speed comes from more frames per drawn one,
@@ -217,6 +218,14 @@ int32_t Clock_WaitTick(void)
     // Update the last counter to the current performance counter
     m_LastCounter = SDL_GetPerformanceCounter();
 
+    return frames;
+}
+
+int32_t Clock_WaitTick(void)
+{
+    TRX_PROBE_BEGIN(WAIT);
+    const int32_t frames = M_WaitTick();
+    TRX_PROBE_END(WAIT);
     return frames;
 }
 

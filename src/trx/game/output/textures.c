@@ -1070,11 +1070,34 @@ void Output_Textures_ObserveLevelLoad(void)
     M_RefreshPaletteLut();
 }
 
+static bool m_ReflectiveDrawNoted;
+
+void Output_Textures_NoteReflectiveDraw(void)
+{
+    m_ReflectiveDrawNoted = true;
+}
+
+bool Output_Textures_IsReflectiveDrawNoted(void)
+{
+    return m_ReflectiveDrawNoted;
+}
+
 void Output_Textures_UpdateEnvironmentMap(void)
 {
     if (Output_IsHeadless()) {
         return;
     }
+
+#if defined(TRX_TARGET_IOS)
+    // Reading the scene back into a texture makes the GPU finish the pass in
+    // flight, and the CPU waits for it: on an iPhone that costs most of a
+    // frame, every frame. The map is only looked at by meshes that reflect, so
+    // it is only worth updating after a frame that drew one.
+    if (!m_ReflectiveDrawNoted) {
+        return;
+    }
+    m_ReflectiveDrawNoted = false;
+#endif
 
     // A multisampled framebuffer cannot be copied out of, so the scene has to
     // be resolved before it can be read back here.

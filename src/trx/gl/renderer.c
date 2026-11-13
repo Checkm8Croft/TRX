@@ -109,6 +109,21 @@ typedef struct {
     double composite_ms;
     double swap_ms;
     double finish_ms;
+#if defined(TRX_GL_PROBE_COUNTING)
+    double draws;
+    double draw_indices;
+    double buffer_uploads;
+    double buffer_bytes;
+    double tex_uploads;
+    double tex_pixels;
+    double gl_calls;
+    double upload_ms;
+    double draw_ms;
+    double map_ms;
+    double maps;
+    double phase_wall[TRX_PROBE_PHASE_COUNT];
+    double phase_cpu[TRX_PROBE_PHASE_COUNT];
+#endif
 } M_PROBE;
 
 static M_PROBE m_Probe;
@@ -166,6 +181,46 @@ static void M_ProbeReport(const M_CONTEXT *const p)
         cpu_ratio * 100.0, composite, swap, finish, m_Probe.finish_samples,
         hint);
 
+#if defined(TRX_GL_PROBE_COUNTING)
+    LOG_WARNING(
+        "PERF-GL per frame: %.0f draws (%.0f indices) | %.0f buffer uploads "
+        "(%.2f MB) | %.0f texture uploads (%.2f Mpx) | %.0f GL calls",
+        m_Probe.draws / n, m_Probe.draw_indices / n,
+        m_Probe.buffer_uploads / n, m_Probe.buffer_bytes / n / 1048576.0,
+        m_Probe.tex_uploads / n, m_Probe.tex_pixels / n / 1.0e6,
+        m_Probe.gl_calls / n);
+    {
+        const double *const w = m_Probe.phase_wall;
+        const double *const c = m_Probe.phase_cpu;
+        const double accounted =
+            w[0] / n + w[1] / n + w[2] / n + w[3] / n;
+        LOG_WARNING(
+            "PERF-TIME per frame (wall/cpu ms): wait %.2f/%.2f | control "
+            "%.2f/%.2f | draw %.2f/%.2f | flip %.2f/%.2f | in upload calls "
+            "%.2f | in map calls %.2f (%.1f maps) | in draw calls %.2f | "
+            "unaccounted %.2f",
+            w[0] / n, c[0] / n, w[1] / n, c[1] / n, w[2] / n, c[2] / n,
+            w[3] / n, c[3] / n, m_Probe.upload_ms / n, m_Probe.map_ms / n,
+            m_Probe.maps / n, m_Probe.draw_ms / n, interval - accounted);
+        TRX_GL_Probe_LogBlockedSites(n);
+    }
+    for (int32_t i = 0; i < TRX_PROBE_PHASE_COUNT; i++) {
+        m_Probe.phase_wall[i] = 0.0;
+        m_Probe.phase_cpu[i] = 0.0;
+    }
+    m_Probe.upload_ms = 0.0;
+    m_Probe.draw_ms = 0.0;
+    m_Probe.map_ms = 0.0;
+    m_Probe.maps = 0.0;
+    m_Probe.draws = 0.0;
+    m_Probe.draw_indices = 0.0;
+    m_Probe.buffer_uploads = 0.0;
+    m_Probe.buffer_bytes = 0.0;
+    m_Probe.tex_uploads = 0.0;
+    m_Probe.tex_pixels = 0.0;
+    m_Probe.gl_calls = 0.0;
+#endif
+
     m_Probe.frames = 0;
     m_Probe.slow_frames = 0;
     m_Probe.finish_samples = 0;
@@ -204,7 +259,28 @@ static void M_ProbeFrameDone(
             m_Probe.finish_samples++;
         }
         m_Probe.frames++;
+#if defined(TRX_GL_PROBE_COUNTING)
+        m_Probe.draws += g_TRX_GL_Probe.draws;
+        m_Probe.draw_indices += (double)g_TRX_GL_Probe.draw_indices;
+        m_Probe.buffer_uploads += g_TRX_GL_Probe.buffer_uploads;
+        m_Probe.buffer_bytes += (double)g_TRX_GL_Probe.buffer_bytes;
+        m_Probe.tex_uploads += g_TRX_GL_Probe.tex_uploads;
+        m_Probe.tex_pixels += (double)g_TRX_GL_Probe.tex_pixels;
+        m_Probe.gl_calls += g_TRX_GL_Probe.gl_calls;
+        m_Probe.upload_ms += g_TRX_GL_Probe.upload_ms;
+        m_Probe.draw_ms += g_TRX_GL_Probe.draw_ms;
+        m_Probe.map_ms += g_TRX_GL_Probe.map_ms;
+        m_Probe.maps += g_TRX_GL_Probe.maps;
+        for (int32_t i = 0; i < TRX_PROBE_PHASE_COUNT; i++) {
+            m_Probe.phase_wall[i] += g_TRX_GL_Probe.phase_wall_ms[i];
+            m_Probe.phase_cpu[i] += g_TRX_GL_Probe.phase_cpu_ms[i];
+        }
+#endif
     }
+#if defined(TRX_GL_PROBE_COUNTING)
+    // Each frame is counted from the end of the previous one.
+    memset(&g_TRX_GL_Probe, 0, sizeof(g_TRX_GL_Probe));
+#endif
 
     m_Probe.primed = true;
     m_Probe.last_end_ms = swap_end;

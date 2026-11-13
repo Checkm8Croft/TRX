@@ -38,6 +38,11 @@ void Output_Textures_Init(void);
 void Output_Textures_Shutdown(void);
 void Output_Textures_ObserveLevelLoad(void);
 void Output_Textures_UpdateEnvironmentMap(void);
+
+// Notes that a mesh that reflects was drawn since the environment map was last
+// updated. On iOS the update is skipped when none was.
+void Output_Textures_NoteReflectiveDraw(void);
+bool Output_Textures_IsReflectiveDrawNoted(void);
 void Output_Textures_CycleAnimations(void);
 void Output_Textures_ApplyRenderSettings(void);
 
