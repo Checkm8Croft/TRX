@@ -1,4 +1,66 @@
 #!/bin/sh
-# Wrapper: resolves the iOS device SDK at invocation time and forwards to clang.
-SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
-exec clang -target arm64-apple-ios16.0 -isysroot "$SDK" "$@"
+# Wrapper: forwards to clang with the iOS device target and the iPhoneOS SDK.
+#
+# macOS: the SDK is resolved at invocation time through Xcode (xcrun), and
+#        Apple's clang and linker are used. Nothing to set up.
+#
+# Linux (any non-macOS host): there is no Xcode to ask, so
+#   IPHONEOS_SDK  (or SDKROOT) must point at an iPhoneOS.sdk directory;
+#   CLANG         optionally names the compiler (default: clang, otherwise the
+#                 newest clang-NN found on PATH);
+#   LD64_LLD      optionally names LLVM's Mach-O linker (default: ld64.lld,
+#                 otherwise the newest ld64.lld-NN found on PATH).
+# See README.md in this directory.
+
+TARGET="arm64-apple-ios16.0"
+
+if [ "$(uname -s)" = "Darwin" ]; then
+    SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
+    exec clang -target "$TARGET" -isysroot "$SDK" "$@"
+fi
+
+# First existing command out of the arguments.
+find_tool() {
+    for candidate in "$@"; do
+        if command -v "$candidate" >/dev/null 2>&1; then
+            command -v "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+if [ -z "${CLANG:-}" ]; then
+    CLANG="$(find_tool clang clang-22 clang-21 clang-20 clang-19 clang-18 clang-17 clang-16)" || {
+        echo "clang-ios-arm64: no clang found; install clang (18 or newer) or set CLANG." >&2
+        exit 1
+    }
+fi
+
+# Version queries (meson's compiler detection) need neither the SDK nor the
+# linker, so that a missing SDK is reported by the compile step with a clear
+# message and not as an unknown compiler.
+case "${1:-}" in
+--version | -v | -V | --help)
+    exec "$CLANG" "$@"
+    ;;
+esac
+
+SDK="${IPHONEOS_SDK:-${SDKROOT:-}}"
+if [ -z "$SDK" ] || [ ! -d "$SDK/usr/include" ]; then
+    echo "clang-ios-arm64: set IPHONEOS_SDK to an iPhoneOS.sdk directory (got: '${SDK}')." >&2
+    exit 1
+fi
+
+if [ -z "${LD64_LLD:-}" ]; then
+    LD64_LLD="$(find_tool ld64.lld ld64.lld-22 ld64.lld-21 ld64.lld-20 ld64.lld-19 ld64.lld-18 ld64.lld-17 ld64.lld-16)" || {
+        echo "clang-ios-arm64: no ld64.lld found; install lld or set LD64_LLD." >&2
+        exit 1
+    }
+fi
+
+# -mlinker-version: off Apple's toolchain clang can't tell what linker it is
+# driving and falls back to the pre-2018 -iphoneos_version_min flag, which
+# ld64.lld rejects. Any value from 520 up gives it -platform_version.
+exec "$CLANG" -target "$TARGET" -isysroot "$SDK" --ld-path="$LD64_LLD" \
+    -mlinker-version=609 -Qunused-arguments "$@"
