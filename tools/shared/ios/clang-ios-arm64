@@ -14,9 +14,24 @@
 
 TARGET="arm64-apple-ios16.0"
 
+# The SDK version the binary is recorded as linked against. From iOS 27 on,
+# UIKit refuses to launch an app linked against the iOS 27 SDK (or later) that
+# doesn't use the UIScene life cycle, which SDL2 doesn't; the check goes by
+# this recorded version and not by the SDK that was really used. Recording an
+# iOS 26 SDK keeps the app launching on iOS 27. It applies to linking only.
+SDK_VERSION_FLAG="-Wl,-platform_version,ios,16.0.0,26.0"
+for arg in "$@"; do
+    case "$arg" in
+    -c | -E | -S | -M | -MM | -fsyntax-only)
+        SDK_VERSION_FLAG=""
+        ;;
+    esac
+done
+
 if [ "$(uname -s)" = "Darwin" ]; then
     SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
-    exec clang -target "$TARGET" -isysroot "$SDK" "$@"
+    # shellcheck disable=SC2086 # empty on compile steps, so left unquoted
+    exec clang -target "$TARGET" -isysroot "$SDK" $SDK_VERSION_FLAG "$@"
 fi
 
 # First existing command out of the arguments.
@@ -62,5 +77,6 @@ fi
 # -mlinker-version: off Apple's toolchain clang can't tell what linker it is
 # driving and falls back to the pre-2018 -iphoneos_version_min flag, which
 # ld64.lld rejects. Any value from 520 up gives it -platform_version.
+# shellcheck disable=SC2086 # empty on compile steps, so left unquoted
 exec "$CLANG" -target "$TARGET" -isysroot "$SDK" --ld-path="$LD64_LLD" \
-    -mlinker-version=609 -Qunused-arguments "$@"
+    -mlinker-version=609 -Qunused-arguments $SDK_VERSION_FLAG "$@"

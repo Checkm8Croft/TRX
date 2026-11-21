@@ -24,7 +24,7 @@ Install an iOS SDK with Theos:
 
 ```zsh
 git clone --depth 1 https://github.com/theos/sdks $THEOS/sdks
-export IPHONEOS_SDK=$THEOS/iPhoneOS16.5.sdk
+export IPHONEOS_SDK=$THEOS/sdks/iPhoneOS16.5.sdk
 ```
 
 ## Building
@@ -41,6 +41,17 @@ meson setup build-ios-arm64 src \
 Compile TRX: `ninja -C build-ios-arm64`
 
 Generate the .ipa: `python3 tools/shared/ios/gen_ipa.py`
+
+### iOS 27
+
+From iOS 27, UIKit refuses to launch an app that was linked against the iOS 27
+SDK (or later) and doesn't use the UIScene life cycle, which SDL2 doesn't. Such
+a build crashes at launch on iOS 27, before `main()` runs, so there is no log
+and no TRX folder. The check goes by the SDK version recorded in the binary, so
+`tools/shared/ios/clang-ios-arm64` records iOS 26 when linking
+(`-Wl,-platform_version,ios,16.0.0,26.0`). On macOS, `vtool -show-build TRX`
+shows what a binary says. This is a workaround; the real fix is an SDL with
+UIScene support.
 
 ## Installing TRX
 
