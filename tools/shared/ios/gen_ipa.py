@@ -40,6 +40,8 @@ def copy_files():
     copy_item("../tools/shared/ios/LaunchScreen.storyboardc", f"{app_dir}/LaunchScreen.storyboardc")
     copy_item("../data/trx/icon.png", f"{app_dir}/icon.png")
     copy_item("../data/trx/ship/cfg", f"{app_dir}/cfg")
+    copy_item("../data/trx/ship/modules", f"{app_dir}/modules")
+    copy_item("../data/trx/ship/scripts", f"{app_dir}/scripts")
 
     if os.path.exists(f"{app_dir}/TRX"):
         os.chmod(f"{app_dir}/TRX", 0o755)
