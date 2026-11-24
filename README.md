@@ -14,7 +14,7 @@
 
 <hr/>
 
-The **TRX** iOS fork, a porting of the orignal TRX repo from GLEW to GLES, for making the compatibily for other platforms, much easier. Counting the fact that TRX is maintained and updated by the original devs frequentely, with GLES is so much easy to update with very few conflicts to resolve.s
+The **TRX** iOS fork, a porting of the orignal TRX repo from GLEW to GLES, for making the compatibily for other platforms, much easier. Counting the fact that TRX is maintained and updated by the original devs frequentely, with GLES is so much easy to update with very few conflicts to resolve
 
 
 ## Download
