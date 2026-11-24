@@ -52,12 +52,3 @@ and no TRX folder. The check goes by the SDK version recorded in the binary, so
 (`-Wl,-platform_version,ios,16.0.0,26.0`). On macOS, `vtool -show-build TRX`
 shows what a binary says. This is a workaround; the real fix is an SDL with
 UIScene support.
-
-## Installing TRX
-
-For installing TRX on your iDevice, you'll need to sideload the .ipa file 
-
-## Running TRX
-
-For running TRX, you'll have to open the game on your iDevice first, and you'll see the error of `No Playable Mods Avaible`, this will generate the TRX folder in the Files app. 
-Now you can open the TRX folder and inside there you can copy the game files.
