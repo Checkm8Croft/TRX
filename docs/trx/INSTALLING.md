@@ -7,4 +7,8 @@ Return backl to `On my iPhone`, open the `TRX` folder, and there paste the folde
 
 Now you must own a copy of the original games TR1-2-3 and drop the game files on your iDevice. Once you dropped them, you can just copy the game files as a normal TRX installation
 
-All done! Open TRX and enjoy!
+**NOTE FOR THE MUSIC FILES**
+
+You must use `.mp3` audio tracks, so if on the `music/` folder, you have `.ogg`, `.wav` or whatever else, you must convert the tracks to `.mp3`
+
+### All done! Open TRX and enjoy!
