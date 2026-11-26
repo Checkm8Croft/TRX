@@ -80,6 +80,11 @@ lint:
 
 trx-build-linux target='debug': (image-linux "0") (_docker_run "rrdash/trx-linux" "build" "--target" target)
 trx-build-win target='debug': (image-win "0") (_docker_run "rrdash/trx-win" "build" "--target" target)
+trx-build-ios target='debug': 
+    #!/usr/bin/env zsh
+    meson setup build-ios-arm64 src \
+    --cross-file tools/shared/ios/arm64_device_cross_file.txt --buildtype release
+    ninja -C build-ios-arm64
 
 trx-build-win-installer target='release' *args: \
     (trx-build-win target) \
@@ -96,6 +101,9 @@ trx-package-win-installer target='release' *args: \
     (trx-build-win-installer target args) \
     (_docker_run "rrdash/trx-win" "package" "--platform" "win-installer" args)
 
+trx-package-ios:
+    #!/usr/bin/env zsh
+    python3 tools/shared/ios/gen_ipa.py
 # Run the unit tests. The tests are a separate meson project.
 [group('test')]
 test *args='--suite unit':
